@@ -1,0 +1,58 @@
+# C / C++ build
+build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Compiled object files
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
+*.a
+*.lib
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.manifest
+*.spec
+
+# Cython generated files
+*.c
+*.cpp
+
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+
+# Sphinx docs build
+docs/_build/
+docs/api/
+
+# Submodule temp files
+deps/**/.git
+
+# Editor/OS-specific
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Logs and misc
+*.log
+*.tmp
+*.bak
+
+# Output Python extension
+python/catzilla/_native*.so
