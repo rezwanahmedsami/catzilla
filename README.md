@@ -13,7 +13,7 @@ Catzilla combines the raw speed of a minimal C HTTP engine (powered by libuv and
 It’s designed for AI-heavy, high-throughput workloads where low latency and high concurrency matter.
 
 </td>
-<td><img src="https://raw.githubusercontent.com/your-username/catzilla/main/catzilla/logo.png" width="400"/></td>
+<td><img src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/logo.png" width="400"/></td>
 </tr>
 </table>
 
