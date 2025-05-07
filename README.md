@@ -1,17 +1,20 @@
 # Catzilla
 
-> A high-performance Python web framework with a lean C core  
-> ⚠️ **Experimental – Under Heavy Development**
+> Blazing-fast Python web framework backed by a minimal, event-driven C core  
+> ⚠️ **This project is experimental and actively under development – use with caution**
 ---
 
 ## Overview
-<img align="right" src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/logo.png" align="right" width="180px" alt="Catzilla Logo" />
-Catzilla combines the raw speed of a minimal C HTTP engine (powered by libuv and llhttp)  
-with a clean, decorator-based Python API.
+<img align="right" src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/logo.png" width="180px" alt="Catzilla Logo" />
 
-It’s designed for **AI-heavy**, **low-latency**, **high-concurrency** workloads.
+Catzilla is a modern Python web framework purpose-built for extreme performance.  
+At its heart is a lightweight C HTTP engine—built using **libuv** and **llhttp**—that powers the underlying event loop and request processing pipeline.
+
+By exposing its speed-focused C core through a clean, Pythonic decorator API, Catzilla gives developers full control with minimal overhead.  
+Whether you're building **real-time AI applications**, **low-latency APIs**, or **high-throughput microservices**, Catzilla is engineered to deliver maximum efficiency with minimal boilerplate.
 
 <br>
+
 
 ## ✨ Features
 
