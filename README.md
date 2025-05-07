@@ -1,66 +1,55 @@
 # Catzilla
 
 > A high-performance Python web framework with a lean C core  
-> **Experimental / Under Development**
+> ⚠️ **Experimental – Under Heavy Development**
 
-<table>
-<tr>
-<td>
+![Logo](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/logo.png#right)
+
+---
 
 ## Overview
 
-Catzilla combines the raw speed of a minimal C HTTP engine (powered by libuv and llhttp) with a clean, decorator-based Python API.  
-It’s designed for AI-heavy, high-throughput workloads where low latency and high concurrency matter.
+Catzilla combines the raw speed of a minimal C HTTP engine (powered by libuv and llhttp)  
+with a clean, decorator-based Python API.
 
-</td>
-<td><img src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/logo.png" width="400"/></td>
-</tr>
-</table>
+It’s designed for **AI-heavy**, **low-latency**, **high-concurrency** workloads.
 
+---
 
-## Features
+## ✨ Features
 
-- **Hybrid C/Python Core**: Event-driven I/O in C, exposed via Python decorators  
-- **Zero Boilerplate**: Simple `@app.get(...)` syntax for routes, automatic OpenAPI docs  
-- **Scalable**: Worker processes, GIL-aware C bindings, support for WebSockets and streaming  
-- **Modular**: Easy to extend with middleware, plugins, and custom protocols
+- ⚡ **Hybrid C/Python Core** — Event-driven I/O in C, exposed to Python
+- 🧱 **Zero Boilerplate** — Decorator-style routing: `@app.get(...)`
+- 🔁 **Concurrency First** — GIL-aware bindings, supports streaming & WebSockets
+- 🧩 **Modular** — Add plugins, middleware, or extend protocols easily
 
-## Project Structure
+---
+
+## 🗂️ Project Structure
 
 ```bash
 catzilla/
-├── CMakeLists.txt                # Top-level CMake configuration
-├── setup.py                      # Python package setup (builds C code via CMake)
-├── .gitmodules                   # Git submodules for libuv and llhttp
-├── deps/                         # External dependencies
-│   ├── libuv/                    # libuv submodule
-│   └── llhttp/                   # llhttp submodule
-├── src/                          # C core source code
-│   ├── core/                     # Event loop and server core
-│   │   ├── server.c
-│   │   └── uv_loop.c
-│   ├── http/                     # HTTP parsing and routing
-│   │   ├── router.c
-│   │   └── llhttp_wrapper.c
-│   └── python/                   # Python extension (CPython bindings)
-│       ├── module.c
-│       └── py_router.c
-├── python/                       # High-level Python package
-│   └── catzilla/
-│       ├── __init__.py           # Main package exports
-│       ├── app.py                # Decorator API (Catzilla class)
-│       ├── types.py              # Pydantic models and type hints
-│       └── _native.*             # Built C extension (auto-generated)
-├── tests/                        # Unit and integration tests
-│   ├── c/                        # C unit tests (using Check)
-│   └── python/                   # Python pytest tests
-├── examples/                     # Example applications
-├── docs/                         # Documentation (Sphinx)
-├── scripts/                      # Build and utility scripts
+├── CMakeLists.txt                # CMake build config
+├── setup.py                      # Python package build entry (uses CMake)
+├── .gitmodules                   # Git submodules: libuv, llhttp
+├── deps/                         # External C dependencies
+│   ├── libuv/                    # Event loop lib
+│   └── llhttp/                   # HTTP parser
+├── src/                          # C core source
+│   ├── core/                     # Event loop & server logic
+│   ├── http/                     # Router & parser integration
+│   └── python/                   # CPython bindings
+├── python/                       # Python package (catzilla/)
+├── tests/                        # C & Python tests
+├── examples/                     # Example apps
+├── docs/                         # Sphinx-based docs
+├── scripts/                      # Helper scripts
 └── .github/                      # CI/CD workflows
 ````
 
-## Getting Started
+---
+
+## 🚀 Getting Started
 
 1. **Clone the repo**:
 
@@ -70,25 +59,28 @@ catzilla/
    git submodule update --init --recursive
    ```
 
-2. **Build & install**:
+2. **Build and install locally**:
 
    ```bash
    pip install .
    ```
 
-3. **Run examples**:
+3. **Run an example app**:
 
    ```bash
    catzilla run examples/hello_world/main.py:app --reload
    ```
 
-## Author
+---
+
+## 👤 Author
 
 **Rezwan Ahmed Sami**
+📧 [samiahmed0f0@gmail.com](mailto:samiahmed0f0@gmail.com)
+📘 [Facebook](https://www.facebook.com/rezwanahmedsami)
 
-* Facebook: [rezwanahmedsami](https://www.facebook.com/rezwanahmedsami)
-* Email: [samiahmed0f0@gmail.com](mailto:samiahmed0f0@gmail.com)
+---
 
-## License
+## 🪪 License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+MIT License — See [`LICENSE`](LICENSE) for full details.
