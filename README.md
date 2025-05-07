@@ -5,14 +5,13 @@
 ---
 
 ## Overview
-
+<img align="right" src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/logo.png" align="right" width="180px" alt="Catzilla Logo" />
 Catzilla combines the raw speed of a minimal C HTTP engine (powered by libuv and llhttp)  
 with a clean, decorator-based Python API.
 
 It’s designed for **AI-heavy**, **low-latency**, **high-concurrency** workloads.
-<img align="right" src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/logo.png" width="300" alt="Catzilla Logo" />
 
----
+<br>
 
 ## ✨ Features
 
