@@ -2,9 +2,6 @@
 
 > A high-performance Python web framework with a lean C core  
 > ⚠️ **Experimental – Under Heavy Development**
-
-![Logo](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/logo.png#right)
-
 ---
 
 ## Overview
@@ -13,6 +10,7 @@ Catzilla combines the raw speed of a minimal C HTTP engine (powered by libuv and
 with a clean, decorator-based Python API.
 
 It’s designed for **AI-heavy**, **low-latency**, **high-concurrency** workloads.
+<img align="right" src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/logo.png" width="300" alt="Catzilla Logo" />
 
 ---
 
