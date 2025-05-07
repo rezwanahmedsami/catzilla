@@ -5,7 +5,7 @@
 ---
 
 ## Overview
-<img align="right" src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/logo.png" width="180px" alt="Catzilla Logo" />
+<img align="right" src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/logo.png" width="250px" alt="Catzilla Logo" />
 
 Catzilla is a modern Python web framework purpose-built for extreme performance.  
 At its heart is a lightweight C HTTP engine—built using **libuv** and **llhttp**—that powers the underlying event loop and request processing pipeline.
