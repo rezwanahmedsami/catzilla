@@ -4,3 +4,4 @@
 [submodule "deps/llhttp"]
 	path = deps/llhttp
 	url = https://github.com/nodejs/llhttp
+	branch = release/v9.2.1
