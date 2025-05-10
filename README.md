@@ -73,6 +73,21 @@ catzilla/
 
 ---
 
+### Build cmake:
+```bash
+# Initialize libuv submodule
+git submodule update --init --recursive
+# Create build directory and configure
+mkdir -p build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+
+# Compile the server
+make -j$(sysctl -n hw.logicalcpu)
+
+# Run the server (from build directory)
+./catzilla-server
+```
+
 ## 👤 Author
 
 **Rezwan Ahmed Sami**
