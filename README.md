@@ -87,6 +87,22 @@ make -j$(sysctl -n hw.logicalcpu)
 # Run the server (from build directory)
 ./catzilla-server
 ```
+2
+```bash
+rm -rf build dist *.egg-info                  
+find . -name "*.so" -delete
+python3 -m pip uninstall catzilla -y
+python3 -m pip install --user --verbose .
+
+python3 -c "from catzilla import app; print('Success!')"
+```
+
+### to test bin:
+```bash
+cmake -S . -B build
+
+cmake --build build 
+```
 
 ## 👤 Author
 
