@@ -3,6 +3,8 @@ Catzilla application and router
 """
 
 import functools
+import signal
+import sys
 from typing import Dict, List, Any, Callable, Optional, Union
 from .types import Request, Response, RouteHandler, JSONResponse, HTMLResponse
 
@@ -68,6 +70,27 @@ class App:
     def __init__(self):
         self.server = _Server()
         self.router = Router()
+        self._setup_signal_handlers()
+    
+    def _setup_signal_handlers(self):
+        """Setup signal handlers for graceful shutdown"""
+        self.original_sigint_handler = signal.getsignal(signal.SIGINT)
+        self.original_sigterm_handler = signal.getsignal(signal.SIGTERM)
+        
+        def signal_handler(sig, frame):
+            print("\nShutting down Catzilla server...")
+            self.stop()
+            
+            # Restore original handlers
+            signal.signal(signal.SIGINT, self.original_sigint_handler)
+            signal.signal(signal.SIGTERM, self.original_sigterm_handler)
+            
+            # If original handler was default, exit
+            if self.original_sigint_handler == signal.default_int_handler and sig == signal.SIGINT:
+                sys.exit(0)
+        
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
     
     def _handle_request(self, client, method, path, body):
         """Internal request handler that bridges C and Python"""
@@ -138,6 +161,7 @@ class App:
     def listen(self, port: int, host: str = "0.0.0.0"):
         """Start the server"""
         print(f"Catzilla server starting on http://{host}:{port}")
+        print("Press Ctrl+C to stop the server")
         
         # Add our Python handler for all registered routes
         for method, paths in self.router.routes.items():
