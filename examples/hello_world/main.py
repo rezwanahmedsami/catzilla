@@ -48,4 +48,4 @@ def api_info(request):
 
 if __name__ == "__main__":
     print("Starting Catzilla server on http://localhost:8000")
-    app.listen(8000)
+    app.listen(8080)
