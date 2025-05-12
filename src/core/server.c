@@ -89,9 +89,9 @@ static int on_message_complete(llhttp_t* parser) {
 
     fprintf(stderr, "[DEBUG] HTTP message complete\n");
     fprintf(stderr, "[INFO] Received request: Method=%s, URL=%s\n", context->method, context->url);
-
+    
     // 1) If Python callback is set, hand off to Python and return
-    if (server->py_request_callback) {
+    if (server->py_request_callback != NULL) {
         PyGILState_STATE gstate = PyGILState_Ensure();
         PyObject* client_capsule = PyCapsule_New((void*)&context->client, "catzilla.client", NULL);
         if (!client_capsule) {
@@ -103,7 +103,7 @@ static int on_message_complete(llhttp_t* parser) {
                 client_capsule,
                 context->method,
                 context->url,
-                context->body
+                context->body ? context->body : ""  // Handle NULL body case
             );
             Py_XDECREF(result);
             Py_DECREF(client_capsule);
@@ -127,7 +127,13 @@ static int on_message_complete(llhttp_t* parser) {
     if (matched) {
         // Call the handler
         void (*handler_fn)(uv_stream_t*) = matched->handler;
-        handler_fn((uv_stream_t*)&context->client);
+        if (handler_fn != NULL) {
+            handler_fn((uv_stream_t*)&context->client);
+        } else {
+            // Handler is NULL
+            const char* body = "500 Internal Server Error: NULL handler";
+            catzilla_send_response((uv_stream_t*)&context->client, 500, "text/plain", body, strlen(body));
+        }
     } else {
         // No route → 404
         const char* body = "404 Not Found";
@@ -324,25 +330,25 @@ PyObject* handle_request_in_server(PyObject* callback,
     const char* path,
     const char* body)
 {
-if (!callback || !PyCallable_Check(callback)) {
-PyErr_SetString(PyExc_TypeError, "Callback is not callable");
-return NULL;
-}
+    if (!callback || !PyCallable_Check(callback)) {
+        PyErr_SetString(PyExc_TypeError, "Callback is not callable");
+        return NULL;
+    }
 
-// Build arguments tuple: (client_capsule, method, path, body)
-PyObject* args = Py_BuildValue("(OsOs)", client_capsule, method, path, body);
-if (!args) {
-PyErr_Print();
-return NULL;
-}
+    // Build arguments tuple: (client_capsule, method, path, body)
+    PyObject* args = Py_BuildValue("(Osss)", client_capsule, method, path, body ? body : "");
+    if (!args) {
+        PyErr_Print();
+        return NULL;
+    }
 
-// Call the Python function
-PyObject* result = PyObject_CallObject(callback, args);
-Py_DECREF(args);
+    // Call the Python function
+    PyObject* result = PyObject_CallObject(callback, args);
+    Py_DECREF(args);
 
-if (!result) {
-PyErr_Print();
-return NULL;
-}
-return result;
+    if (!result) {
+        PyErr_Print();
+        return NULL;
+    }
+    return result;
 }

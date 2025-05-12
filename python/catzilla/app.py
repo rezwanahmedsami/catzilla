@@ -4,10 +4,10 @@ Catzilla application and router
 
 import functools
 from typing import Dict, List, Any, Callable, Optional, Union
-from .types import Request, Response, RouteHandler
+from .types import Request, Response, RouteHandler, JSONResponse, HTMLResponse
 
 try:
-    from catzilla._catzilla import Server as _Server
+    from catzilla._catzilla import Server as _Server, send_response
 except ImportError:
     raise ImportError(
         "Failed to import C extension. Make sure Catzilla is properly installed."
@@ -91,28 +91,29 @@ class App:
                 if not isinstance(response, Response):
                     response = Response(
                         status_code=200,
-                        body=str(response),
-                        content_type="text/plain"
+                        content_type="text/plain",
+                        body=str(response)
                     )
+                # Send the response
+                response.send(client)
             except Exception as e:
                 # Handle exceptions by returning a 500 response
                 import traceback
-                response = Response(
+                err_resp = Response(
                     status_code=500,
-                    body=f"Internal Server Error: {str(e)}",
-                    content_type="text/plain"
+                    content_type="text/plain",
+                    body=f"Internal Server Error: {str(e)}"
                 )
+                err_resp.send(client)
                 traceback.print_exc()
         else:
             # No handler found
-            response = Response(
+            not_found = Response(
                 status_code=404,
-                body=f"Not Found: {method} {path}",
-                content_type="text/plain"
+                content_type="text/plain",
+                body=f"Not Found: {method} {path}"
             )
-        
-        # Send the response
-        response.send(client)
+            not_found.send(client)
     
     def get(self, path):
         """Register a GET route handler"""
@@ -136,13 +137,14 @@ class App:
     
     def listen(self, port: int, host: str = "0.0.0.0"):
         """Start the server"""
-        # Register all routes with the C server
+        print(f"Catzilla server starting on http://{host}:{port}")
+        
+        # Add our Python handler for all registered routes
         for method, paths in self.router.routes.items():
-            for path, handler in paths.items():
-                # We'll use our Python handler for all routes
+            for path in paths:
                 self.server.add_route(method, path, self._handle_request)
         
-        print(f"Catzilla server starting on http://{host}:{port}")
+        # Start the server
         self.server.listen(port, host)
     
     def stop(self):

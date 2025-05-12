@@ -11,81 +11,6 @@ typedef struct {
     PyObject *routes;
 } PyRouteData;
 
-// Forward declaration of shim that C core will call
-typedef void (*c_request_cb)(uv_stream_t *client,
-                             const char *method,
-                             const char *path,
-                             const char *body,
-                             void *user_data);
-static void c_request_shim(uv_stream_t *client,
-                           const char *method,
-                           const char *path,
-                           const char *body,
-                           void *user_data);
-
-// Internal helper: invoke Python handler (assumes GIL held)
-PyObject* handle_request(PyObject *callback,
-                                PyObject *client_capsule,
-                                const char *method,
-                                const char *path,
-                                const char *body){
-    printf("[DEBUG] handle_request: %s %s", method, path);
-    if (body && body[0]) {
-        printf("[DEBUG] Body: %s", body);
-    }
-    // Call Python callback: signature (client_capsule, method, path, body)
-    PyObject *result = PyObject_CallFunction(callback, "Osss",
-                                              client_capsule,
-                                              method,
-                                              path,
-                                              body ? body : "");
-    if (!result) {
-        PyErr_Print();
-        printf("[ERROR] Callback exception");
-    }
-    return result;
-}
-    // Call Python callback: signature (client_capsule, method, path, body)
-//     PyObject *result = PyObject_CallFunction(callback, "Osss",
-//                                               client_capsule,
-//                                               method,
-//                                               path,
-//                                               body ? body : "");
-//     if (!result) {
-//         PyErr_Print();
-//         printf("[ERROR] Callback exception\n");
-//     }
-//     return result;
-// }
-
-// Shim called by C core on each HTTP request
-static void c_request_shim(uv_stream_t *client,
-                           const char *method,
-                           const char *path,
-                           const char *body,
-                           void *user_data)
-{
-    PyRouteData *ud = (PyRouteData*)user_data;
-
-    // Acquire GIL for Python C-API use
-    PyGILState_STATE gstate = PyGILState_Ensure();
-
-    // Wrap the client pointer in a Python capsule
-    PyObject *capsule = PyCapsule_New((void*)client, "catzilla.client", NULL);
-    if (!capsule) {
-        PyErr_Print();
-        goto cleanup_gil;
-    }
-
-    // Call Python handler
-    PyObject *py_resp = handle_request(ud->callback, capsule, method, path, body);
-    Py_XDECREF(py_resp);
-    Py_DECREF(capsule);
-
-cleanup_gil:
-    PyGILState_Release(gstate);
-}
-
 // Python CatzillaServer object
 typedef struct {
     PyObject_HEAD
@@ -185,13 +110,11 @@ static PyObject* CatzillaServer_add_route(CatzillaServerObject *self, PyObject *
     if (PyDict_SetItemString(self->route_data->routes, path, handler) < 0)
         return NULL;
 
-    // Register route with C core, using our shim
-    if (catzilla_server_add_route(&self->server,
-                                  method,
-                                  path,
-                                  (void*)c_request_shim,
-                                  self->route_data) != 0)
-    {
+    // CRITICAL FIX: Register the Python callback with the C server
+    catzilla_server_set_request_callback(&self->server, self->route_data->callback);
+
+    // Register route with C core
+    if (catzilla_server_add_route(&self->server, method, path, NULL, NULL) != 0) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to add route");
         return NULL;
     }

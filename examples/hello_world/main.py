@@ -2,42 +2,50 @@
 Catzilla Hello World Example
 """
 
-from catzilla import App, Response
+from catzilla import App, Response, JSONResponse, HTMLResponse
 
-# Create a new Catzilla application
 app = App()
 
 @app.get("/")
-def index(request):
-    """Handle requests to the root path"""
-    return Response(
-        status_code=200,
-        body="<h1>Hello from Catzilla!</h1><p>The fastest Python web framework with a C core.</p>",
-        content_type="text/html"
-    )
+def home(request):
+    return HTMLResponse("""
+    <!DOCTYPE html>
+    <html>
+        <head>
+            <title>Catzilla Hello World</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    margin: 40px;
+                    line-height: 1.6;
+                }
+                h1 { color: #333; }
+                a { color: #0066cc; }
+            </style>
+        </head>
+        <body>
+            <h1>Welcome to Catzilla!</h1>
+            <p>A high-performance Python web framework with C core.</p>
+            <ul>
+                <li><a href="/hello">Hello Page</a></li>
+                <li><a href="/api/info">API Info</a></li>
+            </ul>
+        </body>
+    </html>
+    """)
 
-@app.get("/json")
-def json_example(request):
-    """Return a JSON response"""
-    return Response(
-        status_code=200,
-        body='{"message": "Hello, World!", "framework": "Catzilla"}',
-        content_type="application/json"
-    )
+@app.get("/hello")
+def hello(request):
+    return HTMLResponse("<h1>Hello, World!</h1><p>This is Catzilla in action.</p>")
 
-@app.post("/echo")
-def echo(request):
-    """Echo back the request body"""
-    return Response(
-        status_code=200,
-        body=request.body or "No body provided",
-        content_type="text/plain"
-    )
+@app.get("/api/info")
+def api_info(request):
+    return JSONResponse({
+        "name": "Catzilla",
+        "version": "0.1.0",
+        "description": "High-performance Python web framework with C core"
+    })
 
-# Start the server on port 8000
 if __name__ == "__main__":
-    try:
-        app.listen(8000)
-    except KeyboardInterrupt:
-        print("\nShutting down server...")
-        app.stop()
+    print("Starting Catzilla server on http://localhost:8000")
+    app.listen(8000)

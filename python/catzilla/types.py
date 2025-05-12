@@ -1,11 +1,9 @@
 """
 Type definitions for Catzilla
 """
-
 import json
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, Callable
-
 
 @dataclass
 class Request:
@@ -13,47 +11,51 @@ class Request:
     method: str
     path: str
     body: str
-    headers: Dict[str, str]
-    query_params: Dict[str, str]
+    client: Any  # The client capsule from C
+    headers: Dict[str, str] = None
+    query_params: Dict[str, str] = None
+
+    def __post_init__(self):
+        if self.headers is None:
+            self.headers = {}
+        if self.query_params is None:
+            self.query_params = {}
     
     @property
     def json(self) -> Any:
         """Parse body as JSON"""
         if not self.body:
             return {}
-        return json.loads(self.body)
+        try:
+            return json.loads(self.body)
+        except json.JSONDecodeError:
+            return {}
 
 
 class Response:
     """Base HTTP Response class"""
-    def __init__(self, status_code: int, headers: Optional[Dict[str, str]] = None, body: Optional[str] = None):
+    def __init__(self, status_code: int = 200, content_type: str = "text/plain", body: str = ""):
         self.status_code = status_code
-        self.headers = headers or {}
-        self.body = body or ""
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert response to a dictionary"""
-        return {
-            "status_code": self.status_code,
-            "headers": self.headers,
-            "body": self.body,
-        }
+        self.content_type = content_type
+        self.body = body
+    
+    def send(self, client):
+        """Send the response using the C extension"""
+        from catzilla._catzilla import send_response
+        send_response(client, self.status_code, self.content_type, self.body)
 
 
 class JSONResponse(Response):
     """HTTP Response with JSON body"""
-    def __init__(self, data: Any, status_code: int = 200, headers: Optional[Dict[str, str]] = None):
-        headers = headers or {}
-        headers["Content-Type"] = "application/json"
-        super().__init__(status_code, headers, json.dumps(data))
+    def __init__(self, data: Any, status_code: int = 200):
+        super().__init__(status_code, "application/json", json.dumps(data))
 
 
 class HTMLResponse(Response):
     """HTTP Response with HTML body"""
-    def __init__(self, html: str, status_code: int = 200, headers: Optional[Dict[str, str]] = None):
-        headers = headers or {}
-        headers["Content-Type"] = "text/html"
-        super().__init__(status_code, headers, html)
+    def __init__(self, html: str, status_code: int = 200):
+        super().__init__(status_code, "text/html", html)
 
 
+# Type definition for route handlers
 RouteHandler = Callable[[Request], Response]
