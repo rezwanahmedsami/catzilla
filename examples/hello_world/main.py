@@ -49,7 +49,7 @@ def api_info(request):
 # post("/api/echo")
 @app.post("/api/echo")
 def echo(request):
-    data = request.json()
+    data = request.body
     return JSONResponse({
         "message": "Echoing back your data",
         "data": data
