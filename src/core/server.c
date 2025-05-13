@@ -233,6 +233,9 @@ void catzilla_server_stop(catzilla_server_t* server) {
     fprintf(stderr, "[INFO] Stopping Catzilla server...\n");
     server->is_running = false;
     
+    //  Stop the loop so the outer uv_run in listen() will exit
+    uv_stop(server->loop);
+    
     // Stop the signal handler but don't close it yet
     uv_signal_stop(&server->sig_handle);
     fprintf(stderr, "[INFO] Stopped signal handler...\n");
@@ -242,8 +245,13 @@ void catzilla_server_stop(catzilla_server_t* server) {
     uv_walk(server->loop, (uv_walk_cb)uv_close, NULL);
     fprintf(stderr, "[INFO] Closing all active handles...\n");
     
-    // Run the loop one more time to process closes
+    // Run the loop so that each close callback fires
     uv_run(server->loop, UV_RUN_DEFAULT);
+
+    // 5) Finally, close the loop itself
+    if (uv_loop_close(server->loop) != 0) {
+        fprintf(stderr, "[WARN] uv_loop_close returned busy\n");
+    }
     
     fprintf(stderr, "[INFO] Server stopped\n");
 }

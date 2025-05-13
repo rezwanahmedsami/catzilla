@@ -46,6 +46,40 @@ def api_info(request):
         "description": "High-performance Python web framework with C core"
     })
 
+# post("/api/echo")
+@app.post("/api/echo")
+def echo(request):
+    data = request.json()
+    return JSONResponse({
+        "message": "Echoing back your data",
+        "data": data
+    })
+
+# put("/api/update")
+@app.put("/api/update")
+def update(request):
+    data = request.json()
+    return JSONResponse({
+        "message": "Data updated successfully",
+        "data": data
+    })
+
+@app.delete("/api/delete")
+def delete(request):
+    data = request.json()
+    return JSONResponse({
+        "message": "Data deleted successfully",
+        "data": data
+    })
+
+@app.patch("/api/patch")
+def patch(request):
+    data = request.json()
+    return JSONResponse({
+        "message": "Data patched successfully",
+        "data": data
+    })
+
 if __name__ == "__main__":
     print("Starting Catzilla server on http://localhost:8000")
     app.listen(8080)
