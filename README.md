@@ -1,7 +1,7 @@
 # Catzilla
 
 > Blazing-fast Python web framework backed by a minimal, event-driven C core  
-> ⚠️ **This project is experimental and actively under development – use with caution**
+> ⚠️ **This project is experimental and actively under development – <span style="color: red;">Don't use it until the first version is released.</span>**
 ---
 
 ## Overview
