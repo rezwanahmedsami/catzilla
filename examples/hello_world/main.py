@@ -50,6 +50,17 @@ def api_info(request):
 @app.post("/api/echo")
 def echo(request):
     data = request.body
+    #  convert to json 
+    if isinstance(data, bytes):
+        data = data.decode('utf-8')
+    #  convert to json
+    try:
+        import json
+        data = json.loads(data)
+    except json.JSONDecodeError:
+        return JSONResponse({
+            "error": "Invalid JSON data"
+        }, status_code=400)
     return JSONResponse({
         "message": "Echoing back your data",
         "data": data

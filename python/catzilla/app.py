@@ -114,7 +114,8 @@ class App:
                 if not isinstance(response, Response):
                     response = Response(
                         status_code=200,
-                        content_type="text/plain",
+                        # content_type="text/plain",
+                        content_type="application/json",
                         body=str(response)
                     )
                 # Send the response

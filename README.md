@@ -97,7 +97,7 @@ find . -name "*.so" -delete
 python3 -m pip uninstall catzilla -y
 python3 -m pip install --user --verbose .
 
-python3 -c "from catzilla import app; print('Success!')"
+python examples/hello_world/main.py
 ```
 
 ### to test bin:
