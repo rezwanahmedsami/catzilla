@@ -22,6 +22,12 @@ set(BUILD_SHARED_LIBS  OFF CACHE INTERNAL "")
 set(BUILD_STATIC_LIBS  ON  CACHE INTERNAL "")
 FetchContent_MakeAvailable(llhttp)
 
+# yyjson for fast JSON parsing
+FetchContent_Declare(yyjson
+  URL "https://github.com/ibireme/yyjson/archive/refs/tags/0.8.0.tar.gz"
+)
+FetchContent_MakeAvailable(yyjson)
+
 # Core static library
 add_library(catzilla_core STATIC src/core/server.c)
 target_include_directories(catzilla_core PUBLIC
@@ -29,8 +35,9 @@ target_include_directories(catzilla_core PUBLIC
   ${llhttp_SOURCE_DIR}/include
   deps/libuv/include
   ${Python3_INCLUDE_DIRS}
+  ${yyjson_SOURCE_DIR}/src
 )
-target_link_libraries(catzilla_core PRIVATE uv_a llhttp_static)
+target_link_libraries(catzilla_core PRIVATE uv_a llhttp_static yyjson)
 
 # ——— Python extension module ———
 add_library(_catzilla SHARED src/python/module.c)
@@ -39,16 +46,18 @@ target_include_directories(_catzilla PRIVATE
   ${llhttp_SOURCE_DIR}/include
   deps/libuv/include
   ${Python3_INCLUDE_DIRS}
+  ${yyjson_SOURCE_DIR}/src
 )
 target_link_libraries(_catzilla PRIVATE
   catzilla_core
   llhttp_static
+  yyjson
   ${Python3_LIBRARIES}
 )
 
-# Force a “.so” suffix so Python’s importer will find it
+# Force a ".so" suffix so Python's importer will find it
 set_target_properties(_catzilla PROPERTIES
-  PREFIX ""            # no “lib” prefix
+  PREFIX ""            # no "lib" prefix
   OUTPUT_NAME "_catzilla"
   SUFFIX ".so"
   LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"

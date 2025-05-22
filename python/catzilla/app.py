@@ -6,6 +6,7 @@ import functools
 import signal
 import sys
 from typing import Any, Callable, Dict, List, Optional, Union
+from urllib.parse import parse_qs
 
 from .types import HTMLResponse, JSONResponse, Request, Response, RouteHandler
 
@@ -107,15 +108,37 @@ class App:
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
 
-    def _handle_request(self, client, method, path, body):
+    def _handle_request(self, client, method, path, body, request_capsule):
         """Internal request handler that bridges C and Python"""
+        # Parse query parameters if present
+        base_path = path
+        query_params = {}
+        if "?" in path:
+            base_path, query_string = path.split("?", 1)
+            # Parse query string and take first value for each parameter
+            try:
+                query_params = {
+                    k: v[0]
+                    for k, v in parse_qs(query_string, keep_blank_values=True).items()
+                }
+                print(f"[DEBUG] Parsed query params: {query_params}")
+            except Exception as e:
+                print(f"[DEBUG] Error parsing query params: {e}")
+
         # Create a request object
-        request = Request(method=method, path=path, body=body, client=client)
+        request = Request(
+            method=method,
+            path=base_path,
+            body=body,
+            client=client,
+            request_capsule=request_capsule,
+            query_params=query_params,
+        )
 
         # Look up the handler
         handler = None
-        if method in self.router.routes and path in self.router.routes[method]:
-            handler = self.router.routes[method][path]
+        if method in self.router.routes and base_path in self.router.routes[method]:
+            handler = self.router.routes[method][base_path]
 
         if handler:
             try:

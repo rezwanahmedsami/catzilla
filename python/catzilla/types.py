@@ -5,6 +5,7 @@ Type definitions for Catzilla
 import json
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional
+from urllib.parse import parse_qs
 
 
 @dataclass
@@ -15,8 +16,14 @@ class Request:
     path: str
     body: str
     client: Any  # The client capsule from C
+    request_capsule: Any  # The request capsule from C
     headers: Dict[str, str] = None
     query_params: Dict[str, str] = None
+    _client_ip: Optional[str] = None
+    _parsed_form: Optional[Dict[str, str]] = None
+    _text: Optional[str] = None
+    _json: Optional[Any] = None
+    _content_type: Optional[str] = None
 
     def __post_init__(self):
         if self.headers is None:
@@ -24,15 +31,105 @@ class Request:
         if self.query_params is None:
             self.query_params = {}
 
-    @property
+        # Normalize header keys to lowercase for consistent access
+        self.headers = {k.lower(): v for k, v in self.headers.items()}
+
     def json(self) -> Any:
         """Parse body as JSON"""
-        if not self.body:
-            return {}
-        try:
-            return json.loads(self.body)
-        except json.JSONDecodeError:
-            return {}
+        if self._json is None:
+            try:
+                from catzilla._catzilla import get_json, parse_json
+
+                print(
+                    f"[DEBUG] Attempting to parse JSON with content type: {self.content_type}"
+                )
+                if self.content_type == "application/json":
+                    if parse_json(self.request_capsule) == 0:
+                        result = get_json(self.request_capsule)
+                        if result is not None:
+                            self._json = result
+                            print(f"[DEBUG] JSON parsed successfully: {self._json}")
+                        else:
+                            print("[DEBUG] JSON parsing returned None")
+                            self._json = {}
+                    else:
+                        print("[DEBUG] Failed to parse JSON in C")
+                        self._json = {}
+                else:
+                    print("[DEBUG] Not JSON content type")
+                    self._json = {}
+            except Exception as e:
+                print(f"[DEBUG] JSON parsing error: {e}")
+                self._json = {}
+        return self._json
+
+    def form(self) -> Dict[str, str]:
+        """Parse body as form data"""
+        if self._parsed_form is None:
+            try:
+                from catzilla._catzilla import get_form_field, parse_form
+
+                print(
+                    f"[DEBUG] Attempting to parse form data with content type: {self.content_type}"
+                )
+                if parse_form(self.request_capsule) == 0:
+                    self._parsed_form = {}
+                    # TODO: Add method to get all form fields at once
+                    # For now, we can't know what fields are available
+                    if self.body:
+                        for pair in self.body.split("&"):
+                            if "=" in pair:
+                                key, _ = pair.split("=", 1)
+                                value = get_form_field(self.request_capsule, key)
+                                if value is not None:
+                                    self._parsed_form[key] = value
+                else:
+                    print("[DEBUG] Failed to parse form data in C")
+                    self._parsed_form = {}
+            except Exception as e:
+                print(f"[DEBUG] Form parsing error: {e}")
+                self._parsed_form = {}
+        return self._parsed_form
+
+    def text(self) -> str:
+        """Get raw body as text"""
+        if self._text is None:
+            self._text = self.body or ""
+        return self._text
+
+    @property
+    def client_ip(self) -> str:
+        """Get the client's IP address"""
+        if self._client_ip is not None:
+            return self._client_ip
+
+        # Try X-Forwarded-For header first
+        forwarded_for = self.headers.get("x-forwarded-for")
+        if forwarded_for:
+            self._client_ip = forwarded_for.split(",")[0].strip()
+            return self._client_ip
+
+        # Try X-Real-IP header next
+        real_ip = self.headers.get("x-real-ip")
+        if real_ip:
+            self._client_ip = real_ip
+            return self._client_ip
+
+        # Finally get it from the client object (implementation in C)
+        from catzilla._catzilla import get_client_ip
+
+        self._client_ip = get_client_ip(self.client) or "0.0.0.0"
+        return self._client_ip
+
+    @property
+    def content_type(self) -> str:
+        """Get normalized Content-Type header without parameters"""
+        if self._content_type is None:
+            from catzilla._catzilla import get_content_type
+
+            self._content_type = get_content_type(self.request_capsule) or ""
+            print(f"[DEBUG] Got content type from C: {self._content_type}")
+        return self._content_type
 
 
 class Response:

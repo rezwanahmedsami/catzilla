@@ -4,13 +4,44 @@
 #include <stdbool.h>
 #include <uv.h>
 #include <llhttp.h>
+#include <yyjson.h>
 
 #define CATZILLA_MAX_ROUTES 100
 #define CATZILLA_PATH_MAX 256
 #define CATZILLA_METHOD_MAX 32
+#define CATZILLA_MAX_HEADERS 50
+#define CATZILLA_MAX_FORM_FIELDS 50
 
 // Forward declaration
 struct catzilla_server_s;
+
+typedef enum {
+    CONTENT_TYPE_NONE = 0,
+    CONTENT_TYPE_JSON = 1,
+    CONTENT_TYPE_FORM = 2
+} content_type_t;
+
+typedef struct catzilla_header_s {
+    char* name;
+    char* value;
+} catzilla_header_t;
+
+typedef struct catzilla_request_s {
+    char method[CATZILLA_METHOD_MAX];
+    char path[CATZILLA_PATH_MAX];
+    char* body;
+    size_t body_length;
+    content_type_t content_type;
+    catzilla_header_t headers[CATZILLA_MAX_HEADERS];
+    int header_count;
+    yyjson_doc* json_doc;  // Parsed JSON document
+    yyjson_val* json_root; // Root value of JSON document
+    bool is_json_parsed;
+    char* form_fields[CATZILLA_MAX_FORM_FIELDS];
+    char* form_values[CATZILLA_MAX_FORM_FIELDS];
+    int form_field_count;
+    bool is_form_parsed;
+} catzilla_request_t;
 
 typedef struct catzilla_route_s {
     char method[CATZILLA_METHOD_MAX];
@@ -51,6 +82,35 @@ int catzilla_server_init(catzilla_server_t* server);
  * @param server Pointer to server structure
  */
 void catzilla_server_cleanup(catzilla_server_t* server);
+
+/**
+ * Parse JSON from request body
+ * @param request Pointer to request structure
+ * @return 0 on success, error code on failure
+ */
+int catzilla_parse_json(catzilla_request_t* request);
+
+/**
+ * Parse form data from request body
+ * @param request Pointer to request structure
+ * @return 0 on success, error code on failure
+ */
+int catzilla_parse_form(catzilla_request_t* request);
+
+/**
+ * Get JSON value from request
+ * @param request Pointer to request structure
+ * @return Pointer to yyjson_val or NULL if not JSON request
+ */
+yyjson_val* catzilla_get_json(catzilla_request_t* request);
+
+/**
+ * Get form field value
+ * @param request Pointer to request structure
+ * @param field Field name to look up
+ * @return Field value or NULL if not found
+ */
+const char* catzilla_get_form_field(catzilla_request_t* request, const char* field);
 
 /**
  * Start listening on the given address
@@ -102,5 +162,11 @@ void catzilla_send_response(uv_stream_t* client,
                            const char* content_type,
                            const char* body,
                            size_t body_len);
+
+// Get content type as string
+const char* catzilla_get_content_type_str(catzilla_request_t* request);
+
+// Helper function for URL decoding
+void url_decode(const char* src, char* dst);
 
 #endif /* CATZILLA_SERVER_H */

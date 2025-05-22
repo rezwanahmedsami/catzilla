@@ -91,6 +91,32 @@ catzilla/
    catzilla run examples/hello_world/main.py:app --reload
    ```
 
+### Development Build
+
+For development work on Catzilla, we provide a convenient build script that handles the entire build process:
+
+```bash
+./scripts/build.sh
+```
+
+This script will:
+1. Clean previous builds (removing build/, dist/, *.egg-info/, *.so files, and __pycache__)
+2. Create a fresh build directory
+3. Configure the project with CMake in Debug mode
+4. Build the project using all available CPU cores
+5. Install the package in development mode
+
+After running the build script, you can immediately start using Catzilla. The script will automatically:
+- Use the correct Python interpreter
+- Set up all necessary build configurations
+- Handle parallel compilation for faster builds
+- Install the package in development mode for easy testing
+
+If the build is successful, you can run the example application:
+```bash
+./scripts/run_example.sh examples/hello_world/main.py
+```
+
 ---
 
 ## 🧪 Testing
@@ -145,43 +171,6 @@ The test suite uses:
    - Register tests in CMakeLists.txt
 
 ---
-
-### Build cmake:
-```bash
-# Initialize libuv submodule
-git submodule update --init --recursive
-# Create build directory and configure
-mkdir -p build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-
-# Compile the server
-make -j$(sysctl -n hw.logicalcpu)
-
-# Run the server (from build directory)
-./catzilla-server
-```
-2
-```bash
-rm -rf build dist *.egg-info
-find . -name "*.so" -delete
-python3 -m pip uninstall catzilla -y
-python3 -m pip install --user --verbose .
-
-python examples/hello_world/main.py
-```
-
-### to test bin:
-```bash
-cmake -S . -B build
-
-cmake --build build
-```
-
-# for benchmark:
-```bash
-wrk -t12 -c100 -d10s http://127.0.0.1:8000/
-wrk -t12 -c100 -d10s http://127.0.0.1:8080/
-```
 
 ## 👤 Author
 

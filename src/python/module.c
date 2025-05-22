@@ -4,6 +4,7 @@
 #include <uv.h>               // For uv_stream_t
 #include <stdio.h>
 #include <string.h>
+#include <yyjson.h>
 
 // Structure to hold Python callback and routing table
 typedef struct {
@@ -146,6 +147,191 @@ static PyObject* send_response(PyObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
+// Convert yyjson value to Python object
+static PyObject* yyjson_to_python(yyjson_val* val) {
+    if (!val) return Py_None;
+
+    switch (yyjson_get_type(val)) {
+        case YYJSON_TYPE_NULL:
+            Py_RETURN_NONE;
+
+        case YYJSON_TYPE_BOOL:
+            return PyBool_FromLong(yyjson_get_bool(val));
+
+        case YYJSON_TYPE_NUM:
+            if (yyjson_is_int(val))
+                return PyLong_FromLongLong(yyjson_get_int(val));
+            else
+                return PyFloat_FromDouble(yyjson_get_real(val));
+
+        case YYJSON_TYPE_STR:
+            return PyUnicode_FromString(yyjson_get_str(val));
+
+        case YYJSON_TYPE_ARR: {
+            size_t idx, max;
+            yyjson_val *item;
+            PyObject *list = PyList_New(yyjson_arr_size(val));
+            if (!list) return NULL;
+
+            yyjson_arr_foreach(val, idx, max, item) {
+                PyObject *item_obj = yyjson_to_python(item);
+                if (!item_obj) {
+                    Py_DECREF(list);
+                    return NULL;
+                }
+                PyList_SET_ITEM(list, idx, item_obj);
+            }
+            return list;
+        }
+
+        case YYJSON_TYPE_OBJ: {
+            size_t idx, max;
+            yyjson_val *key, *value;
+            PyObject *dict = PyDict_New();
+            if (!dict) return NULL;
+
+            yyjson_obj_foreach(val, idx, max, key, value) {
+                PyObject *key_obj = PyUnicode_FromString(yyjson_get_str(key));
+                PyObject *value_obj = yyjson_to_python(value);
+                if (!key_obj || !value_obj) {
+                    Py_XDECREF(key_obj);
+                    Py_XDECREF(value_obj);
+                    Py_DECREF(dict);
+                    return NULL;
+                }
+                PyDict_SetItem(dict, key_obj, value_obj);
+                Py_DECREF(key_obj);
+                Py_DECREF(value_obj);
+            }
+            return dict;
+        }
+
+        default:
+            PyErr_SetString(PyExc_ValueError, "Unknown JSON type");
+            return NULL;
+    }
+}
+
+// Parse JSON from request
+static PyObject* parse_json(PyObject *self, PyObject *args) {
+    catzilla_request_t* request;
+    PyObject* capsule;
+
+    if (!PyArg_ParseTuple(args, "O", &capsule))
+        return NULL;
+
+    request = (catzilla_request_t*)PyCapsule_GetPointer(capsule, "catzilla.request");
+    if (!request) {
+        PyErr_SetString(PyExc_TypeError, "Invalid request capsule");
+        return NULL;
+    }
+
+    if (catzilla_parse_json(request) != 0) {
+        Py_RETURN_NONE;
+    }
+
+    return yyjson_to_python(request->json_root);
+}
+
+// Parse form data from request
+static PyObject* parse_form(PyObject *self, PyObject *args) {
+    catzilla_request_t* request;
+    PyObject* capsule;
+
+    if (!PyArg_ParseTuple(args, "O", &capsule))
+        return NULL;
+
+    request = (catzilla_request_t*)PyCapsule_GetPointer(capsule, "catzilla.request");
+    if (!request) {
+        PyErr_SetString(PyExc_TypeError, "Invalid request capsule");
+        return NULL;
+    }
+
+    if (catzilla_parse_form(request) != 0) {
+        Py_RETURN_NONE;
+    }
+
+    PyObject* form_dict = PyDict_New();
+    if (!form_dict) return NULL;
+
+    for (int i = 0; i < request->form_field_count; i++) {
+        PyObject* key = PyUnicode_FromString(request->form_fields[i]);
+        PyObject* value = PyUnicode_FromString(request->form_values[i]);
+        if (!key || !value) {
+            Py_XDECREF(key);
+            Py_XDECREF(value);
+            Py_DECREF(form_dict);
+            return NULL;
+        }
+        PyDict_SetItem(form_dict, key, value);
+        Py_DECREF(key);
+        Py_DECREF(value);
+    }
+
+    return form_dict;
+}
+
+// Get parsed JSON from request
+static PyObject* get_json(PyObject *self, PyObject *args) {
+    catzilla_request_t* request;
+    PyObject* capsule;
+
+    if (!PyArg_ParseTuple(args, "O", &capsule))
+        return NULL;
+
+    request = (catzilla_request_t*)PyCapsule_GetPointer(capsule, "catzilla.request");
+    if (!request) {
+        PyErr_SetString(PyExc_TypeError, "Invalid request capsule");
+        return NULL;
+    }
+
+    yyjson_val* json = catzilla_get_json(request);
+    if (!json) {
+        return PyDict_New();  // Return empty dict if no JSON
+    }
+
+    return yyjson_to_python(json);
+}
+
+// Get form field value
+static PyObject* get_form_field(PyObject *self, PyObject *args) {
+    catzilla_request_t* request;
+    PyObject* capsule;
+    const char* field;
+
+    if (!PyArg_ParseTuple(args, "Os", &capsule, &field))
+        return NULL;
+
+    request = (catzilla_request_t*)PyCapsule_GetPointer(capsule, "catzilla.request");
+    if (!request) {
+        PyErr_SetString(PyExc_TypeError, "Invalid request capsule");
+        return NULL;
+    }
+
+    const char* value = catzilla_get_form_field(request, field);
+    if (!value) {
+        Py_RETURN_NONE;
+    }
+
+    return PyUnicode_FromString(value);
+}
+
+// Get content type from request
+static PyObject* get_content_type(PyObject* self, PyObject* args) {
+    PyObject* capsule;
+    if (!PyArg_ParseTuple(args, "O", &capsule))
+        return NULL;
+
+    catzilla_request_t* request = PyCapsule_GetPointer(capsule, "catzilla.request");
+    if (!request) {
+        PyErr_SetString(PyExc_RuntimeError, "Invalid request capsule");
+        return NULL;
+    }
+
+    const char* content_type = catzilla_get_content_type_str(request);
+    return PyUnicode_FromString(content_type);
+}
+
 // Method tables and module definition
 static PyMethodDef CatzillaServer_methods[] = {
     {"listen",    (PyCFunction)CatzillaServer_listen,   METH_VARARGS, "Start listening"},
@@ -167,6 +353,11 @@ static PyTypeObject CatzillaServerType = {
 
 static PyMethodDef module_methods[] = {
     {"send_response", send_response, METH_VARARGS, "Send HTTP response"},
+    {"parse_json", parse_json, METH_VARARGS, "Parse JSON from request"},
+    {"get_json", get_json, METH_VARARGS, "Get parsed JSON from request"},
+    {"parse_form", parse_form, METH_VARARGS, "Parse form data from request"},
+    {"get_form_field", get_form_field, METH_VARARGS, "Get form field value"},
+    {"get_content_type", get_content_type, METH_VARARGS, "Get content type from request"},
     {NULL}
 };
 

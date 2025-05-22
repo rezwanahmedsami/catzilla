@@ -21,14 +21,32 @@ def home(request):
                 }
                 h1 { color: #333; }
                 a { color: #0066cc; }
+                .demo-form {
+                    margin: 20px 0;
+                    padding: 20px;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                }
             </style>
         </head>
         <body>
             <h1>Welcome to Catzilla!</h1>
             <p>A high-performance Python web framework with C core.</p>
+
+            <div class="demo-form">
+                <h2>Test Form Submission</h2>
+                <form action="/demo/form" method="POST" enctype="application/x-www-form-urlencoded">
+                    <p><input type="text" name="message" placeholder="Enter a message"></p>
+                    <p><input type="submit" value="Submit Form"></p>
+                </form>
+            </div>
+
+            <h2>API Endpoints:</h2>
             <ul>
                 <li><a href="/hello">Hello Page</a></li>
                 <li><a href="/api/info">API Info</a></li>
+                <li><a href="/demo/request-info">Request Info Demo</a></li>
+                <li><a href="/demo/query?name=catzilla&type=awesome">Query Params Demo</a></li>
             </ul>
         </body>
     </html>
@@ -46,27 +64,66 @@ def api_info(request):
         "description": "High-performance Python web framework with C core"
     })
 
-# post("/api/echo")
-@app.post("/api/echo")
-def echo(request):
-    data = request.body
-    #  convert to json
-    if isinstance(data, bytes):
-        data = data.decode('utf-8')
-    #  convert to json
-    try:
-        import json
-        data = json.loads(data)
-    except json.JSONDecodeError:
-        return JSONResponse({
-            "error": "Invalid JSON data"
-        }, status_code=400)
+@app.get("/demo/request-info")
+def request_info(request):
+    """Demonstrate all the new Request features"""
     return JSONResponse({
-        "message": "Echoing back your data",
-        "data": data
+        "client_ip": request.client_ip,
+        "content_type": request.content_type,
+        "headers": request.headers,
+        "query_params": request.query_params,
+        "method": request.method,
+        "path": request.path,
     })
 
-# put("/api/update")
+@app.get("/demo/query")
+def query_demo(request):
+    """Demonstrate query parameter handling"""
+    return JSONResponse({
+        "message": "Query parameters received",
+        "params": request.query_params
+    })
+
+@app.post("/demo/form")
+def form_demo(request):
+    """Demonstrate form data handling"""
+    print(f"[DEBUG] Echo handler - body: {request.body}")
+    form_data = request.form()
+    return JSONResponse({
+        "message": "Form data received",
+        "form_data": form_data
+    })
+
+@app.post("/api/echo")
+def echo(request):
+    """Echo back JSON data with content type info"""
+    # print body
+    print(f"[DEBUG] Echo handler - body: {request.body}")
+    # Get content type from request
+    content_type = request.content_type
+    print(f"[DEBUG] Echo handler - content type: {content_type}")
+
+    # Get raw text first
+    raw_text = request.text()
+    print(f"[DEBUG] Echo handler - raw text: {raw_text}")
+
+    # Try to parse JSON only if content type is application/json
+    parsed_json = {}
+    if content_type == "application/json":
+        try:
+            parsed_json = request.json()
+            print(f"[DEBUG] Echo handler - parsed JSON: {parsed_json}")
+        except Exception as e:
+            print(f"[DEBUG] Echo handler - JSON parsing error: {e}")
+
+    return JSONResponse({
+        "message": "Echoing back your data",
+        "content_type": content_type,
+        "raw_text": raw_text,
+        "parsed_json": parsed_json
+    })
+
+# Additional HTTP method handlers
 @app.put("/api/update")
 def update(request):
     data = request.json()

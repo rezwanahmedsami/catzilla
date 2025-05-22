@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <signal.h>
 #include <Python.h>
+#include <yyjson.h>
 
 typedef struct {
     uv_write_t req;
@@ -19,6 +20,9 @@ typedef struct {
     char* body;
     size_t body_length;
     size_t body_size;
+    content_type_t content_type;  // Keep this aligned with 4-byte boundary
+    bool parsing_content_type;
+    char _padding[3];  // Add padding to ensure proper alignment
 } client_context_t;
 
 // Forward declarations
@@ -28,6 +32,7 @@ static void on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf);
 static void on_close(uv_handle_t* handle);
 static void after_write(uv_write_t* req, int status);
 static void signal_handler(uv_signal_t* handle, int signum);
+void url_decode(const char* src, char* dst);
 
 // Global reference to the active server for signal handling
 static catzilla_server_t* active_server = NULL;
@@ -40,19 +45,66 @@ static int on_message_begin(llhttp_t* parser) {
     context->body = NULL;
     context->body_length = 0;
     context->body_size = 0;
+    context->parsing_content_type = false;
+    context->content_type = CONTENT_TYPE_NONE;  // Reset content type at start of message
+    fprintf(stderr, "[DEBUG] Message begin: content type reset to NONE (type=%d)\n", (int)context->content_type);
     return 0;
 }
 
 static int on_url(llhttp_t* parser, const char* at, size_t length) {
     client_context_t* context = (client_context_t*)parser->data;
-    if (length >= CATZILLA_PATH_MAX) length = CATZILLA_PATH_MAX - 1;
-    memcpy(context->url, at, length);
-    context->url[length] = '\0';
+    // Find the query string separator '?'
+    const char* query = memchr(at, '?', length);
+    size_t path_length = query ? (size_t)(query - at) : length;
+
+    // Copy just the path part
+    if (path_length >= CATZILLA_PATH_MAX) path_length = CATZILLA_PATH_MAX - 1;
+    memcpy(context->url, at, path_length);
+    context->url[path_length] = '\0';
     return 0;
 }
 
-static int on_header_field(llhttp_t* parser, const char* at, size_t length) { return 0; }
-static int on_header_value(llhttp_t* parser, const char* at, size_t length) { return 0; }
+static int on_header_field(llhttp_t* parser, const char* at, size_t length) {
+    client_context_t* context = (client_context_t*)parser->data;
+    context->parsing_content_type = false;  // Reset flag by default
+
+    if (length == 12 && strncasecmp(at, "Content-Type", 12) == 0) {
+        fprintf(stderr, "[DEBUG] Found Content-Type header\n");
+        context->parsing_content_type = true;
+    }
+    return 0;
+}
+
+static int on_header_value(llhttp_t* parser, const char* at, size_t length) {
+    client_context_t* context = (client_context_t*)parser->data;
+    if (context->parsing_content_type) {
+        fprintf(stderr, "[DEBUG] Processing Content-Type header: '%.*s'\n", (int)length, at);
+
+        // Store content type for later use in JSON/form parsing
+        content_type_t new_type = CONTENT_TYPE_NONE;
+
+        if (length >= 16 && strncasecmp(at, "application/json", 16) == 0) {
+            new_type = CONTENT_TYPE_JSON;
+        } else if (length >= 33 && strncasecmp(at, "application/x-www-form-urlencoded", 33) == 0) {
+            new_type = CONTENT_TYPE_FORM;
+        }
+
+        // Validate and set the content type
+        if (new_type >= CONTENT_TYPE_NONE && new_type <= CONTENT_TYPE_FORM) {
+            context->content_type = new_type;
+            fprintf(stderr, "[DEBUG] Content-Type set to: %s (type=%d)\n",
+                new_type == CONTENT_TYPE_JSON ? "application/json" :
+                new_type == CONTENT_TYPE_FORM ? "application/x-www-form-urlencoded" : "none",
+                (int)context->content_type);
+        } else {
+            context->content_type = CONTENT_TYPE_NONE;
+            fprintf(stderr, "[DEBUG] Invalid content type, defaulting to NONE\n");
+        }
+
+        context->parsing_content_type = false;
+    }
+    return 0;
+}
 
 static int on_headers_complete(llhttp_t* parser) {
     client_context_t* context = (client_context_t*)parser->data;
@@ -81,6 +133,7 @@ static int on_body(llhttp_t* parser, const char* at, size_t length) {
     memcpy(context->body + context->body_length, at, length);
     context->body_length += length;
     context->body[context->body_length] = '\0';
+    fprintf(stderr, "[DEBUG] Received body chunk: %zu bytes\n", length);
     return 0;
 }
 
@@ -320,8 +373,19 @@ static void on_connection(uv_stream_t* server, int status) {
 
     client_context_t* ctx = malloc(sizeof(*ctx));
     if (!ctx) return;
+
+    // Initialize all fields to zero/NULL
     memset(ctx, 0, sizeof(*ctx));
     ctx->server = srv;
+    ctx->content_type = CONTENT_TYPE_NONE;  // Explicitly set to NONE
+    ctx->parsing_content_type = false;
+    ctx->body = NULL;
+    ctx->body_length = 0;
+    ctx->body_size = 0;
+    ctx->url[0] = '\0';
+    ctx->method[0] = '\0';
+
+    fprintf(stderr, "[DEBUG] Initialized client context with content_type=%d\n", (int)ctx->content_type);
 
     if (uv_tcp_init(srv->loop, &ctx->client) != 0) {
         free(ctx);
@@ -388,20 +452,295 @@ PyObject* handle_request_in_server(PyObject* callback,
         return NULL;
     }
 
-    // Build arguments tuple: (client_capsule, method, path, body)
-    PyObject* args = Py_BuildValue("(Osss)", client_capsule, method, path, body ? body : "");
+    // Create a request structure
+    catzilla_request_t* request = malloc(sizeof(catzilla_request_t));
+    if (!request) {
+        PyErr_NoMemory();
+        return NULL;
+    }
+    memset(request, 0, sizeof(catzilla_request_t));
+
+    // Copy data into request
+    strncpy(request->method, method, CATZILLA_METHOD_MAX-1);
+    request->method[CATZILLA_METHOD_MAX-1] = '\0';
+    strncpy(request->path, path, CATZILLA_PATH_MAX-1);
+    request->path[CATZILLA_PATH_MAX-1] = '\0';
+    if (body) {
+        request->body = strdup(body);
+        request->body_length = strlen(body);
+    }
+
+    // Get the client context to access content type
+    client_context_t* context = (client_context_t*)PyCapsule_GetPointer(client_capsule, "catzilla.client");
+    if (context) {
+        fprintf(stderr, "[DEBUG] Found client context, current content type: %d\n", (int)context->content_type);
+
+        // Copy content type directly
+        request->content_type = context->content_type;
+        fprintf(stderr, "[DEBUG] Set request content_type from context: %d (%s)\n",
+            (int)request->content_type,
+            request->content_type == CONTENT_TYPE_JSON ? "application/json" :
+            request->content_type == CONTENT_TYPE_FORM ? "application/x-www-form-urlencoded" : "none");
+
+        // Pre-parse based on content type
+        if (request->content_type == CONTENT_TYPE_JSON) {
+            fprintf(stderr, "[DEBUG] Pre-parsing JSON content\n");
+            if (catzilla_parse_json(request) == 0) {
+                fprintf(stderr, "[DEBUG] JSON parsing successful\n");
+            } else {
+                fprintf(stderr, "[DEBUG] JSON parsing failed\n");
+            }
+        } else if (request->content_type == CONTENT_TYPE_FORM) {
+            fprintf(stderr, "[DEBUG] Pre-parsing form content\n");
+            if (catzilla_parse_form(request) == 0) {
+                fprintf(stderr, "[DEBUG] Form parsing successful\n");
+            } else {
+                fprintf(stderr, "[DEBUG] Form parsing failed\n");
+            }
+        } else {
+            fprintf(stderr, "[DEBUG] Unknown content type: %d\n", request->content_type);
+        }
+    } else {
+        fprintf(stderr, "[DEBUG] No client context found, using NONE content type\n");
+        request->content_type = CONTENT_TYPE_NONE;
+    }
+
+    // Create request capsule
+    PyObject* request_capsule = PyCapsule_New(request, "catzilla.request", NULL);
+    if (!request_capsule) {
+        if (request->json_doc) yyjson_doc_free(request->json_doc);
+        free(request->body);
+        free(request);
+        return NULL;
+    }
+
+    // Build arguments tuple: (client_capsule, method, path, body, request_capsule)
+    PyObject* args = Py_BuildValue("(OsssO)", client_capsule, method, path, body ? body : "", request_capsule);
     if (!args) {
-        PyErr_Print();
+        Py_DECREF(request_capsule);
+        if (request->json_doc) yyjson_doc_free(request->json_doc);
+        free(request->body);
+        free(request);
         return NULL;
     }
 
     // Call the Python function
     PyObject* result = PyObject_CallObject(callback, args);
     Py_DECREF(args);
+    Py_DECREF(request_capsule);
+    if (request->json_doc) yyjson_doc_free(request->json_doc);
+    free(request->body);
+    free(request);
 
     if (!result) {
         PyErr_Print();
         return NULL;
     }
     return result;
+}
+
+int catzilla_parse_json(catzilla_request_t* request) {
+    if (!request || !request->body || request->body_length == 0) {
+        fprintf(stderr, "[DEBUG] JSON parse failed: no request, body, or zero length\n");
+        return -1;
+    }
+
+    // Check if already parsed
+    if (request->is_json_parsed) {
+        fprintf(stderr, "[DEBUG] JSON already parsed\n");
+        return 0;
+    }
+
+    // Check content type - allow parsing if it's JSON type
+    if (request->content_type != CONTENT_TYPE_JSON) {
+        fprintf(stderr, "[DEBUG] JSON parse failed: wrong content type (%d)\n", request->content_type);
+        return -1;
+    }
+
+    fprintf(stderr, "[DEBUG] Parsing JSON body: '%s'\n", request->body);
+
+    // Initialize JSON fields
+    if (request->json_doc) {
+        yyjson_doc_free(request->json_doc);
+    }
+    request->json_doc = NULL;
+    request->json_root = NULL;
+
+    // Parse JSON using yyjson
+    yyjson_read_flag flg = YYJSON_READ_NOFLAG;
+    yyjson_read_err err;
+    request->json_doc = yyjson_read_opts(request->body, request->body_length, flg, NULL, &err);
+
+    if (!request->json_doc) {
+        fprintf(stderr, "[DEBUG] JSON parse error: %s at position %zu\n", err.msg, err.pos);
+        request->is_json_parsed = true;  // Mark as parsed even if failed
+        return -1;
+    }
+
+    request->json_root = yyjson_doc_get_root(request->json_doc);
+    if (!request->json_root) {
+        fprintf(stderr, "[DEBUG] JSON parse error: no root object\n");
+        yyjson_doc_free(request->json_doc);
+        request->json_doc = NULL;
+        request->is_json_parsed = true;  // Mark as parsed even if failed
+        return -1;
+    }
+
+    fprintf(stderr, "[DEBUG] JSON parsed successfully\n");
+    request->is_json_parsed = true;
+    return 0;
+}
+
+int catzilla_parse_form(catzilla_request_t* request) {
+    if (!request || !request->body || request->body_length == 0) {
+        fprintf(stderr, "[DEBUG] Form parse failed: no request, body, or zero length\n");
+        return -1;
+    }
+
+    // Check if already parsed
+    if (request->is_form_parsed) {
+        fprintf(stderr, "[DEBUG] Form data already parsed\n");
+        return 0;
+    }
+
+    // Check content type - allow parsing if it's form type
+    if (request->content_type != CONTENT_TYPE_FORM) {
+        fprintf(stderr, "[DEBUG] Form parse failed: wrong content type (%d)\n", request->content_type);
+        return -1;
+    }
+
+    fprintf(stderr, "[DEBUG] Parsing form data: '%s'\n", request->body);
+
+    // Initialize form fields
+    request->form_field_count = 0;
+    for (int i = 0; i < CATZILLA_MAX_FORM_FIELDS; i++) {
+        request->form_fields[i] = NULL;
+        request->form_values[i] = NULL;
+    }
+
+    // Parse form data
+    char* body = strdup(request->body);  // Create a copy we can modify
+    if (!body) {
+        fprintf(stderr, "[DEBUG] Form parse error: memory allocation failed\n");
+        request->is_form_parsed = true;  // Mark as parsed even if failed
+        return -1;
+    }
+
+    char* token;
+    char* rest = body;
+
+    while ((token = strtok_r(rest, "&", &rest))) {
+        char* key = token;
+        char* value = strchr(token, '=');
+
+        if (value) {
+            *value = '\0';  // Split key=value
+            value++;
+
+            // URL decode key and value
+            char* decoded_key = malloc(strlen(key) + 1);
+            char* decoded_value = malloc(strlen(value) + 1);
+
+            if (!decoded_key || !decoded_value) {
+                free(decoded_key);
+                free(decoded_value);
+                free(body);
+                fprintf(stderr, "[DEBUG] Form parse error: memory allocation failed\n");
+                request->is_form_parsed = true;  // Mark as parsed even if failed
+                return -1;
+            }
+
+            // Simple URL decode (can be enhanced)
+            url_decode(key, decoded_key);
+            url_decode(value, decoded_value);
+
+            fprintf(stderr, "[DEBUG] Form field: %s = %s\n", decoded_key, decoded_value);
+
+            if (request->form_field_count < CATZILLA_MAX_FORM_FIELDS) {
+                request->form_fields[request->form_field_count] = decoded_key;
+                request->form_values[request->form_field_count] = decoded_value;
+                request->form_field_count++;
+            } else {
+                free(decoded_key);
+                free(decoded_value);
+                break;
+            }
+        }
+    }
+
+    free(body);
+    fprintf(stderr, "[DEBUG] Form parsed successfully with %d fields\n", request->form_field_count);
+    request->is_form_parsed = true;
+    return 0;
+}
+
+yyjson_val* catzilla_get_json(catzilla_request_t* request) {
+    if (!request->is_json_parsed) {
+        if (catzilla_parse_json(request) != 0) {
+            return NULL;
+        }
+    }
+    return request->json_root;
+}
+
+const char* catzilla_get_form_field(catzilla_request_t* request, const char* field) {
+    if (!request->is_form_parsed) {
+        if (catzilla_parse_form(request) != 0) {
+            return NULL;
+        }
+    }
+
+    for (int i = 0; i < request->form_field_count; i++) {
+        if (strcmp(request->form_fields[i], field) == 0) {
+            return request->form_values[i];
+        }
+    }
+    return NULL;
+}
+
+// Get the content type as a string
+const char* catzilla_get_content_type_str(catzilla_request_t* request) {
+    if (!request) {
+        fprintf(stderr, "[DEBUG] get_content_type_str: NULL request\n");
+        return "";
+    }
+
+    content_type_t type = request->content_type;
+    fprintf(stderr, "[DEBUG] get_content_type_str: type=%d\n", (int)type);
+
+    switch (type) {
+        case CONTENT_TYPE_JSON:
+            fprintf(stderr, "[DEBUG] get_content_type_str: returning application/json\n");
+            return "application/json";
+        case CONTENT_TYPE_FORM:
+            fprintf(stderr, "[DEBUG] get_content_type_str: returning application/x-www-form-urlencoded\n");
+            return "application/x-www-form-urlencoded";
+        case CONTENT_TYPE_NONE:
+        default:
+            fprintf(stderr, "[DEBUG] get_content_type_str: returning empty string\n");
+            return "";
+    }
+}
+
+// Helper function for URL decoding
+void url_decode(const char* src, char* dst) {
+    char a, b;
+    while (*src) {
+        if (*src == '%' && (a = src[1]) && (b = src[2]) && isxdigit(a) && isxdigit(b)) {
+            if (a >= 'a') a -= 'a'-'A';
+            if (a >= 'A') a -= ('A' - 10);
+            else a -= '0';
+            if (b >= 'a') b -= 'a'-'A';
+            if (b >= 'A') b -= ('A' - 10);
+            else b -= '0';
+            *dst++ = 16 * a + b;
+            src += 3;
+        } else if (*src == '+') {
+            *dst++ = ' ';
+            src++;
+        } else {
+            *dst++ = *src++;
+        }
+    }
+    *dst = '\0';
 }
