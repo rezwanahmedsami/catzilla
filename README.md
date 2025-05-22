@@ -71,8 +71,65 @@ catzilla/
 3. **Run an example app**:
 
    ```bash
+   # Using the example runner script (recommended)
+   ./scripts/run_example.sh examples/hello_world/main.py
+
+   # Or using the CLI tool (after installing)
    catzilla run examples/hello_world/main.py:app --reload
    ```
+
+---
+
+## 🧪 Testing
+
+Catzilla uses a hybrid test suite that includes both C and Python tests. The test runner script provides a unified interface to run all tests.
+
+### Running Tests
+
+Use the test runner script in the `scripts` directory:
+
+```bash
+# Run all tests (both C and Python)
+./scripts/run_tests.sh
+
+# Run only Python tests
+./scripts/run_tests.sh --python
+
+# Run only C tests
+./scripts/run_tests.sh --c
+
+# Run tests with verbose output
+./scripts/run_tests.sh --verbose
+
+# Show all options
+./scripts/run_tests.sh --help
+```
+
+### Test Structure
+
+```bash
+tests/
+├── python/                    # Python test files
+│   └── test_basic.py         # Basic functionality tests
+└── c/                        # C test files
+    └── test_router.c         # Router implementation tests
+```
+
+The test suite uses:
+- **Python**: pytest for Python component testing
+- **C**: Unity test framework for C core testing
+
+### Writing Tests
+
+1. **Python Tests**:
+   - Add test files in `tests/python/`
+   - Use pytest fixtures and assertions
+   - Tests are automatically discovered
+
+2. **C Tests**:
+   - Add test files in `tests/c/`
+   - Use Unity test framework macros
+   - Register tests in CMakeLists.txt
 
 ---
 

@@ -54,6 +54,25 @@ set_target_properties(_catzilla PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
 )
 
+# ——— Tests ———
+# Test framework
+# Add test_router executable
+add_executable(test_router
+  tests/c/test_router.c
+  deps/unity/src/unity.c
+)
+
+target_include_directories(test_router PRIVATE
+  src/core
+  deps/unity/src
+  ${Python3_INCLUDE_DIRS}
+)
+
+target_link_libraries(test_router PRIVATE
+  catzilla_core
+  ${Python3_LIBRARIES}
+)
+
 # Standalone server executable
 add_executable(catzilla-server src/core/main.c)
 target_link_libraries(catzilla-server PRIVATE

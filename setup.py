@@ -46,6 +46,9 @@ setup(
     ext_modules=ext_modules,
     cmdclass={"build_ext": CMakeBuild},
     install_requires=["pydantic>=2.0"],
+    extras_require={
+        "dev": ["pytest"]
+    },
     python_requires=">=3.8",
     include_package_data=True,
     zip_safe=False,
