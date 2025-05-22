@@ -25,8 +25,9 @@ build/
 *.spec
 
 # Cython generated files
-*.c
-*.cpp
+# Instead of *.c, specify only Cython output locations
+python/**/*.c
+python/**/*.cpp
 
 # Virtual environments
 .venv/
