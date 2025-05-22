@@ -7,8 +7,68 @@ on:
     branches: [ "main" ]
 
 jobs:
+  format:
+    name: Format code
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install black isort
+
+    - name: Format with black
+      run: |
+        black python/catzilla
+
+    - name: Format with isort
+      run: |
+        isort python/catzilla
+
+    - name: Commit changes
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add python/catzilla
+        git diff --quiet && git diff --staged --quiet || git commit -m "style: format code with black and isort"
+
+    - name: Push changes
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: ${{ github.head_ref || github.ref_name }}
+
+  lint:
+    name: Lint code
+    needs: format
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8
+
+    - name: Run flake8
+      run: |
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 python/catzilla --count --select=E9,F63,F7,F82 --show-source --statistics
+
   test:
     name: Test on Python ${{ matrix.python-version }} and ${{ matrix.os }}
+    needs: lint
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -17,12 +77,12 @@ jobs:
         os: [ubuntu-latest, macos-latest]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: 'recursive'
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -40,7 +100,7 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pytest pydantic
+        pip install pytest pydantic build wheel setuptools
 
     - name: Build C extension
       run: |
@@ -56,8 +116,9 @@ jobs:
         chmod +x scripts/run_tests.sh
         PYTHONPATH=python ./scripts/run_tests.sh --all --verbose
 
-  build-wheels:
-    name: Build wheels on ${{ matrix.os }}
+  build:
+    name: Build package on ${{ matrix.os }}
+    needs: test
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -65,12 +126,12 @@ jobs:
         os: [ubuntu-latest, macos-latest]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: 'recursive'
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
 
@@ -90,67 +151,16 @@ jobs:
         python -m pip install --upgrade pip
         pip install build wheel setuptools
 
-    - name: Build wheels
+    - name: Build package
       run: |
-        python -m build --wheel
+        # Build both wheel and sdist
+        python -m build
 
-    - name: Store wheels
-      uses: actions/upload-artifact@v3
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
       with:
-        name: wheels-${{ matrix.os }}
-        path: dist/*.whl
-
-  build-sdist:
-    name: Build source distribution
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        submodules: 'recursive'
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-
-    - name: Install build dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build
-
-    - name: Build sdist
-      run: |
-        python -m build --sdist
-
-    - name: Store sdist
-      uses: actions/upload-artifact@v3
-      with:
-        name: sdist
-        path: dist/*.tar.gz
-
-  lint:
-    name: Lint code
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install flake8 black isort
-
-    - name: Run linters
-      run: |
-        # Stop the build if there are Python syntax errors or undefined names
-        flake8 python/catzilla --count --select=E9,F63,F7,F82 --show-source --statistics
-        # Run black
-        black --check python/catzilla
-        # Run isort
-        isort --check-only --diff python/catzilla 
+        name: dist-${{ matrix.os }}
+        path: |
+          dist/*.whl
+          dist/*.tar.gz
+        retention-days: 5 
