@@ -29,7 +29,7 @@ class CMakeBuild(build_ext):
         if not os.path.isfile(so_path):
             # debugging dump
             print("=== build_dir contents ===", os.listdir(build_dir))
-            raise RuntimeError(f"Expected {_catzilla.so} in {build_dir}, but not found")
+            raise RuntimeError(f"Expected _catzilla.so in {build_dir}, but not found")
 
         # 4) Copy it into your package
         dest_path = self.get_ext_fullpath('catzilla._catzilla')

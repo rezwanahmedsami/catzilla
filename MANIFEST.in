@@ -1,0 +1,11 @@
+include CMakeLists.txt
+include LICENSE
+recursive-include src *
+recursive-include deps *
+recursive-include python/catzilla *
+recursive-include tests *
+recursive-include examples *
+recursive-include scripts *
+global-exclude *.pyc
+global-exclude __pycache__
+global-exclude .git*
