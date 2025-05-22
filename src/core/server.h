@@ -24,17 +24,17 @@ typedef struct catzilla_server_s {
     uv_loop_t* loop;
     uv_tcp_t server;
     uv_signal_t sig_handle;  // For signal handling
-    
+
     // HTTP parser
     llhttp_settings_t parser_settings;
-    
+
     // Route table
     catzilla_route_t routes[CATZILLA_MAX_ROUTES];
     int route_count;
-    
+
     // State
     bool is_running;
-    
+
     // Python request callback
     void* py_request_callback;
 } catzilla_server_t;

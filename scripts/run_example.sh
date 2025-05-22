@@ -25,4 +25,4 @@ fi
 export PYTHONPATH="$PROJECT_ROOT/python:$PYTHONPATH"
 
 echo -e "${GREEN}Running example: $1${NC}"
-python "$PROJECT_ROOT/$1" 
+python "$PROJECT_ROOT/$1"

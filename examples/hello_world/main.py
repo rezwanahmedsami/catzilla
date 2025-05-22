@@ -50,7 +50,7 @@ def api_info(request):
 @app.post("/api/echo")
 def echo(request):
     data = request.body
-    #  convert to json 
+    #  convert to json
     if isinstance(data, bytes):
         data = data.decode('utf-8')
     #  convert to json

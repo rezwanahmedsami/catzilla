@@ -93,7 +93,7 @@ static int on_message_complete(llhttp_t* parser) {
 
     fprintf(stderr, "[DEBUG] HTTP message complete\n");
     fprintf(stderr, "[INFO] Received request: Method=%s, URL=%s\n", context->method, context->url);
-    
+
     // 1) If Python callback is set, hand off to Python and return
     if (server->py_request_callback != NULL) {
         PyGILState_STATE gstate = PyGILState_Ensure();
@@ -173,10 +173,10 @@ int catzilla_server_init(catzilla_server_t* server) {
     server->route_count = 0;
     server->is_running = false;
     server->py_request_callback = NULL;
-    
+
     // Set global reference for signal handling
     active_server = server;
-    
+
     return 0;
 }
 
@@ -211,17 +211,17 @@ int catzilla_server_listen(catzilla_server_t* server, const char* host, int port
         fprintf(stderr, "[ERROR] Listen %s:%d: %s\n", host, port, uv_strerror(rc));
         return rc;
     }
-    
+
     // Set up signal handler for graceful shutdown
     rc = uv_signal_start(&server->sig_handle, signal_handler, SIGINT);
     if (rc) {
         fprintf(stderr, "[ERROR] Failed to set up signal handler: %s\n", uv_strerror(rc));
         return rc;
     }
-    
+
     fprintf(stderr, "[INFO] Catzilla server listening on %s:%d\n", host, port);
     fprintf(stderr, "[INFO] Press Ctrl+C to stop the server\n");
-    
+
     server->is_running = true;
     return uv_run(server->loop, UV_RUN_DEFAULT);
 }
@@ -229,22 +229,22 @@ int catzilla_server_listen(catzilla_server_t* server, const char* host, int port
 
 void catzilla_server_stop(catzilla_server_t* server) {
     if (!server->is_running) return;
-    
+
     fprintf(stderr, "[INFO] Stopping Catzilla server...\n");
     server->is_running = false;
-    
+
     //  Stop the loop so the outer uv_run in listen() will exit
     uv_stop(server->loop);
-    
+
     // Stop the signal handler but don't close it yet
     uv_signal_stop(&server->sig_handle);
     fprintf(stderr, "[INFO] Stopped signal handler...\n");
-    
+
     // Walk and close all active handles
     // This will include server->server and server->sig_handle
     uv_walk(server->loop, (uv_walk_cb)uv_close, NULL);
     fprintf(stderr, "[INFO] Closing all active handles...\n");
-    
+
     // Run the loop so that each close callback fires
     uv_run(server->loop, UV_RUN_DEFAULT);
 
@@ -252,7 +252,7 @@ void catzilla_server_stop(catzilla_server_t* server) {
     if (uv_loop_close(server->loop) != 0) {
         fprintf(stderr, "[WARN] uv_loop_close returned busy\n");
     }
-    
+
     fprintf(stderr, "[INFO] Server stopped\n");
 }
 

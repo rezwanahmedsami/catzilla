@@ -8,90 +8,11 @@ on:
 
 # Add permissions block at workflow level
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
-  format:
-    name: Format code
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        ref: ${{ github.head_ref || github.ref_name }}
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install black isort
-
-    - name: Format with black
-      run: |
-        black python/catzilla
-
-    - name: Format with isort
-      run: |
-        isort python/catzilla
-
-    - name: Check for changes
-      id: git-check
-      run: |
-        git diff --exit-code || echo "changes=true" >> $GITHUB_OUTPUT
-
-    - name: Commit changes
-      if: steps.git-check.outputs.changes == 'true' && github.event_name != 'pull_request'
-      run: |
-        git config --local user.email "github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "github-actions[bot]"
-        git add python/catzilla
-        git commit -m "style: format code with black and isort"
-
-    - name: Push changes
-      if: steps.git-check.outputs.changes == 'true' && github.event_name != 'pull_request'
-      run: git push
-
-    - name: Create PR comment
-      if: steps.git-check.outputs.changes == 'true' && github.event_name == 'pull_request'
-      uses: actions/github-script@v7
-      with:
-        script: |
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: '⚠️ Code formatting issues were found. Please run `black` and `isort` locally on your Python files.'
-          })
-
-  lint:
-    name: Lint code
-    needs: format
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install flake8
-
-    - name: Run flake8
-      run: |
-        # Stop the build if there are Python syntax errors or undefined names
-        flake8 python/catzilla --count --select=E9,F63,F7,F82 --show-source --statistics
-
   test:
     name: Test on Python ${{ matrix.python-version }} and ${{ matrix.os }}
-    needs: lint
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -186,4 +107,4 @@ jobs:
         path: |
           dist/*.whl
           dist/*.tar.gz
-        retention-days: 5 
+        retention-days: 5

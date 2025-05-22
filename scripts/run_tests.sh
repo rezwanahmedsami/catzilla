@@ -25,17 +25,17 @@ print_usage() {
 run_python_tests() {
     local verbose=$1
     echo -e "${YELLOW}Running Python tests...${NC}"
-    
+
     # Set PYTHONPATH to include the python directory
     export PYTHONPATH="$PROJECT_ROOT/python:$PYTHONPATH"
-    
+
     # Run pytest with or without verbose flag
     if [ "$verbose" = true ]; then
         python -m pytest "$PROJECT_ROOT/tests/python" -v
     else
         python -m pytest "$PROJECT_ROOT/tests/python"
     fi
-    
+
     local result=$?
     if [ $result -eq 0 ]; then
         echo -e "${GREEN}Python tests passed!${NC}"
@@ -49,15 +49,15 @@ run_python_tests() {
 run_c_tests() {
     local verbose=$1
     echo -e "${YELLOW}Running C tests...${NC}"
-    
+
     # Ensure build directory exists
     mkdir -p "$PROJECT_ROOT/build"
-    
+
     # Build the project if needed
     cd "$PROJECT_ROOT" || exit 1
     cmake -S . -B build
     cmake --build build
-    
+
     # Run the C tests
     if [ -f "$PROJECT_ROOT/build/test_router" ]; then
         if [ "$verbose" = true ]; then
@@ -65,7 +65,7 @@ run_c_tests() {
         else
             "$PROJECT_ROOT/build/test_router"
         fi
-        
+
         local result=$?
         if [ $result -eq 0 ]; then
             echo -e "${GREEN}C tests passed!${NC}"

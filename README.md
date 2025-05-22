@@ -1,5 +1,5 @@
 # Catzilla
-Blazing-fast Python web framework backed by a minimal, event-driven C core  
+Blazing-fast Python web framework backed by a minimal, event-driven C core
 
 > [!CAUTION]
 >
@@ -10,10 +10,10 @@ Blazing-fast Python web framework backed by a minimal, event-driven C core
 ## Overview
 <img align="right" src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/logo.png" width="250px" alt="Catzilla Logo" />
 
-Catzilla is a modern Python web framework purpose-built for extreme performance.  
+Catzilla is a modern Python web framework purpose-built for extreme performance.
 At its heart is a lightweight C HTTP engine—built using **libuv** and **llhttp**—that powers the underlying event loop and request processing pipeline.
 
-By exposing its speed-focused C core through a clean, Pythonic decorator API, Catzilla gives developers full control with minimal overhead.  
+By exposing its speed-focused C core through a clean, Pythonic decorator API, Catzilla gives developers full control with minimal overhead.
 Whether you're building **real-time AI applications**, **low-latency APIs**, or **high-throughput microservices**, Catzilla is engineered to deliver maximum efficiency with minimal boilerplate.
 
 <br>
@@ -54,7 +54,20 @@ catzilla/
 
 ## 🚀 Getting Started
 
-1. **Clone the repo**:
+### Development Setup
+
+1. **Install pre-commit hooks**:
+   ```bash
+   pip install pre-commit
+   pre-commit install
+   ```
+   This will automatically:
+   - Format code with black
+   - Sort imports with isort
+   - Check for syntax errors with flake8
+   - Fix common issues (trailing whitespace, file endings)
+
+2. **Clone the repo**:
 
    ```bash
    git clone https://github.com/rezwanahmedsami/catzilla.git
@@ -149,7 +162,7 @@ make -j$(sysctl -n hw.logicalcpu)
 ```
 2
 ```bash
-rm -rf build dist *.egg-info                  
+rm -rf build dist *.egg-info
 find . -name "*.so" -delete
 python3 -m pip uninstall catzilla -y
 python3 -m pip install --user --verbose .
@@ -161,7 +174,7 @@ python examples/hello_world/main.py
 ```bash
 cmake -S . -B build
 
-cmake --build build 
+cmake --build build
 ```
 
 # for benchmark:
