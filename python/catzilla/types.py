@@ -181,11 +181,18 @@ class Request:
             self._client_ip = real_ip
             return self._client_ip
 
-        # Finally get it from the client object (implementation in C)
-        from catzilla._catzilla import get_client_ip
+        # Finally try to get it from the client object (implementation in C)
+        try:
+            from catzilla._catzilla import get_client_ip
 
-        self._client_ip = get_client_ip(self.client) or "0.0.0.0"
-        return self._client_ip
+            if self.client:
+                self._client_ip = get_client_ip(self.client)
+                return self._client_ip
+        except (ImportError, AttributeError):
+            pass
+
+        # Return None if we couldn't get the IP
+        return None
 
     @property
     def content_type(self) -> str:
