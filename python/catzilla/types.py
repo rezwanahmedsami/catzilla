@@ -83,19 +83,43 @@ class Request:
                 print(
                     f"[DEBUG-PY] Attempting to parse form data with content type: {self.content_type}"
                 )
-                if parse_form(self.request_capsule) == 0:
+                if self.content_type == "application/x-www-form-urlencoded":
                     self._parsed_form = {}
-                    # TODO: Add method to get all form fields at once
-                    # For now, we can't know what fields are available
+                    # Try to get form fields from already parsed data
                     if self.body:
                         for pair in self.body.split("&"):
                             if "=" in pair:
                                 key, _ = pair.split("=", 1)
+                                # Get the value from C, it will be already URL-decoded
                                 value = get_form_field(self.request_capsule, key)
                                 if value is not None:
+                                    print(f"[DEBUG-PY] Got form field: {key}={value}")
                                     self._parsed_form[key] = value
+                                else:
+                                    print(
+                                        f"[DEBUG-PY] No value found for form field: {key}"
+                                    )
+
+                        if not self._parsed_form:
+                            print("[DEBUG-PY] No form fields found, trying to parse")
+                            # If we couldn't get any fields, try parsing
+                            if parse_form(self.request_capsule) == 0:
+                                # Try getting fields again after parsing
+                                for pair in self.body.split("&"):
+                                    if "=" in pair:
+                                        key, _ = pair.split("=", 1)
+                                        value = get_form_field(
+                                            self.request_capsule, key
+                                        )
+                                        if value is not None:
+                                            print(
+                                                f"[DEBUG-PY] Got form field after parsing: {key}={value}"
+                                            )
+                                            self._parsed_form[key] = value
+                            else:
+                                print("[DEBUG-PY] Failed to parse form data in C")
                 else:
-                    print("[DEBUG-PY] Failed to parse form data in C")
+                    print("[DEBUG-PY] Not form content type")
                     self._parsed_form = {}
             except Exception as e:
                 print(f"[DEBUG-PY] Form parsing error: {e}")
