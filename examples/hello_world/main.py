@@ -87,10 +87,14 @@ def query_demo(request):
 @app.post("/demo/form")
 def form_demo(request):
     """Demonstrate form data handling"""
-    print(f"[DEBUG] Echo handler - body: {request.body}")
+    print(f"[DEBUG-PY-FROM-EXAMPLE] Echo handler - body: {request.body}")
+    content_type = request.content_type
+    raw_text = request.text()
     form_data = request.form()
     return JSONResponse({
         "message": "Form data received",
+        "content_type": content_type,
+        "raw_text": raw_text,
         "form_data": form_data
     })
 
@@ -98,23 +102,23 @@ def form_demo(request):
 def echo(request):
     """Echo back JSON data with content type info"""
     # print body
-    print(f"[DEBUG] Echo handler - body: {request.body}")
+    print(f"[DEBUG-PY-FROM-EXAMPLE] Echo handler - body: {request.body}")
     # Get content type from request
     content_type = request.content_type
-    print(f"[DEBUG] Echo handler - content type: {content_type}")
+    print(f"[DEBUG-PY-FROM-EXAMPLE] Echo handler - content type: {content_type}")
 
     # Get raw text first
     raw_text = request.text()
-    print(f"[DEBUG] Echo handler - raw text: {raw_text}")
+    print(f"[DEBUG-PY-FROM-EXAMPLE] Echo handler - raw text: {raw_text}")
 
     # Try to parse JSON only if content type is application/json
     parsed_json = {}
     if content_type == "application/json":
         try:
             parsed_json = request.json()
-            print(f"[DEBUG] Echo handler - parsed JSON: {parsed_json}")
+            print(f"[DEBUG-PY-FROM-EXAMPLE] Echo handler - parsed JSON: {parsed_json}")
         except Exception as e:
-            print(f"[DEBUG] Echo handler - JSON parsing error: {e}")
+            print(f"[DEBUG-PY-FROM-EXAMPLE] Echo handler - JSON parsing error: {e}")
 
     return JSONResponse({
         "message": "Echoing back your data",
@@ -149,5 +153,5 @@ def patch(request):
     })
 
 if __name__ == "__main__":
-    print("Starting Catzilla server on http://localhost:8000")
+    print("[INFO-PY-FROM-EXAMPLE] Starting Catzilla server on http://localhost:8000")
     app.listen(8080)

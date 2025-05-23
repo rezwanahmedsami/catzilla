@@ -41,25 +41,36 @@ class Request:
                 from catzilla._catzilla import get_json, parse_json
 
                 print(
-                    f"[DEBUG] Attempting to parse JSON with content type: {self.content_type}"
+                    f"[DEBUG-PY] Attempting to parse JSON with content type: {self.content_type}"
                 )
                 if self.content_type == "application/json":
-                    if parse_json(self.request_capsule) == 0:
-                        result = get_json(self.request_capsule)
-                        if result is not None:
-                            self._json = result
-                            print(f"[DEBUG] JSON parsed successfully: {self._json}")
-                        else:
-                            print("[DEBUG] JSON parsing returned None")
-                            self._json = {}
+                    # Try to get the JSON directly first, since it might be pre-parsed
+                    result = get_json(self.request_capsule)
+                    if result is not None:
+                        self._json = result
+                        print(
+                            f"[DEBUG-PY] Got pre-parsed JSON successfully: {self._json}"
+                        )
                     else:
-                        print("[DEBUG] Failed to parse JSON in C")
-                        self._json = {}
+                        # If not pre-parsed, try parsing it
+                        if parse_json(self.request_capsule) == 0:
+                            result = get_json(self.request_capsule)
+                            if result is not None:
+                                self._json = result
+                                print(
+                                    f"[DEBUG-PY] JSON parsed successfully: {self._json}"
+                                )
+                            else:
+                                print("[DEBUG-PY] JSON parsing returned None")
+                                self._json = {}
+                        else:
+                            print("[DEBUG-PY] Failed to parse JSON in C")
+                            self._json = {}
                 else:
-                    print("[DEBUG] Not JSON content type")
+                    print("[DEBUG-PY] Not JSON content type")
                     self._json = {}
             except Exception as e:
-                print(f"[DEBUG] JSON parsing error: {e}")
+                print(f"[DEBUG-PY] JSON parsing error: {e}")
                 self._json = {}
         return self._json
 
@@ -70,7 +81,7 @@ class Request:
                 from catzilla._catzilla import get_form_field, parse_form
 
                 print(
-                    f"[DEBUG] Attempting to parse form data with content type: {self.content_type}"
+                    f"[DEBUG-PY] Attempting to parse form data with content type: {self.content_type}"
                 )
                 if parse_form(self.request_capsule) == 0:
                     self._parsed_form = {}
@@ -84,10 +95,10 @@ class Request:
                                 if value is not None:
                                     self._parsed_form[key] = value
                 else:
-                    print("[DEBUG] Failed to parse form data in C")
+                    print("[DEBUG-PY] Failed to parse form data in C")
                     self._parsed_form = {}
             except Exception as e:
-                print(f"[DEBUG] Form parsing error: {e}")
+                print(f"[DEBUG-PY] Form parsing error: {e}")
                 self._parsed_form = {}
         return self._parsed_form
 
@@ -128,7 +139,14 @@ class Request:
             from catzilla._catzilla import get_content_type
 
             self._content_type = get_content_type(self.request_capsule) or ""
-            print(f"[DEBUG] Got content type from C: {self._content_type}")
+            print(f"[DEBUG-PY] Got content type from C: {self._content_type}")
+
+            # If we got an empty content type but have a Content-Type header, use that
+            if not self._content_type and "content-type" in self.headers:
+                header_value = self.headers["content-type"].split(";")[0].strip()
+                print(f"[DEBUG-PY] Using content type from header: {header_value}")
+                self._content_type = header_value
+
         return self._content_type
 
 

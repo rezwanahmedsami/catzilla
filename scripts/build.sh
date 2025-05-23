@@ -42,4 +42,4 @@ python3 -m pip uninstall -y catzilla || true
 python3 -m pip install -e .
 
 echo -e "\n${GREEN}✅ Build complete!${NC}"
-echo -e "${YELLOW}You can now run examples with: python3 examples/hello_world/main.py${NC}"
+echo -e "${YELLOW}You can now run examples with: ./scripts/run_example.sh examples/hello_world/main.py${NC}"

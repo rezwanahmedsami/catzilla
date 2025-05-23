@@ -91,7 +91,7 @@ class App:
         self.original_sigterm_handler = signal.getsignal(signal.SIGTERM)
 
         def signal_handler(sig, frame):
-            print("\nShutting down Catzilla server...")
+            print("\n[INFO-PY] Shutting down Catzilla server...")
             self.stop()
 
             # Restore original handlers
@@ -121,9 +121,9 @@ class App:
                     k: v[0]
                     for k, v in parse_qs(query_string, keep_blank_values=True).items()
                 }
-                print(f"[DEBUG] Parsed query params: {query_params}")
+                print(f"[DEBUG-PY] Parsed query params: {query_params}")
             except Exception as e:
-                print(f"[DEBUG] Error parsing query params: {e}")
+                print(f"[DEBUG-PY] Error parsing query params: {e}")
 
         # Create a request object
         request = Request(
@@ -195,8 +195,8 @@ class App:
 
     def listen(self, port: int, host: str = "0.0.0.0"):
         """Start the server"""
-        print(f"Catzilla server starting on http://{host}:{port}")
-        print("Press Ctrl+C to stop the server")
+        print(f"[INFO-PY] Catzilla server starting on http://{host}:{port}")
+        print("[INFO-PY] Press Ctrl+C to stop the server")
 
         # Add our Python handler for all registered routes
         for method, paths in self.router.routes.items():
