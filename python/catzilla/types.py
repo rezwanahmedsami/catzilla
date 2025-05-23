@@ -18,21 +18,52 @@ class Request:
     client: Any  # The client capsule from C
     request_capsule: Any  # The request capsule from C
     headers: Dict[str, str] = None
-    query_params: Dict[str, str] = None
+    _query_params: Dict[str, str] = None  # Internal storage for query params
     _client_ip: Optional[str] = None
     _parsed_form: Optional[Dict[str, str]] = None
     _text: Optional[str] = None
     _json: Optional[Any] = None
     _content_type: Optional[str] = None
+    _loaded_query_params: bool = False
 
     def __post_init__(self):
         if self.headers is None:
             self.headers = {}
-        if self.query_params is None:
-            self.query_params = {}
+        if self._query_params is None:
+            self._query_params = {}
 
         # Normalize header keys to lowercase for consistent access
         self.headers = {k.lower(): v for k, v in self.headers.items()}
+
+    @property
+    def query_params(self) -> Dict[str, str]:
+        """Lazily load query parameters from C when accessed"""
+        if not self._loaded_query_params:
+            try:
+                from catzilla._catzilla import get_query_param
+
+                # Try to get each parameter from the query string
+                if "?" in self.path:
+                    query_string = self.path.split("?", 1)[1]
+                    for pair in query_string.split("&"):
+                        if "=" in pair:
+                            key = pair.split("=", 1)[0]
+                            value = get_query_param(self.request_capsule, key)
+                            if value is not None:
+                                print(
+                                    f"[DEBUG-PY] Got query param from C: {key}={value}"
+                                )
+                                self._query_params[key] = value
+                self._loaded_query_params = True
+            except Exception as e:
+                print(f"[DEBUG-PY] Error loading query params from C: {e}")
+                self._loaded_query_params = True  # Don't try again even if failed
+        return self._query_params
+
+    @query_params.setter
+    def query_params(self, value: Dict[str, str]):
+        """Set query parameters"""
+        self._query_params = value
 
     def json(self) -> Any:
         """Parse body as JSON"""

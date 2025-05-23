@@ -91,16 +91,20 @@ def form_demo(request):
     content_type = request.content_type
     raw_text = request.text()
     form_data = request.form()
+    query_params = request.query_params
     return JSONResponse({
         "message": "Form data received",
         "content_type": content_type,
         "raw_text": raw_text,
-        "form_data": form_data
+        "form_data": form_data,
+        "query_params": query_params
     })
 
 @app.post("/api/echo")
 def echo(request):
     """Echo back JSON data with content type info"""
+    query_params = request.query_params
+    print(f"[DEBUG-PY-FROM-EXAMPLE] Echo handler - query params: {query_params}")
     # print body
     print(f"[DEBUG-PY-FROM-EXAMPLE] Echo handler - body: {request.body}")
     # Get content type from request
@@ -124,7 +128,8 @@ def echo(request):
         "message": "Echoing back your data",
         "content_type": content_type,
         "raw_text": raw_text,
-        "parsed_json": parsed_json
+        "parsed_json": parsed_json,
+        "query_params": query_params
     })
 
 # Additional HTTP method handlers

@@ -33,6 +33,7 @@ static void on_close(uv_handle_t* handle);
 static void after_write(uv_write_t* req, int status);
 static void signal_handler(uv_signal_t* handle, int signum);
 static int on_message_complete(llhttp_t* parser);
+int parse_query_params(catzilla_request_t* request, const char* query_string);
 void url_decode(const char* src, char* dst);
 
 // Add a new function to get client context from client handle
@@ -60,14 +61,12 @@ static int on_message_begin(llhttp_t* parser) {
 
 static int on_url(llhttp_t* parser, const char* at, size_t length) {
     client_context_t* context = (client_context_t*)parser->data;
-    // Find the query string separator '?'
-    const char* query = memchr(at, '?', length);
-    size_t path_length = query ? (size_t)(query - at) : length;
 
-    // Copy just the path part
-    if (path_length >= CATZILLA_PATH_MAX) path_length = CATZILLA_PATH_MAX - 1;
-    memcpy(context->url, at, path_length);
-    context->url[path_length] = '\0';
+    // Store the full URL including query string
+    if (length >= CATZILLA_PATH_MAX) length = CATZILLA_PATH_MAX - 1;
+    memcpy(context->url, at, length);
+    context->url[length] = '\0';
+    fprintf(stderr, "[DEBUG-C] Received full URL: %s\n", context->url);
     return 0;
 }
 
@@ -169,6 +168,18 @@ PyObject* handle_request_in_server(PyObject* callback,
     request->method[CATZILLA_METHOD_MAX-1] = '\0';
     strncpy(request->path, path, CATZILLA_PATH_MAX-1);
     request->path[CATZILLA_PATH_MAX-1] = '\0';
+
+    // Parse query parameters if present
+    const char* query = strchr(path, '?');
+    if (query) {
+        query++; // Skip the '?' character
+        if (parse_query_params(request, query) == 0) {
+            fprintf(stderr, "[DEBUG-C] Successfully parsed query parameters\n");
+        } else {
+            fprintf(stderr, "[DEBUG-C] Failed to parse query parameters\n");
+        }
+    }
+
     if (body) {
         request->body = strdup(body);
         request->body_length = strlen(body);
@@ -748,4 +759,77 @@ static int on_message_complete(llhttp_t* parser) {
     }
 
     return 0;
+}
+
+int parse_query_params(catzilla_request_t* request, const char* query_string) {
+    if (!request || !query_string) return -1;
+
+    // Initialize query parameters
+    request->query_param_count = 0;
+    request->has_query_params = false;
+    for (int i = 0; i < CATZILLA_MAX_QUERY_PARAMS; i++) {
+        request->query_params[i] = NULL;
+        request->query_values[i] = NULL;
+    }
+
+    fprintf(stderr, "[DEBUG-C] Parsing query string: %s\n", query_string);
+
+    // Create a copy we can modify
+    char* query = strdup(query_string);
+    if (!query) return -1;
+
+    char* token;
+    char* rest = query;
+
+    while ((token = strtok_r(rest, "&", &rest))) {
+        char* key = token;
+        char* value = strchr(token, '=');
+
+        if (value) {
+            *value = '\0';  // Split key=value
+            value++;
+
+            // URL decode key and value
+            char* decoded_key = malloc(strlen(key) + 1);
+            char* decoded_value = malloc(strlen(value) + 1);
+
+            if (!decoded_key || !decoded_value) {
+                free(decoded_key);
+                free(decoded_value);
+                free(query);
+                return -1;
+            }
+
+            url_decode(key, decoded_key);
+            url_decode(value, decoded_value);
+
+            fprintf(stderr, "[DEBUG-C] Query param: %s = %s\n", decoded_key, decoded_value);
+
+            if (request->query_param_count < CATZILLA_MAX_QUERY_PARAMS) {
+                request->query_params[request->query_param_count] = decoded_key;
+                request->query_values[request->query_param_count] = decoded_value;
+                request->query_param_count++;
+                request->has_query_params = true;
+            } else {
+                free(decoded_key);
+                free(decoded_value);
+                break;
+            }
+        }
+    }
+
+    free(query);
+    fprintf(stderr, "[DEBUG-C] Query parsing complete with %d parameters\n", request->query_param_count);
+    return 0;
+}
+
+const char* catzilla_get_query_param(catzilla_request_t* request, const char* param) {
+    if (!request || !request->has_query_params || !param) return NULL;
+
+    for (int i = 0; i < request->query_param_count; i++) {
+        if (strcmp(request->query_params[i], param) == 0) {
+            return request->query_values[i];
+        }
+    }
+    return NULL;
 }

@@ -11,6 +11,7 @@
 #define CATZILLA_METHOD_MAX 32
 #define CATZILLA_MAX_HEADERS 50
 #define CATZILLA_MAX_FORM_FIELDS 50
+#define CATZILLA_MAX_QUERY_PARAMS 50
 
 // Forward declaration
 struct catzilla_server_s;
@@ -41,6 +42,11 @@ typedef struct catzilla_request_s {
     char* form_values[CATZILLA_MAX_FORM_FIELDS];
     int form_field_count;
     bool is_form_parsed;
+    // Add query parameter support
+    char* query_params[CATZILLA_MAX_QUERY_PARAMS];
+    char* query_values[CATZILLA_MAX_QUERY_PARAMS];
+    int query_param_count;
+    bool has_query_params;
 } catzilla_request_t;
 
 typedef struct catzilla_route_s {
@@ -111,6 +117,14 @@ yyjson_val* catzilla_get_json(catzilla_request_t* request);
  * @return Field value or NULL if not found
  */
 const char* catzilla_get_form_field(catzilla_request_t* request, const char* field);
+
+/**
+ * Get query parameter value
+ * @param request Pointer to request structure
+ * @param param Parameter name to look up
+ * @return Parameter value or NULL if not found
+ */
+const char* catzilla_get_query_param(catzilla_request_t* request, const char* param);
 
 /**
  * Start listening on the given address

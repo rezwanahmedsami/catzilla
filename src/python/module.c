@@ -332,6 +332,27 @@ static PyObject* get_content_type(PyObject* self, PyObject* args) {
     return PyUnicode_FromString(content_type);
 }
 
+// get_query_param(request_capsule, param_name)
+static PyObject* get_query_param(PyObject *self, PyObject *args)
+{
+    PyObject *capsule;
+    const char *param;
+    if (!PyArg_ParseTuple(args, "Os", &capsule, &param))
+        return NULL;
+
+    catzilla_request_t *request = PyCapsule_GetPointer(capsule, "catzilla.request");
+    if (!request) {
+        PyErr_SetString(PyExc_TypeError, "Invalid request capsule");
+        return NULL;
+    }
+
+    const char *value = catzilla_get_query_param(request, param);
+    if (!value) {
+        Py_RETURN_NONE;
+    }
+    return PyUnicode_FromString(value);
+}
+
 // Method tables and module definition
 static PyMethodDef CatzillaServer_methods[] = {
     {"listen",    (PyCFunction)CatzillaServer_listen,   METH_VARARGS, "Start listening"},
@@ -358,6 +379,7 @@ static PyMethodDef module_methods[] = {
     {"parse_form", parse_form, METH_VARARGS, "Parse form data from request"},
     {"get_form_field", get_form_field, METH_VARARGS, "Get form field value"},
     {"get_content_type", get_content_type, METH_VARARGS, "Get content type from request"},
+    {"get_query_param", get_query_param, METH_VARARGS, "Get query parameter value"},
     {NULL}
 };
 
