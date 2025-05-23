@@ -373,6 +373,17 @@ def styled_html(request):
         </html>
     """)
 
+#  path param /users/{id}
+@app.get("/users/{id}")
+def user_detail(request):
+    """Example of returning a user detail"""
+    query_params = request.query_params
+    return JSONResponse({
+        "message": "User detail",
+        "id": request.path_params["id"],
+        "query_params": query_params
+    })
+
 if __name__ == "__main__":
     print("[INFO-PY-FROM-EXAMPLE] Starting Catzilla server on http://localhost:8000")
     app.listen(8080)

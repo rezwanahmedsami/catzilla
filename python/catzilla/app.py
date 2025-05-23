@@ -8,6 +8,7 @@ import sys
 from typing import Any, Callable, Dict, List, Optional, Union
 from urllib.parse import parse_qs
 
+from .routing import Router
 from .types import HTMLResponse, JSONResponse, Request, Response, RouteHandler
 
 try:
@@ -17,64 +18,6 @@ except ImportError:
     raise ImportError(
         "Failed to import C extension. Make sure Catzilla is properly installed."
     )
-
-
-class Router:
-    """A collection of routes with their handlers"""
-
-    def __init__(self):
-        self.routes = {}
-
-    def add_route(self, method: str, path: str, handler: RouteHandler) -> None:
-        """Add a route handler"""
-        if method not in self.routes:
-            self.routes[method] = {}
-        self.routes[method][path] = handler
-
-    def get(self, path):
-        """Register a GET route handler"""
-
-        def decorator(handler):
-            self.add_route("GET", path, handler)
-            return handler
-
-        return decorator
-
-    def post(self, path):
-        """Register a POST route handler"""
-
-        def decorator(handler):
-            self.add_route("POST", path, handler)
-            return handler
-
-        return decorator
-
-    def put(self, path):
-        """Register a PUT route handler"""
-
-        def decorator(handler):
-            self.add_route("PUT", path, handler)
-            return handler
-
-        return decorator
-
-    def delete(self, path):
-        """Register a DELETE route handler"""
-
-        def decorator(handler):
-            self.add_route("DELETE", path, handler)
-            return handler
-
-        return decorator
-
-    def patch(self, path):
-        """Register a PATCH route handler"""
-
-        def decorator(handler):
-            self.add_route("PATCH", path, handler)
-            return handler
-
-        return decorator
 
 
 class App:
@@ -123,15 +66,36 @@ class App:
             _query_params={},  # Changed from query_params to _query_params
         )
 
-        # Look up the handler
-        handler = None
-        if method in self.router.routes and base_path in self.router.routes[method]:
-            handler = self.router.routes[method][base_path]
+        # Match the route using our new router
+        route, path_params, allowed_methods = self.router.match(method, base_path)
 
-        if handler:
+        # Set path parameters on request
+        request.path_params = path_params
+
+        if route:
             try:
+                # Check content type before calling handler
+                content_type = request.content_type
+                if content_type and content_type not in [
+                    "application/json",
+                    "application/x-www-form-urlencoded",
+                    "text/plain",
+                    "multipart/form-data",
+                ]:
+                    # Return 415 Unsupported Media Type
+                    err_resp = Response(
+                        status_code=415,
+                        content_type="text/plain",
+                        body=f"Unsupported Media Type: {content_type}",
+                        headers={
+                            "X-Error-Detail": f"Content-Type {content_type} is not supported"
+                        },
+                    )
+                    err_resp.send(client)
+                    return
+
                 # Call the handler and get a response
-                response = handler(request)
+                response = route.handler(request)
 
                 # Normalize response based on return type
                 if isinstance(response, Response):
@@ -165,44 +129,67 @@ class App:
                 err_resp.send(client)
                 traceback.print_exc()
         else:
-            # No handler found
-            not_found = Response(
-                status_code=404,
-                content_type="text/plain",
-                body=f"Not Found: {method} {path}",
-                headers={"X-Error-Path": path},
-            )
-            not_found.send(client)
+            if allowed_methods:
+                # Path exists but method not allowed
+                not_allowed = Response(
+                    status_code=405,
+                    content_type="text/plain",
+                    body=f"Method Not Allowed: {method} {path}",
+                    headers={
+                        "Allow": ", ".join(sorted(allowed_methods)),
+                        "X-Error-Path": path,
+                    },
+                )
+                not_allowed.send(client)
+            else:
+                # No route found
+                not_found = Response(
+                    status_code=404,
+                    content_type="text/plain",
+                    body=f"Not Found: {method} {path}",
+                    headers={"X-Error-Path": path},
+                )
+                not_found.send(client)
 
-    def get(self, path):
+    def route(self, path: str, methods: List[str] = None, *, overwrite: bool = False):
+        """Register a route handler for multiple HTTP methods"""
+        return self.router.route(path, methods, overwrite=overwrite)
+
+    def get(self, path: str, *, overwrite: bool = False):
         """Register a GET route handler"""
-        return self.router.get(path)
+        return self.router.get(path, overwrite=overwrite)
 
-    def post(self, path):
+    def post(self, path: str, *, overwrite: bool = False):
         """Register a POST route handler"""
-        return self.router.post(path)
+        return self.router.post(path, overwrite=overwrite)
 
-    def put(self, path):
+    def put(self, path: str, *, overwrite: bool = False):
         """Register a PUT route handler"""
-        return self.router.put(path)
+        return self.router.put(path, overwrite=overwrite)
 
-    def delete(self, path):
+    def delete(self, path: str, *, overwrite: bool = False):
         """Register a DELETE route handler"""
-        return self.router.delete(path)
+        return self.router.delete(path, overwrite=overwrite)
 
-    def patch(self, path):
+    def patch(self, path: str, *, overwrite: bool = False):
         """Register a PATCH route handler"""
-        return self.router.patch(path)
+        return self.router.patch(path, overwrite=overwrite)
+
+    def routes(self) -> List[Dict[str, str]]:
+        """Get a list of all registered routes"""
+        return self.router.routes()
 
     def listen(self, port: int, host: str = "0.0.0.0"):
         """Start the server"""
         print(f"[INFO-PY] Catzilla server starting on http://{host}:{port}")
         print("[INFO-PY] Press Ctrl+C to stop the server")
+        print("\nRegistered routes:")
+        for route in self.routes():
+            print(f"  {route['method']:6} {route['path']}")
 
         # Add our Python handler for all registered routes
-        for method, paths in self.router.routes.items():
-            for path in paths:
-                self.server.add_route(method, path, self._handle_request)
+        for route in self.router.routes():
+            self.server.add_route(route["method"], route["path"], self._handle_request)
 
         # Start the server
         self.server.listen(port, host)

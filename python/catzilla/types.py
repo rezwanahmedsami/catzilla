@@ -20,6 +20,7 @@ class Request:
     request_capsule: Any  # The request capsule from C
     headers: Dict[str, str] = None
     _query_params: Dict[str, str] = None  # Internal storage for query params
+    _path_params: Dict[str, str] = None  # Internal storage for path params
     _client_ip: Optional[str] = None
     _parsed_form: Optional[Dict[str, str]] = None
     _text: Optional[str] = None
@@ -32,9 +33,21 @@ class Request:
             self.headers = {}
         if self._query_params is None:
             self._query_params = {}
+        if self._path_params is None:
+            self._path_params = {}
 
         # Normalize header keys to lowercase for consistent access
         self.headers = {k.lower(): v for k, v in self.headers.items()}
+
+    @property
+    def path_params(self) -> Dict[str, str]:
+        """Get path parameters extracted from the URL"""
+        return self._path_params
+
+    @path_params.setter
+    def path_params(self, value: Dict[str, str]):
+        """Set path parameters"""
+        self._path_params = value or {}
 
     @property
     def query_params(self) -> Dict[str, str]:
