@@ -132,13 +132,24 @@ class App:
             try:
                 # Call the handler and get a response
                 response = handler(request)
-                if not isinstance(response, Response):
-                    response = Response(
-                        status_code=200,
-                        # content_type="text/plain",
-                        content_type="application/json",
-                        body=str(response),
+
+                # Normalize response based on return type
+                if isinstance(response, Response):
+                    # Response object - use as is
+                    pass
+                elif isinstance(response, dict):
+                    # Dictionary - convert to JSONResponse
+                    response = JSONResponse(response)
+                elif isinstance(response, str):
+                    # String - convert to HTMLResponse
+                    response = HTMLResponse(response)
+                else:
+                    # Unsupported type
+                    raise TypeError(
+                        f"Handler returned unsupported type {type(response)}. "
+                        "Must return Response, dict, or str."
                     )
+
                 # Send the response
                 response.send(client)
             except Exception as e:
@@ -149,6 +160,7 @@ class App:
                     status_code=500,
                     content_type="text/plain",
                     body=f"Internal Server Error: {str(e)}",
+                    headers={"X-Error-Detail": str(e)},
                 )
                 err_resp.send(client)
                 traceback.print_exc()
@@ -158,6 +170,7 @@ class App:
                 status_code=404,
                 content_type="text/plain",
                 body=f"Not Found: {method} {path}",
+                headers={"X-Error-Path": path},
             )
             not_found.send(client)
 

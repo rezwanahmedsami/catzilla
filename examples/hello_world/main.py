@@ -18,14 +18,56 @@ def home(request):
                     font-family: Arial, sans-serif;
                     margin: 40px;
                     line-height: 1.6;
+                    max-width: 1200px;
+                    margin: 0 auto;
+                    padding: 20px;
                 }
                 h1 { color: #333; }
-                a { color: #0066cc; }
+                h2 { color: #444; margin-top: 30px; }
+                a { color: #0066cc; text-decoration: none; }
+                a:hover { text-decoration: underline; }
                 .demo-form {
                     margin: 20px 0;
                     padding: 20px;
                     border: 1px solid #ddd;
                     border-radius: 4px;
+                    background: #f9f9f9;
+                }
+                .api-section {
+                    margin: 20px 0;
+                    padding: 20px;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 4px;
+                }
+                .api-list {
+                    list-style: none;
+                    padding: 0;
+                }
+                .api-list li {
+                    margin: 10px 0;
+                    padding: 10px;
+                    background: #fff;
+                    border: 1px solid #eee;
+                    border-radius: 4px;
+                }
+                .method {
+                    display: inline-block;
+                    padding: 3px 8px;
+                    border-radius: 3px;
+                    font-size: 0.8em;
+                    font-weight: bold;
+                    margin-right: 10px;
+                }
+                .get { background: #61affe; color: white; }
+                .post { background: #49cc90; color: white; }
+                .put { background: #fca130; color: white; }
+                .delete { background: #f93e3e; color: white; }
+                .patch { background: #50e3c2; color: white; }
+                .examples-section {
+                    margin-top: 30px;
+                    padding: 20px;
+                    background: #f8f9fa;
+                    border-radius: 8px;
                 }
             </style>
         </head>
@@ -41,13 +83,34 @@ def home(request):
                 </form>
             </div>
 
-            <h2>API Endpoints:</h2>
-            <ul>
-                <li><a href="/hello">Hello Page</a></li>
-                <li><a href="/api/info">API Info</a></li>
-                <li><a href="/demo/request-info">Request Info Demo</a></li>
-                <li><a href="/demo/query?name=catzilla&type=awesome">Query Params Demo</a></li>
-            </ul>
+            <div class="api-section">
+                <h2>API Endpoints</h2>
+                <ul class="api-list">
+                    <li><span class="method get">GET</span> <a href="/hello">Hello Page</a> - Simple HTML response</li>
+                    <li><span class="method get">GET</span> <a href="/api/info">API Info</a> - Framework information</li>
+                    <li><span class="method get">GET</span> <a href="/demo/request-info">Request Info Demo</a> - Shows request details</li>
+                    <li><span class="method get">GET</span> <a href="/demo/query?name=catzilla&type=awesome">Query Params Demo</a> - URL parameter handling</li>
+                    <li><span class="method post">POST</span> <code>/demo/form</code> - Form data handling</li>
+                    <li><span class="method post">POST</span> <code>/api/echo</code> - Echo back request data</li>
+                    <li><span class="method get">GET</span> <a href="/api/headers">Headers Demo</a> - Response header demo</li>
+                    <li><span class="method get">GET</span> <a href="/api/cookies">Cookies Demo</a> - Cookie handling demo</li>
+                    <li><span class="method get">GET</span> <a href="/api/status/404">Status Code Demo</a> - Custom status response</li>
+                    <li><span class="method put">PUT</span> <code>/api/update</code> - Update endpoint</li>
+                    <li><span class="method delete">DELETE</span> <code>/api/delete</code> - Delete endpoint</li>
+                    <li><span class="method patch">PATCH</span> <code>/api/patch</code> - Patch endpoint</li>
+                </ul>
+            </div>
+
+            <div class="examples-section">
+                <h2>Quick Examples</h2>
+                <ul class="api-list">
+                    <li><span class="method get">GET</span> <a href="/examples/simple-html">Simple HTML</a> - Basic HTML string response</li>
+                    <li><span class="method get">GET</span> <a href="/examples/simple-json">Simple JSON</a> - Basic dictionary/JSON response</li>
+                    <li><span class="method get">GET</span> <a href="/examples/custom-status">Custom Status</a> - Response with custom status code</li>
+                    <li><span class="method get">GET</span> <a href="/examples/json-with-headers">JSON with Headers</a> - JSON response with custom headers</li>
+                    <li><span class="method get">GET</span> <a href="/examples/styled-html">Styled HTML</a> - HTML response with CSS styling</li>
+                </ul>
+            </div>
         </body>
     </html>
     """)
@@ -79,10 +142,16 @@ def request_info(request):
 @app.get("/demo/query")
 def query_demo(request):
     """Demonstrate query parameter handling"""
-    return JSONResponse({
-        "message": "Query parameters received",
-        "params": request.query_params
-    })
+    return JSONResponse(
+        {
+            "message": "Query parameters received",
+            "params": request.query_params
+        },
+        headers={
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*"  # Allow cross-origin requests
+        }
+    )
 
 @app.post("/demo/form")
 def form_demo(request):
@@ -156,6 +225,153 @@ def patch(request):
         "message": "Data patched successfully",
         "data": data
     })
+
+@app.get("/api/headers")
+def headers_demo(request):
+    """Demonstrate response headers"""
+    return JSONResponse(
+        {
+            "message": "Custom headers demo",
+            "your_headers": request.headers
+        },
+        headers={
+            "X-Custom-Header": "Custom Value",
+            "X-Framework": "Catzilla",
+            "X-Version": "0.1.0",
+            "Access-Control-Allow-Origin": "*"
+        }
+    )
+
+@app.get("/api/cookies")
+def cookies_demo(request):
+    """Demonstrate cookie handling"""
+    response = JSONResponse({
+        "message": "Cookie demo",
+        "description": "Check your browser's cookies",
+        "note": "All cookies should be visible now"
+    })
+
+    # Basic session cookie
+    response.set_cookie(
+        "session_demo",
+        "abc123",
+        max_age=3600,
+        path="/"
+    )
+
+    # Persistent cookie
+    response.set_cookie(
+        "persistent_demo",
+        "xyz789",
+        expires="Sat, 24 May 2025 00:00:00 GMT",
+        path="/"
+    )
+
+    # Secure cookie - only set secure flag if using HTTPS
+    response.set_cookie(
+        "secure_demo",
+        "secure123",
+        httponly=True,  # Remove secure flag since we're using HTTP
+        path="/"
+    )
+
+    # Path-specific cookie
+    response.set_cookie(
+        "path_demo",
+        "path123",
+        path="/",  # Set to root path to ensure visibility
+        max_age=3600
+    )
+
+    return response
+
+@app.get("/api/status")
+def status_demo(request):
+    """Demonstrate different status codes"""
+    # Extract status code from path
+    try:
+        # code = int(request.path.split("/")[-1])
+        code = int(request.query_params.get("code", 400))
+    except ValueError:
+        code = 400
+
+    return JSONResponse(
+        {
+            "message": f"Returning status code {code}",
+            "description": "This is a status code demo"
+        },
+        status_code=code
+    )
+
+@app.get("/examples/simple-html")
+def simple_html(request):
+    """Example of returning a simple HTML string"""
+    return "<h1>Hello World</h1><p>This is a simple HTML response</p>"
+
+@app.get("/examples/simple-json")
+def simple_json(request):
+    """Example of returning a simple dictionary"""
+    return {
+        "name": "sami",
+        "role": "developer",
+        "skills": ["python", "javascript", "c++"]
+    }
+
+@app.get("/examples/custom-status")
+def custom_status(request):
+    """Example of returning with a custom status code"""
+    return Response(
+        status_code=201,
+        body="Resource created successfully",
+        content_type="text/plain"
+    )
+
+@app.get("/examples/json-with-headers")
+def json_with_headers(request):
+    """Example of JSON response with custom headers"""
+    return JSONResponse(
+        {
+            "message": "Success",
+            "timestamp": "2024-03-21T12:00:00Z"
+        },
+        headers={
+            "X-Custom-Header": "Special Value",
+            "X-Rate-Limit": "100"
+        }
+    )
+
+@app.get("/examples/styled-html")
+def styled_html(request):
+    """Example of HTML response with CSS styling"""
+    return HTMLResponse("""
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        margin: 40px;
+                        background: #f0f0f0;
+                    }
+                    .card {
+                        background: white;
+                        padding: 20px;
+                        border-radius: 8px;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    }
+                    h1 { color: #2c3e50; }
+                    .highlight { color: #e74c3c; }
+                </style>
+            </head>
+            <body>
+                <div class="card">
+                    <h1>Styled HTML Example</h1>
+                    <p>This is a <span class="highlight">beautifully styled</span> HTML response.</p>
+                    <p>It demonstrates how to return HTML with embedded CSS.</p>
+                </div>
+            </body>
+        </html>
+    """)
 
 if __name__ == "__main__":
     print("[INFO-PY-FROM-EXAMPLE] Starting Catzilla server on http://localhost:8000")

@@ -4,7 +4,8 @@ Type definitions for Catzilla
 
 import json
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional
+from http.cookies import SimpleCookie
+from typing import Any, Callable, Dict, List, Optional, Union
 from urllib.parse import parse_qs
 
 
@@ -216,32 +217,155 @@ class Response:
     """Base HTTP Response class"""
 
     def __init__(
-        self, status_code: int = 200, content_type: str = "text/plain", body: str = ""
+        self,
+        status_code: int = 200,
+        content_type: str = "text/plain",
+        body: str = "",
+        headers: Optional[Dict[str, str]] = None,
     ):
         self.status_code = status_code
         self.content_type = content_type
         self.body = body
+        self._headers = {}
+        self._cookies = SimpleCookie()
+
+        # Normalize and set headers
+        if headers:
+            for key, value in headers.items():
+                self.set_header(key, value)
+
+    def set_header(self, name: str, value: str) -> None:
+        """Set a response header, normalizing the header name"""
+        name = name.lower().strip()
+        if name == "set-cookie":
+            if name not in self._headers:
+                self._headers[name] = []
+            if isinstance(value, list):
+                self._headers[name].extend(value)
+            else:
+                self._headers[name].append(value)
+        else:
+            self._headers[name] = str(value)
+
+    def get_header(self, name: str) -> Optional[str]:
+        """Get a response header by name"""
+        name = name.lower().strip()
+        header_value = self._headers.get(name)
+        if header_value is not None:
+            if isinstance(header_value, list):
+                return header_value[0] if header_value else None
+            return header_value
+        return None
+
+    def get_all_headers(self) -> List[str]:
+        """Get all headers as a list of 'Name: Value' strings"""
+        headers = []
+        for name, value in self._headers.items():
+            if name == "set-cookie":
+                if isinstance(value, list):
+                    for cookie in value:
+                        headers.append(f"Set-Cookie: {cookie}")
+            else:
+                headers.append(f"{name}: {value}")
+        return headers
+
+    def set_cookie(
+        self,
+        name: str,
+        value: str,
+        max_age: Optional[int] = None,
+        expires: Optional[str] = None,
+        path: str = "/",
+        domain: Optional[str] = None,
+        secure: bool = False,
+        httponly: bool = False,
+        samesite: Optional[str] = None,
+    ) -> None:
+        """Set a cookie with the given name and value."""
+        self._cookies[name] = value
+        morsel = self._cookies[name]
+
+        if max_age is not None:
+            morsel["max-age"] = max_age
+        if expires is not None:
+            morsel["expires"] = expires
+        if path is not None:
+            morsel["path"] = path
+        if domain is not None:
+            morsel["domain"] = domain
+        if secure:
+            morsel["secure"] = secure
+        if httponly:
+            morsel["httponly"] = httponly
+        if samesite is not None:
+            morsel["samesite"] = samesite
+
+        # Add cookie to headers immediately
+        cookie_str = morsel.output(header="").strip()
+        self.set_header("Set-Cookie", cookie_str)
 
     def send(self, client):
         """Send the response using the C extension"""
         from catzilla._catzilla import send_response
 
-        send_response(client, self.status_code, self.content_type, self.body)
+        # Set content type header
+        self.set_header("Content-Type", self.content_type)
+
+        # Set content length header
+        self.set_header("Content-Length", str(len(self.body)))
+
+        # Set connection header
+        self.set_header("Connection", "close")
+
+        # Get all headers as a string
+        headers_str = "\r\n".join(self.get_all_headers())
+        if headers_str:
+            headers_str += "\r\n"
+
+        # Send response with headers
+        send_response(client, self.status_code, headers_str, self.body)
 
 
 class JSONResponse(Response):
     """HTTP Response with JSON body"""
 
-    def __init__(self, data: Any, status_code: int = 200):
-        super().__init__(status_code, "application/json", json.dumps(data))
+    def __init__(
+        self,
+        data: Any,
+        status_code: int = 200,
+        headers: Optional[Dict[str, str]] = None,
+    ):
+        # Create headers dict if not provided
+        if headers is None:
+            headers = {}
+
+        # Ensure content type is set
+        headers["Content-Type"] = "application/json"
+
+        super().__init__(
+            status_code=status_code,
+            content_type="application/json",
+            body=json.dumps(data),
+            headers=headers,
+        )
 
 
 class HTMLResponse(Response):
     """HTTP Response with HTML body"""
 
-    def __init__(self, html: str, status_code: int = 200):
-        super().__init__(status_code, "text/html", html)
+    def __init__(
+        self,
+        html: str,
+        status_code: int = 200,
+        headers: Optional[Dict[str, str]] = None,
+    ):
+        super().__init__(
+            status_code=status_code,
+            content_type="text/html",
+            body=html,
+            headers=headers,
+        )
 
 
 # Type definition for route handlers
-RouteHandler = Callable[[Request], Response]
+RouteHandler = Callable[[Request], Union[Response, str, dict]]

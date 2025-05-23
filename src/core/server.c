@@ -380,7 +380,7 @@ int catzilla_parse_form(catzilla_request_t* request) {
             } else {
                 free(decoded_key);
                 free(decoded_value);
-                break;
+            break;
             }
         }
     }
@@ -593,7 +593,7 @@ void catzilla_server_set_request_callback(catzilla_server_t* server, void* callb
 
 void catzilla_send_response(uv_stream_t* client,
                            int status_code,
-                           const char* content_type,
+                           const char* headers,
                            const char* body,
                            size_t body_len) {
     write_req_t* req = malloc(sizeof(*req));
@@ -611,11 +611,10 @@ void catzilla_send_response(uv_stream_t* client,
     char header[512];
     int header_len = snprintf(header, sizeof(header),
         "HTTP/1.1 %d %s\r\n"
-        "Content-Type: %s\r\n"
-        "Content-Length: %zu\r\n"
-        "Connection: close\r\n\r\n",
+        "%s"
+        "\r\n",
         status_code, status_text,
-        content_type, body_len);
+        headers);
     char* response = malloc(header_len + body_len);
     if (!response) { free(req); return; }
     memcpy(response, header, header_len);
@@ -688,8 +687,8 @@ static void on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf) {
 static void on_close(uv_handle_t* handle) {
     client_context_t* ctx = handle->data;
     if (ctx) {
-        free(ctx->body);
-        free(ctx);
+    free(ctx->body);
+    free(ctx);
     }
 }
 
