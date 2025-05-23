@@ -13,13 +13,13 @@ pip install catzilla
 Create a new file `app.py`:
 
 ```python
-from catzilla import App
+from catzilla import App, response
 
 app = App()
 
 @app.get("/")
 def home(request):
-    return "<h1>Hello, Catzilla!</h1>"
+    return response.html("<h1>Hello, Catzilla!</h1>")
 
 if __name__ == "__main__":
     app.listen(8080)
@@ -35,82 +35,97 @@ Visit `http://localhost:8080` in your browser to see your first Catzilla app!
 
 ## Basic Examples
 
-### 1. JSON API
+### 1. JSON API with Fluent Response
 
 ```python
-from catzilla import App
+from catzilla import App, response
 
 app = App()
 
 @app.get("/api/hello")
 def hello_api(request):
     name = request.query_params.get("name", "World")
-    return {
-        "message": f"Hello, {name}!",
-        "timestamp": "2024-03-21T12:00:00Z"
-    }
+    return (response
+        .status(200)
+        .set_header("X-API-Version", "1.0")
+        .json({
+            "message": f"Hello, {name}!",
+            "timestamp": "2024-03-21T12:00:00Z"
+        }))
 
 @app.post("/api/echo")
 def echo(request):
-    return {
-        "received": request.json(),
-        "headers": dict(request.headers)
-    }
+    return (response
+        .status(200)
+        .json({
+            "received": request.json(),
+            "headers": dict(request.headers)
+        }))
 
 if __name__ == "__main__":
     app.listen(8080)
 ```
 
-### 2. HTML Pages
+### 2. HTML Pages with Cookies
 
 ```python
-from catzilla import App, HTMLResponse
+from catzilla import App, response
 
 app = App()
 
 @app.get("/")
 def home(request):
-    return HTMLResponse("""
-        <!DOCTYPE html>
-        <html>
-            <head>
-                <title>Catzilla Demo</title>
-                <style>
-                    body { font-family: Arial; margin: 40px; }
-                </style>
-            </head>
-            <body>
-                <h1>Welcome to Catzilla</h1>
-                <p>A high-performance Python web framework.</p>
-            </body>
-        </html>
-    """)
+    return (response
+        .set_cookie("visited", "true", max_age=3600)
+        .html("""
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <title>Catzilla Demo</title>
+                    <style>
+                        body { font-family: Arial; margin: 40px; }
+                    </style>
+                </head>
+                <body>
+                    <h1>Welcome to Catzilla</h1>
+                    <p>A high-performance Python web framework.</p>
+                </body>
+            </html>
+        """))
 
 if __name__ == "__main__":
     app.listen(8080)
 ```
 
-### 3. Form Handling
+### 3. Form Handling with Status Codes
 
 ```python
-from catzilla import App
+from catzilla import App, response
 
 app = App()
 
 @app.get("/form")
 def show_form(request):
-    return """
+    return response.html("""
         <form method="POST" action="/submit">
             <input type="text" name="message">
             <button type="submit">Send</button>
         </form>
-    """
+    """)
 
 @app.post("/submit")
 def handle_form(request):
     form_data = request.form()
     message = form_data.get("message", "")
-    return f"<h1>Received: {message}</h1>"
+    if not message:
+        return (response
+            .status(400)
+            .json({"error": "Message is required"}))
+
+    return (response
+        .status(201)
+        .set_header("X-Custom", "value")
+        .html(f"<h1>Received: {message}</h1>"))
 
 if __name__ == "__main__":
     app.listen(8080)
@@ -142,39 +157,24 @@ request.form()         # Parse form data
 request.text()         # Raw body text
 ```
 
-### 3. Response Types
+### 3. Response Building (Express.js Style)
 
 ```python
 # HTML Response
-return "<h1>Hello</h1>"  # Automatic conversion
-return HTMLResponse("<h1>Hello</h1>")  # Explicit
+return response.html("<h1>Hello</h1>")
 
-# JSON Response
-return {"key": "value"}  # Automatic conversion
-return JSONResponse({"key": "value"})  # Explicit
+# JSON Response with status
+return response.status(201).json({"key": "value"})
 
-# Custom Response
-return Response(
-    body="Custom content",
-    status_code=200,
-    content_type="text/plain"
-)
-```
+# Response with headers and cookies
+return (response
+    .status(200)
+    .set_header("X-Custom", "value")
+    .set_cookie("session", "abc123", httponly=True)
+    .json({"data": "value"}))
 
-### 4. Headers and Cookies
-
-```python
-# Set headers
-response = JSONResponse({"data": "value"})
-response.set_header("X-Custom", "value")
-
-# Set cookies
-response.set_cookie(
-    "session",
-    "abc123",
-    max_age=3600,
-    httponly=True
-)
+# Plain text response
+return response.send("Custom content")
 ```
 
 ## Project Structure

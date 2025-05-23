@@ -1,9 +1,19 @@
 """
-Catzilla - High-performance Python web framework with C core
+Catzilla Web Framework
 """
 
-from .app import App, Router
+from .app import App
+from .response import ResponseBuilder, response
 from .types import HTMLResponse, JSONResponse, Request, Response
 
 __version__ = "0.1.0"
-__all__ = ["App", "Request", "Response", "Router", "JSONResponse", "HTMLResponse"]
+
+__all__ = [
+    "App",
+    "Request",
+    "Response",
+    "JSONResponse",
+    "HTMLResponse",
+    "response",
+    "ResponseBuilder",
+]

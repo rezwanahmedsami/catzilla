@@ -2,6 +2,45 @@
 
 Catzilla provides flexible response handling with automatic type conversion and multiple response classes.
 
+## Express.js-style Fluent API
+
+Catzilla provides an Express.js-inspired fluent API for building responses:
+
+```python
+from catzilla import response
+
+# JSON response with status and headers
+@app.post("/api/create")
+def create(request):
+    return (response
+        .status(201)
+        .set_header("X-API-Version", "1.0")
+        .json({"created": True}))
+
+# HTML response with cookies
+@app.get("/welcome")
+def welcome(request):
+    return (response
+        .set_cookie("session", "abc123", httponly=True)
+        .html("<h1>Welcome!</h1>"))
+
+# Plain text response
+@app.get("/health")
+def health(request):
+    return response.send("OK")
+```
+
+### Available Methods
+
+- `status(code: int)` - Set response status code
+- `json(data: dict)` - Send JSON response
+- `html(content: str)` - Send HTML response
+- `send(text: str)` - Send plain text response
+- `set_header(key: str, value: str)` - Set custom header
+- `set_cookie(...)` - Set response cookie
+
+All methods (except final response methods) support chaining.
+
 ## Basic Response Types
 
 ### HTMLResponse
