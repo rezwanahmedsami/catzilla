@@ -213,6 +213,10 @@ def test_app_route_registration():
     def hello(req):
         return HTMLResponse("<h1>Hi</h1>")
 
-    assert "GET" in app.router.routes
-    assert "/hello" in app.router.routes["GET"]
-    assert callable(app.router.routes["GET"]["/hello"])
+    # Check that the route is registered
+    routes_list = app.router.routes()
+    assert len(routes_list) == 1
+    route = routes_list[0]
+    assert route["method"] == "GET"
+    assert route["path"] == "/hello"
+    assert route["handler_name"] == "hello"

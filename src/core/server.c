@@ -1,4 +1,5 @@
 #include "server.h"
+#include "router.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -141,6 +142,53 @@ static int on_body(llhttp_t* parser, const char* at, size_t length) {
     context->body[context->body_length] = '\0';
     fprintf(stderr, "[DEBUG-C] Received body chunk: %zu bytes\n", length);
     return 0;
+}
+
+// Function to check if body parsing will fail due to unsupported content type
+static bool should_return_415(client_context_t* context) {
+    // Only return 415 if we have a body and the content type is unsupported
+    if (!context->body || context->body_length == 0) {
+        return false;  // No body, no problem
+    }
+
+    // For POST/PUT/PATCH requests with body, we expect a supported content type
+    if (strcmp(context->method, "POST") == 0 ||
+        strcmp(context->method, "PUT") == 0 ||
+        strcmp(context->method, "PATCH") == 0) {
+
+        // If we have a body but no recognizable content type, return 415
+        if (context->content_type == CONTENT_TYPE_NONE) {
+            fprintf(stderr, "[DEBUG-C] Request has body but unsupported content type\n");
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// Function to populate request with path parameters from route match
+static void populate_path_params(catzilla_request_t* request, const catzilla_route_match_t* match) {
+    if (!request || !match) return;
+
+    // Clear existing path parameters
+    request->path_param_count = 0;
+    request->has_path_params = false;
+
+    // Copy path parameters from match
+    for (int i = 0; i < match->param_count && i < CATZILLA_MAX_PATH_PARAMS; i++) {
+        strncpy(request->path_params[i].name, match->params[i].name, CATZILLA_PARAM_NAME_MAX - 1);
+        request->path_params[i].name[CATZILLA_PARAM_NAME_MAX - 1] = '\0';
+
+        strncpy(request->path_params[i].value, match->params[i].value, CATZILLA_PATH_SEGMENT_MAX - 1);
+        request->path_params[i].value[CATZILLA_PATH_SEGMENT_MAX - 1] = '\0';
+
+        request->path_param_count++;
+    }
+
+    if (request->path_param_count > 0) {
+        request->has_path_params = true;
+        fprintf(stderr, "[DEBUG-C] Populated %d path parameters in request\n", request->path_param_count);
+    }
 }
 
 // Python callback helper
@@ -476,6 +524,13 @@ int catzilla_server_init(catzilla_server_t* server) {
     if (rc) return rc;
     server->sig_handle.data = server;
 
+    // Initialize advanced router
+    rc = catzilla_router_init(&server->router);
+    if (rc) {
+        fprintf(stderr, "[ERROR] Failed to initialize advanced router\n");
+        return rc;
+    }
+
     llhttp_settings_init(&server->parser_settings);
     server->parser_settings.on_message_begin  = on_message_begin;
     server->parser_settings.on_url            = on_url;
@@ -492,6 +547,7 @@ int catzilla_server_init(catzilla_server_t* server) {
     // Set global reference for signal handling
     active_server = server;
 
+    fprintf(stderr, "[INFO-C] Server initialized with advanced routing system\n");
     return 0;
 }
 
@@ -503,6 +559,10 @@ void signal_handler(uv_signal_t* handle, int signum) {
 
 void catzilla_server_cleanup(catzilla_server_t* server) {
     server->is_running = false;
+
+    // Clean up advanced router
+    catzilla_router_cleanup(&server->router);
+
     uv_close((uv_handle_t*)&server->server, NULL);
     uv_close((uv_handle_t*)&server->sig_handle, NULL);
     uv_run(server->loop, UV_RUN_DEFAULT);
@@ -576,14 +636,33 @@ int catzilla_server_add_route(catzilla_server_t* server,
                              const char* path,
                              void* handler,
                              void* user_data) {
-    if (server->route_count >= CATZILLA_MAX_ROUTES) return -1;
+    if (!server || !method || !path) return -1;
+
+    // Check for route conflicts and warn
+    catzilla_server_check_route_conflicts(server, method, path);
+
+    // Add to advanced router first
+    uint32_t route_id = catzilla_router_add_route(&server->router, method, path, handler, user_data, false);
+    if (route_id > 0) {
+        fprintf(stderr, "[DEBUG-C] Added route to advanced router: %s %s (ID: %u)\n", method, path, route_id);
+        return 0;  // Success
+    }
+
+    // Fallback to legacy route table if advanced router fails
+    if (server->route_count >= CATZILLA_MAX_ROUTES) {
+        fprintf(stderr, "[ERROR-C] Maximum legacy routes reached (%d)\n", CATZILLA_MAX_ROUTES);
+        return -1;
+    }
+
     catzilla_route_t* route = &server->routes[server->route_count++];
     strncpy(route->method, method, CATZILLA_METHOD_MAX-1);
     route->method[CATZILLA_METHOD_MAX-1] = '\0';
-    strncpy(route->path, path,   CATZILLA_PATH_MAX-1);
+    strncpy(route->path, path, CATZILLA_PATH_MAX-1);
     route->path[CATZILLA_PATH_MAX-1] = '\0';
     route->handler = handler;
     route->user_data = user_data;
+
+    fprintf(stderr, "[DEBUG-C] Added route to legacy table: %s %s\n", method, path);
     return 0;
 }
 
@@ -707,6 +786,28 @@ static int on_message_complete(llhttp_t* parser) {
     fprintf(stderr, "[DEBUG-C] HTTP message complete\n");
     fprintf(stderr, "[INFO-C] Received request: Method=%s, URL=%s\n", context->method, context->url);
 
+    // Extract path from URL (remove query string)
+    char path[CATZILLA_PATH_MAX];
+    char* query_start = strchr(context->url, '?');
+    if (query_start) {
+        size_t path_length = query_start - context->url;
+        if (path_length >= CATZILLA_PATH_MAX) path_length = CATZILLA_PATH_MAX - 1;
+        memcpy(path, context->url, path_length);
+        path[path_length] = '\0';
+    } else {
+        strncpy(path, context->url, CATZILLA_PATH_MAX - 1);
+        path[CATZILLA_PATH_MAX - 1] = '\0';
+    }
+
+    fprintf(stderr, "[DEBUG-C] Extracted path: %s\n", path);
+
+    // Check for 415 Unsupported Media Type before routing
+    if (should_return_415(context)) {
+        const char* body = "415 Unsupported Media Type";
+        catzilla_send_response((uv_stream_t*)&context->client, 415, "text/plain", body, strlen(body));
+        return 0;
+    }
+
     // 1) If Python callback is set, hand off to Python and return
     if (server->py_request_callback != NULL) {
         PyGILState_STATE gstate = PyGILState_Ensure();
@@ -729,21 +830,33 @@ static int on_message_complete(llhttp_t* parser) {
         return 0;
     }
 
-    // 2) Local C route dispatch
-    catzilla_route_t* matched = NULL;
-    for (int i = 0; i < server->route_count; i++) {
-        catzilla_route_t* route = &server->routes[i];
-        bool method_ok = (route->method[0] == '*' || strcmp(route->method, context->method) == 0);
-        bool path_ok   = (route->path[0]   == '*' || strcmp(route->path, context->url) == 0);
-        if (method_ok && path_ok) {
-            matched = route;
-            break;
-        }
-    }
+    // 2) Advanced router dispatch
+    catzilla_route_match_t match;
+    int match_result = catzilla_router_match(&server->router, context->method, path, &match);
 
-    if (matched) {
+    if (match_result == 0 && match.route != NULL) {
+        // Route matched successfully
+        fprintf(stderr, "[DEBUG-C] Route matched with %d path parameters\n", match.param_count);
+
+        // Log path parameters
+        for (int i = 0; i < match.param_count; i++) {
+            fprintf(stderr, "[DEBUG-C] Path param: %s = %s\n",
+                   match.params[i].name, match.params[i].value);
+        }
+
+        // Create request structure and populate path parameters
+        catzilla_request_t request;
+        memset(&request, 0, sizeof(request));
+        strncpy(request.method, context->method, CATZILLA_METHOD_MAX - 1);
+        strncpy(request.path, path, CATZILLA_PATH_MAX - 1);
+        request.body = context->body;
+        request.body_length = context->body_length;
+        request.content_type = context->content_type;
+
+        populate_path_params(&request, &match);
+
         // Call the handler
-        void (*handler_fn)(uv_stream_t*) = matched->handler;
+        void (*handler_fn)(uv_stream_t*) = match.route->handler;
         if (handler_fn != NULL) {
             handler_fn((uv_stream_t*)&context->client);
         } else {
@@ -752,9 +865,74 @@ static int on_message_complete(llhttp_t* parser) {
             catzilla_send_response((uv_stream_t*)&context->client, 500, "text/plain", body, strlen(body));
         }
     } else {
-        // No route → 404
-        const char* body = "404 Not Found";
-        catzilla_send_response((uv_stream_t*)&context->client, 404, "text/plain", body, strlen(body));
+        // Handle different error cases based on status code suggestion
+        if (match.status_code == 405 && match.has_allowed_methods) {
+            // Method not allowed - path exists but method is wrong
+            char response_body[512];
+            snprintf(response_body, sizeof(response_body),
+                    "405 Method Not Allowed. Allowed methods: %s", match.allowed_methods);
+
+            // Send 405 response with Allow header
+            char headers[1024];
+            snprintf(headers, sizeof(headers),
+                    "HTTP/1.1 405 Method Not Allowed\r\n"
+                    "Content-Type: text/plain\r\n"
+                    "Content-Length: %zu\r\n"
+                    "Allow: %s\r\n"
+                    "Connection: close\r\n\r\n",
+                    strlen(response_body), match.allowed_methods);
+
+            // Send headers and body
+            write_req_t* write_req = malloc(sizeof(write_req_t));
+            if (write_req) {
+                size_t total_length = strlen(headers) + strlen(response_body);
+                char* response = malloc(total_length + 1);
+                if (response) {
+                    strcpy(response, headers);
+                    strcat(response, response_body);
+
+                    write_req->buf = uv_buf_init(response, total_length);
+                    uv_write((uv_write_t*)write_req, (uv_stream_t*)&context->client,
+                            &write_req->buf, 1, after_write);
+                } else {
+                    free(write_req);
+                    catzilla_send_response((uv_stream_t*)&context->client, 500, "text/plain",
+                                         "500 Internal Server Error", strlen("500 Internal Server Error"));
+                }
+            } else {
+                catzilla_send_response((uv_stream_t*)&context->client, 500, "text/plain",
+                                     "500 Internal Server Error", strlen("500 Internal Server Error"));
+            }
+        } else {
+            // 404 Not Found - no route matched
+            const char* body = "404 Not Found";
+            catzilla_send_response((uv_stream_t*)&context->client, 404, "text/plain", body, strlen(body));
+        }
+    }
+
+    // 3) Fallback to legacy route dispatch for backward compatibility
+    if (match_result != 0) {
+        catzilla_route_t* matched = NULL;
+        for (int i = 0; i < server->route_count; i++) {
+            catzilla_route_t* route = &server->routes[i];
+            bool method_ok = (route->method[0] == '*' || strcmp(route->method, context->method) == 0);
+            bool path_ok   = (route->path[0]   == '*' || strcmp(route->path, path) == 0);
+            if (method_ok && path_ok) {
+                matched = route;
+                break;
+            }
+        }
+
+        if (matched) {
+            fprintf(stderr, "[DEBUG-C] Fallback to legacy route matched\n");
+            void (*handler_fn)(uv_stream_t*) = matched->handler;
+            if (handler_fn != NULL) {
+                handler_fn((uv_stream_t*)&context->client);
+            } else {
+                const char* body = "500 Internal Server Error: NULL handler";
+                catzilla_send_response((uv_stream_t*)&context->client, 500, "text/plain", body, strlen(body));
+            }
+        }
     }
 
     return 0;
@@ -831,4 +1009,175 @@ const char* catzilla_get_query_param(catzilla_request_t* request, const char* pa
         }
     }
     return NULL;
+}
+
+// Route introspection and debugging functions
+
+void catzilla_server_print_routes(catzilla_server_t* server) {
+    if (!server) {
+        fprintf(stderr, "[ERROR] Server is NULL\n");
+        return;
+    }
+
+    fprintf(stderr, "[INFO] ===== CATZILLA ROUTE INFORMATION =====\n");
+    fprintf(stderr, "[INFO] Advanced Router Routes: %d\n", server->router.route_count);
+    fprintf(stderr, "[INFO] Legacy Routes: %d\n", server->route_count);
+
+    // Print advanced router routes
+    if (server->router.route_count > 0) {
+        fprintf(stderr, "[INFO] Advanced Router Routes:\n");
+        catzilla_route_t* routes[100];  // Limit to 100 routes for display
+        int route_count = catzilla_router_get_routes(&server->router, routes, 100);
+
+        for (int i = 0; i < route_count; i++) {
+            fprintf(stderr, "[INFO]   %d: %s %s -> %p (ID: %u)\n",
+                   i + 1, routes[i]->method, routes[i]->path,
+                   routes[i]->handler, routes[i]->id);
+        }
+    }
+
+    // Print legacy routes
+    if (server->route_count > 0) {
+        fprintf(stderr, "[INFO] Legacy Routes:\n");
+        for (int i = 0; i < server->route_count; i++) {
+            fprintf(stderr, "[INFO]   %d: %s %s -> %p\n",
+                   i + 1, server->routes[i].method, server->routes[i].path,
+                   server->routes[i].handler);
+        }
+    }
+
+    fprintf(stderr, "[INFO] ========================================\n");
+}
+
+int catzilla_server_get_route_count(catzilla_server_t* server) {
+    if (!server) return -1;
+    return server->router.route_count + server->route_count;
+}
+
+int catzilla_server_has_route(catzilla_server_t* server, const char* method, const char* path) {
+    if (!server || !method || !path) return -1;
+
+    // Check advanced router
+    catzilla_route_match_t match;
+    int result = catzilla_router_match(&server->router, method, path, &match);
+    if (result == 0 && match.route != NULL) {
+        return 1;  // Route found
+    }
+
+    // Check legacy routes
+    for (int i = 0; i < server->route_count; i++) {
+        catzilla_route_t* route = &server->routes[i];
+        bool method_ok = (route->method[0] == '*' || strcmp(route->method, method) == 0);
+        bool path_ok   = (route->path[0]   == '*' || strcmp(route->path, path) == 0);
+        if (method_ok && path_ok) {
+            return 1;  // Route found
+        }
+    }
+
+    return 0;  // Route not found
+}
+
+int catzilla_server_get_route_info(catzilla_server_t* server,
+                                   const char* method,
+                                   const char* path,
+                                   char* match_info,
+                                   size_t buffer_size) {
+    if (!server || !method || !path || !match_info || buffer_size == 0) return -1;
+
+    // Try advanced router first
+    catzilla_route_match_t match;
+    int result = catzilla_router_match(&server->router, method, path, &match);
+
+    if (result == 0 && match.route != NULL) {
+        // Route matched
+        int written = snprintf(match_info, buffer_size,
+            "MATCH: Advanced Router\n"
+            "Route: %s %s -> %p (ID: %u)\n"
+            "Parameters: %d\n",
+            match.route->method, match.route->path,
+            match.route->handler, match.route->id,
+            match.param_count);
+
+        // Add parameter details
+        for (int i = 0; i < match.param_count && written < buffer_size - 1; i++) {
+            int param_written = snprintf(match_info + written, buffer_size - written,
+                "  %s = %s\n", match.params[i].name, match.params[i].value);
+            if (param_written > 0) written += param_written;
+        }
+
+        return 0;
+    } else if (match.status_code == 405 && match.has_allowed_methods) {
+        // Method not allowed
+        snprintf(match_info, buffer_size,
+            "NO_MATCH: Method Not Allowed (405)\n"
+            "Path exists but method '%s' not allowed\n"
+            "Allowed methods: %s\n",
+            method, match.allowed_methods);
+        return 0;
+    }
+
+    // Check legacy routes
+    for (int i = 0; i < server->route_count; i++) {
+        catzilla_route_t* route = &server->routes[i];
+        bool method_ok = (route->method[0] == '*' || strcmp(route->method, method) == 0);
+        bool path_ok   = (route->path[0]   == '*' || strcmp(route->path, path) == 0);
+        if (method_ok && path_ok) {
+            snprintf(match_info, buffer_size,
+                "MATCH: Legacy Router\n"
+                "Route: %s %s -> %p\n",
+                route->method, route->path, route->handler);
+            return 0;
+        }
+    }
+
+    // No match found
+    snprintf(match_info, buffer_size,
+        "NO_MATCH: Not Found (404)\n"
+        "No route found for %s %s\n",
+        method, path);
+
+    return 0;
+}
+
+// Check for route conflicts in the server
+void catzilla_server_check_route_conflicts(catzilla_server_t* server, const char* method, const char* path) {
+    if (!server || !method || !path) return;
+
+    // Check against existing routes in advanced router
+    catzilla_route_t* routes[100];  // Limit check to 100 routes
+    int route_count = catzilla_router_get_routes(&server->router, routes, 100);
+
+    for (int i = 0; i < route_count; i++) {
+        catzilla_route_t* existing = routes[i];
+
+        // Exact match conflict
+        if (strcmp(existing->method, method) == 0 && strcmp(existing->path, path) == 0) {
+            fprintf(stderr, "[WARNING] Route conflict: %s %s already exists (ID: %u)\n",
+                   method, path, existing->id);
+            continue;
+        }
+
+        // Check for overlapping patterns
+        // TODO: More sophisticated pattern overlap detection could be added here
+        if (strcmp(existing->method, method) == 0) {
+            // Same method, check for path conflicts
+            // For now, just warn about similar paths
+            if (strstr(existing->path, path) || strstr(path, existing->path)) {
+                if (strlen(existing->path) != strlen(path)) {  // Not exact match
+                    fprintf(stderr, "[WARNING] Potential route conflict: %s %s may overlap with %s %s\n",
+                           method, path, existing->method, existing->path);
+                }
+            }
+        }
+    }
+
+    // Check against legacy routes too
+    for (int i = 0; i < server->route_count; i++) {
+        catzilla_route_t* existing = &server->routes[i];
+
+        if (strcmp(existing->method, method) == 0 && strcmp(existing->path, path) == 0) {
+            fprintf(stderr, "[WARNING] Route conflict with legacy route: %s %s already exists\n",
+                   method, path);
+        }
+    }
 }

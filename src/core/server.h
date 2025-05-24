@@ -5,6 +5,7 @@
 #include <uv.h>
 #include <llhttp.h>
 #include <yyjson.h>
+#include "router.h"
 
 #define CATZILLA_MAX_ROUTES 100
 #define CATZILLA_PATH_MAX 256
@@ -42,19 +43,16 @@ typedef struct catzilla_request_s {
     char* form_values[CATZILLA_MAX_FORM_FIELDS];
     int form_field_count;
     bool is_form_parsed;
-    // Add query parameter support
+    // Query parameter support
     char* query_params[CATZILLA_MAX_QUERY_PARAMS];
     char* query_values[CATZILLA_MAX_QUERY_PARAMS];
     int query_param_count;
     bool has_query_params;
+    // Path parameter support
+    catzilla_route_param_t path_params[CATZILLA_MAX_PATH_PARAMS];
+    int path_param_count;
+    bool has_path_params;
 } catzilla_request_t;
-
-typedef struct catzilla_route_s {
-    char method[CATZILLA_METHOD_MAX];
-    char path[CATZILLA_PATH_MAX];
-    void* handler;
-    void* user_data;
-} catzilla_route_t;
 
 typedef struct catzilla_server_s {
     // libuv
@@ -65,7 +63,10 @@ typedef struct catzilla_server_s {
     // HTTP parser
     llhttp_settings_t parser_settings;
 
-    // Route table
+    // Advanced router
+    catzilla_router_t router;
+
+    // Legacy route table (for backward compatibility)
     catzilla_route_t routes[CATZILLA_MAX_ROUTES];
     int route_count;
 
@@ -127,6 +128,14 @@ const char* catzilla_get_form_field(catzilla_request_t* request, const char* fie
 const char* catzilla_get_query_param(catzilla_request_t* request, const char* param);
 
 /**
+ * Get path parameter value
+ * @param request Pointer to request structure
+ * @param param Parameter name to look up
+ * @return Parameter value or NULL if not found
+ */
+const char* catzilla_get_path_param(catzilla_request_t* request, const char* param);
+
+/**
  * Start listening on the given address
  * @param server Pointer to server structure
  * @param host Host address (e.g. "127.0.0.1")
@@ -182,5 +191,50 @@ const char* catzilla_get_content_type_str(catzilla_request_t* request);
 
 // Helper function for URL decoding
 void url_decode(const char* src, char* dst);
+
+/**
+ * Print all registered routes for debugging
+ * @param server Pointer to server structure
+ */
+void catzilla_server_print_routes(catzilla_server_t* server);
+
+/**
+ * Get count of registered routes in advanced router
+ * @param server Pointer to server structure
+ * @return Number of routes registered
+ */
+int catzilla_server_get_route_count(catzilla_server_t* server);
+
+/**
+ * Check if a route exists for the given method and path
+ * @param server Pointer to server structure
+ * @param method HTTP method
+ * @param path URL path
+ * @return 1 if route exists, 0 if not found, -1 on error
+ */
+int catzilla_server_has_route(catzilla_server_t* server, const char* method, const char* path);
+
+/**
+ * Get detailed route match information for debugging
+ * @param server Pointer to server structure
+ * @param method HTTP method
+ * @param path URL path
+ * @param match_info Output buffer for match information
+ * @param buffer_size Size of output buffer
+ * @return 0 on success, -1 on error
+ */
+int catzilla_server_get_route_info(catzilla_server_t* server,
+                                   const char* method,
+                                   const char* path,
+                                   char* match_info,
+                                   size_t buffer_size);
+
+/**
+ * Check for route conflicts and emit warnings
+ * @param server Pointer to server structure
+ * @param method HTTP method of new route
+ * @param path URL path of new route
+ */
+void catzilla_server_check_route_conflicts(catzilla_server_t* server, const char* method, const char* path);
 
 #endif /* CATZILLA_SERVER_H */
