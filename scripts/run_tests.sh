@@ -58,23 +58,38 @@ run_c_tests() {
     cmake -S . -B build
     cmake --build build
 
-    # Run the C tests
-    if [ -f "$PROJECT_ROOT/build/test_router" ]; then
-        if [ "$verbose" = true ]; then
-            "$PROJECT_ROOT/build/test_router" -v
-        else
-            "$PROJECT_ROOT/build/test_router"
-        fi
+    # List of C test executables to run
+    local test_executables=("test_router" "test_advanced_router" "test_server_integration")
+    local all_passed=true
 
-        local result=$?
-        if [ $result -eq 0 ]; then
-            echo -e "${GREEN}C tests passed!${NC}"
+    # Run each C test executable
+    for test_exe in "${test_executables[@]}"; do
+        if [ -f "$PROJECT_ROOT/build/$test_exe" ]; then
+            echo -e "${YELLOW}Running $test_exe...${NC}"
+
+            if [ "$verbose" = true ]; then
+                "$PROJECT_ROOT/build/$test_exe" -v
+            else
+                "$PROJECT_ROOT/build/$test_exe"
+            fi
+
+            local result=$?
+            if [ $result -eq 0 ]; then
+                echo -e "${GREEN}$test_exe passed!${NC}"
+            else
+                echo -e "${RED}$test_exe failed!${NC}"
+                all_passed=false
+            fi
         else
-            echo -e "${RED}C tests failed!${NC}"
-            return 1
+            echo -e "${RED}C test executable $test_exe not found!${NC}"
+            all_passed=false
         fi
+    done
+
+    if [ "$all_passed" = true ]; then
+        echo -e "${GREEN}All C tests passed!${NC}"
     else
-        echo -e "${RED}C test executable not found!${NC}"
+        echo -e "${RED}Some C tests failed!${NC}"
         return 1
     fi
 }

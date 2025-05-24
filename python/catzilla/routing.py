@@ -41,6 +41,10 @@ class Router:
         self.root = RouteNode()
         self._route_list: List[Route] = []  # For introspection
 
+    def _normalize_method(self, method: str) -> str:
+        """Normalize HTTP method to uppercase"""
+        return method.upper() if method else ""
+
     def _parse_path(self, path: str) -> Tuple[List[str], List[str], re.Pattern]:
         """Parse a path pattern into segments and extract parameter names"""
         if not path.startswith("/"):
@@ -114,8 +118,11 @@ class Router:
             handler: Function to handle the route
             overwrite: Whether to allow overwriting existing routes
         """
+        # Normalize method to uppercase
+        normalized_method = self._normalize_method(method)
+
         segments, param_names, pattern = self._parse_path(path)
-        route = Route(method, path, handler, param_names, pattern, overwrite)
+        route = Route(normalized_method, path, handler, param_names, pattern, overwrite)
 
         # Add to trie
         self._add_to_trie(route, segments)
@@ -141,7 +148,9 @@ class Router:
             node = self.root
 
         segments = path.split("/")
-        return self._match_segments(method, segments, node)
+        # Method should already be normalized by caller, but ensure it
+        normalized_method = self._normalize_method(method)
+        return self._match_segments(normalized_method, segments, node)
 
     def _match_segments(
         self, method: str, segments: List[str], node: RouteNode
@@ -195,7 +204,9 @@ class Router:
         Returns:
             Tuple of (matched route, path params, allowed methods)
         """
-        return self._match_route(method, path)
+        # Normalize method to uppercase
+        normalized_method = self._normalize_method(method)
+        return self._match_route(normalized_method, path)
 
     def routes(self) -> List[Dict[str, str]]:
         """

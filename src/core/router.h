@@ -89,11 +89,6 @@ typedef struct catzilla_router_s {
     int route_count;                  // Number of registered routes
     int route_capacity;               // Current capacity of routes array
     uint32_t next_route_id;           // Next route ID to assign
-
-    // Memory management
-    void** allocated_blocks;          // Track allocated memory blocks
-    int allocated_count;
-    int allocated_capacity;
 } catzilla_router_t;
 
 /**

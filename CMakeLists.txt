@@ -82,6 +82,40 @@ target_link_libraries(test_router PRIVATE
   ${Python3_LIBRARIES}
 )
 
+# Add test_advanced_router executable
+add_executable(test_advanced_router
+  tests/c/test_advanced_router.c
+  deps/unity/src/unity.c
+)
+
+target_include_directories(test_advanced_router PRIVATE
+  src/core
+  deps/unity/src
+  ${Python3_INCLUDE_DIRS}
+)
+
+target_link_libraries(test_advanced_router PRIVATE
+  catzilla_core
+  ${Python3_LIBRARIES}
+)
+
+# Add test_server_integration executable
+add_executable(test_server_integration
+  tests/c/test_server_integration.c
+  deps/unity/src/unity.c
+)
+
+target_include_directories(test_server_integration PRIVATE
+  src/core
+  deps/unity/src
+  ${Python3_INCLUDE_DIRS}
+)
+
+target_link_libraries(test_server_integration PRIVATE
+  catzilla_core
+  ${Python3_LIBRARIES}
+)
+
 # Standalone server executable
 add_executable(catzilla-server src/core/main.c)
 target_link_libraries(catzilla-server PRIVATE
