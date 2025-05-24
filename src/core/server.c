@@ -191,6 +191,15 @@ static void populate_path_params(catzilla_request_t* request, const catzilla_rou
     }
 }
 
+// Universal Python route handler for advanced router
+void catzilla_python_route_handler(uv_stream_t* client) {
+    // This handler should never be called directly since Python routes
+    // are handled via py_request_callback in on_message_complete
+    fprintf(stderr, "[ERROR-C] catzilla_python_route_handler called directly - this should not happen\n");
+    const char* body = "500 Internal Server Error";
+    catzilla_send_response(client, 500, "text/plain", body, strlen(body));
+}
+
 // Python callback helper
 PyObject* handle_request_in_server(PyObject* callback,
     PyObject* client_capsule,

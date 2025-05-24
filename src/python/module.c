@@ -114,8 +114,8 @@ static PyObject* CatzillaServer_add_route(CatzillaServerObject *self, PyObject *
     // CRITICAL FIX: Register the Python callback with the C server
     catzilla_server_set_request_callback(&self->server, self->route_data->callback);
 
-    // Register route with C core
-    if (catzilla_server_add_route(&self->server, method, path, NULL, NULL) != 0) {
+    // Register route with C core - use universal Python handler
+    if (catzilla_server_add_route(&self->server, method, path, catzilla_python_route_handler, (void*)handler) != 0) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to add route");
         return NULL;
     }

@@ -91,6 +91,12 @@ int catzilla_server_init(catzilla_server_t* server);
 void catzilla_server_cleanup(catzilla_server_t* server);
 
 /**
+ * Universal Python route handler for advanced router
+ * @param client Client connection
+ */
+void catzilla_python_route_handler(uv_stream_t* client);
+
+/**
  * Parse JSON from request body
  * @param request Pointer to request structure
  * @return 0 on success, error code on failure
