@@ -10,6 +10,7 @@
 typedef struct {
     uv_write_t req;
     uv_buf_t buf;
+    bool keep_alive;  // Track if connection should be kept alive
 } write_req_t;
 
 typedef struct {
@@ -23,7 +24,10 @@ typedef struct {
     size_t body_size;
     content_type_t content_type;  // Keep this aligned with 4-byte boundary
     bool parsing_content_type;
-    char _padding[3];  // Add padding to ensure proper alignment
+    bool keep_alive;  // Track if client wants keep-alive
+    bool parsing_connection;  // Track if we're parsing Connection header
+    bool has_connection_header;  // Track if Connection header was sent
+    char _padding[0];  // Add padding to ensure proper alignment
 } client_context_t;
 
 // Forward declarations
@@ -34,6 +38,7 @@ static void on_close(uv_handle_t* handle);
 static void after_write(uv_write_t* req, int status);
 static void signal_handler(uv_signal_t* handle, int signum);
 static int on_message_complete(llhttp_t* parser);
+static void send_response_with_connection(uv_stream_t* client, int status_code, const char* headers, const char* body, size_t body_len, bool keep_alive);
 int parse_query_params(catzilla_request_t* request, const char* query_string);
 void url_decode(const char* src, char* dst);
 
@@ -73,11 +78,16 @@ static int on_url(llhttp_t* parser, const char* at, size_t length) {
 
 static int on_header_field(llhttp_t* parser, const char* at, size_t length) {
     client_context_t* context = (client_context_t*)parser->data;
-    context->parsing_content_type = false;  // Reset flag by default
+    context->parsing_content_type = false;  // Reset flags by default
+    context->parsing_connection = false;
 
     if (length == 12 && strncasecmp(at, "Content-Type", 12) == 0) {
         fprintf(stderr, "[DEBUG-C] Found Content-Type header\n");
         context->parsing_content_type = true;
+    } else if (length == 10 && strncasecmp(at, "Connection", 10) == 0) {
+        fprintf(stderr, "[DEBUG-C] Found Connection header\n");
+        context->parsing_connection = true;
+        context->has_connection_header = true;
     }
     return 0;
 }
@@ -109,6 +119,19 @@ static int on_header_value(llhttp_t* parser, const char* at, size_t length) {
         }
 
         context->parsing_content_type = false;
+    } else if (context->parsing_connection) {
+        fprintf(stderr, "[DEBUG-C] Processing Connection header: '%.*s'\n", (int)length, at);
+
+        // Check for keep-alive
+        if (length >= 10 && strncasecmp(at, "keep-alive", 10) == 0) {
+            context->keep_alive = true;
+            fprintf(stderr, "[DEBUG-C] Connection: keep-alive detected\n");
+        } else {
+            context->keep_alive = false;
+            fprintf(stderr, "[DEBUG-C] Connection: close or other\n");
+        }
+
+        context->parsing_connection = false;
     }
     return 0;
 }
@@ -120,6 +143,13 @@ static int on_headers_complete(llhttp_t* parser) {
     if (method_len >= CATZILLA_METHOD_MAX) method_len = CATZILLA_METHOD_MAX - 1;
     memcpy(context->method, method, method_len);
     context->method[method_len] = '\0';
+
+    // HTTP/1.1 defaults to keep-alive if no Connection header was specified
+    if (!context->has_connection_header && llhttp_get_http_major(parser) == 1 && llhttp_get_http_minor(parser) == 1) {
+        context->keep_alive = true;
+        fprintf(stderr, "[DEBUG-C] HTTP/1.1 defaulting to keep-alive\n");
+    }
+
     return 0;
 }
 
@@ -679,13 +709,19 @@ void catzilla_server_set_request_callback(catzilla_server_t* server, void* callb
     server->py_request_callback = callback;
 }
 
-void catzilla_send_response(uv_stream_t* client,
-                           int status_code,
-                           const char* headers,
-                           const char* body,
-                           size_t body_len) {
+// Internal function that adds Connection headers based on client context
+static void send_response_with_connection(uv_stream_t* client,
+                                        int status_code,
+                                        const char* headers,
+                                        const char* body,
+                                        size_t body_len,
+                                        bool keep_alive) {
     write_req_t* req = malloc(sizeof(*req));
     if (!req) return;
+
+    // Store keep_alive info in the request for after_write callback
+    req->keep_alive = keep_alive;
+
     const char* status_text;
     switch (status_code) {
         case 200: status_text="OK";break;
@@ -693,23 +729,61 @@ void catzilla_send_response(uv_stream_t* client,
         case 204: status_text="No Content";break;
         case 400: status_text="Bad Request";break;
         case 404: status_text="Not Found";break;
+        case 405: status_text="Method Not Allowed";break;
+        case 415: status_text="Unsupported Media Type";break;
         case 500: status_text="Internal Server Error";break;
         default:  status_text="Unknown";break;
     }
-    char header[512];
-    int header_len = snprintf(header, sizeof(header),
-        "HTTP/1.1 %d %s\r\n"
-        "%s"
-        "\r\n",
-        status_code, status_text,
-        headers);
-    char* response = malloc(header_len + body_len);
-    if (!response) { free(req); return; }
-    memcpy(response, header, header_len);
-    memcpy(response+header_len, body, body_len);
 
-    req->buf = uv_buf_init(response, header_len + body_len);
+    // Calculate required buffer size including Connection header
+    size_t status_line_len = snprintf(NULL, 0, "HTTP/1.1 %d %s\r\n", status_code, status_text);
+    size_t headers_len = headers ? strlen(headers) : 0;
+    size_t connection_header_len = keep_alive ?
+        strlen("Connection: keep-alive\r\n") :
+        strlen("Connection: close\r\n");
+    size_t separator_len = 2; // "\r\n" to separate headers from body
+    size_t total_header_len = status_line_len + headers_len + connection_header_len + separator_len;
+
+    char* response = malloc(total_header_len + body_len);
+    if (!response) { free(req); return; }
+
+    // Build the response
+    int offset = 0;
+    offset += snprintf(response + offset, total_header_len + body_len - offset,
+                      "HTTP/1.1 %d %s\r\n", status_code, status_text);
+
+    if (headers && headers_len > 0) {
+        memcpy(response + offset, headers, headers_len);
+        offset += headers_len;
+    }
+
+    // Add Connection header
+    const char* connection_header = keep_alive ? "Connection: keep-alive\r\n" : "Connection: close\r\n";
+    memcpy(response + offset, connection_header, connection_header_len);
+    offset += connection_header_len;
+
+    // Add separator between headers and body
+    memcpy(response + offset, "\r\n", 2);
+    offset += 2;
+
+    // Add body
+    if (body_len > 0) {
+        memcpy(response + offset, body, body_len);
+    }
+
+    req->buf = uv_buf_init(response, total_header_len + body_len);
     uv_write(&req->req, client, &req->buf, 1, after_write);
+}
+
+void catzilla_send_response(uv_stream_t* client,
+                           int status_code,
+                           const char* headers,
+                           const char* body,
+                           size_t body_len) {
+    // Get client context to determine keep-alive setting
+    client_context_t* context = get_client_context(client);
+    bool keep_alive = context ? context->keep_alive : false;
+    send_response_with_connection(client, status_code, headers, body, body_len, keep_alive);
 }
 
 static void on_connection(uv_stream_t* server, int status) {
@@ -728,6 +802,9 @@ static void on_connection(uv_stream_t* server, int status) {
     ctx->server = srv;
     ctx->content_type = CONTENT_TYPE_NONE;  // Explicitly set to NONE
     ctx->parsing_content_type = false;
+    ctx->parsing_connection = false;
+    ctx->has_connection_header = false;
+    ctx->keep_alive = false;  // Default to close connection (HTTP/1.0 behavior)
     ctx->body = NULL;
     ctx->body_length = 0;
     ctx->body_size = 0;
@@ -782,8 +859,19 @@ static void on_close(uv_handle_t* handle) {
 
 static void after_write(uv_write_t* req, int status) {
     if (status < 0) fprintf(stderr, "[DEBUG-C] Write error: %s\n", uv_strerror(status));
+
     write_req_t* wr = (write_req_t*)req;
-    uv_close((uv_handle_t*)req->handle, on_close);
+
+    // Only close connection if keep_alive is false
+    if (!wr->keep_alive) {
+        fprintf(stderr, "[DEBUG-C] Closing connection (keep_alive=false)\n");
+        uv_close((uv_handle_t*)req->handle, on_close);
+    } else {
+        fprintf(stderr, "[DEBUG-C] Keeping connection alive (keep_alive=true)\n");
+        // Connection stays open for next request
+        // The client context and parser will handle subsequent requests
+    }
+
     free(wr->buf.base);
     free(wr);
 }
@@ -813,7 +901,7 @@ static int on_message_complete(llhttp_t* parser) {
     // Check for 415 Unsupported Media Type before routing
     if (should_return_415(context)) {
         const char* body = "415 Unsupported Media Type";
-        catzilla_send_response((uv_stream_t*)&context->client, 415, "text/plain", body, strlen(body));
+        send_response_with_connection((uv_stream_t*)&context->client, 415, "text/plain", body, strlen(body), context->keep_alive);
         return 0;
     }
 
@@ -823,7 +911,7 @@ static int on_message_complete(llhttp_t* parser) {
         PyObject* client_capsule = PyCapsule_New((void*)&context->client, "catzilla.client", NULL);
         if (!client_capsule) {
             PyErr_Print();
-            catzilla_send_response((uv_stream_t*)&context->client, 500, "text/plain", "500 Internal Server Error", strlen("500 Internal Server Error"));
+            send_response_with_connection((uv_stream_t*)&context->client, 500, "text/plain", "500 Internal Server Error", strlen("500 Internal Server Error"), context->keep_alive);
         } else {
             PyObject* result = handle_request_in_server(
                 server->py_request_callback,
@@ -871,7 +959,7 @@ static int on_message_complete(llhttp_t* parser) {
         } else {
             // Handler is NULL
             const char* body = "500 Internal Server Error: NULL handler";
-            catzilla_send_response((uv_stream_t*)&context->client, 500, "text/plain", body, strlen(body));
+            send_response_with_connection((uv_stream_t*)&context->client, 500, "text/plain", body, strlen(body), context->keep_alive);
         }
     } else {
         // Handle different error cases based on status code suggestion
@@ -883,17 +971,19 @@ static int on_message_complete(llhttp_t* parser) {
 
             // Send 405 response with Allow header
             char headers[1024];
+            const char* connection_header = context->keep_alive ? "keep-alive" : "close";
             snprintf(headers, sizeof(headers),
                     "HTTP/1.1 405 Method Not Allowed\r\n"
                     "Content-Type: text/plain\r\n"
                     "Content-Length: %zu\r\n"
                     "Allow: %s\r\n"
-                    "Connection: close\r\n\r\n",
-                    strlen(response_body), match.allowed_methods);
+                    "Connection: %s\r\n\r\n",
+                    strlen(response_body), match.allowed_methods, connection_header);
 
             // Send headers and body
             write_req_t* write_req = malloc(sizeof(write_req_t));
             if (write_req) {
+                write_req->keep_alive = context->keep_alive;  // Set keep_alive flag
                 size_t total_length = strlen(headers) + strlen(response_body);
                 char* response = malloc(total_length + 1);
                 if (response) {
@@ -905,17 +995,17 @@ static int on_message_complete(llhttp_t* parser) {
                             &write_req->buf, 1, after_write);
                 } else {
                     free(write_req);
-                    catzilla_send_response((uv_stream_t*)&context->client, 500, "text/plain",
-                                         "500 Internal Server Error", strlen("500 Internal Server Error"));
+                    send_response_with_connection((uv_stream_t*)&context->client, 500, "text/plain",
+                                         "500 Internal Server Error", strlen("500 Internal Server Error"), context->keep_alive);
                 }
             } else {
-                catzilla_send_response((uv_stream_t*)&context->client, 500, "text/plain",
-                                     "500 Internal Server Error", strlen("500 Internal Server Error"));
+                send_response_with_connection((uv_stream_t*)&context->client, 500, "text/plain",
+                                     "500 Internal Server Error", strlen("500 Internal Server Error"), context->keep_alive);
             }
         } else {
             // 404 Not Found - no route matched
             const char* body = "404 Not Found";
-            catzilla_send_response((uv_stream_t*)&context->client, 404, "text/plain", body, strlen(body));
+            send_response_with_connection((uv_stream_t*)&context->client, 404, "text/plain", body, strlen(body), context->keep_alive);
         }
     }
 
@@ -939,7 +1029,7 @@ static int on_message_complete(llhttp_t* parser) {
                 handler_fn((uv_stream_t*)&context->client);
             } else {
                 const char* body = "500 Internal Server Error: NULL handler";
-                catzilla_send_response((uv_stream_t*)&context->client, 500, "text/plain", body, strlen(body));
+                send_response_with_connection((uv_stream_t*)&context->client, 500, "text/plain", body, strlen(body), context->keep_alive);
             }
         }
     }

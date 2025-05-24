@@ -41,6 +41,48 @@ Whether you're building **real-time AI applications**, **low-latency APIs**, or 
 
 ---
 
+## 📊 Performance Benchmarks
+
+Catzilla has been extensively benchmarked against other popular Python web frameworks using `wrk` with 100 concurrent connections over 10 seconds.
+
+### 🚀 Spectacular Performance Results
+
+**Throughput Dominance**: Catzilla delivers **extraordinary throughput** compared to FastAPI:
+- **Hello World**: 8,130 vs 2,087 RPS (**+289% faster**)
+- **JSON Response**: 5,165 vs 1,844 RPS (**+180% faster**)
+- **Path Parameters**: 5,765 vs 1,621 RPS (**+256% faster**)
+- **Query Parameters**: 3,785 vs 923 RPS (**+310% faster**)
+- **Complex JSON**: 5,156 vs 1,344 RPS (**+284% faster**)
+
+**Latency Excellence**: Catzilla consistently delivers **significantly lower latency**:
+- **Average Latency**: 25.36ms vs FastAPI's 69.11ms (**63% lower**)
+- **Best Case Latency**: 14.90ms vs FastAPI's 47.78ms (**69% lower**)
+
+### Performance Summary
+- **Average RPS**: 5,600 (±1,590) vs FastAPI's 1,564 (±451) (**+258% faster**)
+- **Peak Performance**: 8,130 RPS on simple endpoints
+- **Low Latency**: Sub-15ms response times for optimal endpoints
+
+### 📈 Performance Visualizations
+
+![Requests per Second Comparison](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/requests_per_second.png)
+
+![Latency Comparison](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/latency_comparison.png)
+
+![Overall Performance Overview](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/overall_performance.png)
+
+![Performance Heatmap](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/performance_heatmap.png)
+
+### When to Choose Catzilla
+- ⚡ **High-throughput requirements** (API gateways, microservices, data pipelines)
+- 🎯 **Low-latency critical** applications (real-time APIs, financial trading, gaming backends)
+- 🧬 **Resource efficiency** (cloud computing, embedded systems, edge computing)
+- 🚀 **C-level performance** with Python developer experience
+
+*Note: Comprehensive benchmark suite with automated testing available in `benchmarks/` directory.*
+
+---
+
 ## 🗂️ Project Structure
 
 ```bash

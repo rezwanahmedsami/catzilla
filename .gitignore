@@ -3,7 +3,7 @@ build/
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
-Makefile
+# Makefile
 
 # Compiled object files
 *.o
@@ -57,3 +57,10 @@ Thumbs.db
 
 # Output Python extension
 python/catzilla/_native*.so
+
+# Add to .gitignore
+benchmarks/results/*.txt
+benchmarks/results/*.log
+benchmarks/results/*_*.json
+!benchmarks/results/benchmark_summary.json
+benchmarks/results/temp_*

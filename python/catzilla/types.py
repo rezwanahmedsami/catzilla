@@ -321,8 +321,17 @@ class Response:
         """Send the response using the C extension"""
         from catzilla._catzilla import send_response
 
+        # Calculate body length in bytes for Content-Length header
+        body_bytes = (
+            self.body.encode("utf-8") if isinstance(self.body, str) else self.body
+        )
+        body_length = len(body_bytes) if body_bytes else 0
+
         # Build properly formatted headers including Content-Type and all custom headers
-        headers = [f"Content-Type: {self.content_type}"]
+        headers = [
+            f"Content-Type: {self.content_type}",
+            f"Content-Length: {body_length}",
+        ]
 
         # Add all custom headers
         for name, value in self._headers.items():
@@ -332,14 +341,21 @@ class Response:
                         headers.append(f"Set-Cookie: {cookie}")
                 else:
                     headers.append(f"Set-Cookie: {value}")
-            elif name.lower() != "content-type":  # Avoid duplicate Content-Type
+            elif name.lower() not in [
+                "content-type",
+                "content-length",
+            ]:  # Avoid duplicates
                 headers.append(f"{name.title()}: {value}")
 
         # Join headers with proper HTTP line endings
         headers_str = "\r\n".join(headers) + "\r\n" if headers else ""
 
         # Send response with formatted headers
-        send_response(client, self.status_code, headers_str, self.body)
+        # Convert body to string for C interface
+        body_str = (
+            body_bytes.decode("utf-8") if isinstance(body_bytes, bytes) else self.body
+        )
+        send_response(client, self.status_code, headers_str, body_str)
 
 
 class JSONResponse(Response):

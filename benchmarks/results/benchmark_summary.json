@@ -1,0 +1,151 @@
+{
+  "benchmark_info": {
+    "timestamp": "2025-05-25T01:59:13+06:00",
+    "duration": "10s",
+    "connections": 100,
+    "threads": 4,
+    "tool": "wrk"
+  },
+  "results": [
+    {
+      "framework": "catzilla",
+      "endpoint": "/user/123/profile",
+      "endpoint_name": "complex_json",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "5156.18",
+      "avg_latency": "26.91ms",
+      "p99_latency": "362.34ms",
+      "transfer_per_sec": "2.32MB",
+      "timestamp": "2025-05-25T01:56:35+06:00"
+    }
+,
+    {
+      "framework": "catzilla",
+      "endpoint": "/",
+      "endpoint_name": "hello_world",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "8129.94",
+      "avg_latency": "14.90ms",
+      "p99_latency": "109.09ms",
+      "transfer_per_sec": "801.88KB",
+      "timestamp": "2025-05-25T01:55:33+06:00"
+    }
+,
+    {
+      "framework": "catzilla",
+      "endpoint": "/json",
+      "endpoint_name": "json_response",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "5165.46",
+      "avg_latency": "23.90ms",
+      "p99_latency": "212.76ms",
+      "transfer_per_sec": "786.93KB",
+      "timestamp": "2025-05-25T01:55:49+06:00"
+    }
+,
+    {
+      "framework": "catzilla",
+      "endpoint": "/user/42",
+      "endpoint_name": "path_params",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "5765.19",
+      "avg_latency": "22.37ms",
+      "p99_latency": "231.04ms",
+      "transfer_per_sec": "1.08MB",
+      "timestamp": "2025-05-25T01:56:04+06:00"
+    }
+,
+    {
+      "framework": "catzilla",
+      "endpoint": "/users?limit=20&offset=10",
+      "endpoint_name": "query_params",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "3785.38",
+      "avg_latency": "38.74ms",
+      "p99_latency": "550.56ms",
+      "transfer_per_sec": "5.01MB",
+      "timestamp": "2025-05-25T01:56:19+06:00"
+    }
+,
+    {
+      "framework": "fastapi",
+      "endpoint": "/user/123/profile",
+      "endpoint_name": "complex_json",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "1344.15",
+      "avg_latency": "74.05ms",
+      "p99_latency": "97.42ms",
+      "transfer_per_sec": "621.15KB",
+      "timestamp": "2025-05-25T01:57:58+06:00"
+    }
+,
+    {
+      "framework": "fastapi",
+      "endpoint": "/",
+      "endpoint_name": "hello_world",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "2086.90",
+      "avg_latency": "47.78ms",
+      "p99_latency": "67.05ms",
+      "transfer_per_sec": "299.58KB",
+      "timestamp": "2025-05-25T01:56:57+06:00"
+    }
+,
+    {
+      "framework": "fastapi",
+      "endpoint": "/json",
+      "endpoint_name": "json_response",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "1843.55",
+      "avg_latency": "54.40ms",
+      "p99_latency": "109.44ms",
+      "transfer_per_sec": "327.69KB",
+      "timestamp": "2025-05-25T01:57:12+06:00"
+    }
+,
+    {
+      "framework": "fastapi",
+      "endpoint": "/user/42",
+      "endpoint_name": "path_params",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "1620.83",
+      "avg_latency": "61.45ms",
+      "p99_latency": "80.21ms",
+      "transfer_per_sec": "345.06KB",
+      "timestamp": "2025-05-25T01:57:27+06:00"
+    }
+,
+    {
+      "framework": "fastapi",
+      "endpoint": "/users?limit=20&offset=10",
+      "endpoint_name": "query_params",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "922.90",
+      "avg_latency": "107.88ms",
+      "p99_latency": "213.20ms",
+      "transfer_per_sec": "1.14MB",
+      "timestamp": "2025-05-25T01:57:43+06:00"
+    }
+
+  ]
+}

@@ -208,13 +208,13 @@ static PyObject* CatzillaServer_add_c_route(CatzillaServerObject *self, PyObject
     return PyLong_FromLong(c_route_id);
 }
 
-// send_response(client_capsule, status, content_type, body)
+// send_response(client_capsule, status, headers, body)
 static PyObject* send_response(PyObject *self, PyObject *args)
 {
     PyObject *capsule;
     int status;
-    const char *ctype, *body;
-    if (!PyArg_ParseTuple(args, "Oiss", &capsule, &status, &ctype, &body))
+    const char *headers, *body;
+    if (!PyArg_ParseTuple(args, "Oiss", &capsule, &status, &headers, &body))
         return NULL;
 
     uv_stream_t *client = PyCapsule_GetPointer(capsule, "catzilla.client");
@@ -222,7 +222,7 @@ static PyObject* send_response(PyObject *self, PyObject *args)
         PyErr_SetString(PyExc_TypeError, "Invalid client capsule");
         return NULL;
     }
-    catzilla_send_response(client, status, ctype, body, strlen(body));
+    catzilla_send_response(client, status, headers, body, strlen(body));
     Py_RETURN_NONE;
 }
 
