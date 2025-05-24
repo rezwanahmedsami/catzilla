@@ -1,5 +1,8 @@
 """
-Catzilla application and router
+Catzilla application with C-accelerated routing
+
+This module provides the main App class which uses CAcceleratedRouter
+as the sole routing option, leveraging C-based matching for maximum performance.
 """
 
 import functools
@@ -8,7 +11,7 @@ import sys
 from typing import Any, Callable, Dict, List, Optional, Union
 from urllib.parse import parse_qs
 
-from .routing import Router
+from .c_router import CAcceleratedRouter
 from .types import HTMLResponse, JSONResponse, Request, Response, RouteHandler
 
 try:
@@ -21,11 +24,17 @@ except ImportError:
 
 
 class App:
-    """Main Catzilla application"""
+    """Main Catzilla application with C-accelerated routing"""
 
     def __init__(self):
+        """Initialize Catzilla app with C-accelerated router (only option)"""
         self.server = _Server()
-        self.router = Router()
+
+        # Use C-accelerated router - the only router option
+        # Since Catzilla is fundamentally C-based, if this fails, nothing works
+        self.router = CAcceleratedRouter()
+        self._router_type = "CAcceleratedRouter"
+
         self._setup_signal_handlers()
 
     def _setup_signal_handlers(self):
@@ -186,7 +195,10 @@ class App:
 
     def routes(self) -> List[Dict[str, str]]:
         """Get a list of all registered routes"""
-        return self.router.routes()
+        if hasattr(self.router, "routes_list"):
+            return self.router.routes_list()
+        else:
+            return self.router.routes()
 
     def listen(self, port: int, host: str = "0.0.0.0"):
         """Start the server"""

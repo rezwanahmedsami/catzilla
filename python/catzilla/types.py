@@ -321,21 +321,24 @@ class Response:
         """Send the response using the C extension"""
         from catzilla._catzilla import send_response
 
-        # Set content type header
-        self.set_header("Content-Type", self.content_type)
+        # Build properly formatted headers including Content-Type and all custom headers
+        headers = [f"Content-Type: {self.content_type}"]
 
-        # Set content length header
-        self.set_header("Content-Length", str(len(self.body)))
+        # Add all custom headers
+        for name, value in self._headers.items():
+            if name == "set-cookie":
+                if isinstance(value, list):
+                    for cookie in value:
+                        headers.append(f"Set-Cookie: {cookie}")
+                else:
+                    headers.append(f"Set-Cookie: {value}")
+            elif name.lower() != "content-type":  # Avoid duplicate Content-Type
+                headers.append(f"{name.title()}: {value}")
 
-        # Set connection header
-        self.set_header("Connection", "close")
+        # Join headers with proper HTTP line endings
+        headers_str = "\r\n".join(headers) + "\r\n" if headers else ""
 
-        # Get all headers as a string
-        headers_str = "\r\n".join(self.get_all_headers())
-        if headers_str:
-            headers_str += "\r\n"
-
-        # Send response with headers
+        # Send response with formatted headers
         send_response(client, self.status_code, headers_str, self.body)
 
 

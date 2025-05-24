@@ -1,6 +1,7 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include "server.h"           // Provides catzilla_server_t, catzilla_server_init, etc.
+#include "router.h"           // Provides catzilla_router_t, catzilla_router_match, etc.
 #include <uv.h>               // For uv_stream_t
 #include <stdio.h>
 #include <string.h>
@@ -17,6 +18,7 @@ typedef struct {
     PyObject_HEAD
     catzilla_server_t server;
     PyRouteData *route_data;
+    catzilla_router_t py_router;  // Python-accessible C router
 } CatzillaServerObject;
 
 // Deallocate
@@ -27,6 +29,7 @@ static void CatzillaServer_dealloc(CatzillaServerObject *self)
         Py_XDECREF(self->route_data->routes);
         free(self->route_data);
     }
+    catzilla_router_cleanup(&self->py_router);
     catzilla_server_cleanup(&self->server);
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
@@ -37,6 +40,7 @@ static PyObject* CatzillaServer_new(PyTypeObject *type, PyObject *args, PyObject
     CatzillaServerObject *self = (CatzillaServerObject*)type->tp_alloc(type, 0);
     if (self) {
         memset(&self->server, 0, sizeof(self->server));
+        memset(&self->py_router, 0, sizeof(self->py_router));
         self->route_data = NULL;
     }
     return (PyObject*)self;
@@ -66,6 +70,15 @@ static int CatzillaServer_init(CatzillaServerObject *self, PyObject *args, PyObj
     // Initialize the C server
     if (catzilla_server_init(&self->server) != 0) {
         PyErr_SetString(PyExc_RuntimeError, "Server initialization failed");
+        Py_CLEAR(self->route_data->routes);
+        free(self->route_data);
+        return -1;
+    }
+
+    // Initialize the Python-accessible C router
+    if (catzilla_router_init(&self->py_router) != 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Router initialization failed");
+        catzilla_server_cleanup(&self->server);
         Py_CLEAR(self->route_data->routes);
         free(self->route_data);
         return -1;
@@ -127,6 +140,72 @@ static PyObject* CatzillaServer_stop(CatzillaServerObject *self, PyObject *Py_UN
 {
     catzilla_server_stop(&self->server);
     Py_RETURN_NONE;
+}
+
+// match_route(method, path) - Use C router for fast route matching
+static PyObject* CatzillaServer_match_route(CatzillaServerObject *self, PyObject *args)
+{
+    const char *method, *path;
+    if (!PyArg_ParseTuple(args, "ss", &method, &path))
+        return NULL;
+
+    catzilla_route_match_t match;
+    int result = catzilla_router_match(&self->py_router, method, path, &match);
+
+    // Create Python dict with match results
+    PyObject *match_dict = PyDict_New();
+    if (!match_dict) {
+        return NULL;
+    }
+
+    PyDict_SetItemString(match_dict, "matched", PyBool_FromLong(result == 0));
+    PyDict_SetItemString(match_dict, "status_code", PyLong_FromLong(match.status_code));
+
+    if (result == 0 && match.route) {
+        PyDict_SetItemString(match_dict, "method", PyUnicode_FromString(match.route->method));
+        PyDict_SetItemString(match_dict, "path", PyUnicode_FromString(match.route->path));
+        PyDict_SetItemString(match_dict, "route_id", PyLong_FromLong(match.route->id));
+
+        // Add path parameters
+        PyObject *params_dict = PyDict_New();
+        for (int i = 0; i < match.param_count; i++) {
+            PyDict_SetItemString(params_dict, match.params[i].name,
+                                PyUnicode_FromString(match.params[i].value));
+        }
+        PyDict_SetItemString(match_dict, "path_params", params_dict);
+    } else {
+        PyDict_SetItemString(match_dict, "path_params", PyDict_New());
+    }
+
+    if (match.has_allowed_methods) {
+        PyDict_SetItemString(match_dict, "allowed_methods",
+                            PyUnicode_FromString(match.allowed_methods));
+    } else {
+        Py_INCREF(Py_None);
+        PyDict_SetItemString(match_dict, "allowed_methods", Py_None);
+    }
+
+    return match_dict;
+}
+
+// add_c_route(method, path, route_id) - Add route to C router for matching
+static PyObject* CatzillaServer_add_c_route(CatzillaServerObject *self, PyObject *args)
+{
+    const char *method, *path;
+    long route_id;
+    if (!PyArg_ParseTuple(args, "ssl", &method, &path, &route_id))
+        return NULL;
+
+    // Add route to C router with route_id as user_data
+    uint32_t c_route_id = catzilla_router_add_route(&self->py_router, method, path,
+                                                   (void*)route_id, NULL, false);
+
+    if (c_route_id == 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to add route to C router");
+        return NULL;
+    }
+
+    return PyLong_FromLong(c_route_id);
 }
 
 // send_response(client_capsule, status, content_type, body)
@@ -353,11 +432,101 @@ static PyObject* get_query_param(PyObject *self, PyObject *args)
     return PyUnicode_FromString(value);
 }
 
+// Global router for module-level functions
+static catzilla_router_t global_router;
+static bool global_router_initialized = false;
+
+// router_match(method, path) - Expose C router matching to Python
+static PyObject* router_match(PyObject *self, PyObject *args)
+{
+    const char *method, *path;
+    if (!PyArg_ParseTuple(args, "ss", &method, &path))
+        return NULL;
+
+    // Initialize global router if needed
+    if (!global_router_initialized) {
+        if (catzilla_router_init(&global_router) != 0) {
+            PyErr_SetString(PyExc_RuntimeError, "Failed to initialize global router");
+            return NULL;
+        }
+        global_router_initialized = true;
+    }
+
+    catzilla_route_match_t match;
+    int result = catzilla_router_match(&global_router, method, path, &match);
+
+    // Create Python dict with match results
+    PyObject *match_dict = PyDict_New();
+    if (!match_dict) {
+        return NULL;
+    }
+
+    PyDict_SetItemString(match_dict, "matched", PyBool_FromLong(result == 0));
+    PyDict_SetItemString(match_dict, "status_code", PyLong_FromLong(match.status_code));
+
+    if (result == 0 && match.route) {
+        PyDict_SetItemString(match_dict, "method", PyUnicode_FromString(match.route->method));
+        PyDict_SetItemString(match_dict, "path", PyUnicode_FromString(match.route->path));
+        PyDict_SetItemString(match_dict, "route_id", PyLong_FromLong(match.route->id));
+
+        // Add path parameters
+        PyObject *params_dict = PyDict_New();
+        for (int i = 0; i < match.param_count; i++) {
+            PyDict_SetItemString(params_dict, match.params[i].name,
+                                PyUnicode_FromString(match.params[i].value));
+        }
+        PyDict_SetItemString(match_dict, "path_params", params_dict);
+    } else {
+        PyDict_SetItemString(match_dict, "path_params", PyDict_New());
+    }
+
+    if (match.has_allowed_methods) {
+        PyDict_SetItemString(match_dict, "allowed_methods",
+                            PyUnicode_FromString(match.allowed_methods));
+    } else {
+        Py_INCREF(Py_None);
+        PyDict_SetItemString(match_dict, "allowed_methods", Py_None);
+    }
+
+    return match_dict;
+}
+
+// router_add_route(method, path, handler_id) - Add route to C router
+static PyObject* router_add_route(PyObject *self, PyObject *args)
+{
+    const char *method, *path;
+    long handler_id;
+    if (!PyArg_ParseTuple(args, "ssl", &method, &path, &handler_id))
+        return NULL;
+
+    // Initialize global router if needed
+    if (!global_router_initialized) {
+        if (catzilla_router_init(&global_router) != 0) {
+            PyErr_SetString(PyExc_RuntimeError, "Failed to initialize global router");
+            return NULL;
+        }
+        global_router_initialized = true;
+    }
+
+    // Add route to global router
+    uint32_t route_id = catzilla_router_add_route(&global_router, method, path,
+                                                 (void*)handler_id, NULL, false);
+
+    if (route_id == 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to add route to router");
+        return NULL;
+    }
+
+    return PyLong_FromLong(route_id);
+}
+
 // Method tables and module definition
 static PyMethodDef CatzillaServer_methods[] = {
     {"listen",    (PyCFunction)CatzillaServer_listen,   METH_VARARGS, "Start listening"},
     {"add_route", (PyCFunction)CatzillaServer_add_route, METH_VARARGS, "Add HTTP route"},
     {"stop",      (PyCFunction)CatzillaServer_stop,      METH_NOARGS,  "Stop server"},
+    {"match_route", (PyCFunction)CatzillaServer_match_route, METH_VARARGS, "Match route using C router"},
+    {"add_c_route", (PyCFunction)CatzillaServer_add_c_route, METH_VARARGS, "Add route to C router"},
     {NULL}
 };
 
@@ -380,6 +549,8 @@ static PyMethodDef module_methods[] = {
     {"get_form_field", get_form_field, METH_VARARGS, "Get form field value"},
     {"get_content_type", get_content_type, METH_VARARGS, "Get content type from request"},
     {"get_query_param", get_query_param, METH_VARARGS, "Get query parameter value"},
+    {"router_match", router_match, METH_VARARGS, "Match route using C router"},
+    {"router_add_route", router_add_route, METH_VARARGS, "Add route to C router"},
     {NULL}
 };
 
@@ -388,7 +559,9 @@ static struct PyModuleDef catzilla_module = {
     "catzilla._catzilla",
     "Catzilla HTTP server module",
     -1,
-    module_methods
+    module_methods,
+    NULL, NULL, NULL,
+    NULL  // Module cleanup function (we'll handle cleanup manually)
 };
 
 PyMODINIT_FUNC PyInit__catzilla(void)

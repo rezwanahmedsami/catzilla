@@ -307,13 +307,24 @@ class RouterGroup:
             merged_metadata["original_group_prefix"] = full_original_prefix
             merged_metadata["included_in_group"] = self.prefix
 
+            # Combine this group's prefix with the other group's prefix, then the relative path
+            # This ensures nested group prefixes are preserved
+            combined_prefix = (
+                self.prefix + other_group.prefix if other_group.prefix else self.prefix
+            )
+
             # Special handling for root paths in group inclusion context
-            if relative_path == "/" and self.prefix:
-                # For root paths from included groups, we want group_prefix + "/"
-                final_path = self.prefix + "/"
+            if relative_path == "/":
+                # For root paths from included groups, use the combined prefix
+                final_path = combined_prefix if combined_prefix else "/"
                 self._routes.append((method, final_path, handler, merged_metadata))
             else:
-                self._register_route(method, relative_path, handler, **merged_metadata)
+                # For non-root paths, combine the prefixes with the relative path
+                final_path = combined_prefix + relative_path
+                # Normalize double slashes
+                while "//" in final_path:
+                    final_path = final_path.replace("//", "/")
+                self._routes.append((method, final_path, handler, merged_metadata))
 
 
 class Router:

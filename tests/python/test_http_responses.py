@@ -250,7 +250,7 @@ class TestRouteValidation:
             return JSONResponse({"version": 1})
 
         # Adding same route should generate warning
-        with pytest.warns(RuntimeWarning):
+        with pytest.warns(UserWarning):
             @app.get("/api/test")
             def handler2(request):
                 return JSONResponse({"version": 2})

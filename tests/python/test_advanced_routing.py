@@ -309,7 +309,7 @@ class TestAppIntegration:
             return {}
 
         # This should warn about potential conflict
-        with pytest.warns(RuntimeWarning):
+        with pytest.warns(UserWarning):
             @app.get("/api/{version}")
             def api_version_duplicate(request):
                 return {}

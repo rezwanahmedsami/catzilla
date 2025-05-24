@@ -276,6 +276,18 @@ def status_demo(request):
         status_code=code
     )
 
+# api router with path parameters
+@api_router.get("/users/{id}")
+def api_user_detail(request):
+    """Example of returning a user detail"""
+    query_params = request.query_params
+    return JSONResponse({
+        "message": "User detail",
+        "id": request.path_params["id"],
+        "query_params": query_params,
+        "note": "This route is registered in the api_router group"
+    })
+
 # Demo Routes - organized in demo_router group
 @demo_router.get("/request-info")
 def request_info(request):

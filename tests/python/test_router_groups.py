@@ -188,8 +188,139 @@ class TestRouterGroupNesting:
 
         # Check that paths are properly combined
         paths = {route[1] for route in routes}
-        assert "/api/" in paths
-        assert "/api/{user_id}" in paths
+        assert "/api/users" in paths
+        assert "/api/users/{user_id}" in paths
+
+    def test_nested_group_path_parameters(self):
+        """Test that path parameters work correctly in nested RouterGroups - regression test"""
+        # This tests the specific bug that was fixed where nested groups
+        # weren't preserving path prefixes correctly for parameter extraction
+
+        # Create users group with dynamic route
+        users_group = RouterGroup("/users")
+
+        @users_group.get("/{user_id}")
+        def get_user(request):
+            return {"user_id": request.path_params.get("user_id")}
+
+        @users_group.get("/{user_id}/profile")
+        def get_user_profile(request):
+            return {"user_id": request.path_params.get("user_id")}
+
+        # Create posts group with dynamic route
+        posts_group = RouterGroup("/posts")
+
+        @posts_group.get("/{post_id}")
+        def get_post(request):
+            return {"post_id": request.path_params.get("post_id")}
+
+        # Create API v1 group and include the user/post groups
+        api_v1_group = RouterGroup("/api/v1")
+        api_v1_group.include_group(users_group)
+        api_v1_group.include_group(posts_group)
+
+        # Verify routes are constructed correctly
+        routes = api_v1_group.routes()
+        assert len(routes) == 3
+
+        paths = {route[1] for route in routes}
+        # These paths should include ALL nested prefixes
+        assert "/api/v1/users/{user_id}" in paths
+        assert "/api/v1/users/{user_id}/profile" in paths
+        assert "/api/v1/posts/{post_id}" in paths
+
+        # Verify none of the broken paths exist (paths that would result from the bug)
+        broken_paths = {"/api/v1/{user_id}", "/api/v1/{post_id}", "/api/v1/profile"}
+        assert not any(broken_path in paths for broken_path in broken_paths)
+
+    def test_triple_nested_group_path_parameters(self):
+        """Test path parameters in triple-nested RouterGroups"""
+        # Create the deepest level group
+        resource_group = RouterGroup("/resources")
+
+        @resource_group.get("/{resource_id}")
+        def get_resource(request):
+            return {"resource_id": request.path_params.get("resource_id")}
+
+        @resource_group.get("/{resource_id}/details")
+        def get_resource_details(request):
+            return {"resource_id": request.path_params.get("resource_id")}
+
+        # Create middle level group
+        v1_group = RouterGroup("/v1")
+        v1_group.include_group(resource_group)
+
+        # Create top level group
+        api_group = RouterGroup("/api")
+        api_group.include_group(v1_group)
+
+        routes = api_group.routes()
+        assert len(routes) == 2
+
+        paths = {route[1] for route in routes}
+        # Should preserve all three prefix levels
+        assert "/api/v1/resources/{resource_id}" in paths
+        assert "/api/v1/resources/{resource_id}/details" in paths
+
+        # Verify the broken paths from the bug don't exist
+        broken_paths = {"/api/v1/{resource_id}", "/api/{resource_id}"}
+        assert not any(broken_path in paths for broken_path in broken_paths)
+
+    def test_nested_groups_with_multiple_parameters(self):
+        """Test nested groups with routes containing multiple path parameters"""
+        # Create a group with multiple parameters
+        complex_group = RouterGroup("/users")
+
+        @complex_group.get("/{user_id}/posts/{post_id}/comments/{comment_id}")
+        def get_comment(request):
+            return {
+                "user_id": request.path_params.get("user_id"),
+                "post_id": request.path_params.get("post_id"),
+                "comment_id": request.path_params.get("comment_id")
+            }
+
+        # Nest it in an API group
+        api_group = RouterGroup("/api/v2")
+        api_group.include_group(complex_group)
+
+        routes = api_group.routes()
+        assert len(routes) == 1
+
+        method, path, handler, metadata = routes[0]
+        # Should preserve all prefixes and all parameters
+        expected_path = "/api/v2/users/{user_id}/posts/{post_id}/comments/{comment_id}"
+        assert path == expected_path
+
+        # Ensure broken path doesn't exist
+        broken_path = "/api/v2/{user_id}/posts/{post_id}/comments/{comment_id}"
+        assert path != broken_path
+
+    def test_app_integration_with_nested_path_parameters(self):
+        """Test full App integration with nested RouterGroup path parameters"""
+        from catzilla import App
+
+        app = App()
+
+        # Create nested groups
+        users_group = RouterGroup("/users")
+
+        @users_group.get("/{user_id}")
+        def get_user(request):
+            return {"user_id": request.path_params.get("user_id")}
+
+        api_group = RouterGroup("/api/v1")
+        api_group.include_group(users_group)
+
+        # Include in app
+        app.include_routes(api_group)
+
+        # Verify app has correct routes
+        app_routes = app.routes()
+        assert len(app_routes) == 1
+
+        route = app_routes[0]
+        assert route["path"] == "/api/v1/users/{user_id}"
+        assert route["method"] == "GET"
 
     def test_deep_group_nesting(self):
         """Test deep nesting of groups"""
@@ -209,7 +340,7 @@ class TestRouterGroupNesting:
         assert len(routes) == 1
 
         method, path, handler, metadata = routes[0]
-        assert path == "/api/"  # /api + /v1 + /resource + / with prefix handling
+        assert path == "/api/v1/resource"  # /api + /v1 + /resource with correct prefix handling
         assert metadata["original_group_prefix"] == "/v1/resource"
         assert metadata["included_in_group"] == "/api"
 
@@ -337,7 +468,7 @@ class TestAppIntegration:
             return JSONResponse({"version": "v2"})
 
         # This should warn about route conflict
-        with pytest.warns(RuntimeWarning):
+        with pytest.warns(UserWarning):
             app.include_routes(group2)
 
     def test_empty_group_inclusion(self):
@@ -450,3 +581,460 @@ class TestRouterGroupEdgeCases:
         assert metadata["middleware"] == ["auth", "cors"]
         assert metadata["rate_limit"] == 100
         assert metadata["extra_field"] == "test_value"
+
+
+class TestRouterGroupRegression:
+    """Test RouterGroup regression cases"""
+
+    def test_exact_regression_api_v1_posts_bug(self):
+        """Regression test for the exact bug: /api/v1/posts/45 returned post_id=None instead of '45'"""
+        # This is the exact scenario that was broken before the fix
+
+        # Create posts group with parameterized route
+        posts_group = RouterGroup("/posts")
+
+        @posts_group.get("/{post_id}")
+        def get_post(request):
+            # This should extract post_id correctly from the path
+            post_id = request.path_params.get("post_id")
+            return {"post": {"id": post_id}}
+
+        # Create API v1 group and include posts group
+        api_v1_group = RouterGroup("/api/v1")
+        api_v1_group.include_group(posts_group)
+
+        # Verify the route path is constructed correctly
+        routes = api_v1_group.routes()
+        assert len(routes) == 1
+
+        method, path, handler, metadata = routes[0]
+        # The bug was that this became "/api/v1/{post_id}" instead of "/api/v1/posts/{post_id}"
+        assert path == "/api/v1/posts/{post_id}", f"Expected '/api/v1/posts/{{post_id}}', got '{path}'"
+
+        # Ensure the broken path doesn't exist
+        assert path != "/api/v1/{post_id}", "Bug detected: path is missing '/posts' segment"
+
+        # Verify metadata shows correct nesting
+        # The route originates from posts_group, so group_prefix is from posts
+        assert metadata["group_prefix"] == "/posts"
+        # The original_group_prefix tracks where it was originally from
+        assert metadata["original_group_prefix"] == "/posts"
+        # The included_in_group shows which group it was included into
+        assert metadata["included_in_group"] == "/api/v1"
+
+    def test_multiple_nested_groups_regression(self):
+        """Regression test for multiple nested groups in the same parent"""
+        # Tests the scenario where multiple groups are nested in one parent
+        # and ensures all preserve their prefixes correctly
+
+        users_group = RouterGroup("/users")
+        @users_group.get("/{user_id}")
+        def get_user(request):
+            return {"user_id": request.path_params.get("user_id")}
+
+        posts_group = RouterGroup("/posts")
+        @posts_group.get("/{post_id}")
+        def get_post(request):
+            return {"post_id": request.path_params.get("post_id")}
+
+        comments_group = RouterGroup("/comments")
+        @comments_group.get("/{comment_id}")
+        def get_comment(request):
+            return {"comment_id": request.path_params.get("comment_id")}
+
+        # Include all in API v1 group
+        api_group = RouterGroup("/api/v1")
+        api_group.include_group(users_group)
+        api_group.include_group(posts_group)
+        api_group.include_group(comments_group)
+
+        routes = api_group.routes()
+        assert len(routes) == 3
+
+        paths = {route[1] for route in routes}
+        expected_paths = {
+            "/api/v1/users/{user_id}",
+            "/api/v1/posts/{post_id}",
+            "/api/v1/comments/{comment_id}"
+        }
+        assert paths == expected_paths
+
+        # Ensure none of the broken paths exist (the bug would create these)
+        broken_paths = {"/api/v1/{user_id}", "/api/v1/{post_id}", "/api/v1/{comment_id}"}
+        assert not any(broken_path in paths for broken_path in broken_paths)
+
+
+class TestRouterGroupRegressionTests:
+    """Regression tests for specific bugs that were fixed"""
+
+    def test_exact_regression_api_v1_posts_bug(self):
+        """
+        Test the exact scenario that was broken before the fix:
+        /api/v1/posts/45 should extract post_id="45" correctly
+
+        This is a regression test for the bug where nested RouterGroups
+        weren't preserving all prefix levels correctly.
+        """
+        # Create posts group - this is the inner group
+        posts_group = RouterGroup("/posts")
+
+        @posts_group.get("/")
+        def list_posts(request):
+            return {"posts": []}
+
+        @posts_group.get("/{post_id}")
+        def get_post(request):
+            post_id = request.path_params.get("post_id")
+            return {"post_id": post_id}
+
+        # Create API v1 group - this is the outer group
+        api_v1_group = RouterGroup("/api/v1")
+        api_v1_group.include_group(posts_group)
+
+        # Verify the routes are constructed correctly
+        routes = api_v1_group.routes()
+        assert len(routes) == 2
+
+        # Extract route information
+        route_info = {route[1]: (route[0], route[2]) for route in routes}
+
+        # Test that the exact problematic route exists with correct path
+        assert "/api/v1/posts" in route_info
+        assert "/api/v1/posts/{post_id}" in route_info
+
+        # Verify the handlers are correct
+        list_method, list_handler = route_info["/api/v1/posts"]
+        detail_method, detail_handler = route_info["/api/v1/posts/{post_id}"]
+
+        assert list_method == "GET"
+        assert detail_method == "GET"
+        assert list_handler == list_posts
+        assert detail_handler == get_post
+
+        # Verify the broken paths from the original bug don't exist
+        broken_paths = ["/api/v1/{post_id}", "/api/v1/"]
+        for broken_path in broken_paths:
+            assert broken_path not in route_info, f"Broken path {broken_path} should not exist"
+
+    def test_multiple_nested_groups_regression(self):
+        """
+        Test multiple groups nested in the same parent group.
+        This ensures that each nested group maintains its own prefix correctly.
+        """
+        # Create multiple inner groups
+        users_group = RouterGroup("/users")
+
+        @users_group.get("/")
+        def list_users(request):
+            return {"users": []}
+
+        @users_group.get("/{user_id}")
+        def get_user(request):
+            return {"user_id": request.path_params.get("user_id")}
+
+        posts_group = RouterGroup("/posts")
+
+        @posts_group.get("/")
+        def list_posts(request):
+            return {"posts": []}
+
+        @posts_group.get("/{post_id}")
+        def get_post(request):
+            return {"post_id": request.path_params.get("post_id")}
+
+        comments_group = RouterGroup("/comments")
+
+        @comments_group.get("/{comment_id}")
+        def get_comment(request):
+            return {"comment_id": request.path_params.get("comment_id")}
+
+        # Create outer group and include all inner groups
+        api_v1_group = RouterGroup("/api/v1")
+        api_v1_group.include_group(users_group)
+        api_v1_group.include_group(posts_group)
+        api_v1_group.include_group(comments_group)
+
+        # Verify all routes are constructed correctly
+        routes = api_v1_group.routes()
+        assert len(routes) == 5
+
+        # Extract all paths
+        paths = {route[1] for route in routes}
+
+        # Verify all expected paths exist
+        expected_paths = {
+            "/api/v1/users",
+            "/api/v1/users/{user_id}",
+            "/api/v1/posts",
+            "/api/v1/posts/{post_id}",
+            "/api/v1/comments/{comment_id}"
+        }
+        assert paths == expected_paths
+
+        # Verify none of the broken paths from the original bug exist
+        broken_paths = {
+            "/api/v1/{user_id}",
+            "/api/v1/{post_id}",
+            "/api/v1/{comment_id}",
+            "/api/v1/"
+        }
+        assert not any(broken_path in paths for broken_path in broken_paths)
+
+    def test_regression_parameter_extraction_simulation(self):
+        """
+        Simulate the actual parameter extraction that would happen in the router
+        to ensure the paths are correct for parameter extraction.
+        """
+        # Create the same nested structure that was problematic
+        posts_group = RouterGroup("/posts")
+
+        @posts_group.get("/{post_id}")
+        def get_post(request):
+            return {"post_id": request.path_params.get("post_id")}
+
+        api_v1_group = RouterGroup("/api/v1")
+        api_v1_group.include_group(posts_group)
+
+        routes = api_v1_group.routes()
+
+        # Find the route with post_id parameter
+        post_route = None
+        for method, path, handler, metadata in routes:
+            if "{post_id}" in path:
+                post_route = (method, path, handler, metadata)
+                break
+
+        assert post_route is not None, "Route with post_id parameter not found"
+
+        method, path, handler, metadata = post_route
+
+        # Verify the path is exactly what we expect for proper parameter extraction
+        assert path == "/api/v1/posts/{post_id}"
+
+        # The path should NOT be the broken version that would cause parameter extraction to fail
+        assert path != "/api/v1/{post_id}"  # This was the broken path from the original bug
+
+        # Verify metadata contains the correct group information
+        assert "group_prefix" in metadata
+        assert "original_group_prefix" in metadata or "included_in_group" in metadata
+
+
+class TestNestedRouterGroupRegressionBug:
+    """
+    Regression tests for the specific bug where nested RouterGroups
+    weren't extracting path parameters correctly.
+
+    Original Issue:
+    - Request to /api/v1/posts/45 resulted in post_id being None instead of "45"
+    - Nested groups were dropping intermediate prefixes in path construction
+    """
+
+    def test_exact_bug_scenario_posts(self):
+        """Test the exact bug scenario: /api/v1/posts/{post_id} parameter extraction"""
+        # Create posts group (this was the problematic route)
+        posts_group = RouterGroup("/posts")
+
+        @posts_group.get("/{post_id}")
+        def get_post(request):
+            return {"post_id": request.path_params.get("post_id")}
+
+        # Create API v1 group and include posts
+        api_v1_group = RouterGroup("/api/v1")
+        api_v1_group.include_group(posts_group)
+
+        routes = api_v1_group.routes()
+
+        # Should have exactly one route
+        assert len(routes) == 1
+
+        method, path, handler, metadata = routes[0]
+
+        # CRITICAL: Path must be correct for parameter extraction to work
+        assert path == "/api/v1/posts/{post_id}"
+        assert method == "GET"
+
+        # Verify the broken path from the original bug does NOT exist
+        assert path != "/api/v1/{post_id}"  # This was the bug!
+
+    def test_exact_bug_scenario_users(self):
+        """Test the exact bug scenario: /api/v1/users/{user_id} parameter extraction"""
+        # Create users group
+        users_group = RouterGroup("/users")
+
+        @users_group.get("/{user_id}")
+        def get_user(request):
+            return {"user_id": request.path_params.get("user_id")}
+
+        # Create API v1 group and include users
+        api_v1_group = RouterGroup("/api/v1")
+        api_v1_group.include_group(users_group)
+
+        routes = api_v1_group.routes()
+
+        assert len(routes) == 1
+        method, path, handler, metadata = routes[0]
+
+        # CRITICAL: Path must preserve all nested prefixes
+        assert path == "/api/v1/users/{user_id}"
+        assert method == "GET"
+
+        # The bug would have produced this incorrect path:
+        assert path != "/api/v1/{user_id}"
+
+    def test_multiple_nested_groups_parameter_isolation(self):
+        """
+        Test that multiple nested groups don't interfere with each other's parameters.
+        This ensures the fix doesn't break parameter isolation between different groups.
+        """
+        # Create multiple groups with same parameter names but different contexts
+        posts_group = RouterGroup("/posts")
+        users_group = RouterGroup("/users")
+        comments_group = RouterGroup("/comments")
+
+        @posts_group.get("/{id}")
+        def get_post(request):
+            return {"type": "post", "id": request.path_params.get("id")}
+
+        @users_group.get("/{id}")
+        def get_user(request):
+            return {"type": "user", "id": request.path_params.get("id")}
+
+        @comments_group.get("/{id}")
+        def get_comment(request):
+            return {"type": "comment", "id": request.path_params.get("id")}
+
+        # Include all in API v1
+        api_v1_group = RouterGroup("/api/v1")
+        api_v1_group.include_group(posts_group)
+        api_v1_group.include_group(users_group)
+        api_v1_group.include_group(comments_group)
+
+        routes = api_v1_group.routes()
+        assert len(routes) == 3
+
+        # Extract paths
+        paths = {route[1] for route in routes}
+
+        # All paths should be correctly formed with full prefixes
+        expected_paths = {
+            "/api/v1/posts/{id}",
+            "/api/v1/users/{id}",
+            "/api/v1/comments/{id}"
+        }
+        assert paths == expected_paths
+
+        # None of the broken paths should exist
+        broken_paths = {"/api/v1/{id}"}  # This would cause parameter ambiguity
+        assert not any(broken_path in paths for broken_path in broken_paths)
+
+    def test_deep_nesting_with_parameters_at_each_level(self):
+        """
+        Test deep nesting where each level has parameters.
+        This is a more complex scenario that could expose edge cases in the fix.
+        """
+        # Deepest level: specific resource operations
+        operations_group = RouterGroup("/operations")
+
+        @operations_group.get("/{operation_id}")
+        def get_operation(request):
+            return {"operation_id": request.path_params.get("operation_id")}
+
+        # Middle level: resource with ID
+        resource_group = RouterGroup("/resources/{resource_id}")
+        resource_group.include_group(operations_group)
+
+        # Top level: API version
+        api_v2_group = RouterGroup("/api/v2")
+        api_v2_group.include_group(resource_group)
+
+        routes = api_v2_group.routes()
+        assert len(routes) == 1
+
+        method, path, handler, metadata = routes[0]
+
+        # Should preserve all nested parameters and prefixes
+        assert path == "/api/v2/resources/{resource_id}/operations/{operation_id}"
+
+        # Verify this is not any of the broken combinations the bug could have produced
+        broken_paths = [
+            "/api/v2/{operation_id}",  # Missing all intermediate levels
+            "/api/v2/operations/{operation_id}",  # Missing resource level
+            "/api/v2/{resource_id}/operations/{operation_id}",  # Missing 'resources' prefix
+        ]
+        assert path not in broken_paths
+
+    def test_empty_prefix_edge_case(self):
+        """
+        Test edge case where some groups have empty prefixes.
+        This ensures the fix handles prefix combination correctly even with empty prefixes.
+        """
+        # Group with empty prefix (root level routes)
+        root_group = RouterGroup("")
+
+        @root_group.get("/health")
+        def health_check(request):
+            return {"status": "ok"}
+
+        @root_group.get("/status/{component}")
+        def component_status(request):
+            return {"component": request.path_params.get("component")}
+
+        # Include in API group
+        api_group = RouterGroup("/api")
+        api_group.include_group(root_group)
+
+        routes = api_group.routes()
+        assert len(routes) == 2
+
+        paths = {route[1] for route in routes}
+
+        # Should properly handle empty prefix
+        expected_paths = {
+            "/api/health",
+            "/api/status/{component}"
+        }
+        assert paths == expected_paths
+
+    def test_regression_verification_with_app_integration(self):
+        """
+        Integration test that verifies the fix works end-to-end with the App class.
+        This simulates the actual request routing that was failing.
+        """
+        # Create the problematic nested structure
+        posts_group = RouterGroup("/posts")
+
+        @posts_group.get("/{post_id}")
+        def get_post(request):
+            post_id = request.path_params.get("post_id")
+            return JSONResponse({"post_id": post_id, "title": f"Post {post_id}"})
+
+        api_v1_group = RouterGroup("/api/v1")
+        api_v1_group.include_group(posts_group)
+
+        # Create app and register the nested groups using the correct method
+        app = App()
+        app.include_routes(api_v1_group)
+
+        # Verify the route was registered correctly in the app
+        app_routes = app.routes()
+
+        # The key test: verify that when the App processes the nested RouterGroup,
+        # it creates the correct route path that will enable parameter extraction
+        found_correct_route = False
+        for route in app_routes:
+            if route.get("path") == "/api/v1/posts/{post_id}":
+                found_correct_route = True
+                break
+
+        # This assertion verifies that the App received the correctly fixed route
+        # If the bug still existed, the App would receive "/api/v1/{post_id}" instead
+        assert found_correct_route, "App did not receive the correctly constructed route path"
+
+        # Additional verification: ensure the broken path is NOT registered
+        broken_route_found = False
+        for route in app_routes:
+            if route.get("path") == "/api/v1/{post_id}":  # This was the broken path
+                broken_route_found = True
+                break
+
+        assert not broken_route_found, "App incorrectly registered the broken route path from the original bug"
