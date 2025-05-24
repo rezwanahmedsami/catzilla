@@ -1,10 +1,16 @@
 """
-Catzilla Hello World Example
+Catzilla Hello World Example with RouterGroup
+Demonstrates how to organize routes using RouterGroup for better code structure.
 """
 
-from catzilla import App, Response, JSONResponse, HTMLResponse
+from catzilla import App, Response, JSONResponse, HTMLResponse, RouterGroup
 
 app = App()
+
+# Create router groups for different sections
+api_router = RouterGroup(prefix="/api", tags=["api"])
+demo_router = RouterGroup(prefix="/demo", tags=["demo"])
+examples_router = RouterGroup(prefix="/examples", tags=["examples"])
 
 @app.get("/")
 def home(request):
@@ -94,11 +100,13 @@ def home(request):
                     <li><span class="method post">POST</span> <code>/api/echo</code> - Echo back request data</li>
                     <li><span class="method get">GET</span> <a href="/api/headers">Headers Demo</a> - Response header demo</li>
                     <li><span class="method get">GET</span> <a href="/api/cookies">Cookies Demo</a> - Cookie handling demo</li>
-                    <li><span class="method get">GET</span> <a href="/api/status/404">Status Code Demo</a> - Custom status response</li>
+                    <li><span class="method get">GET</span> <a href="/api/status?code=404">Status Code Demo</a> - Custom status response</li>
                     <li><span class="method put">PUT</span> <code>/api/update</code> - Update endpoint</li>
                     <li><span class="method delete">DELETE</span> <code>/api/delete</code> - Delete endpoint</li>
                     <li><span class="method patch">PATCH</span> <code>/api/patch</code> - Patch endpoint</li>
+                    <li><span class="method get">GET</span> <a href="/users/123">User Detail</a> - Path parameter example</li>
                 </ul>
+                <p><strong>Organization:</strong> This example demonstrates RouterGroup usage - routes are organized into logical groups (/api, /demo, /examples) for better code structure.</p>
             </div>
 
             <div class="examples-section">
@@ -119,57 +127,17 @@ def home(request):
 def hello(request):
     return HTMLResponse("<h1>Hello, World!</h1><p>This is Catzilla in action.</p>")
 
-@app.get("/api/info")
+# API Routes - organized in api_router group
+@api_router.get("/info")
 def api_info(request):
     return JSONResponse({
         "name": "Catzilla",
         "version": "0.1.0",
-        "description": "High-performance Python web framework with C core"
+        "description": "High-performance Python web framework with C core",
+        "router_group": "api"
     })
 
-@app.get("/demo/request-info")
-def request_info(request):
-    """Demonstrate all the new Request features"""
-    return JSONResponse({
-        "client_ip": request.client_ip,
-        "content_type": request.content_type,
-        "headers": request.headers,
-        "query_params": request.query_params,
-        "method": request.method,
-        "path": request.path,
-    })
-
-@app.get("/demo/query")
-def query_demo(request):
-    """Demonstrate query parameter handling"""
-    return JSONResponse(
-        {
-            "message": "Query parameters received",
-            "params": request.query_params
-        },
-        headers={
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*"  # Allow cross-origin requests
-        }
-    )
-
-@app.post("/demo/form")
-def form_demo(request):
-    """Demonstrate form data handling"""
-    print(f"[DEBUG-PY-FROM-EXAMPLE] Echo handler - body: {request.body}")
-    content_type = request.content_type
-    raw_text = request.text()
-    form_data = request.form()
-    query_params = request.query_params
-    return JSONResponse({
-        "message": "Form data received",
-        "content_type": content_type,
-        "raw_text": raw_text,
-        "form_data": form_data,
-        "query_params": query_params
-    })
-
-@app.post("/api/echo")
+@api_router.post("/echo")
 def echo(request):
     """Echo back JSON data with content type info"""
     query_params = request.query_params
@@ -198,41 +166,45 @@ def echo(request):
         "content_type": content_type,
         "raw_text": raw_text,
         "parsed_json": parsed_json,
-        "query_params": query_params
+        "query_params": query_params,
+        "router_group": "api"
     })
 
-# Additional HTTP method handlers
-@app.put("/api/update")
+@api_router.put("/update")
 def update(request):
     data = request.json()
     return JSONResponse({
         "message": "Data updated successfully",
-        "data": data
+        "data": data,
+        "router_group": "api"
     })
 
-@app.delete("/api/delete")
+@api_router.delete("/delete")
 def delete(request):
     data = request.json()
     return JSONResponse({
         "message": "Data deleted successfully",
-        "data": data
+        "data": data,
+        "router_group": "api"
     })
 
-@app.patch("/api/patch")
+@api_router.patch("/patch")
 def patch(request):
     data = request.json()
     return JSONResponse({
         "message": "Data patched successfully",
-        "data": data
+        "data": data,
+        "router_group": "api"
     })
 
-@app.get("/api/headers")
+@api_router.get("/headers")
 def headers_demo(request):
     """Demonstrate response headers"""
     return JSONResponse(
         {
             "message": "Custom headers demo",
-            "your_headers": request.headers
+            "your_headers": request.headers,
+            "router_group": "api"
         },
         headers={
             "X-Custom-Header": "Custom Value",
@@ -242,13 +214,14 @@ def headers_demo(request):
         }
     )
 
-@app.get("/api/cookies")
+@api_router.get("/cookies")
 def cookies_demo(request):
     """Demonstrate cookie handling"""
     response = JSONResponse({
         "message": "Cookie demo",
         "description": "Check your browser's cookies",
-        "note": "All cookies should be visible now"
+        "note": "All cookies should be visible now",
+        "router_group": "api"
     })
 
     # Basic session cookie
@@ -285,12 +258,11 @@ def cookies_demo(request):
 
     return response
 
-@app.get("/api/status")
+@api_router.get("/status")
 def status_demo(request):
     """Demonstrate different status codes"""
-    # Extract status code from path
+    # Extract status code from query params
     try:
-        # code = int(request.path.split("/")[-1])
         code = int(request.query_params.get("code", 400))
     except ValueError:
         code = 400
@@ -298,41 +270,91 @@ def status_demo(request):
     return JSONResponse(
         {
             "message": f"Returning status code {code}",
-            "description": "This is a status code demo"
+            "description": "This is a status code demo",
+            "router_group": "api"
         },
         status_code=code
     )
 
-@app.get("/examples/simple-html")
+# Demo Routes - organized in demo_router group
+@demo_router.get("/request-info")
+def request_info(request):
+    """Demonstrate all the new Request features"""
+    return JSONResponse({
+        "client_ip": request.client_ip,
+        "content_type": request.content_type,
+        "headers": request.headers,
+        "query_params": request.query_params,
+        "method": request.method,
+        "path": request.path,
+        "router_group": "demo"
+    })
+
+@demo_router.get("/query")
+def query_demo(request):
+    """Demonstrate query parameter handling"""
+    return JSONResponse(
+        {
+            "message": "Query parameters received",
+            "params": request.query_params,
+            "router_group": "demo"
+        },
+        headers={
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*"  # Allow cross-origin requests
+        }
+    )
+
+@demo_router.post("/form")
+def form_demo(request):
+    """Demonstrate form data handling"""
+    print(f"[DEBUG-PY-FROM-EXAMPLE] Echo handler - body: {request.body}")
+    content_type = request.content_type
+    raw_text = request.text()
+    form_data = request.form()
+    query_params = request.query_params
+    return JSONResponse({
+        "message": "Form data received",
+        "content_type": content_type,
+        "raw_text": raw_text,
+        "form_data": form_data,
+        "query_params": query_params,
+        "router_group": "demo"
+    })
+
+# Examples Routes - organized in examples_router group
+@examples_router.get("/simple-html")
 def simple_html(request):
     """Example of returning a simple HTML string"""
-    return "<h1>Hello World</h1><p>This is a simple HTML response</p>"
+    return "<h1>Hello World</h1><p>This is a simple HTML response from the examples router group</p>"
 
-@app.get("/examples/simple-json")
+@examples_router.get("/simple-json")
 def simple_json(request):
     """Example of returning a simple dictionary"""
     return {
         "name": "sami",
         "role": "developer",
-        "skills": ["python", "javascript", "c++"]
+        "skills": ["python", "javascript", "c++"],
+        "router_group": "examples"
     }
 
-@app.get("/examples/custom-status")
+@examples_router.get("/custom-status")
 def custom_status(request):
     """Example of returning with a custom status code"""
     return Response(
         status_code=201,
-        body="Resource created successfully",
+        body="Resource created successfully (from examples router group)",
         content_type="text/plain"
     )
 
-@app.get("/examples/json-with-headers")
+@examples_router.get("/json-with-headers")
 def json_with_headers(request):
     """Example of JSON response with custom headers"""
     return JSONResponse(
         {
             "message": "Success",
-            "timestamp": "2024-03-21T12:00:00Z"
+            "timestamp": "2024-03-21T12:00:00Z",
+            "router_group": "examples"
         },
         headers={
             "X-Custom-Header": "Special Value",
@@ -340,7 +362,7 @@ def json_with_headers(request):
         }
     )
 
-@app.get("/examples/styled-html")
+@examples_router.get("/styled-html")
 def styled_html(request):
     """Example of HTML response with CSS styling"""
     return HTMLResponse("""
@@ -361,6 +383,7 @@ def styled_html(request):
                     }
                     h1 { color: #2c3e50; }
                     .highlight { color: #e74c3c; }
+                    .router-info { color: #27ae60; font-weight: bold; }
                 </style>
             </head>
             <body>
@@ -368,12 +391,13 @@ def styled_html(request):
                     <h1>Styled HTML Example</h1>
                     <p>This is a <span class="highlight">beautifully styled</span> HTML response.</p>
                     <p>It demonstrates how to return HTML with embedded CSS.</p>
+                    <p class="router-info">Served by: examples RouterGroup</p>
                 </div>
             </body>
         </html>
     """)
 
-#  path param /users/{id}
+#  path param /users/{id} - direct on app to show mixed usage
 @app.get("/users/{id}")
 def user_detail(request):
     """Example of returning a user detail"""
@@ -381,8 +405,14 @@ def user_detail(request):
     return JSONResponse({
         "message": "User detail",
         "id": request.path_params["id"],
-        "query_params": query_params
+        "query_params": query_params,
+        "note": "This route is registered directly on the app, not in a RouterGroup"
     })
+
+# Include all router groups in the app
+app.include_routes(api_router)
+app.include_routes(demo_router)
+app.include_routes(examples_router)
 
 if __name__ == "__main__":
     print("[INFO-PY-FROM-EXAMPLE] Starting Catzilla server on http://localhost:8000")

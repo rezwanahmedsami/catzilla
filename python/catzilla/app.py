@@ -175,6 +175,15 @@ class App:
         """Register a PATCH route handler"""
         return self.router.patch(path, overwrite=overwrite)
 
+    def include_routes(self, group) -> None:
+        """
+        Include all routes from a RouterGroup into this application
+
+        Args:
+            group: RouterGroup instance containing routes to include
+        """
+        self.router.include_routes(group)
+
     def routes(self) -> List[Dict[str, str]]:
         """Get a list of all registered routes"""
         return self.router.routes()

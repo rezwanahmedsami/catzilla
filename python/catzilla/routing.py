@@ -20,6 +20,9 @@ class Route:
     param_names: List[str]  # Names of path parameters
     pattern: re.Pattern  # Compiled regex pattern for matching
     overwrite: bool = False  # Whether this route can overwrite existing ones
+    tags: List[str] = None  # Tags for API organization
+    description: str = ""  # Route description
+    metadata: Dict[str, any] = None  # Additional metadata
 
 
 class RouteNode:
@@ -32,6 +35,285 @@ class RouteNode:
         )
         self.handlers: Dict[str, Route] = {}  # HTTP method -> Route mapping
         self.allowed_methods: Set[str] = set()  # All methods registered for this path
+
+
+class RouterGroup:
+    """Router group for organizing routes with shared prefix and metadata"""
+
+    def __init__(
+        self,
+        prefix: str = "",
+        *,
+        tags: List[str] = None,
+        description: str = "",
+        metadata: Dict[str, any] = None,
+        **kwargs,
+    ):
+        """
+        Initialize a RouterGroup
+
+        Args:
+            prefix: Common path prefix for all routes in this group
+            tags: Tags for API organization (e.g., ["users", "api"])
+            description: Description of this route group
+            metadata: Additional metadata for the group
+            **kwargs: Additional custom metadata fields
+        """
+        self.prefix = self._normalize_prefix(prefix)
+        self.tags = tags or []
+        self.description = description
+        self.metadata = metadata or {}
+        # Include any additional keyword arguments as metadata
+        self.metadata.update(kwargs)
+        self._routes: List[Tuple[str, str, RouteHandler, Dict[str, any]]] = []
+
+    def _normalize_prefix(self, prefix: str) -> str:
+        """Normalize route prefix"""
+        if not prefix or prefix == "/":
+            return ""
+
+        # Ensure prefix starts with / but doesn't end with / (unless it's root)
+        if not prefix.startswith("/"):
+            prefix = "/" + prefix
+        if len(prefix) > 1 and prefix.endswith("/"):
+            prefix = prefix.rstrip("/")
+
+        # Normalize double slashes
+        while "//" in prefix:
+            prefix = prefix.replace("//", "/")
+
+        return prefix
+
+    def _combine_path(self, path: str) -> str:
+        """Combine group prefix with route path"""
+        # Normalize the input path
+        if not path.startswith("/"):
+            path = "/" + path
+
+        # Clean up double slashes in the path
+        while "//" in path:
+            path = path.replace("//", "/")
+
+        # If no prefix, just return the normalized path
+        if not self.prefix:
+            return path
+
+        # Handle root path in group - just return the prefix
+        if path == "/":
+            return self.prefix
+
+        # Combine prefix and path
+        combined = self.prefix + path
+
+        # Normalize double slashes again after combination
+        while "//" in combined:
+            combined = combined.replace("//", "/")
+
+        # Remove trailing slash (except for root)
+        if len(combined) > 1 and combined.endswith("/"):
+            combined = combined.rstrip("/")
+
+        return combined
+
+    def _register_route(
+        self,
+        method: str,
+        path: str,
+        handler: RouteHandler,
+        *,
+        overwrite: bool = False,
+        tags: List[str] = None,
+        description: str = "",
+        **kwargs,
+    ) -> None:
+        """Register a route in this group"""
+        combined_path = self._combine_path(path)
+
+        # Special case: if this is a root route (/) in a group with a prefix,
+        # add a trailing slash to distinguish it from the prefix itself
+        if path == "/" and self.prefix and combined_path == self.prefix:
+            combined_path = self.prefix + "/"
+
+        # Combine group tags with route-specific tags
+        all_tags = self.tags.copy()
+        if tags:
+            all_tags.extend(tags)
+
+        # Combine group metadata with route-specific metadata
+        route_metadata = self.metadata.copy()
+        route_metadata.update(kwargs)
+        if description:
+            route_metadata["description"] = description
+        if all_tags:
+            route_metadata["tags"] = all_tags
+        route_metadata["overwrite"] = overwrite
+        route_metadata["group_prefix"] = self.prefix
+        route_metadata["group_description"] = self.description
+
+        # Store the route for later registration
+        self._routes.append((method, combined_path, handler, route_metadata))
+
+    def route(
+        self,
+        path: str,
+        methods: List[str] = None,
+        *,
+        overwrite: bool = False,
+        tags: List[str] = None,
+        description: str = "",
+        **kwargs,
+    ):
+        """Route decorator that supports multiple HTTP methods"""
+        if methods is None:
+            methods = ["GET"]
+
+        def decorator(handler: RouteHandler):
+            for method in methods:
+                self._register_route(
+                    method,
+                    path,
+                    handler,
+                    overwrite=overwrite,
+                    tags=tags,
+                    description=description,
+                    **kwargs,
+                )
+            return handler
+
+        return decorator
+
+    def get(
+        self,
+        path: str,
+        *,
+        overwrite: bool = False,
+        tags: List[str] = None,
+        description: str = "",
+        **kwargs,
+    ):
+        """GET route decorator"""
+        return self.route(
+            path,
+            ["GET"],
+            overwrite=overwrite,
+            tags=tags,
+            description=description,
+            **kwargs,
+        )
+
+    def post(
+        self,
+        path: str,
+        *,
+        overwrite: bool = False,
+        tags: List[str] = None,
+        description: str = "",
+        **kwargs,
+    ):
+        """POST route decorator"""
+        return self.route(
+            path,
+            ["POST"],
+            overwrite=overwrite,
+            tags=tags,
+            description=description,
+            **kwargs,
+        )
+
+    def put(
+        self,
+        path: str,
+        *,
+        overwrite: bool = False,
+        tags: List[str] = None,
+        description: str = "",
+        **kwargs,
+    ):
+        """PUT route decorator"""
+        return self.route(
+            path,
+            ["PUT"],
+            overwrite=overwrite,
+            tags=tags,
+            description=description,
+            **kwargs,
+        )
+
+    def delete(
+        self,
+        path: str,
+        *,
+        overwrite: bool = False,
+        tags: List[str] = None,
+        description: str = "",
+        **kwargs,
+    ):
+        """DELETE route decorator"""
+        return self.route(
+            path,
+            ["DELETE"],
+            overwrite=overwrite,
+            tags=tags,
+            description=description,
+            **kwargs,
+        )
+
+    def patch(
+        self,
+        path: str,
+        *,
+        overwrite: bool = False,
+        tags: List[str] = None,
+        description: str = "",
+        **kwargs,
+    ):
+        """PATCH route decorator"""
+        return self.route(
+            path,
+            ["PATCH"],
+            overwrite=overwrite,
+            tags=tags,
+            description=description,
+            **kwargs,
+        )
+
+    def routes(self) -> List[Tuple[str, str, RouteHandler, Dict[str, any]]]:
+        """Get all routes registered in this group"""
+        return self._routes.copy()
+
+    def include_group(self, other_group: "RouterGroup") -> None:
+        """Include routes from another RouterGroup into this one"""
+        for method, path, handler, metadata in other_group.routes():
+            # Remove the other group's prefix and add to this group
+            relative_path = path
+            if other_group.prefix and path.startswith(other_group.prefix):
+                # Get the part after the prefix
+                remaining_path = path[len(other_group.prefix) :]
+                # If nothing remains after removing prefix, it was a root route in that group
+                relative_path = remaining_path if remaining_path else "/"
+
+            # Merge metadata and track the full prefix chain
+            merged_metadata = metadata.copy()
+
+            # Build the full original prefix chain
+            existing_original_prefix = metadata.get("original_group_prefix", "")
+            if existing_original_prefix:
+                # This route was already included from another group, so build the chain
+                full_original_prefix = other_group.prefix + existing_original_prefix
+            else:
+                # This is the first inclusion, so the original prefix is just the other group's prefix
+                full_original_prefix = other_group.prefix
+
+            merged_metadata["original_group_prefix"] = full_original_prefix
+            merged_metadata["included_in_group"] = self.prefix
+
+            # Special handling for root paths in group inclusion context
+            if relative_path == "/" and self.prefix:
+                # For root paths from included groups, we want group_prefix + "/"
+                final_path = self.prefix + "/"
+                self._routes.append((method, final_path, handler, merged_metadata))
+            else:
+                self._register_route(method, relative_path, handler, **merged_metadata)
 
 
 class Router:
@@ -107,7 +389,15 @@ class Router:
             self._add_to_trie(route, remaining, node.children[segment])
 
     def add_route(
-        self, method: str, path: str, handler: RouteHandler, *, overwrite: bool = False
+        self,
+        method: str,
+        path: str,
+        handler: RouteHandler,
+        *,
+        overwrite: bool = False,
+        tags: List[str] = None,
+        description: str = "",
+        metadata: Dict[str, any] = None,
     ) -> None:
         """
         Add a route with support for dynamic path segments.
@@ -117,18 +407,53 @@ class Router:
             path: URL path pattern (e.g., "/users/{user_id}")
             handler: Function to handle the route
             overwrite: Whether to allow overwriting existing routes
+            tags: Tags for API organization
+            description: Route description
+            metadata: Additional metadata
         """
         # Normalize method to uppercase
         normalized_method = self._normalize_method(method)
 
         segments, param_names, pattern = self._parse_path(path)
-        route = Route(normalized_method, path, handler, param_names, pattern, overwrite)
+        route = Route(
+            normalized_method,
+            path,
+            handler,
+            param_names,
+            pattern,
+            overwrite,
+            tags or [],
+            description,
+            metadata or {},
+        )
 
         # Add to trie
         self._add_to_trie(route, segments)
 
         # Add to route list for introspection
         self._route_list.append(route)
+
+    def include_routes(self, group: RouterGroup) -> None:
+        """
+        Include all routes from a RouterGroup into this router
+
+        Args:
+            group: RouterGroup containing routes to include
+        """
+        for method, path, handler, metadata in group.routes():
+            overwrite = metadata.pop("overwrite", False)
+            tags = metadata.pop("tags", None)
+            description = metadata.pop("description", "")
+
+            self.add_route(
+                method,
+                path,
+                handler,
+                overwrite=overwrite,
+                tags=tags,
+                description=description,
+                metadata=metadata,
+            )
 
     def _match_route(
         self, method: str, path: str, node: RouteNode = None
