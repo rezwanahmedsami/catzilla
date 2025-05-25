@@ -41,17 +41,27 @@ if(WIN32)
     message(STATUS "Python3_FOUND: ${Python3_FOUND}")
     message(STATUS "Python3_INCLUDE_DIRS: ${Python3_INCLUDE_DIRS}")
     message(STATUS "Python3_LIBRARIES: ${Python3_LIBRARIES}")
+    message(STATUS "Python3_LIBRARY: ${Python3_LIBRARY}")
+    message(STATUS "Python3_RUNTIME_LIBRARY_DIRS: ${Python3_RUNTIME_LIBRARY_DIRS}")
     message(STATUS "Python3_VERSION: ${Python3_VERSION}")
     message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+
+    # On Windows, check if we have the Python DLL import library
+    if(TARGET Python3::Python)
+        get_target_property(PYTHON_IMPLIB Python3::Python IMPORTED_IMPLIB)
+        get_target_property(PYTHON_LOCATION Python3::Python IMPORTED_LOCATION)
+        message(STATUS "Python3::Python IMPORTED_IMPLIB: ${PYTHON_IMPLIB}")
+        message(STATUS "Python3::Python IMPORTED_LOCATION: ${PYTHON_LOCATION}")
+    endif()
 endif()
 
 # Windows-specific Python linking fixes
 if(WIN32 AND MSVC)
-    # Critical fix for Windows debug builds:
-    # Prevent CMake from automatically linking against debug Python libraries (python3XX_d.lib)
-    # which are typically not available in standard Python installations
+    # Critical fix for Windows Python extensions:
+    # On Windows, Python extensions should link against the Python DLL import library
+    # (e.g., python311.lib for python311.dll), NOT debug libraries (python311_d.lib)
 
-    # First, undefine Py_DEBUG to prevent automatic debug library selection
+    # Prevent CMake from automatically trying to link debug Python libraries
     add_definitions(-UPy_DEBUG)
 
     # Force release Python libraries in all build configurations
@@ -59,46 +69,38 @@ if(WIN32 AND MSVC)
     set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG Release)
     set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 
-    # Extract the actual Python library path and force its use
-    string(REGEX REPLACE "python[0-9]+_d\\.lib" "python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.lib"
-           Python3_LIBRARIES_RELEASE "${Python3_LIBRARIES}")
-
-    # Also handle the case where the library path doesn't contain version info
-    if("${Python3_LIBRARIES_RELEASE}" MATCHES "python_d\\.lib")
-        string(REPLACE "python_d.lib" "python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.lib"
-               Python3_LIBRARIES_RELEASE "${Python3_LIBRARIES_RELEASE}")
+    # Get the correct Python DLL import library path
+    # For Windows, we want the .lib file that imports from the .dll
+    if(Python3_LIBRARY)
+        # Use the primary Python library (should be the DLL import library)
+        set(PYTHON_DLL_IMPORT_LIB "${Python3_LIBRARY}")
+    else()
+        # Fallback: construct the path manually
+        get_filename_component(PYTHON_LIB_DIR "${Python3_LIBRARIES}" DIRECTORY)
+        set(PYTHON_DLL_IMPORT_LIB "${PYTHON_LIB_DIR}/python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.lib")
     endif()
 
-    # Override Python3_LIBRARIES completely
-    set(Python3_LIBRARIES "${Python3_LIBRARIES_RELEASE}")
+    # Ensure we're not trying to link against debug libraries
+    string(REGEX REPLACE "python[0-9]+_d\\.lib" "python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.lib"
+           PYTHON_DLL_IMPORT_LIB "${PYTHON_DLL_IMPORT_LIB}")
 
-    message(STATUS "Windows Python Debug Fix Applied")
-    message(STATUS "Original Python3_LIBRARIES: ${Python3_LIBRARIES}")
-    message(STATUS "Fixed Python3_LIBRARIES: ${Python3_LIBRARIES_RELEASE}")
+    message(STATUS "Windows Python DLL Fix Applied")
+    message(STATUS "Using Python DLL import library: ${PYTHON_DLL_IMPORT_LIB}")
 
-    # Create a custom Python library target that always uses release libraries
+    # Override Python3::Python target to use the correct DLL import library
     if(TARGET Python3::Python)
-        # Get the release library location
-        get_target_property(PYTHON_LIB_RELEASE Python3::Python IMPORTED_IMPLIB_RELEASE)
-        if(NOT PYTHON_LIB_RELEASE)
-            get_target_property(PYTHON_LIB_RELEASE Python3::Python IMPORTED_LOCATION_RELEASE)
-        endif()
-        if(NOT PYTHON_LIB_RELEASE)
-            # Fallback: construct the release library path
-            get_filename_component(PYTHON_LIB_DIR "${Python3_LIBRARIES}" DIRECTORY)
-            set(PYTHON_LIB_RELEASE "${PYTHON_LIB_DIR}/python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.lib")
-        endif()
-
-        message(STATUS "Using Python release library: ${PYTHON_LIB_RELEASE}")
-
-        # Override all configurations to use release library
         set_target_properties(Python3::Python PROPERTIES
-            IMPORTED_IMPLIB_DEBUG "${PYTHON_LIB_RELEASE}"
-            IMPORTED_IMPLIB_RELWITHDEBINFO "${PYTHON_LIB_RELEASE}"
-            IMPORTED_LOCATION_DEBUG "${PYTHON_LIB_RELEASE}"
-            IMPORTED_LOCATION_RELWITHDEBINFO "${PYTHON_LIB_RELEASE}"
+            IMPORTED_IMPLIB_DEBUG "${PYTHON_DLL_IMPORT_LIB}"
+            IMPORTED_IMPLIB_RELEASE "${PYTHON_DLL_IMPORT_LIB}"
+            IMPORTED_IMPLIB_RELWITHDEBINFO "${PYTHON_DLL_IMPORT_LIB}"
+            IMPORTED_LOCATION_DEBUG "${PYTHON_DLL_IMPORT_LIB}"
+            IMPORTED_LOCATION_RELEASE "${PYTHON_DLL_IMPORT_LIB}"
+            IMPORTED_LOCATION_RELWITHDEBINFO "${PYTHON_DLL_IMPORT_LIB}"
         )
     endif()
+
+    # Also update the Python3_LIBRARIES variable for direct use
+    set(Python3_LIBRARIES "${PYTHON_DLL_IMPORT_LIB}")
 endif()
 
 # libuv
@@ -154,12 +156,12 @@ target_include_directories(_catzilla PRIVATE
 
 # Windows-specific Python library handling for the extension
 if(WIN32 AND MSVC)
-    # Link directly to the release library to avoid debug library issues
+    # Link directly to the Python DLL import library to avoid debug library issues
     target_link_libraries(_catzilla PRIVATE
       catzilla_core
       llhttp_static
       yyjson
-      "${Python3_LIBRARIES_RELEASE}"
+      "${PYTHON_DLL_IMPORT_LIB}"
     )
     # Also add Python compile definitions to prevent debug mode issues
     target_compile_definitions(_catzilla PRIVATE Py_ENABLE_SHARED)
@@ -212,7 +214,7 @@ target_include_directories(test_router PRIVATE
 if(WIN32 AND MSVC)
     target_link_libraries(test_router PRIVATE
       catzilla_core
-      "${Python3_LIBRARIES_RELEASE}"
+      "${PYTHON_DLL_IMPORT_LIB}"
     )
 else()
     target_link_libraries(test_router PRIVATE
@@ -242,7 +244,7 @@ target_include_directories(test_advanced_router PRIVATE
 if(WIN32 AND MSVC)
     target_link_libraries(test_advanced_router PRIVATE
       catzilla_core
-      "${Python3_LIBRARIES_RELEASE}"
+      "${PYTHON_DLL_IMPORT_LIB}"
     )
 else()
     target_link_libraries(test_advanced_router PRIVATE
@@ -272,7 +274,7 @@ target_include_directories(test_server_integration PRIVATE
 if(WIN32 AND MSVC)
     target_link_libraries(test_server_integration PRIVATE
       catzilla_core
-      "${Python3_LIBRARIES_RELEASE}"
+      "${PYTHON_DLL_IMPORT_LIB}"
     )
 else()
     target_link_libraries(test_server_integration PRIVATE
@@ -293,7 +295,7 @@ add_executable(catzilla-server src/core/main.c)
 if(WIN32 AND MSVC)
     target_link_libraries(catzilla-server PRIVATE
       catzilla_core
-      "${Python3_LIBRARIES_RELEASE}"
+      "${PYTHON_DLL_IMPORT_LIB}"
     )
 else()
     target_link_libraries(catzilla-server PRIVATE
