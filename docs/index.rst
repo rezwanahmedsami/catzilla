@@ -14,7 +14,7 @@ Catzilla Documentation
 .. image:: https://img.shields.io/pypi/pyversions/catzilla.svg
    :target: https://pypi.org/project/catzilla/
 
-.. image:: https://github.com/rezwanahmedsami/catzilla/workflows/CI/badge.svg
+.. image:: https://github.com/rezwanahmedsami/catzilla/actions/workflows/ci.yml/badge.svg
    :target: https://github.com/rezwanahmedsami/catzilla/actions
 
 Catzilla is a modern Python web framework purpose-built for **extreme performance** and **developer productivity**.
