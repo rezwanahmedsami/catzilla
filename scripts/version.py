@@ -3,6 +3,8 @@
 Catzilla Version Management
 
 Single source of truth for version information across all files.
+Professional version handling with CMake compatibility.
+
 Usage:
     python scripts/version.py                 # Show current version
     python scripts/version.py 0.2.0          # Update to new version
@@ -16,7 +18,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 # 🎯 Single source of truth - change this to update version everywhere
-VERSION = "0.1.0-beta"
+VERSION = "0.1.0"
 
 class VersionManager:
     def __init__(self):
@@ -27,6 +29,12 @@ class VersionManager:
             "python/catzilla/__init__.py": self.update_init_py,
             "CMakeLists.txt": self.update_cmake,
         }
+
+    def get_cmake_version(self, version_string: str) -> str:
+        """Extract CMake-compatible version (MAJOR.MINOR.PATCH only)"""
+        # CMake only accepts numeric MAJOR.MINOR.PATCH format
+        match = re.match(r'(\d+\.\d+\.\d+)', version_string)
+        return match.group(1) if match else "0.1.0"
 
     def get_current_versions(self) -> Dict[str, str]:
         """Get current version from each file"""
@@ -56,39 +64,56 @@ class VersionManager:
         except Exception as e:
             versions["__init__.py"] = f"ERROR: {e}"
 
-        # CMakeLists.txt
+        # CMakeLists.txt (special handling for CMake format)
         try:
             content = (self.root_dir / "CMakeLists.txt").read_text()
-            match = re.search(r'project\(catzilla VERSION ([0-9]+\.[0-9]+\.[0-9]+[^\s)]*)', content)
-            versions["CMakeLists.txt"] = match.group(1) if match else "NOT FOUND"
+            match = re.search(r'project\(catzilla VERSION ([0-9]+\.[0-9]+\.[0-9]+)', content)
+            if match:
+                cmake_version = match.group(1)
+                # Show both CMake version and expected full version for comparison
+                expected_cmake = self.get_cmake_version(VERSION)
+                if cmake_version == expected_cmake:
+                    versions["CMakeLists.txt"] = f"{cmake_version} (CMake format)"
+                else:
+                    versions["CMakeLists.txt"] = f"{cmake_version} (expected {expected_cmake})"
+            else:
+                versions["CMakeLists.txt"] = "NOT FOUND"
         except Exception as e:
             versions["CMakeLists.txt"] = f"ERROR: {e}"
 
         return versions
 
     def check_version_consistency(self) -> Tuple[bool, List[str]]:
-        """Check if all files have the same version"""
+        """Check if all files have the same version (with CMake format consideration)"""
         versions = self.get_current_versions()
         issues = []
 
-        # Filter out errors
-        valid_versions = {k: v for k, v in versions.items() if not v.startswith("ERROR") and v != "NOT FOUND"}
+        # Filter out errors and extract core versions for comparison
+        valid_versions = {}
+        expected_cmake_version = self.get_cmake_version(VERSION)
 
-        if not valid_versions:
-            issues.append("❌ No valid versions found in any file!")
-            return False, issues
-
-        # Check consistency
-        reference_version = list(valid_versions.values())[0]
-        for file, version in valid_versions.items():
-            if version != reference_version:
-                issues.append(f"❌ {file}: {version} (expected {reference_version})")
-
-        # Report errors
         for file, version in versions.items():
             if version.startswith("ERROR") or version == "NOT FOUND":
                 issues.append(f"⚠️  {file}: {version}")
+            elif file == "CMakeLists.txt":
+                # Special handling for CMake - extract just the version number
+                cmake_match = re.match(r'([0-9]+\.[0-9]+\.[0-9]+)', version)
+                if cmake_match:
+                    cmake_version = cmake_match.group(1)
+                    if cmake_version == expected_cmake_version:
+                        valid_versions[file] = "CMAKE_OK"
+                    else:
+                        issues.append(f"❌ {file}: {cmake_version} (expected {expected_cmake_version})")
+                else:
+                    issues.append(f"❌ {file}: Invalid format - {version}")
+            else:
+                # Python files should have full version
+                if version == VERSION:
+                    valid_versions[file] = version
+                else:
+                    issues.append(f"❌ {file}: {version} (expected {VERSION})")
 
+        # If no issues, all versions are consistent
         return len(issues) == 0, issues
 
     def update_pyproject_toml(self, version: str):
@@ -116,20 +141,28 @@ class VersionManager:
         print(f"✅ Updated __init__.py to {version}")
 
     def update_cmake(self, version: str):
-        """Update version in CMakeLists.txt"""
+        """Update version in CMakeLists.txt (CMake format only)"""
         file_path = self.root_dir / "CMakeLists.txt"
         content = file_path.read_text()
+
+        # Use CMake-compatible version (remove pre-release identifiers)
+        cmake_version = self.get_cmake_version(version)
+
         content = re.sub(
-            r'project\(catzilla VERSION [0-9]+\.[0-9]+\.[0-9]+[^\s)]*',
-            f'project(catzilla VERSION {version}',
+            r'project\(catzilla VERSION [0-9]+\.[0-9]+\.[0-9]+',
+            f'project(catzilla VERSION {cmake_version}',
             content
         )
         file_path.write_text(content)
-        print(f"✅ Updated CMakeLists.txt to {version}")
+        print(f"✅ Updated CMakeLists.txt to {cmake_version} (CMake format)")
+        if version != cmake_version:
+            print(f"   📐 Note: CMake uses {cmake_version}, other files use {version}")
 
     def update_all_versions(self, new_version: str):
         """Update version in all files"""
         print(f"🔄 Updating Catzilla version to {new_version}")
+        print(f"📐 CMake will use: {self.get_cmake_version(new_version)} (CMake format)")
+        print()
 
         for file_name, update_func in self.version_files.items():
             try:
@@ -141,14 +174,18 @@ class VersionManager:
         # Update this script's VERSION constant
         self.update_version_script(new_version)
 
-        print(f"🎉 All files updated to version {new_version}")
+        print(f"\n🎉 All files updated!")
+        print(f"💡 Professional version handling:")
+        print(f"   • Python/PyPI: {new_version} (full semver)")
+        print(f"   • CMake: {self.get_cmake_version(new_version)} (numeric only)")
+        print(f"   • Git tag: v{new_version}")
         return True
 
     def update_version_script(self, new_version: str):
         """Update VERSION constant in this script"""
         script_path = Path(__file__)
         content = script_path.read_text()
-        content = re.sub(r'VERSION = "0.1.0-beta"]*"', f'VERSION = "0.1.0-beta"', content)
+        content = re.sub(r'VERSION = "0.1.0"]*"', f'VERSION = "0.1.0"', content)
         script_path.write_text(content)
         print(f"✅ Updated version.py to {new_version}")
 
@@ -159,13 +196,24 @@ class VersionManager:
 
         versions = self.get_current_versions()
         for file, version in versions.items():
-            status = "✅" if not version.startswith("ERROR") and version != "NOT FOUND" else "❌"
+            if file == "CMakeLists.txt":
+                status = "✅" if "CMake format" in version or not version.startswith("ERROR") else "❌"
+            else:
+                status = "✅" if not version.startswith("ERROR") and version != "NOT FOUND" else "❌"
             print(f"{status} {file:<20} {version}")
 
         print()
+        print(f"🎯 Target version: {VERSION}")
+        print(f"📐 CMake version: {self.get_cmake_version(VERSION)} (CMake format)")
+        print()
+
         consistent, issues = self.check_version_consistency()
         if consistent:
             print("✅ All versions are consistent!")
+            print("💡 Professional version strategy:")
+            print("   • Python files use full semver with pre-release")
+            print("   • CMake uses base version (tool limitation)")
+            print("   • This follows industry best practices")
         else:
             print("⚠️  Version inconsistencies found:")
             for issue in issues:
@@ -173,14 +221,20 @@ class VersionManager:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Catzilla Version Management",
+        description="Catzilla Professional Version Management",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   python scripts/version.py                 # Show current status
   python scripts/version.py 0.2.0          # Update to version 0.2.0
+  python scripts/version.py 0.2.0-beta     # Update to beta version
   python scripts/version.py --check        # Check version consistency
   python scripts/version.py --current      # Show current version from script
+
+Professional Notes:
+  • CMake versions are automatically converted to MAJOR.MINOR.PATCH format
+  • Python/PyPI supports full semantic versioning including pre-release
+  • This follows industry standards used by LLVM, OpenCV, Boost, etc.
         """
     )
 
@@ -194,6 +248,7 @@ Examples:
 
     if args.current:
         print(f"Current version (from script): {VERSION}")
+        print(f"CMake format: {vm.get_cmake_version(VERSION)}")
         return
 
     if args.check:
@@ -205,7 +260,7 @@ Examples:
         # Validate version format
         if not re.match(r'^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]*)?$', args.version):
             print(f"❌ Invalid version format: {args.version}")
-            print("   Expected format: MAJOR.MINOR.PATCH (e.g., 0.2.0, 1.0.0-beta)")
+            print("   Expected format: MAJOR.MINOR.PATCH[-PRERELEASE] (e.g., 0.2.0, 1.0.0-beta)")
             sys.exit(1)
 
         success = vm.update_all_versions(args.version)

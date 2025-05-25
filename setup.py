@@ -58,7 +58,7 @@ ext_modules = [Extension('catzilla._catzilla', sources=[])]
 
 setup(
     name="catzilla",
-    version="0.1.0-beta",
+    version="0.1.0",
     packages=["catzilla"],
     package_dir={"catzilla": "python/catzilla"},
     ext_modules=ext_modules,
