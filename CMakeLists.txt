@@ -3,10 +3,14 @@ project(catzilla LANGUAGES C)
 
 # Platform-specific compiler flags
 if(MSVC)
-    # MSVC compiler flags
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W3")
+    # MSVC compiler flags - use /W1 instead of /W3 to reduce warning noise
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W1")
     set(CMAKE_C_FLAGS_DEBUG "/Od /Zi /RTC1")
     set(CMAKE_C_FLAGS_RELEASE "/O2 /DNDEBUG")
+
+    # Ensure warnings don't cause build failures
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /WX-")
+
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
     add_definitions(-DWIN32_LEAN_AND_MEAN)
     add_definitions(-D_WIN32_WINNT=0x0602)  # Windows 8 or later (required for GetSystemTimePreciseAsFileTime)
@@ -16,6 +20,10 @@ if(MSVC)
 
     # Suppress common Windows warnings
     add_definitions(-D_WINSOCK_DEPRECATED_NO_WARNINGS)
+
+    # Suppress specific warnings that are common in libuv
+    add_compile_options(/wd4701)  # potentially uninitialized local variable used
+    add_compile_options(/wd4702)  # unreachable code
 else()
     # GCC/Clang compiler flags (Unix-like systems)
     add_compile_options(-g -O0)
@@ -27,6 +35,15 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "")
 
 # Python support
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+
+# Debug Python configuration on Windows
+if(WIN32)
+    message(STATUS "Python3_FOUND: ${Python3_FOUND}")
+    message(STATUS "Python3_INCLUDE_DIRS: ${Python3_INCLUDE_DIRS}")
+    message(STATUS "Python3_LIBRARIES: ${Python3_LIBRARIES}")
+    message(STATUS "Python3_VERSION: ${Python3_VERSION}")
+    message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+endif()
 
 # Windows-specific Python linking fixes
 if(WIN32)
@@ -59,6 +76,13 @@ if(WIN32)
 endif()
 
 # libuv
+# Configure libuv to be less noisy on Windows
+if(WIN32)
+    set(LIBUV_BUILD_SHARED OFF CACHE BOOL "Build shared library")
+    set(LIBUV_BUILD_BENCH OFF CACHE BOOL "Build benchmarks")
+    set(LIBUV_BUILD_TESTS OFF CACHE BOOL "Build tests")
+endif()
+
 add_subdirectory(deps/libuv)
 
 # llhttp
@@ -87,6 +111,11 @@ target_include_directories(catzilla_core PUBLIC
 )
 target_link_libraries(catzilla_core PRIVATE uv_a llhttp_static yyjson)
 
+# Windows-specific linking
+if(WIN32)
+    target_link_libraries(catzilla_core PRIVATE ws2_32 iphlpapi userenv)
+endif()
+
 # ——— Python extension module ———
 add_library(_catzilla SHARED src/python/module.c)
 target_include_directories(_catzilla PRIVATE
@@ -102,6 +131,11 @@ target_link_libraries(_catzilla PRIVATE
   yyjson
   ${Python3_LIBRARIES}
 )
+
+# Windows-specific linking for Python extension
+if(WIN32)
+    target_link_libraries(_catzilla PRIVATE ws2_32 iphlpapi userenv)
+endif()
 
 # Force appropriate suffix for Python module based on platform
 if(WIN32)
@@ -139,6 +173,11 @@ target_link_libraries(test_router PRIVATE
   ${Python3_LIBRARIES}
 )
 
+# Windows-specific linking for tests
+if(WIN32)
+    target_link_libraries(test_router PRIVATE ws2_32 iphlpapi userenv)
+endif()
+
 # Add test_advanced_router executable
 add_executable(test_advanced_router
   tests/c/test_advanced_router.c
@@ -155,6 +194,11 @@ target_link_libraries(test_advanced_router PRIVATE
   catzilla_core
   ${Python3_LIBRARIES}
 )
+
+# Windows-specific linking
+if(WIN32)
+    target_link_libraries(test_advanced_router PRIVATE ws2_32 iphlpapi userenv)
+endif()
 
 # Add test_server_integration executable
 add_executable(test_server_integration
@@ -173,12 +217,23 @@ target_link_libraries(test_server_integration PRIVATE
   ${Python3_LIBRARIES}
 )
 
+# Windows-specific linking
+if(WIN32)
+    target_link_libraries(test_server_integration PRIVATE ws2_32 iphlpapi userenv)
+endif()
+
 # Standalone server executable
 add_executable(catzilla-server src/core/main.c)
 target_link_libraries(catzilla-server PRIVATE
   catzilla_core
   ${Python3_LIBRARIES}
 )
+
+# Windows-specific linking for standalone server
+if(WIN32)
+    target_link_libraries(catzilla-server PRIVATE ws2_32 iphlpapi userenv)
+endif()
+
 target_include_directories(catzilla-server PRIVATE ${Python3_INCLUDE_DIRS})
 set_target_properties(catzilla-server PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"

@@ -54,7 +54,17 @@ jobs:
     - name: Build C extension
       run: |
         cmake -S . -B build
-        cmake --build build
+        cmake --build build --verbose
+
+    - name: Debug build output (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        echo "=== Build directory contents ==="
+        dir build
+        echo "=== CMake cache ==="
+        type build\CMakeCache.txt | findstr /i "python\|compiler\|error"
+        echo "=== Any error logs ==="
+        if exist build\*.log type build\*.log
 
     - name: Install package
       run: |
