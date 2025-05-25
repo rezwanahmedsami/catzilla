@@ -3,40 +3,7 @@ project(catzilla LANGUAGES C)
 
 # Platform-specific compiler flags
 if(MSVC)
-    # MSVC compiler flags - use # Python extension module ———
-add_library(_catzilla SHARED src/python/module.c)
-target_include_directories(_catzilla PRIVATE
-  src/python
-  ${llhttp_SOURCE_DIR}/include
-  deps/libuv/include
-  ${Python3_INCLUDE_DIRS}
-  ${yyjson_SOURCE_DIR}/src
-)
-
-# Windows-specific Python library handling for the extension
-if(WIN32 AND MSVC)
-    # Link directly to the release library to avoid debug library issues
-    target_link_libraries(_catzilla PRIVATE
-      catzilla_core
-      llhttp_static
-      yyjson
-      "${Python3_LIBRARIES_RELEASE}"
-    )
-    # Also add Python compile definitions to prevent debug mode issues
-    target_compile_definitions(_catzilla PRIVATE Py_ENABLE_SHARED)
-else()
-    target_link_libraries(_catzilla PRIVATE
-      catzilla_core
-      llhttp_static
-      yyjson
-      ${Python3_LIBRARIES}
-    )
-endif()
-
-# Windows-specific linking for Python extension
-if(WIN32)
-    target_link_libraries(_catzilla PRIVATE ws2_32 iphlpapi userenv)
-endif()o reduce warning noise
+    # MSVC compiler flags - use /W1 instead of /W3 to reduce warning noise
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W1")
     set(CMAKE_C_FLAGS_DEBUG "/Od /Zi /RTC1")
     set(CMAKE_C_FLAGS_RELEASE "/O2 /DNDEBUG")
@@ -184,12 +151,26 @@ target_include_directories(_catzilla PRIVATE
   ${Python3_INCLUDE_DIRS}
   ${yyjson_SOURCE_DIR}/src
 )
-target_link_libraries(_catzilla PRIVATE
-  catzilla_core
-  llhttp_static
-  yyjson
-  ${Python3_LIBRARIES}
-)
+
+# Windows-specific Python library handling for the extension
+if(WIN32 AND MSVC)
+    # Link directly to the release library to avoid debug library issues
+    target_link_libraries(_catzilla PRIVATE
+      catzilla_core
+      llhttp_static
+      yyjson
+      "${Python3_LIBRARIES_RELEASE}"
+    )
+    # Also add Python compile definitions to prevent debug mode issues
+    target_compile_definitions(_catzilla PRIVATE Py_ENABLE_SHARED)
+else()
+    target_link_libraries(_catzilla PRIVATE
+      catzilla_core
+      llhttp_static
+      yyjson
+      ${Python3_LIBRARIES}
+    )
+endif()
 
 # Windows-specific linking for Python extension
 if(WIN32)
