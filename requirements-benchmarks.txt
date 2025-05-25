@@ -1,17 +1,22 @@
-# Optional dependencies for running performance benchmarks
+# --------------------------------------
+# Optional dependencies for benchmarks
 # Install with: pip install -r requirements-benchmarks.txt
+# --------------------------------------
 
-# Web frameworks for comparison benchmarks
-fastapi>=0.100.0
-uvicorn>=0.24.0
-flask>=2.3.0
-django>=4.2.0
+# --- Web frameworks for comparison ---
+fastapi==0.110.2
+uvicorn==0.33.0
+flask==2.3.3
+django==4.2.13
+gunicorn==21.2.0  # WSGI server for Flask and Django
 
-# Data analysis and visualization
-matplotlib>=3.7.0
-pandas>=2.0.0
-seaborn>=0.12.0
-numpy>=1.24.0
+# --- Data processing and plotting ---
+numpy==1.24.4
+pandas==2.0.3
+matplotlib==3.7.5
+seaborn==0.13.2
+pillow==10.4.0
+kiwisolver==1.4.5  # required by matplotlib
 
-# HTTP client for benchmark testing
-requests>=2.31.0
+# --- For sending HTTP requests in custom tests ---
+requests==2.31.0
