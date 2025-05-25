@@ -8,6 +8,8 @@ from http.cookies import SimpleCookie
 from typing import Any, Callable, Dict, List, Optional, Union
 from urllib.parse import parse_qs
 
+from .logging import log_types_debug, log_types_error
+
 
 @dataclass
 class Request:
@@ -64,13 +66,13 @@ class Request:
                             key = pair.split("=", 1)[0]
                             value = get_query_param(self.request_capsule, key)
                             if value is not None:
-                                print(
-                                    f"[DEBUG-PY] Got query param from C: {key}={value}"
+                                log_types_debug(
+                                    "Got query param from C: %s=%s", key, value
                                 )
                                 self._query_params[key] = value
                 self._loaded_query_params = True
             except Exception as e:
-                print(f"[DEBUG-PY] Error loading query params from C: {e}")
+                log_types_error("Error loading query params from C: %s", e)
                 self._loaded_query_params = True  # Don't try again even if failed
         return self._query_params
 
@@ -85,16 +87,16 @@ class Request:
             try:
                 from catzilla._catzilla import get_json, parse_json
 
-                print(
-                    f"[DEBUG-PY] Attempting to parse JSON with content type: {self.content_type}"
+                log_types_debug(
+                    "Attempting to parse JSON with content type: %s", self.content_type
                 )
                 if self.content_type == "application/json":
                     # Try to get the JSON directly first, since it might be pre-parsed
                     result = get_json(self.request_capsule)
                     if result is not None:
                         self._json = result
-                        print(
-                            f"[DEBUG-PY] Got pre-parsed JSON successfully: {self._json}"
+                        log_types_debug(
+                            "Got pre-parsed JSON successfully: %s", self._json
                         )
                     else:
                         # If not pre-parsed, try parsing it
@@ -102,20 +104,20 @@ class Request:
                             result = get_json(self.request_capsule)
                             if result is not None:
                                 self._json = result
-                                print(
-                                    f"[DEBUG-PY] JSON parsed successfully: {self._json}"
+                                log_types_debug(
+                                    "JSON parsed successfully: %s", self._json
                                 )
                             else:
-                                print("[DEBUG-PY] JSON parsing returned None")
+                                log_types_debug("JSON parsing returned None")
                                 self._json = {}
                         else:
-                            print("[DEBUG-PY] Failed to parse JSON in C")
+                            log_types_debug("Failed to parse JSON in C")
                             self._json = {}
                 else:
-                    print("[DEBUG-PY] Not JSON content type")
+                    log_types_debug("Not JSON content type")
                     self._json = {}
             except Exception as e:
-                print(f"[DEBUG-PY] JSON parsing error: {e}")
+                log_types_error("JSON parsing error: %s", e)
                 self._json = {}
         return self._json
 
@@ -125,8 +127,9 @@ class Request:
             try:
                 from catzilla._catzilla import get_form_field, parse_form
 
-                print(
-                    f"[DEBUG-PY] Attempting to parse form data with content type: {self.content_type}"
+                log_types_debug(
+                    "Attempting to parse form data with content type: %s",
+                    self.content_type,
                 )
                 if self.content_type == "application/x-www-form-urlencoded":
                     self._parsed_form = {}
@@ -138,15 +141,15 @@ class Request:
                                 # Get the value from C, it will be already URL-decoded
                                 value = get_form_field(self.request_capsule, key)
                                 if value is not None:
-                                    print(f"[DEBUG-PY] Got form field: {key}={value}")
+                                    log_types_debug("Got form field: %s=%s", key, value)
                                     self._parsed_form[key] = value
                                 else:
-                                    print(
-                                        f"[DEBUG-PY] No value found for form field: {key}"
+                                    log_types_debug(
+                                        "No value found for form field: %s", key
                                     )
 
                         if not self._parsed_form:
-                            print("[DEBUG-PY] No form fields found, trying to parse")
+                            log_types_debug("No form fields found, trying to parse")
                             # If we couldn't get any fields, try parsing
                             if parse_form(self.request_capsule) == 0:
                                 # Try getting fields again after parsing
@@ -157,17 +160,19 @@ class Request:
                                             self.request_capsule, key
                                         )
                                         if value is not None:
-                                            print(
-                                                f"[DEBUG-PY] Got form field after parsing: {key}={value}"
+                                            log_types_debug(
+                                                "Got form field after parsing: %s=%s",
+                                                key,
+                                                value,
                                             )
                                             self._parsed_form[key] = value
                             else:
-                                print("[DEBUG-PY] Failed to parse form data in C")
+                                log_types_debug("Failed to parse form data in C")
                 else:
-                    print("[DEBUG-PY] Not form content type")
+                    log_types_debug("Not form content type")
                     self._parsed_form = {}
             except Exception as e:
-                print(f"[DEBUG-PY] Form parsing error: {e}")
+                log_types_error("Form parsing error: %s", e)
                 self._parsed_form = {}
         return self._parsed_form
 
@@ -215,12 +220,12 @@ class Request:
             from catzilla._catzilla import get_content_type
 
             self._content_type = get_content_type(self.request_capsule) or ""
-            print(f"[DEBUG-PY] Got content type from C: {self._content_type}")
+            log_types_debug("Got content type from C: %s", self._content_type)
 
             # If we got an empty content type but have a Content-Type header, use that
             if not self._content_type and "content-type" in self.headers:
                 header_value = self.headers["content-type"].split(";")[0].strip()
-                print(f"[DEBUG-PY] Using content type from header: {header_value}")
+                log_types_debug("Using content type from header: %s", header_value)
                 self._content_type = header_value
 
         return self._content_type

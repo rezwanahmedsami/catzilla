@@ -4,6 +4,9 @@ Welcome to Catzilla! We're excited that you're interested in contributing to thi
 
 ## 🚀 Quick Start for Developers
 
+> **⚠️ IMPORTANT: Virtual Environment Required**
+> Before starting any development work on Catzilla, you **MUST** create and activate a Python virtual environment. This is not optional and prevents dependency conflicts. See the [Initial Setup](#initial-setup) section below for detailed instructions.
+
 ### Prerequisites
 
 - **macOS/Linux** (Win### Development Features
@@ -51,11 +54,41 @@ The Catzilla framework provides a modern development experience:
    git submodule update --init --recursive
    ```
 
-2. **Set Up Python Virtual Environment**
+2. **⚠️ REQUIRED: Set Up Python Virtual Environment**
+
+   **You MUST use a Python virtual environment before working on Catzilla.** This prevents dependency conflicts and ensures a clean development environment.
+
    ```bash
+   # Create virtual environment
    python -m venv venv
-   source venv/bin/activate  # On macOS/Linux
-   pip install -r requirements.txt
+
+   # Activate virtual environment (macOS/Linux)
+   source venv/bin/activate
+
+   # Install development dependencies
+   pip install -r requirements-dev.txt
+
+   # Optional: Install benchmark dependencies (only if running benchmarks)
+   # pip install -r requirements-benchmarks.txt
+   ```
+
+   **Important Notes:**
+   - **Always activate the virtual environment** before running any Python commands
+   - **Your terminal prompt should show `(venv)`** when the environment is active
+   - **Deactivate with `deactivate`** when you're done working
+   - **Never commit the `venv/` folder** - it's already in `.gitignore`
+   - **Catzilla has ZERO runtime dependencies** - it uses only Python standard library!
+
+   **Verify your setup:**
+   ```bash
+   # Check that you're using the virtual environment Python
+   which python  # Should show: /path/to/catzilla/venv/bin/python
+
+   # Verify development dependencies are installed
+   pip list | grep -E "(pytest|pre-commit)"
+
+   # Test that Catzilla works with minimal dependencies
+   python check_dependencies.py
    ```
 
 3. **Install Pre-commit Hooks** (Optional but Recommended)
@@ -65,6 +98,44 @@ The Catzilla framework provides a modern development experience:
    ```
 
 ## 🔨 Development Workflow
+
+### Before You Start
+
+**Always ensure your virtual environment is activated:**
+```bash
+# Check if virtual environment is active (should show (venv) in prompt)
+echo $VIRTUAL_ENV  # Should show: /path/to/catzilla/venv
+
+# If not active, activate it:
+source venv/bin/activate
+```
+
+### Dependency Management
+
+Catzilla uses a **zero-dependency architecture** for maximum performance and minimal installation overhead:
+
+#### 📦 **Requirements Structure:**
+- **`requirements.txt`** - Empty! (Core has no runtime dependencies)
+- **`requirements-dev.txt`** - Development tools (pytest, pre-commit, etc.)
+- **`requirements-benchmarks.txt`** - Optional benchmark dependencies (fastapi, django, etc.)
+
+#### 🚀 **Key Benefits:**
+- **Lightning fast installation** - No heavy dependencies to download
+- **Minimal attack surface** - Fewer dependencies = fewer security risks
+- **Better compatibility** - Works in any Python environment
+- **Reduced conflicts** - No dependency version conflicts
+
+#### 💻 **Installation Options:**
+```bash
+# Core development (recommended for contributors)
+pip install -r requirements-dev.txt
+
+# Full development with benchmarking capabilities
+pip install -r requirements-dev.txt -r requirements-benchmarks.txt
+
+# Production usage (via pip install)
+pip install catzilla  # Zero dependencies installed!
+```
 
 ### Building the Project
 
@@ -308,6 +379,278 @@ export CFLAGS="-fsanitize=address -g"
 valgrind --leak-check=full ./build/test_router
 ```
 
+## 🐛 Debug Logging System
+
+Catzilla provides a professional debug logging system designed for contributors while keeping clean output for end users. The system uses environment variables to control debug output across both C and Python components.
+
+### Quick Start
+
+#### For End Users (Clean Output)
+```bash
+# Normal usage - clean, professional output only
+python app.py
+./scripts/run_example.sh examples/hello_world/main.py
+```
+
+#### For Contributors (Rich Debugging)
+```bash
+# Enable all debugging (both C and Python)
+CATZILLA_C_DEBUG=1 CATZILLA_DEBUG=1 python app.py
+
+# Or use the convenient script flags
+./scripts/run_example.sh --debug examples/hello_world/main.py
+```
+
+### Debug Environment Variables
+
+| Variable | Component | Description |
+|----------|-----------|-------------|
+| `CATZILLA_C_DEBUG=1` | C Core | Enables debug logging for server, router, and HTTP components |
+| `CATZILLA_DEBUG=1` | Python | Enables debug logging for Python types and application components |
+
+### Script Debug Flags
+
+The `run_example.sh` script provides convenient debug flags:
+
+```bash
+# Enable all debugging (C + Python)
+./scripts/run_example.sh --debug examples/hello_world/main.py
+
+# Enable only C debugging
+./scripts/run_example.sh --debug_c examples/hello_world/main.py
+
+# Enable only Python debugging
+./scripts/run_example.sh --debug_py examples/hello_world/main.py
+
+# Normal operation (no debug output)
+./scripts/run_example.sh examples/hello_world/main.py
+```
+
+### C Debug Logging
+
+The C logging system in `src/core/logging.h` provides color-coded, module-specific logging:
+
+#### Available Macros
+```c
+// Server module
+LOG_SERVER_DEBUG(message, ...);
+LOG_SERVER_INFO(message, ...);
+LOG_SERVER_WARN(message, ...);
+LOG_SERVER_ERROR(message, ...);
+
+// Router module
+LOG_ROUTER_DEBUG(message, ...);
+LOG_ROUTER_INFO(message, ...);
+LOG_ROUTER_WARN(message, ...);
+LOG_ROUTER_ERROR(message, ...);
+
+// HTTP module
+LOG_HTTP_DEBUG(message, ...);
+LOG_HTTP_INFO(message, ...);
+LOG_HTTP_WARN(message, ...);
+LOG_HTTP_ERROR(message, ...);
+```
+
+#### Color Scheme
+- **DEBUG**: Cyan - Detailed debugging information
+- **INFO**: Green - Important operational information
+- **WARN**: Yellow - Warnings and potential issues
+- **ERROR**: Red - Error conditions and failures
+
+#### Example Usage in C Code
+```c
+#include "logging.h"
+
+void example_function() {
+    LOG_SERVER_DEBUG("Starting server initialization on port %d", port);
+
+    if (setup_successful) {
+        LOG_SERVER_INFO("Server successfully bound to port %d", port);
+    } else {
+        LOG_SERVER_ERROR("Failed to bind to port %d: %s", port, error_msg);
+    }
+
+    LOG_SERVER_WARN("Using default configuration for missing setting");
+}
+```
+
+#### Performance Impact
+- **Zero overhead when disabled** - No performance impact in production
+- **Runtime control** - No recompilation needed to enable/disable debugging
+- **Module-specific** - Only show logs from components you're debugging
+
+### Python Debug Logging
+
+The Python logging system in `python/catzilla/logging.py` provides matching functionality:
+
+#### Available Functions
+```python
+# Types module
+log_types_debug(message)
+log_types_info(message)
+log_types_warn(message)
+log_types_error(message)
+
+# Application module
+log_app_debug(message)
+log_app_info(message)
+log_app_warn(message)
+log_app_error(message)
+
+# Request module
+log_request_debug(message)
+log_request_info(message)
+log_request_warn(message)
+log_request_error(message)
+```
+
+#### Example Usage in Python Code
+```python
+from catzilla.logging import log_types_debug, log_types_info, log_types_error
+
+def process_request(request):
+    log_types_debug(f"Processing {request.method} request to {request.path}")
+
+    try:
+        result = handle_request(request)
+        log_types_info(f"Successfully processed request: {result}")
+        return result
+    except Exception as e:
+        log_types_error(f"Request processing failed: {e}")
+        raise
+```
+
+### Debug Output Examples
+
+#### Clean End User Output
+```bash
+$ python app.py
+Server starting on http://localhost:8000
+Press Ctrl+C to stop
+```
+
+#### Rich Contributor Debugging
+```bash
+$ CATZILLA_C_DEBUG=1 CATZILLA_DEBUG=1 python app.py
+[DEBUG-C][Server] Initializing server on port 8000
+[DEBUG-C][Router] Router initialized with empty route table
+[DEBUG-PY-TYPES] Loading application configuration
+[DEBUG-C][Server] Setting up libuv event loop
+[INFO-C][Server] Server successfully bound to port 8000
+[DEBUG-PY-APP] Application startup complete
+Server starting on http://localhost:8000
+[DEBUG-C][Server] Server listening for connections
+Press Ctrl+C to stop
+```
+
+### Integration with Development Workflow
+
+#### During Development
+1. **Start with clean output** to see the user experience
+2. **Enable debugging** when investigating issues or implementing features
+3. **Use module-specific debugging** to focus on relevant components
+4. **Add logging to new code** using the appropriate macros/functions
+
+#### Example Development Session
+```bash
+# Test user experience first
+./scripts/run_example.sh examples/hello_world/main.py
+
+# Enable debugging to investigate an issue
+./scripts/run_example.sh --debug examples/hello_world/main.py
+
+# Focus on just C router debugging
+CATZILLA_C_DEBUG=1 python examples/router_groups/main.py
+
+# Focus on just Python types debugging
+CATZILLA_DEBUG=1 python examples/hello_world/main.py
+```
+
+#### Testing with Debug Logging
+```bash
+# Test normal operation (clean output)
+./scripts/run_tests.sh
+
+# Test with full debugging enabled
+CATZILLA_C_DEBUG=1 CATZILLA_DEBUG=1 ./scripts/run_tests.sh
+
+# Debug specific test failures
+CATZILLA_C_DEBUG=1 python -m pytest tests/python/test_specific.py -v
+```
+
+### Adding Debug Logging to New Code
+
+#### For C Code
+1. **Include the logging header**: `#include "logging.h"`
+2. **Choose appropriate module**: SERVER, ROUTER, or HTTP
+3. **Select appropriate level**: DEBUG, INFO, WARN, or ERROR
+4. **Use descriptive messages**: Include relevant context and data
+
+```c
+#include "logging.h"
+
+int new_feature_function(const char* param) {
+    LOG_SERVER_DEBUG("Starting new feature with param: %s", param);
+
+    if (!param) {
+        LOG_SERVER_ERROR("Invalid parameter: param cannot be NULL");
+        return -1;
+    }
+
+    // Implementation here
+
+    LOG_SERVER_INFO("New feature completed successfully");
+    return 0;
+}
+```
+
+#### For Python Code
+1. **Import logging functions**: `from catzilla.logging import log_*_*`
+2. **Choose appropriate module**: types, app, or request
+3. **Use f-strings for formatting**: More readable and performant
+4. **Log at appropriate times**: Entry/exit, errors, important state changes
+
+```python
+from catzilla.logging import log_app_debug, log_app_info, log_app_error
+
+def new_feature_function(param):
+    log_app_debug(f"Starting new feature with param: {param}")
+
+    try:
+        # Implementation here
+        result = process_param(param)
+        log_app_info(f"New feature completed: {result}")
+        return result
+    except Exception as e:
+        log_app_error(f"New feature failed: {e}")
+        raise
+```
+
+### Debugging Best Practices
+
+1. **Use appropriate log levels**:
+   - **DEBUG**: Verbose information for debugging (loops, state changes)
+   - **INFO**: Important milestones (startup, successful operations)
+   - **WARN**: Potential issues (using defaults, recoverable errors)
+   - **ERROR**: Serious problems (failures, exceptions)
+
+2. **Include context in messages**:
+   - Parameter values, state information, error details
+   - Module/function names when not obvious
+   - Request IDs or identifiers when available
+
+3. **Keep messages concise but informative**:
+   - Avoid extremely long messages that clutter output
+   - Include the most relevant information for debugging
+   - Use consistent formatting within modules
+
+4. **Test both modes**:
+   - Always verify clean output for end users
+   - Ensure debug output provides useful information
+   - Check that logging doesn't impact performance
+
+This professional logging system enables contributors to debug effectively while ensuring end users see only clean, professional output. The environment variable approach allows easy switching between modes without code changes.
+
 ## 📁 Code Organization
 
 ### Directory Structure
@@ -412,6 +755,68 @@ For new features:
 3. **Provide examples** of the proposed API
 4. **Consider backward compatibility**
 5. **Discuss implementation approach** if you plan to contribute
+
+## 🔧 Troubleshooting
+
+### Virtual Environment Issues
+
+**Problem: Commands fail with "module not found" errors**
+```bash
+# Solution: Ensure virtual environment is active
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+**Problem: `python` command uses system Python instead of venv**
+```bash
+# Check which Python you're using
+which python
+# Should show: /path/to/catzilla/venv/bin/python
+# If not, reactivate: source venv/bin/activate
+```
+
+**Problem: Dependencies seem to be missing after setup**
+```bash
+# Verify virtual environment and reinstall dependencies
+source venv/bin/activate
+pip list  # Check installed packages
+pip install -r requirements.txt --force-reinstall
+```
+
+**Problem: Virtual environment doesn't activate**
+```bash
+# Try recreating the virtual environment
+rm -rf venv
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+**Problem: Build fails with missing dependencies**
+```bash
+# Ensure you're in virtual environment and have all build dependencies
+source venv/bin/activate
+pip install --upgrade pip setuptools wheel
+pip install -r requirements.txt
+./scripts/build.sh
+```
+
+### Common Development Issues
+
+**Problem: Tests fail unexpectedly**
+```bash
+# Ensure clean environment and rebuild
+source venv/bin/activate
+./scripts/build.sh
+./scripts/run_tests.sh
+```
+
+**Problem: C compilation errors**
+```bash
+# Check that CMake and compiler are available
+cmake --version
+gcc --version  # or clang --version
+```
 
 ## 🆘 Getting Help
 

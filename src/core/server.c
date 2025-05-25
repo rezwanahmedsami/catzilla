@@ -1,5 +1,6 @@
 #include "server.h"
 #include "router.h"
+#include "logging.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -61,7 +62,7 @@ static int on_message_begin(llhttp_t* parser) {
     context->body_size = 0;
     context->parsing_content_type = false;
     context->content_type = CONTENT_TYPE_NONE;  // Reset content type at start of message
-    fprintf(stderr, "[DEBUG-C] Message begin: content type reset to NONE (type=%d)\n", (int)context->content_type);
+    LOG_HTTP_DEBUG("Message begin: content type reset to NONE (type=%d)", (int)context->content_type);
     return 0;
 }
 
@@ -72,7 +73,7 @@ static int on_url(llhttp_t* parser, const char* at, size_t length) {
     if (length >= CATZILLA_PATH_MAX) length = CATZILLA_PATH_MAX - 1;
     memcpy(context->url, at, length);
     context->url[length] = '\0';
-    fprintf(stderr, "[DEBUG-C] Received full URL: %s\n", context->url);
+    LOG_HTTP_DEBUG("Received full URL: %s", context->url);
     return 0;
 }
 
@@ -82,10 +83,10 @@ static int on_header_field(llhttp_t* parser, const char* at, size_t length) {
     context->parsing_connection = false;
 
     if (length == 12 && strncasecmp(at, "Content-Type", 12) == 0) {
-        fprintf(stderr, "[DEBUG-C] Found Content-Type header\n");
+        LOG_HTTP_DEBUG("Found Content-Type header");
         context->parsing_content_type = true;
     } else if (length == 10 && strncasecmp(at, "Connection", 10) == 0) {
-        fprintf(stderr, "[DEBUG-C] Found Connection header\n");
+        LOG_HTTP_DEBUG("Found Connection header");
         context->parsing_connection = true;
         context->has_connection_header = true;
     }
@@ -95,7 +96,7 @@ static int on_header_field(llhttp_t* parser, const char* at, size_t length) {
 static int on_header_value(llhttp_t* parser, const char* at, size_t length) {
     client_context_t* context = (client_context_t*)parser->data;
     if (context->parsing_content_type) {
-        fprintf(stderr, "[DEBUG-C] Processing Content-Type header: '%.*s'\n", (int)length, at);
+        LOG_HTTP_DEBUG("Processing Content-Type header: '%.*s'", (int)length, at);
 
         // Store content type for later use in JSON/form parsing
         content_type_t new_type = CONTENT_TYPE_NONE;
@@ -109,26 +110,26 @@ static int on_header_value(llhttp_t* parser, const char* at, size_t length) {
         // Validate and set the content type
         if (new_type >= CONTENT_TYPE_NONE && new_type <= CONTENT_TYPE_FORM) {
             context->content_type = new_type;
-            fprintf(stderr, "[DEBUG-C] Content-Type set to: %s (type=%d)\n",
+            LOG_HTTP_DEBUG("Content-Type set to: %s (type=%d)",
                 new_type == CONTENT_TYPE_JSON ? "application/json" :
                 new_type == CONTENT_TYPE_FORM ? "application/x-www-form-urlencoded" : "none",
                 (int)context->content_type);
         } else {
             context->content_type = CONTENT_TYPE_NONE;
-            fprintf(stderr, "[DEBUG-C] Invalid content type, defaulting to NONE\n");
+            LOG_HTTP_DEBUG("Invalid content type, defaulting to NONE");
         }
 
         context->parsing_content_type = false;
     } else if (context->parsing_connection) {
-        fprintf(stderr, "[DEBUG-C] Processing Connection header: '%.*s'\n", (int)length, at);
+        LOG_HTTP_DEBUG("Processing Connection header: '%.*s'", (int)length, at);
 
         // Check for keep-alive
         if (length >= 10 && strncasecmp(at, "keep-alive", 10) == 0) {
             context->keep_alive = true;
-            fprintf(stderr, "[DEBUG-C] Connection: keep-alive detected\n");
+            LOG_HTTP_DEBUG("Connection: keep-alive detected");
         } else {
             context->keep_alive = false;
-            fprintf(stderr, "[DEBUG-C] Connection: close or other\n");
+            LOG_HTTP_DEBUG("Connection: close or other");
         }
 
         context->parsing_connection = false;
@@ -147,7 +148,7 @@ static int on_headers_complete(llhttp_t* parser) {
     // HTTP/1.1 defaults to keep-alive if no Connection header was specified
     if (!context->has_connection_header && llhttp_get_http_major(parser) == 1 && llhttp_get_http_minor(parser) == 1) {
         context->keep_alive = true;
-        fprintf(stderr, "[DEBUG-C] HTTP/1.1 defaulting to keep-alive\n");
+        LOG_HTTP_DEBUG("HTTP/1.1 defaulting to keep-alive");
     }
 
     return 0;
@@ -170,7 +171,7 @@ static int on_body(llhttp_t* parser, const char* at, size_t length) {
     memcpy(context->body + context->body_length, at, length);
     context->body_length += length;
     context->body[context->body_length] = '\0';
-    fprintf(stderr, "[DEBUG-C] Received body chunk: %zu bytes\n", length);
+    LOG_HTTP_DEBUG("Received body chunk: %zu bytes", length);
     return 0;
 }
 
@@ -188,7 +189,7 @@ static bool should_return_415(client_context_t* context) {
 
         // If we have a body but no recognizable content type, return 415
         if (context->content_type == CONTENT_TYPE_NONE) {
-            fprintf(stderr, "[DEBUG-C] Request has body but unsupported content type\n");
+            LOG_HTTP_DEBUG("Request has body but unsupported content type");
             return true;
         }
     }
@@ -217,7 +218,7 @@ static void populate_path_params(catzilla_request_t* request, const catzilla_rou
 
     if (request->path_param_count > 0) {
         request->has_path_params = true;
-        fprintf(stderr, "[DEBUG-C] Populated %d path parameters in request\n", request->path_param_count);
+        LOG_HTTP_DEBUG("Populated %d path parameters in request", request->path_param_count);
     }
 }
 
@@ -225,7 +226,7 @@ static void populate_path_params(catzilla_request_t* request, const catzilla_rou
 void catzilla_python_route_handler(uv_stream_t* client) {
     // This handler should never be called directly since Python routes
     // are handled via py_request_callback in on_message_complete
-    fprintf(stderr, "[ERROR-C] catzilla_python_route_handler called directly - this should not happen\n");
+    LOG_SERVER_ERROR("catzilla_python_route_handler called directly - this should not happen");
     const char* body = "500 Internal Server Error";
     catzilla_send_response(client, 500, "text/plain", body, strlen(body));
 }
@@ -261,9 +262,9 @@ PyObject* handle_request_in_server(PyObject* callback,
     if (query) {
         query++; // Skip the '?' character
         if (parse_query_params(request, query) == 0) {
-            fprintf(stderr, "[DEBUG-C] Successfully parsed query parameters\n");
+            LOG_HTTP_DEBUG("Successfully parsed query parameters");
         } else {
-            fprintf(stderr, "[DEBUG-C] Failed to parse query parameters\n");
+            LOG_HTTP_DEBUG("Failed to parse query parameters");
         }
     }
 
@@ -277,35 +278,35 @@ PyObject* handle_request_in_server(PyObject* callback,
     client_context_t* context = get_client_context(client);
 
     if (context) {
-        fprintf(stderr, "[DEBUG-C] Found client context, current content type: %d\n", (int)context->content_type);
+        LOG_HTTP_DEBUG("Found client context, current content type: %d", (int)context->content_type);
 
         // Copy content type directly
         request->content_type = context->content_type;
-        fprintf(stderr, "[DEBUG-C] Set request content_type from context: %d (%s)\n",
+        LOG_HTTP_DEBUG("Set request content_type from context: %d (%s)",
             (int)request->content_type,
             request->content_type == CONTENT_TYPE_JSON ? "application/json" :
             request->content_type == CONTENT_TYPE_FORM ? "application/x-www-form-urlencoded" : "none");
 
         // Pre-parse based on content type
         if (request->content_type == CONTENT_TYPE_JSON) {
-            fprintf(stderr, "[DEBUG-C] Pre-parsing JSON content\n");
+            LOG_HTTP_DEBUG("Pre-parsing JSON content");
             if (catzilla_parse_json(request) == 0) {
-                fprintf(stderr, "[DEBUG-C] JSON parsing successful\n");
+                LOG_HTTP_DEBUG("JSON parsing successful");
             } else {
-                fprintf(stderr, "[DEBUG-C] JSON parsing failed\n");
+                LOG_HTTP_DEBUG("JSON parsing failed");
             }
         } else if (request->content_type == CONTENT_TYPE_FORM) {
-            fprintf(stderr, "[DEBUG-C] Pre-parsing form content\n");
+            LOG_HTTP_DEBUG("Pre-parsing form content");
             if (catzilla_parse_form(request) == 0) {
-                fprintf(stderr, "[DEBUG-C] Form parsing successful\n");
+                LOG_HTTP_DEBUG("Form parsing successful");
             } else {
-                fprintf(stderr, "[DEBUG-C] Form parsing failed\n");
+                LOG_HTTP_DEBUG("Form parsing failed");
             }
         } else {
-            fprintf(stderr, "[DEBUG-C] Unknown content type: %d\n", request->content_type);
+            LOG_HTTP_DEBUG("Unknown content type: %d", request->content_type);
         }
     } else {
-        fprintf(stderr, "[DEBUG-C] No client context found, using NONE content type\n");
+        LOG_HTTP_DEBUG("No client context found, using NONE content type");
         request->content_type = CONTENT_TYPE_NONE;
     }
 
@@ -345,23 +346,23 @@ PyObject* handle_request_in_server(PyObject* callback,
 
 int catzilla_parse_json(catzilla_request_t* request) {
     if (!request || !request->body || request->body_length == 0) {
-        fprintf(stderr, "[DEBUG-C] JSON parse failed: no request, body, or zero length\n");
+        LOG_HTTP_DEBUG("JSON parse failed: no request, body, or zero length");
         return -1;
     }
 
     // Check if already parsed
     if (request->is_json_parsed) {
-        fprintf(stderr, "[DEBUG-C] JSON already parsed\n");
+        LOG_HTTP_DEBUG("JSON already parsed");
         return 0;
     }
 
     // Check content type - allow parsing if it's JSON type
     if (request->content_type != CONTENT_TYPE_JSON) {
-        fprintf(stderr, "[DEBUG-C] JSON parse failed: wrong content type (%d)\n", request->content_type);
+        LOG_HTTP_DEBUG("JSON parse failed: wrong content type (%d)", request->content_type);
         return -1;
     }
 
-    fprintf(stderr, "[DEBUG-C] Parsing JSON body: '%s'\n", request->body);
+    LOG_HTTP_DEBUG("Parsing JSON body: '%s'", request->body);
 
     // Initialize JSON fields
     if (request->json_doc) {
@@ -376,44 +377,44 @@ int catzilla_parse_json(catzilla_request_t* request) {
     request->json_doc = yyjson_read_opts(request->body, request->body_length, flg, NULL, &err);
 
     if (!request->json_doc) {
-        fprintf(stderr, "[DEBUG-C] JSON parse error: %s at position %zu\n", err.msg, err.pos);
+        LOG_HTTP_DEBUG("JSON parse error: %s at position %zu", err.msg, err.pos);
         request->is_json_parsed = true;  // Mark as parsed even if failed
         return -1;
     }
 
     request->json_root = yyjson_doc_get_root(request->json_doc);
     if (!request->json_root) {
-        fprintf(stderr, "[DEBUG-C] JSON parse error: no root object\n");
+        LOG_HTTP_DEBUG("JSON parse error: no root object");
         yyjson_doc_free(request->json_doc);
         request->json_doc = NULL;
         request->is_json_parsed = true;  // Mark as parsed even if failed
         return -1;
     }
 
-    fprintf(stderr, "[DEBUG-C] JSON parsed successfully\n");
+    LOG_HTTP_DEBUG("JSON parsed successfully");
     request->is_json_parsed = true;
     return 0;
 }
 
 int catzilla_parse_form(catzilla_request_t* request) {
     if (!request || !request->body || request->body_length == 0) {
-        fprintf(stderr, "[DEBUG-C] Form parse failed: no request, body, or zero length\n");
+        LOG_HTTP_DEBUG("Form parse failed: no request, body, or zero length");
         return -1;
     }
 
     // Check if already parsed
     if (request->is_form_parsed) {
-        fprintf(stderr, "[DEBUG-C] Form data already parsed\n");
+        LOG_HTTP_DEBUG("Form data already parsed");
         return 0;
     }
 
     // Check content type - allow parsing if it's form type
     if (request->content_type != CONTENT_TYPE_FORM) {
-        fprintf(stderr, "[DEBUG-C] Form parse failed: wrong content type (%d)\n", request->content_type);
+        LOG_HTTP_DEBUG("Form parse failed: wrong content type (%d)", request->content_type);
         return -1;
     }
 
-    fprintf(stderr, "[DEBUG-C] Parsing form data: '%s'\n", request->body);
+    LOG_HTTP_DEBUG("Parsing form data: '%s'", request->body);
 
     // Initialize form fields
     request->form_field_count = 0;
@@ -425,7 +426,7 @@ int catzilla_parse_form(catzilla_request_t* request) {
     // Parse form data
     char* body = strdup(request->body);  // Create a copy we can modify
     if (!body) {
-        fprintf(stderr, "[DEBUG-C] Form parse error: memory allocation failed\n");
+        LOG_HTTP_DEBUG("Form parse error: memory allocation failed");
         request->is_form_parsed = true;  // Mark as parsed even if failed
         return -1;
     }
@@ -449,7 +450,7 @@ int catzilla_parse_form(catzilla_request_t* request) {
                 free(decoded_key);
                 free(decoded_value);
                 free(body);
-                fprintf(stderr, "[DEBUG-C] Form parse error: memory allocation failed\n");
+                LOG_HTTP_DEBUG("Form parse error: memory allocation failed");
                 request->is_form_parsed = true;  // Mark as parsed even if failed
                 return -1;
             }
@@ -458,7 +459,7 @@ int catzilla_parse_form(catzilla_request_t* request) {
             url_decode(key, decoded_key);
             url_decode(value, decoded_value);
 
-            fprintf(stderr, "[DEBUG-C] Form field: %s = %s\n", decoded_key, decoded_value);
+            LOG_HTTP_DEBUG("Form field: %s = %s", decoded_key, decoded_value);
 
             if (request->form_field_count < CATZILLA_MAX_FORM_FIELDS) {
                 request->form_fields[request->form_field_count] = decoded_key;
@@ -473,7 +474,7 @@ int catzilla_parse_form(catzilla_request_t* request) {
     }
 
     free(body);
-    fprintf(stderr, "[DEBUG-C] Form parsed successfully with %d fields\n", request->form_field_count);
+    LOG_HTTP_DEBUG("Form parsed successfully with %d fields", request->form_field_count);
     request->is_form_parsed = true;
     return 0;
 }
@@ -505,23 +506,23 @@ const char* catzilla_get_form_field(catzilla_request_t* request, const char* fie
 // Get the content type as a string
 const char* catzilla_get_content_type_str(catzilla_request_t* request) {
     if (!request) {
-        fprintf(stderr, "[DEBUG-C] get_content_type_str: NULL request\n");
+        LOG_HTTP_DEBUG("get_content_type_str: NULL request");
         return "";
     }
 
     content_type_t type = request->content_type;
-    fprintf(stderr, "[DEBUG-C] get_content_type_str: type=%d\n", (int)type);
+    LOG_HTTP_DEBUG("get_content_type_str: type=%d", (int)type);
 
     switch (type) {
         case CONTENT_TYPE_JSON:
-            fprintf(stderr, "[DEBUG-C] get_content_type_str: returning application/json\n");
+            LOG_HTTP_DEBUG("get_content_type_str: returning application/json");
             return "application/json";
         case CONTENT_TYPE_FORM:
-            fprintf(stderr, "[DEBUG-C] get_content_type_str: returning application/x-www-form-urlencoded\n");
+            LOG_HTTP_DEBUG("get_content_type_str: returning application/x-www-form-urlencoded");
             return "application/x-www-form-urlencoded";
         case CONTENT_TYPE_NONE:
         default:
-            fprintf(stderr, "[DEBUG-C] get_content_type_str: returning empty string\n");
+            LOG_HTTP_DEBUG("get_content_type_str: returning empty string");
             return "";
     }
 }
@@ -566,7 +567,7 @@ int catzilla_server_init(catzilla_server_t* server) {
     // Initialize advanced router
     rc = catzilla_router_init(&server->router);
     if (rc) {
-        fprintf(stderr, "[ERROR] Failed to initialize advanced router\n");
+        LOG_SERVER_ERROR("Failed to initialize advanced router");
         return rc;
     }
 
@@ -586,12 +587,12 @@ int catzilla_server_init(catzilla_server_t* server) {
     // Set global reference for signal handling
     active_server = server;
 
-    fprintf(stderr, "[INFO-C] Server initialized with advanced routing system\n");
+    LOG_SERVER_INFO("Server initialized with advanced routing system");
     return 0;
 }
 
 void signal_handler(uv_signal_t* handle, int signum) {
-    fprintf(stderr, "\n[INFO-C] Signal %d received, stopping server...\n", signum);
+    LOG_SERVER_INFO("Signal %d received, stopping server...", signum);
     catzilla_server_t* server = (catzilla_server_t*)handle->data;
     catzilla_server_stop(server);
 }
@@ -612,29 +613,29 @@ int catzilla_server_listen(catzilla_server_t* server, const char* host, int port
     struct sockaddr_in addr;
     int rc = uv_ip4_addr(host, port, &addr);
     if (rc) {
-        fprintf(stderr, "[ERROR] Failed to resolve %s:%d: %s\n", host, port, uv_strerror(rc));
+        LOG_SERVER_ERROR("Failed to resolve %s:%d: %s", host, port, uv_strerror(rc));
         return rc;
     }
     rc = uv_tcp_bind(&server->server, (const struct sockaddr*)&addr, 0);
     if (rc) {
-        fprintf(stderr, "[ERROR] Bind %s:%d: %s\n", host, port, uv_strerror(rc));
+        LOG_SERVER_ERROR("Bind %s:%d: %s", host, port, uv_strerror(rc));
         return rc;
     }
     rc = uv_listen((uv_stream_t*)&server->server, 128, on_connection);
     if (rc) {
-        fprintf(stderr, "[ERROR] Listen %s:%d: %s\n", host, port, uv_strerror(rc));
+        LOG_SERVER_ERROR("Listen %s:%d: %s", host, port, uv_strerror(rc));
         return rc;
     }
 
     // Set up signal handler for graceful shutdown
     rc = uv_signal_start(&server->sig_handle, signal_handler, SIGINT);
     if (rc) {
-        fprintf(stderr, "[ERROR] Failed to set up signal handler: %s\n", uv_strerror(rc));
+        LOG_SERVER_ERROR("Failed to set up signal handler: %s", uv_strerror(rc));
         return rc;
     }
 
-    fprintf(stderr, "[INFO-C] Catzilla server listening on %s:%d\n", host, port);
-    fprintf(stderr, "[INFO-C] Press Ctrl+C to stop the server\n");
+    LOG_SERVER_INFO("Catzilla server listening on %s:%d", host, port);
+    LOG_SERVER_INFO("Press Ctrl+C to stop the server");
 
     server->is_running = true;
     return uv_run(server->loop, UV_RUN_DEFAULT);
@@ -644,7 +645,7 @@ int catzilla_server_listen(catzilla_server_t* server, const char* host, int port
 void catzilla_server_stop(catzilla_server_t* server) {
     if (!server->is_running) return;
 
-    fprintf(stderr, "[INFO-C] Stopping Catzilla server...\n");
+    LOG_SERVER_INFO("Stopping Catzilla server...");
     server->is_running = false;
 
     //  Stop the loop so the outer uv_run in listen() will exit
@@ -652,22 +653,22 @@ void catzilla_server_stop(catzilla_server_t* server) {
 
     // Stop the signal handler but don't close it yet
     uv_signal_stop(&server->sig_handle);
-    fprintf(stderr, "[INFO-C] Stopped signal handler...\n");
+    LOG_SERVER_INFO("Stopped signal handler...");
 
     // Walk and close all active handles
     // This will include server->server and server->sig_handle
     uv_walk(server->loop, (uv_walk_cb)uv_close, NULL);
-    fprintf(stderr, "[INFO-C] Closing all active handles...\n");
+    LOG_SERVER_INFO("Closing all active handles...");
 
     // Run the loop so that each close callback fires
     uv_run(server->loop, UV_RUN_DEFAULT);
 
     // 5) Finally, close the loop itself
     if (uv_loop_close(server->loop) != 0) {
-        fprintf(stderr, "[WARN] uv_loop_close returned busy\n");
+        LOG_SERVER_WARN("uv_loop_close returned busy");
     }
 
-    fprintf(stderr, "[INFO-C] Server stopped\n");
+    LOG_SERVER_INFO("Server stopped");
 }
 
 int catzilla_server_add_route(catzilla_server_t* server,
@@ -683,13 +684,13 @@ int catzilla_server_add_route(catzilla_server_t* server,
     // Add to advanced router first
     uint32_t route_id = catzilla_router_add_route(&server->router, method, path, handler, user_data, false);
     if (route_id > 0) {
-        fprintf(stderr, "[DEBUG-C] Added route to advanced router: %s %s (ID: %u)\n", method, path, route_id);
+        LOG_ROUTER_DEBUG("Added route to advanced router: %s %s (ID: %u)", method, path, route_id);
         return 0;  // Success
     }
 
     // Fallback to legacy route table if advanced router fails
     if (server->route_count >= CATZILLA_MAX_ROUTES) {
-        fprintf(stderr, "[ERROR-C] Maximum legacy routes reached (%d)\n", CATZILLA_MAX_ROUTES);
+        LOG_SERVER_ERROR("Maximum legacy routes reached (%d)", CATZILLA_MAX_ROUTES);
         return -1;
     }
 
@@ -701,7 +702,7 @@ int catzilla_server_add_route(catzilla_server_t* server,
     route->handler = handler;
     route->user_data = user_data;
 
-    fprintf(stderr, "[DEBUG-C] Added route to legacy table: %s %s\n", method, path);
+    LOG_ROUTER_DEBUG("Added route to legacy table: %s %s", method, path);
     return 0;
 }
 
@@ -788,10 +789,10 @@ void catzilla_send_response(uv_stream_t* client,
 
 static void on_connection(uv_stream_t* server, int status) {
     if (status < 0) {
-        fprintf(stderr, "[DEBUG-C] Connection error: %s\n", uv_strerror(status));
+        LOG_SERVER_DEBUG("Connection error: %s", uv_strerror(status));
         return;
     }
-    fprintf(stderr, "[DEBUG-C] New connection received\n");
+    LOG_SERVER_DEBUG("New connection received");
     catzilla_server_t* srv = server->data;
 
     client_context_t* ctx = malloc(sizeof(*ctx));
@@ -811,7 +812,7 @@ static void on_connection(uv_stream_t* server, int status) {
     ctx->url[0] = '\0';
     ctx->method[0] = '\0';
 
-    fprintf(stderr, "[DEBUG-C] Initialized client context with content_type=%d\n", (int)ctx->content_type);
+    LOG_SERVER_DEBUG("Initialized client context with content_type=%d", (int)ctx->content_type);
 
     if (uv_tcp_init(srv->loop, &ctx->client) != 0) {
         free(ctx);
@@ -838,12 +839,12 @@ static void on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf) {
     if (nread > 0) {
         llhttp_errno_t err = llhttp_execute(&ctx->parser, buf->base, nread);
         if (err != HPE_OK) {
-            fprintf(stderr, "HTTP parsing error: %s\n", llhttp_errno_name(err));
+            LOG_SERVER_ERROR("HTTP parsing error: %s", llhttp_errno_name(err));
             catzilla_send_response(client, 400, "text/plain", "400 Bad Request", strlen("400 Bad Request"));
             uv_close((uv_handle_t*)client, on_close);
         }
     } else if (nread < 0 && nread != UV_EOF) {
-        fprintf(stderr, "Read error: %s\n", uv_strerror(nread));
+        LOG_SERVER_ERROR("Read error: %s", uv_strerror(nread));
     }
     free(buf->base);
     if (nread < 0) uv_close((uv_handle_t*)client, on_close);
@@ -858,16 +859,16 @@ static void on_close(uv_handle_t* handle) {
 }
 
 static void after_write(uv_write_t* req, int status) {
-    if (status < 0) fprintf(stderr, "[DEBUG-C] Write error: %s\n", uv_strerror(status));
+    if (status < 0) LOG_SERVER_DEBUG("Write error: %s", uv_strerror(status));
 
     write_req_t* wr = (write_req_t*)req;
 
     // Only close connection if keep_alive is false
     if (!wr->keep_alive) {
-        fprintf(stderr, "[DEBUG-C] Closing connection (keep_alive=false)\n");
+        LOG_SERVER_DEBUG("Closing connection (keep_alive=false)");
         uv_close((uv_handle_t*)req->handle, on_close);
     } else {
-        fprintf(stderr, "[DEBUG-C] Keeping connection alive (keep_alive=true)\n");
+        LOG_SERVER_DEBUG("Keeping connection alive (keep_alive=true)");
         // Connection stays open for next request
         // The client context and parser will handle subsequent requests
     }
@@ -880,8 +881,8 @@ static int on_message_complete(llhttp_t* parser) {
     client_context_t* context = (client_context_t*)parser->data;
     catzilla_server_t* server = context->server;
 
-    fprintf(stderr, "[DEBUG-C] HTTP message complete\n");
-    fprintf(stderr, "[INFO-C] Received request: Method=%s, URL=%s\n", context->method, context->url);
+    LOG_HTTP_DEBUG("HTTP message complete");
+    LOG_SERVER_INFO("Received request: Method=%s, URL=%s", context->method, context->url);
 
     // Extract path from URL (remove query string)
     char path[CATZILLA_PATH_MAX];
@@ -896,7 +897,7 @@ static int on_message_complete(llhttp_t* parser) {
         path[CATZILLA_PATH_MAX - 1] = '\0';
     }
 
-    fprintf(stderr, "[DEBUG-C] Extracted path: %s\n", path);
+    LOG_HTTP_DEBUG("Extracted path: %s", path);
 
     // Check for 415 Unsupported Media Type before routing
     if (should_return_415(context)) {
@@ -933,11 +934,11 @@ static int on_message_complete(llhttp_t* parser) {
 
     if (match_result == 0 && match.route != NULL) {
         // Route matched successfully
-        fprintf(stderr, "[DEBUG-C] Route matched with %d path parameters\n", match.param_count);
+        LOG_ROUTER_DEBUG("Route matched with %d path parameters", match.param_count);
 
         // Log path parameters
         for (int i = 0; i < match.param_count; i++) {
-            fprintf(stderr, "[DEBUG-C] Path param: %s = %s\n",
+            LOG_ROUTER_DEBUG("Path param: %s = %s",
                    match.params[i].name, match.params[i].value);
         }
 
@@ -1023,7 +1024,7 @@ static int on_message_complete(llhttp_t* parser) {
         }
 
         if (matched) {
-            fprintf(stderr, "[DEBUG-C] Fallback to legacy route matched\n");
+            LOG_ROUTER_DEBUG("Fallback to legacy route matched");
             void (*handler_fn)(uv_stream_t*) = matched->handler;
             if (handler_fn != NULL) {
                 handler_fn((uv_stream_t*)&context->client);
@@ -1048,7 +1049,7 @@ int parse_query_params(catzilla_request_t* request, const char* query_string) {
         request->query_values[i] = NULL;
     }
 
-    fprintf(stderr, "[DEBUG-C] Parsing query string: %s\n", query_string);
+    LOG_HTTP_DEBUG("Parsing query string: %s", query_string);
 
     // Create a copy we can modify
     char* query = strdup(query_string);
@@ -1079,7 +1080,7 @@ int parse_query_params(catzilla_request_t* request, const char* query_string) {
             url_decode(key, decoded_key);
             url_decode(value, decoded_value);
 
-            fprintf(stderr, "[DEBUG-C] Query param: %s = %s\n", decoded_key, decoded_value);
+            LOG_HTTP_DEBUG("Query param: %s = %s", decoded_key, decoded_value);
 
             if (request->query_param_count < CATZILLA_MAX_QUERY_PARAMS) {
                 request->query_params[request->query_param_count] = decoded_key;
@@ -1095,7 +1096,7 @@ int parse_query_params(catzilla_request_t* request, const char* query_string) {
     }
 
     free(query);
-    fprintf(stderr, "[DEBUG-C] Query parsing complete with %d parameters\n", request->query_param_count);
+    LOG_HTTP_DEBUG("Query parsing complete with %d parameters", request->query_param_count);
     return 0;
 }
 
@@ -1114,22 +1115,22 @@ const char* catzilla_get_query_param(catzilla_request_t* request, const char* pa
 
 void catzilla_server_print_routes(catzilla_server_t* server) {
     if (!server) {
-        fprintf(stderr, "[ERROR] Server is NULL\n");
+        LOG_SERVER_ERROR("Server is NULL");
         return;
     }
 
-    fprintf(stderr, "[INFO] ===== CATZILLA ROUTE INFORMATION =====\n");
-    fprintf(stderr, "[INFO] Advanced Router Routes: %d\n", server->router.route_count);
-    fprintf(stderr, "[INFO] Legacy Routes: %d\n", server->route_count);
+    LOG_SERVER_INFO("===== CATZILLA ROUTE INFORMATION =====");
+    LOG_SERVER_INFO("Advanced Router Routes: %d", server->router.route_count);
+    LOG_SERVER_INFO("Legacy Routes: %d", server->route_count);
 
     // Print advanced router routes
     if (server->router.route_count > 0) {
-        fprintf(stderr, "[INFO] Advanced Router Routes:\n");
+        LOG_SERVER_INFO("Advanced Router Routes:");
         catzilla_route_t* routes[100];  // Limit to 100 routes for display
         int route_count = catzilla_router_get_routes(&server->router, routes, 100);
 
         for (int i = 0; i < route_count; i++) {
-            fprintf(stderr, "[INFO]   %d: %s %s -> %p (ID: %u)\n",
+            LOG_SERVER_INFO("  %d: %s %s -> %p (ID: %u)",
                    i + 1, routes[i]->method, routes[i]->path,
                    routes[i]->handler, routes[i]->id);
         }
@@ -1137,15 +1138,15 @@ void catzilla_server_print_routes(catzilla_server_t* server) {
 
     // Print legacy routes
     if (server->route_count > 0) {
-        fprintf(stderr, "[INFO] Legacy Routes:\n");
+        LOG_SERVER_INFO("Legacy Routes:");
         for (int i = 0; i < server->route_count; i++) {
-            fprintf(stderr, "[INFO]   %d: %s %s -> %p\n",
+            LOG_SERVER_INFO("  %d: %s %s -> %p",
                    i + 1, server->routes[i].method, server->routes[i].path,
                    server->routes[i].handler);
         }
     }
 
-    fprintf(stderr, "[INFO] ========================================\n");
+    LOG_SERVER_INFO("========================================");
 }
 
 int catzilla_server_get_route_count(catzilla_server_t* server) {
@@ -1251,7 +1252,7 @@ void catzilla_server_check_route_conflicts(catzilla_server_t* server, const char
 
         // Exact match conflict
         if (strcmp(existing->method, method) == 0 && strcmp(existing->path, path) == 0) {
-            fprintf(stderr, "[WARNING] Route conflict: %s %s already exists (ID: %u)\n",
+            LOG_SERVER_WARN("Route conflict: %s %s already exists (ID: %u)",
                    method, path, existing->id);
             continue;
         }
@@ -1263,7 +1264,7 @@ void catzilla_server_check_route_conflicts(catzilla_server_t* server, const char
             // For now, just warn about similar paths
             if (strstr(existing->path, path) || strstr(path, existing->path)) {
                 if (strlen(existing->path) != strlen(path)) {  // Not exact match
-                    fprintf(stderr, "[WARNING] Potential route conflict: %s %s may overlap with %s %s\n",
+                    LOG_SERVER_WARN("Potential route conflict: %s %s may overlap with %s %s",
                            method, path, existing->method, existing->path);
                 }
             }
@@ -1275,7 +1276,7 @@ void catzilla_server_check_route_conflicts(catzilla_server_t* server, const char
         catzilla_route_t* existing = &server->routes[i];
 
         if (strcmp(existing->method, method) == 0 && strcmp(existing->path, path) == 0) {
-            fprintf(stderr, "[WARNING] Route conflict with legacy route: %s %s already exists\n",
+            LOG_SERVER_WARN("Route conflict with legacy route: %s %s already exists",
                    method, path);
         }
     }

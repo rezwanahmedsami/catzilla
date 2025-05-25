@@ -26,6 +26,7 @@ Whether you're building **real-time AI applications**, **low-latency APIs**, or 
 - 🔥 **Advanced Trie-Based Routing** — O(log n) lookup with dynamic path parameters
 - 🧱 **Zero Boilerplate** — Decorator-style routing: `@app.get(...)`
 - 🔁 **Concurrency First** — GIL-aware bindings, supports streaming & WebSockets
+- 📦 **Zero Dependencies** — Uses only Python standard library (no pydantic, no bloat!)
 
 ### Advanced Routing System
 - 🛣️ **Dynamic Path Parameters** — `/users/{user_id}`, `/posts/{post_id}/comments/{comment_id}`

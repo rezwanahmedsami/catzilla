@@ -1,17 +1,19 @@
-annotated-types==0.7.0
--e git+https://github.com/rezwanahmedsami/catzilla.git@b9ba736feb517dec31c4303fc06650b4972d40b2#egg=catzilla
-certifi==2025.4.26
-charset-normalizer==3.4.2
-exceptiongroup==1.3.0
-idna==3.10
-iniconfig==2.1.0
-packaging==25.0
-pluggy==1.6.0
-pydantic==2.11.4
-pydantic_core==2.33.2
-pytest==8.3.5
-requests==2.32.3
-tomli==2.2.1
-typing-inspection==0.4.0
-typing_extensions==4.13.2
-urllib3==2.4.0
+# Catzilla Core Requirements
+#
+# Catzilla uses only Python standard library for core functionality.
+# This means NO runtime dependencies are required for basic usage!
+#
+# For development: pip install -r requirements-dev.txt
+# For benchmarks: pip install -r requirements-benchmarks.txt
+
+# No runtime dependencies needed! 🎉
+# Catzilla uses only Python standard library:
+# - json, dataclasses, typing, urllib.parse, http.cookies, re, os, sys
+
+# Development dependencies (optional)
+# Uncomment if you need these for development:
+# -r requirements-dev.txt
+
+# Benchmark dependencies (optional)
+# Uncomment if you need these for performance benchmarks:
+# -r requirements-benchmarks.txt

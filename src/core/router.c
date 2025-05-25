@@ -1,5 +1,6 @@
 #include "router.h"
 #include "server.h"
+#include "logging.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -67,14 +68,14 @@ int catzilla_router_init(catzilla_router_t* router) {
     router->route_count = 0;
     router->next_route_id = 1;
 
-    fprintf(stderr, "[DEBUG-ROUTER] Router initialized successfully\n");
+    LOG_ROUTER_DEBUG("Router initialized successfully");
     return 0;
 }
 
 void catzilla_router_cleanup(catzilla_router_t* router) {
     if (!router) return;
 
-    fprintf(stderr, "[DEBUG-ROUTER] Starting router cleanup\n");
+    LOG_ROUTER_DEBUG("Starting router cleanup");
 
     // Free all routes
     for (int i = 0; i < router->route_count; i++) {
@@ -97,7 +98,7 @@ void catzilla_router_cleanup(catzilla_router_t* router) {
     }
 
     memset(router, 0, sizeof(catzilla_router_t));
-    fprintf(stderr, "[DEBUG-ROUTER] Router cleanup completed\n");
+    LOG_ROUTER_DEBUG("Router cleanup completed");
 }
 
 static catzilla_route_node_t* catzilla_router_create_node(catzilla_router_t* router) {
@@ -243,23 +244,23 @@ uint32_t catzilla_router_add_route(catzilla_router_t* router,
                                    void* user_data,
                                    bool overwrite) {
     if (!router || !method || !path || !handler) {
-        fprintf(stderr, "[DEBUG-ROUTER] Add route failed: invalid parameters\n");
+        LOG_ROUTER_ERROR("Add route failed: invalid parameters");
         return 0;
     }
 
-    fprintf(stderr, "[DEBUG-ROUTER] Adding route: %s %s\n", method, path);
+    LOG_ROUTER_DEBUG("Adding route: %s %s", method, path);
 
     // Normalize method
     char norm_method[CATZILLA_METHOD_MAX];
     if (catzilla_router_normalize_method(method, norm_method, sizeof(norm_method)) != 0) {
-        fprintf(stderr, "[DEBUG-ROUTER] Failed to normalize method: %s\n", method);
+        LOG_ROUTER_ERROR("Failed to normalize method: %s", method);
         return 0;
     }
 
     // Normalize path
     char norm_path[CATZILLA_PATH_MAX];
     if (catzilla_router_normalize_path(path, norm_path, sizeof(norm_path)) != 0) {
-        fprintf(stderr, "[DEBUG-ROUTER] Failed to normalize path: %s\n", path);
+        LOG_ROUTER_ERROR("Failed to normalize path: %s", path);
         return 0;
     }
 
@@ -267,14 +268,14 @@ uint32_t catzilla_router_add_route(catzilla_router_t* router,
     char segments[CATZILLA_MAX_PATH_SEGMENTS][CATZILLA_PATH_SEGMENT_MAX];
     int segment_count = catzilla_router_split_path(norm_path, segments, CATZILLA_MAX_PATH_SEGMENTS);
     if (segment_count < 0) {
-        fprintf(stderr, "[DEBUG-ROUTER] Failed to split path: %s\n", norm_path);
+        LOG_ROUTER_ERROR("Failed to split path: %s", norm_path);
         return 0;
     }
 
     // Create route object
     catzilla_route_t* route = malloc(sizeof(catzilla_route_t));
     if (!route) {
-        fprintf(stderr, "[DEBUG-ROUTER] Failed to allocate route\n");
+        LOG_ROUTER_ERROR("Failed to allocate route");
         return 0;
     }
 
@@ -341,7 +342,7 @@ uint32_t catzilla_router_add_route(catzilla_router_t* router,
         int new_capacity = router->route_capacity * 2;
         catzilla_route_t** new_routes = realloc(router->routes, sizeof(catzilla_route_t*) * new_capacity);
         if (!new_routes) {
-            fprintf(stderr, "[DEBUG-ROUTER] Failed to expand routes array\n");
+            LOG_ROUTER_ERROR("Failed to expand routes array");
             return route->id; // Route was added to trie, just can't track it
         }
         router->routes = new_routes;
@@ -350,7 +351,7 @@ uint32_t catzilla_router_add_route(catzilla_router_t* router,
 
     router->routes[router->route_count++] = route;
 
-    fprintf(stderr, "[DEBUG-ROUTER] Route added successfully with ID %u\n", route->id);
+    LOG_ROUTER_DEBUG("Route added successfully with ID %u", route->id);
     return route->id;
 }
 
@@ -428,7 +429,7 @@ static int catzilla_router_add_to_trie(catzilla_router_t* router, catzilla_route
     for (int i = 0; i < current->handler_count; i++) {
         if (strcmp(current->methods[i], route->method) == 0) {
             if (!route->overwrite) {
-                fprintf(stderr, "[WARN-ROUTER] Route conflict: %s %s overwrites existing route\n",
+                LOG_ROUTER_WARN("Route conflict: %s %s overwrites existing route",
                        route->method, route->path);
             }
             // Replace existing handler

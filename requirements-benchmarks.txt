@@ -1,0 +1,17 @@
+# Optional dependencies for running performance benchmarks
+# Install with: pip install -r requirements-benchmarks.txt
+
+# Web frameworks for comparison benchmarks
+fastapi>=0.100.0
+uvicorn>=0.24.0
+flask>=2.3.0
+django>=4.2.0
+
+# Data analysis and visualization
+matplotlib>=3.7.0
+pandas>=2.0.0
+seaborn>=0.12.0
+numpy>=1.24.0
+
+# HTTP client for benchmark testing
+requests>=2.31.0

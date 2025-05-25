@@ -1,0 +1,17 @@
+# Development dependencies for Catzilla contributors
+# Install with: pip install -r requirements-dev.txt
+
+# Testing framework
+pytest>=8.0
+
+# Code quality tools
+pre-commit
+
+# HTTP client for integration testing
+requests>=2.31.0
+
+# Build tools (usually installed separately)
+build
+wheel
+setuptools
+cmake
