@@ -39,11 +39,33 @@ The Catzilla framework provides a modern development experience:
    app.include_routes(api)
    ```
 
-### Development Environment (Windows support coming soon)
+### Development Environment
+
 - **Python 3.8+** (3.10+ recommended)
-- **CMake 3.10+**
-- **GCC/Clang** compiler
+- **CMake 3.15+**
+- **Compiler**:
+  - **Linux/macOS**: GCC or Clang
+  - **Windows**: Visual Studio 2019+ or Visual Studio Build Tools
 - **Git** with submodule support
+
+#### Windows-Specific Setup
+
+**Prerequisites for Windows:**
+
+1. **Install Visual Studio Build Tools** (if you don't have Visual Studio):
+   - Download from: https://visualstudio.microsoft.com/visual-cpp-build-tools/
+   - Install "C++ build tools" workload
+
+2. **Install CMake:**
+   - Option 1: Download from https://cmake.org/download/
+   - Option 2: Use chocolatey: `choco install cmake`
+   - Option 3: Use scoop: `scoop install cmake`
+
+3. **Install Git:**
+   - Download from https://git-scm.com/download/win
+   - Or use chocolatey: `choco install git`
+
+**Note**: All Windows batch scripts (`.bat`) are already provided and work with both Command Prompt and PowerShell.
 
 ### Initial Setup
 
@@ -62,8 +84,15 @@ The Catzilla framework provides a modern development experience:
    # Create virtual environment
    python -m venv venv
 
-   # Activate virtual environment (macOS/Linux)
+   # Activate virtual environment
+   # On macOS/Linux:
    source venv/bin/activate
+
+   # On Windows (Command Prompt):
+   venv\Scripts\activate.bat
+
+   # On Windows (PowerShell):
+   venv\Scripts\Activate.ps1
 
    # Install development dependencies
    pip install -r requirements-dev.txt
@@ -82,7 +111,11 @@ The Catzilla framework provides a modern development experience:
    **Verify your setup:**
    ```bash
    # Check that you're using the virtual environment Python
+   # On macOS/Linux:
    which python  # Should show: /path/to/catzilla/venv/bin/python
+
+   # On Windows:
+   where python  # Should show: C:\path\to\catzilla\venv\Scripts\python.exe
 
    # Verify development dependencies are installed
    pip list | grep -E "(pytest|pre-commit)"
@@ -141,8 +174,14 @@ pip install catzilla  # Zero dependencies installed!
 
 Use the provided build script for a clean, reproducible build:
 
+**On macOS/Linux:**
 ```bash
 ./scripts/build.sh
+```
+
+**On Windows:**
+```cmd
+scripts\build.bat
 ```
 
 This script will:
@@ -167,11 +206,20 @@ build/
 Catzilla has a comprehensive test suite covering both C and Python components:
 
 #### Run All Tests (Recommended)
+
+**On macOS/Linux:**
 ```bash
 ./scripts/run_tests.sh
 ```
 
+**On Windows:**
+```cmd
+scripts\run_tests.bat
+```
+
 #### Run Specific Test Suites
+
+**On macOS/Linux:**
 ```bash
 # Python tests only (62 tests)
 ./scripts/run_tests.sh --python
@@ -183,6 +231,18 @@ Catzilla has a comprehensive test suite covering both C and Python components:
 ./scripts/run_tests.sh --verbose
 ```
 
+**On Windows:**
+```cmd
+# Python tests only (62 tests)
+scripts\run_tests.bat --python
+
+# C tests only (28 tests)
+scripts\run_tests.bat --c
+
+# Verbose output for debugging
+scripts\run_tests.bat --verbose
+```
+
 #### Test Coverage Overview
 - **Total Tests: 90**
   - **C Tests: 28** (Basic router: 3, Advanced router: 14, Server integration: 11)
@@ -191,6 +251,8 @@ Catzilla has a comprehensive test suite covering both C and Python components:
 ### Development Commands
 
 #### Running Examples
+
+**On macOS/Linux:**
 ```bash
 # Start a development server with an example
 ./scripts/run_example.sh examples/hello_world/main.py
@@ -199,7 +261,18 @@ Catzilla has a comprehensive test suite covering both C and Python components:
 catzilla run examples/hello_world/main.py:app --reload
 ```
 
+**On Windows:**
+```cmd
+# Start a development server with an example
+scripts\run_example.bat examples\hello_world\main.py
+
+# Or use the CLI after installation
+catzilla run examples/hello_world/main.py:app --reload
+```
+
 #### Manual Building (Advanced)
+
+**On macOS/Linux:**
 ```bash
 # Clean build
 rm -rf build/ dist/ *.egg-info/ **/*.so **/__pycache__
@@ -207,8 +280,25 @@ rm -rf build/ dist/ *.egg-info/ **/*.so **/__pycache__
 # Configure with CMake
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
 
-# Build
+# Build (use available CPU cores)
 cmake --build build -j$(nproc)
+
+# Install in development mode
+pip install -e .
+```
+
+**On Windows:**
+```cmd
+# Clean build
+rmdir /s /q build dist
+del /s /q *.egg-info
+for /r %%i in (*.pyd __pycache__) do if exist "%%i" rmdir /s /q "%%i"
+
+# Configure with CMake
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+
+# Build (use available CPU cores)
+cmake --build build -j %NUMBER_OF_PROCESSORS%
 
 # Install in development mode
 pip install -e .

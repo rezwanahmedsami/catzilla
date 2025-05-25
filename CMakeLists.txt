@@ -1,10 +1,21 @@
 cmake_minimum_required(VERSION 3.15)
 project(catzilla LANGUAGES C)
 
-# Debug flags + PIC
-add_compile_options(-g -O0)
+# Platform-specific compiler flags
+if(MSVC)
+    # MSVC compiler flags
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W3")
+    set(CMAKE_C_FLAGS_DEBUG "/Od /Zi /RTC1")
+    set(CMAKE_C_FLAGS_RELEASE "/O2 /DNDEBUG")
+    add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+    add_definitions(-DWIN32_LEAN_AND_MEAN)
+else()
+    # GCC/Clang compiler flags (Unix-like systems)
+    add_compile_options(-g -O0)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
+endif()
+
 set(CMAKE_BUILD_TYPE Debug)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "")
 
 # Python support
@@ -55,13 +66,22 @@ target_link_libraries(_catzilla PRIVATE
   ${Python3_LIBRARIES}
 )
 
-# Force a ".so" suffix so Python's importer will find it
-set_target_properties(_catzilla PROPERTIES
-  PREFIX ""            # no "lib" prefix
-  OUTPUT_NAME "_catzilla"
-  SUFFIX ".so"
-  LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-)
+# Force appropriate suffix for Python module based on platform
+if(WIN32)
+    set_target_properties(_catzilla PROPERTIES
+      PREFIX ""            # no "lib" prefix
+      OUTPUT_NAME "_catzilla"
+      SUFFIX ".pyd"        # Windows Python extension
+      LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+    )
+else()
+    set_target_properties(_catzilla PROPERTIES
+      PREFIX ""            # no "lib" prefix
+      OUTPUT_NAME "_catzilla"
+      SUFFIX ".so"         # Unix Python extension
+      LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+    )
+endif()
 
 # ——— Tests ———
 # Test framework

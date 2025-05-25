@@ -4,11 +4,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// Windows-specific includes for console color support
+#ifdef _WIN32
+    #include <windows.h>
+    #include <io.h>
+    #define isatty _isatty
+    #define fileno _fileno
+#else
+    #include <unistd.h>
+#endif
+
 /**
  * Catzilla Professional Logging System
  *
  * This logging system is designed for Catzilla contributors and developers only.
  * End users will never see these logs unless they explicitly enable debug mode.
+ *
+ * Cross-platform color support:
+ *   - Unix/Linux/macOS: ANSI escape codes
+ *   - Windows: Console API (Windows 10+) or fallback to no colors
  *
  * Usage:
  *   - Contributors: CATZILLA_C_DEBUG=1 python app.py
@@ -17,14 +31,34 @@
  * Log levels:
  *   - LOG_DEBUG: Detailed debugging information
  *   - LOG_INFO: General information about operations
+ *   - LOG_WARN: Warning conditions
  *   - LOG_ERROR: Error conditions that need attention
  */
+
+// Initialize Windows console for color support (Windows 10+)
+static inline void catzilla_init_console_colors() {
+#ifdef _WIN32
+    static int initialized = 0;
+    if (!initialized) {
+        HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+        DWORD dwMode = 0;
+        if (GetConsoleMode(hOut, &dwMode)) {
+            dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+            SetConsoleMode(hOut, dwMode);
+        }
+        initialized = 1;
+    }
+#endif
+}
 
 static inline int catzilla_debug_enabled() {
     static int checked = 0;
     static int enabled = 0;
     if (!checked) {
         enabled = getenv("CATZILLA_C_DEBUG") != NULL;
+        if (enabled) {
+            catzilla_init_console_colors();
+        }
         checked = 1;
     }
     return enabled;
