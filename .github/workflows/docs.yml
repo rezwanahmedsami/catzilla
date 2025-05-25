@@ -59,12 +59,19 @@ jobs:
 
       - name: Copy logo to docs
         run: |
+          mkdir -p docs/_static
           cp logo.png docs/_static/
 
       - name: Build documentation
         run: |
           cd docs
           python build_docs.py build
+          # Verify the documentation was built successfully
+          if [ ! -f "_build/html/index.html" ]; then
+            echo "Error: Documentation build failed - index.html not found"
+            exit 1
+          fi
+          echo "✅ Documentation built successfully"
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

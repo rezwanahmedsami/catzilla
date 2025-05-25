@@ -941,7 +941,7 @@ The documentation lives in the `docs/` directory with this structure:
 1. **Install documentation dependencies:**
    ```bash
    source venv/bin/activate
-   pip install sphinx sphinx-rtd-theme myst-parser
+   pip install -r requirements-dev.txt
    ```
 
 2. **Build documentation locally:**

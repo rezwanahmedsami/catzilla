@@ -18,8 +18,14 @@ This directory contains the complete documentation for the Catzilla web framewor
 Make sure you have the required dependencies installed:
 
 ```bash
-pip install sphinx sphinx-rtd-theme myst-parser
+# Install all development dependencies (includes Sphinx documentation tools)
+pip install -r requirements-dev.txt
 ```
+
+This installs:
+- `sphinx>=7.0.0` - Documentation generator
+- `sphinx-rtd-theme>=2.0.0` - Read the Docs theme
+- `myst-parser>=2.0.0` - Markdown support for Sphinx
 
 ### Build Methods
 
@@ -174,7 +180,7 @@ The documentation can be built automatically in CI/CD pipelines:
 # Example GitHub Actions step
 - name: Build Documentation
   run: |
-    pip install sphinx sphinx-rtd-theme myst-parser
+    pip install -r requirements-dev.txt
     cd docs
     sphinx-build -b html . _build/html
 ```
