@@ -1,71 +1,199 @@
 # Catzilla Documentation
 
-Welcome to the Catzilla documentation! Catzilla is a high-performance Python web framework with a C core, designed for simplicity and speed.
+This directory contains the complete documentation for the Catzilla web framework.
 
-## Table of Contents
+## Documentation Structure
 
-1. [Getting Started](./getting-started.md)
-2. [Core Concepts](./core-concepts.md)
-3. [Request Handling](./request-handling.md)
-4. [Response Types](./response-types.md)
-5. [Routing](./routing.md)
-6. [Cookies and Headers](./cookies-and-headers.md)
-7. [Examples](./examples.md)
+- **`index.rst`** - Main documentation homepage with framework overview
+- **`quickstart.rst`** - Complete getting started guide with examples
+- **`advanced.rst`** - Advanced usage patterns and deployment strategies
+- **`conf.py`** - Sphinx configuration for documentation generation
+- **`build_docs.py`** - Helper script for building and serving documentation
+- **`_static/logo.png`** - Catzilla logo (automatically copied from root during build)
 
-## Quick Start
+## Building the Documentation
 
-```python
-from catzilla import App, response
+### Prerequisites
 
-app = App()
+Make sure you have the required dependencies installed:
 
-@app.get("/hello")
-def hello(request):
-    return response.json({"message": "Hello, World!"})
-
-if __name__ == "__main__":
-    app.listen(8080)
+```bash
+pip install sphinx sphinx-rtd-theme myst-parser
 ```
 
-## Key Features
+### Build Methods
 
-- **High Performance**: C core for handling HTTP requests
-- **Simple API**: Intuitive routing and request handling
-- **Express.js-style Responses**: Fluent API for building responses
-- **Flexible Responses**: Support for HTML, JSON, and custom responses
-- **Type Conversion**: Automatic conversion of Python types to appropriate responses
-- **Cookie Management**: Built-in cookie handling
-- **Header Control**: Full control over HTTP headers
-- **Status Codes**: Easy customization of HTTP status codes
+#### Method 1: Using the helper script (recommended)
 
-## Framework Philosophy
+```bash
+# Build documentation
+python build_docs.py build
 
-Catzilla is designed with the following principles in mind:
+# Build and serve documentation on localhost:8080
+python build_docs.py build-serve
 
-1. **Speed First**: C core for maximum performance
-2. **Developer Friendly**: Simple, intuitive API design with Express.js-inspired features
-3. **Flexibility**: Support for various response types and use cases
-4. **Stability**: Strong focus on testing and reliability
-
-## Response Building
-
-Catzilla provides an Express.js-inspired fluent API for building responses:
-
-```python
-# JSON response with status and headers
-@app.post("/api/create")
-def create(request):
-    return (response
-        .status(201)
-        .set_header("X-API-Version", "1.0")
-        .json({"created": True}))
-
-# HTML response with cookies
-@app.get("/welcome")
-def welcome(request):
-    return (response
-        .set_cookie("session", "abc123", httponly=True)
-        .html("<h1>Welcome!</h1>"))
+# Just serve existing documentation
+python build_docs.py serve
 ```
 
-For detailed information about each feature, please refer to the specific documentation sections listed in the Table of Contents.
+#### Method 2: Using Sphinx directly
+
+```bash
+# Change to docs directory
+cd docs
+
+# Build HTML documentation
+sphinx-build -b html . _build/html
+
+# View the documentation
+open _build/html/index.html  # macOS
+xdg-open _build/html/index.html  # Linux
+start _build\html\index.html  # Windows
+```
+
+### Output
+
+The built documentation will be available in `_build/html/index.html`.
+
+### Method 3: Using Make (if available)
+
+```bash
+# Build HTML documentation
+make html
+
+# Clean build files
+make clean
+```
+
+## Automatic Deployment
+
+### GitHub Pages
+
+The documentation is automatically built and deployed using GitHub Actions:
+
+- **Workflow**: `.github/workflows/docs.yml`
+- **Trigger**: Changes to `docs/**` or `python/catzilla/**` on main branch
+- **Output**: Available at `https://[username].github.io/catzilla/`
+
+The workflow:
+1. Builds the Catzilla extension (required for imports)
+2. Generates documentation using Sphinx
+3. Deploys to GitHub Pages automatically
+
+### Local Testing
+
+Before pushing documentation changes, test locally:
+
+```bash
+# Clean previous builds
+python build_docs.py clean
+
+# Build fresh documentation
+python build_docs.py build
+
+# Serve locally for review
+python build_docs.py serve
+```
+
+## Documentation Features
+
+### Comprehensive Coverage
+- **Quick Start Guide**: Step-by-step installation and Hello World
+- **Decorator Routing**: Complete examples of HTTP method decorators
+- **Dynamic Routes**: Path parameters and variable routing
+- **Request/Response**: Handling JSON, forms, headers, and cookies
+- **Router Groups**: Organizing routes with prefixes and middleware
+- **Error Handling**: Production-ready error management
+- **CLI Deployment**: Command-line server deployment
+- **Performance**: Optimization tips and benchmarking
+
+### Professional Structure
+- Modern Sphinx theme with responsive design
+- Integrated Catzilla logo branding
+- Cross-references and internal linking
+- Code syntax highlighting
+- Searchable content
+- Mobile-friendly navigation
+
+### Real-World Examples
+- Complete REST API implementations
+- Production deployment strategies
+- Performance optimization techniques
+- Error handling best practices
+
+## Documentation Guidelines
+
+### File Organization
+- **`.rst` files**: RestructuredText for main documentation pages
+- **`.md` files**: Markdown for additional content (auto-converted)
+- **`_static/`**: Static assets (CSS, images, etc.)
+- **`_build/`**: Generated output (ignored in git)
+
+### Writing Style
+- Clear, concise explanations
+- Practical code examples
+- Step-by-step instructions
+- Professional tone suitable for developers
+
+### Code Examples
+- All examples are tested and functional
+- Follow Python best practices
+- Include both basic and advanced patterns
+- Demonstrate real-world usage
+
+## Contributing to Documentation
+
+### Adding New Content
+1. Create new `.rst` or `.md` files
+2. Add references to `index.rst` toctree
+3. Follow existing style and structure
+4. Include practical code examples
+5. Test documentation builds locally
+
+### Editing Existing Content
+1. Update the relevant `.rst` or `.md` files
+2. Maintain consistent formatting
+3. Ensure code examples remain functional
+4. Test changes with `python build_docs.py build`
+
+### Style Guidelines
+- Use clear headings and sections
+- Include code examples for all features
+- Add cross-references where appropriate
+- Keep explanations developer-focused
+
+## Deployment
+
+### Local Development
+Use the provided build script for local development and testing.
+
+### CI/CD Integration
+The documentation can be built automatically in CI/CD pipelines:
+
+```yaml
+# Example GitHub Actions step
+- name: Build Documentation
+  run: |
+    pip install sphinx sphinx-rtd-theme myst-parser
+    cd docs
+    sphinx-build -b html . _build/html
+```
+
+### Hosting
+The generated HTML can be hosted on:
+- GitHub Pages
+- Read the Docs
+- Netlify
+- Any static hosting service
+
+## Support
+
+For documentation issues or suggestions:
+1. Check existing documentation structure
+2. Review code examples in `/examples/` directory
+3. Test with the latest Catzilla version
+4. Submit issues with specific sections and improvements needed
+
+---
+
+This documentation provides comprehensive coverage of the Catzilla framework, from basic usage to advanced deployment strategies, suitable for developers installing via `pip install catzilla`.

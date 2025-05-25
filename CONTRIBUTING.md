@@ -130,6 +130,19 @@ The Catzilla framework provides a modern development experience:
    pre-commit install
    ```
 
+### Types of Contributions
+
+Catzilla welcomes various types of contributions:
+
+- **🔧 Core Development** - C/Python code improvements, performance optimizations
+- **🧪 Testing** - Unit tests, integration tests, benchmarks
+- **📚 Documentation** - User guides, API docs, examples (see [Documentation Contributions](#-contributing-to-documentation))
+- **🐛 Bug Reports** - Issues, bug fixes, problem reproduction
+- **💡 Feature Requests** - New functionality, enhancements, design suggestions
+- **🎯 Examples** - Real-world usage examples, tutorials, demo applications
+
+Each contribution type has specific guidelines covered in the relevant sections below.
+
 ## 🔨 Development Workflow
 
 ### Before You Start
@@ -907,6 +920,196 @@ source venv/bin/activate
 cmake --version
 gcc --version  # or clang --version
 ```
+
+## 📚 Contributing to Documentation
+
+The Catzilla documentation is built with Sphinx and hosted as professional-grade docs. We welcome contributions to improve documentation for all users.
+
+### Documentation Structure
+
+The documentation lives in the `docs/` directory with this structure:
+
+- **`index.rst`** - Main documentation homepage
+- **`quickstart.rst`** - Getting started guide
+- **`advanced.rst`** - Advanced usage patterns
+- **`conf.py`** - Sphinx configuration
+- **`build_docs.py`** - Build and serve script
+- **Reference docs** - Specialized topic guides (`.md` files)
+
+### Setting Up Documentation Environment
+
+1. **Install documentation dependencies:**
+   ```bash
+   source venv/bin/activate
+   pip install sphinx sphinx-rtd-theme myst-parser
+   ```
+
+2. **Build documentation locally:**
+   ```bash
+   cd docs
+   python build_docs.py build
+   # or
+   make html
+   ```
+
+3. **Serve documentation locally:**
+   ```bash
+   python build_docs.py build-serve
+   # Opens on http://localhost:8080
+   ```
+
+### Documentation Contribution Guidelines
+
+#### Adding New Content
+
+1. **Create new documentation files:**
+   - Use `.rst` for main guides (preferred)
+   - Use `.md` for specialized topics
+   - Follow existing structure and style
+
+2. **Update the table of contents:**
+   - Add new files to `index.rst` toctree
+   - Organize by appropriate section (Getting Started, User Guide, Reference)
+
+3. **Test your changes:**
+   ```bash
+   cd docs
+   python build_docs.py build
+   # Check for warnings and fix any issues
+   ```
+
+#### Editing Existing Documentation
+
+1. **Update content files:**
+   - Maintain consistent formatting
+   - Keep code examples functional and tested
+   - Follow the established writing style
+
+2. **Verify examples work:**
+   ```bash
+   # Test any code examples you modify
+   cd examples/
+   python your_example.py
+   ```
+
+3. **Build and review:**
+   ```bash
+   cd docs
+   python build_docs.py build-serve
+   # Review changes in browser
+   ```
+
+#### Documentation Standards
+
+**Writing Style:**
+- Clear, concise explanations
+- Developer-focused content
+- Step-by-step instructions for tutorials
+- Real-world, practical examples
+
+**Code Examples:**
+- All examples must be functional and tested
+- Include complete, runnable code when possible
+- Follow Python best practices
+- Add comments explaining key concepts
+
+**Technical Requirements:**
+- Documentation builds without warnings
+- Cross-references work correctly
+- All links and internal references are valid
+- Mobile-responsive and accessible
+
+### Documentation Deployment
+
+#### Automatic Deployment (GitHub Actions)
+
+Documentation is automatically built and deployed when you push changes:
+
+- **Workflow**: `.github/workflows/docs.yml`
+- **Triggers**: Changes to `docs/**` or `python/catzilla/**` on main branch
+- **Deployment**: GitHub Pages at `https://[username].github.io/catzilla/`
+
+**Before submitting documentation PRs:**
+
+```bash
+# Clean and rebuild to catch issues
+cd docs
+python build_docs.py clean
+python build_docs.py build
+
+# Check for warnings or errors in output
+# Test locally before pushing
+python build_docs.py serve
+```
+
+#### Manual Deployment Options
+
+For custom hosting setups:
+
+```bash
+# Build for production
+cd docs
+python build_docs.py build
+
+# Deploy _build/html/ contents to your hosting service
+# (Netlify, Vercel, custom server, etc.)
+```
+
+### Common Documentation Tasks
+
+#### Adding API Documentation
+
+```bash
+# Document new features in quickstart.rst or advanced.rst
+# Include practical examples:
+
+@app.get("/api/users/{user_id}")
+def get_user(request):
+    user_id = request.path_params["user_id"]
+    return {"user_id": user_id, "name": "John Doe"}
+```
+
+#### Updating Framework Examples
+
+```bash
+# Test examples work with current codebase:
+cd examples/
+python hello_world/app.py
+
+# Update docs to match any API changes
+vim docs/quickstart.rst
+```
+
+#### Adding Performance Documentation
+
+```bash
+# Include benchmarks and performance tips:
+cd benchmarks/
+./run_all.sh
+# Use results to update docs/performance.md
+```
+
+### Documentation Deployment
+
+The documentation is automatically deployed via GitHub Actions when changes are merged to main. For local testing:
+
+```bash
+# Full documentation workflow:
+cd docs
+python build_docs.py clean  # if needed
+python build_docs.py build
+python build_docs.py serve
+```
+
+### Documentation Issues
+
+When reporting documentation issues:
+1. Specify the exact page/section
+2. Include suggested improvements
+3. Test with the latest Catzilla version
+4. Check that examples work as documented
+
+For documentation questions, see our comprehensive [Documentation README](docs/README.md).
 
 ## 🆘 Getting Help
 
