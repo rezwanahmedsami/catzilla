@@ -158,9 +158,9 @@ def main():
             'bind': f'{args.host}:{args.port}',
             'workers': args.workers,
             'worker_class': 'sync',
-            'access_log': None,  # Disable access logs for performance
-            'error_log': '-',
-            'log_level': 'warning',
+            'accesslog': None,  # Use 'accesslog' instead of 'access_log'
+            'errorlog': '-',     # Use 'errorlog' instead of 'error_log'
+            'loglevel': 'warning',  # Use 'loglevel' instead of 'log_level'
             'preload_app': True,
         }
         GunicornDjangoApplication(options).run()

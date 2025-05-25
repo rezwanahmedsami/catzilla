@@ -22,6 +22,9 @@ try:
 except ImportError:
     print("❌ Required packages not installed. Install with: pip install matplotlib pandas seaborn")
     sys.exit(1)
+except Exception as e:
+    print(f"❌ Error importing libraries: {e}")
+    sys.exit(1)
 
 # Set matplotlib style
 plt.style.use('default')

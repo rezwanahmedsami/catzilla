@@ -48,35 +48,40 @@ Whether you're building **real-time AI applications**, **low-latency APIs**, or 
 
 ## 📊 Performance Benchmarks
 
-Catzilla has been extensively benchmarked against other popular Python web frameworks using `wrk` with 100 concurrent connections over 10 seconds.
+Catzilla v0.1.0 has been extensively benchmarked against other popular Python web frameworks using `wrk` with 100 concurrent connections over 10 seconds.
 
-### 🚀 Spectacular Performance Results
+### 🚀 Exceptional Performance Results
 
-**Throughput Dominance**: Catzilla delivers **extraordinary throughput** compared to FastAPI:
-- **Hello World**: 8,130 vs 2,087 RPS (**+289% faster**)
-- **JSON Response**: 5,165 vs 1,844 RPS (**+180% faster**)
-- **Path Parameters**: 5,765 vs 1,621 RPS (**+256% faster**)
-- **Query Parameters**: 3,785 vs 923 RPS (**+310% faster**)
-- **Complex JSON**: 5,156 vs 1,344 RPS (**+284% faster**)
+**Massive Throughput Advantage**: Catzilla delivers **extraordinary performance** compared to all competitors:
 
-**Latency Excellence**: Catzilla consistently delivers **significantly lower latency**:
-- **Average Latency**: 25.36ms vs FastAPI's 69.11ms (**63% lower**)
-- **Best Case Latency**: 14.90ms vs FastAPI's 47.78ms (**69% lower**)
+| Endpoint | Catzilla | FastAPI | Django | Flask | vs FastAPI |
+|----------|----------|---------|---------|-------|------------|
+| **Hello World** | **10,313** | 1,734 | 576 | 974 | **+495% faster** |
+| **JSON Response** | **10,390** | 1,603 | 628 | 68 | **+548% faster** |
+| **Path Parameters** | **8,235** | 1,868 | N/A | 988 | **+341% faster** |
+| **Query Parameters** | **8,634** | 946 | 380 | 341 | **+813% faster** |
+| **Complex JSON** | **11,962** | 1,703 | 673 | 34 | **+602% faster** |
+
+**Ultra-Low Latency**: Catzilla consistently delivers **significantly lower latency**:
+- **Average Latency**: 13.8ms vs FastAPI's 68.3ms (**79% lower**)
+- **Complex JSON**: 9.85ms vs FastAPI's 58.51ms (**83% lower**)
+- **Best Performance**: Sub-10ms response times on optimal endpoints
 
 ### Performance Summary
-- **Average RPS**: 5,600 (±1,590) vs FastAPI's 1,564 (±451) (**+258% faster**)
-- **Peak Performance**: 8,130 RPS on simple endpoints
-- **Low Latency**: Sub-15ms response times for optimal endpoints
+- **Average RPS**: 9,907 vs FastAPI's 1,571 (**+530% faster**)
+- **Peak Performance**: 11,962 RPS on complex JSON endpoints
+- **Ultra-Low Latency**: Sub-15ms average response times
+- **Framework Leadership**: Fastest Python web framework tested
+
+> 📋 **[View Complete Performance Report](./PERFORMANCE_REPORT_v0.1.0.md)** - Detailed analysis with technical insights
 
 ### 📈 Performance Visualizations
+
+*Performance charts and detailed analysis available in the [Complete Performance Report](./PERFORMANCE_REPORT_v0.1.0.md)*
 
 ![Requests per Second Comparison](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/requests_per_second.png)
 
 ![Latency Comparison](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/latency_comparison.png)
-
-![Overall Performance Overview](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/overall_performance.png)
-
-![Performance Heatmap](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/performance_heatmap.png)
 
 ### When to Choose Catzilla
 - ⚡ **High-throughput requirements** (API gateways, microservices, data pipelines)
