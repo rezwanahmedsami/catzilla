@@ -63,23 +63,6 @@ setup(
     package_dir={"catzilla": "python/catzilla"},
     ext_modules=ext_modules,
     cmdclass={"build_ext": CMakeBuild},
-    install_requires=[],  # No runtime dependencies - uses only Python standard library
-    extras_require={
-        "dev": ["pytest", "pre-commit"],
-        "benchmarks": [
-            "fastapi>=0.100.0",
-            "uvicorn>=0.24.0",
-            "flask>=2.3.0",
-            "django>=4.2.0",
-            "gunicorn>=21.2.0",
-            "psutil>=5.9.0",  # For system information collection
-            "matplotlib>=3.7.0",
-            "pandas>=2.0.0",
-            "seaborn>=0.12.0",
-            "numpy>=1.24.0",
-            "requests>=2.31.0"
-        ]
-    },
     python_requires=">=3.8",
     include_package_data=True,
     zip_safe=False,
