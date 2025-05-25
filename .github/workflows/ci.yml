@@ -82,6 +82,22 @@ jobs:
         set PYTHONPATH=python
         scripts\run_tests.bat --all --verbose
 
+    - name: Test import and basic functionality
+      run: |
+        python -c "
+        from catzilla import App, JSONResponse
+        print('✅ Catzilla imported successfully')
+
+        # Test basic app creation
+        app = App()
+
+        @app.get('/')
+        def hello(request):
+            return JSONResponse({'message': 'Hello, World!'})
+
+        print('✅ Basic functionality test passed')
+        "
+
   build:
     name: Build package on ${{ matrix.os }}
     needs: test
@@ -126,6 +142,21 @@ jobs:
       run: |
         # Build both wheel and sdist
         python -m build
+
+    - name: Test built package
+      run: |
+        # Install the built wheel
+        pip install dist/*.whl
+        # Test that it can be imported and used
+        python -c "
+        from catzilla import App, JSONResponse
+        print('✅ Built package works correctly')
+        app = App()
+        @app.get('/')
+        def test(req):
+            return JSONResponse({'status': 'ok'})
+        print('✅ Package functionality verified')
+        "
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4

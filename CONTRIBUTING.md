@@ -7,67 +7,137 @@ Welcome to Catzilla! We're excited that you're interested in contributing to thi
 > **⚠️ IMPORTANT: Virtual Environment Required**
 > Before starting any development work on Catzilla, you **MUST** create and activate a Python virtual environment. This is not optional and prevents dependency conflicts. See the [Initial Setup](#initial-setup) section below for detailed instructions.
 
-### Prerequisites
+## 📦 Release Process
 
-- **macOS/Linux** (Win### Development Features
+### Release Overview
 
-The Catzilla framework provides a modern development experience:
+Catzilla v0.1.0 uses GitHub Releases for distribution with automated multi-platform wheel building through GitHub Actions. This approach ensures reliable distribution while preparing for future PyPI publication.
 
-1. **RouterGroup System**
-   - Organize routes with shared prefixes
-   - Logical grouping of related endpoints
-   - Clean API structure with `include_routes()` method
+### Release Strategy
 
-2. **C-Accelerated Routing**
-   - Transparent C acceleration for route matching
-   - Efficient path parameter extraction
-   - Automatic fallback to Python when needed
+1. **GitHub Releases (Current - v0.1.0)**
+   - Automated wheel building for Python 3.8-3.12
+   - Multi-platform support (Windows, macOS, Linux)
+   - Direct download and pip installation from wheels
+   - Professional release notes with installation instructions
 
-3. **Development Setup**
-   ```python
-   # Standard development setup
-   from catzilla import App, RouterGroup
+2. **Future PyPI Publishing (v1.0.0+)**
+   - Transition to PyPI for broader accessibility
+   - Automated publishing pipeline
+   - Version management and dependency resolution
 
-   app = App()
-   api = RouterGroup(prefix="/api/v1")
+### Creating a Release
 
-   @api.get("/users/{user_id}")
-   def get_user(request):
-       user_id = request.path_params["user_id"]
-       return {"user_id": user_id}
+#### 1. Prepare for Release
 
-   app.include_routes(api)
-   ```
+```bash
+# Ensure all tests pass
+python -m pytest tests/python/ -v
+cd build/temp.* && make test
 
-### Development Environment
+# Verify build system
+python -m build
+python -m pip install dist/*.whl --force-reinstall
+python -c "import catzilla; print(f'Catzilla v{catzilla.__version__} ready!')"
 
-- **Python 3.8+** (3.10+ recommended)
-- **CMake 3.15+**
-- **Compiler**:
-  - **Linux/macOS**: GCC or Clang
-  - **Windows**: Visual Studio 2019+ or Visual Studio Build Tools
-- **Git** with submodule support
+# Update version if needed (pyproject.toml)
+# Update CHANGELOG.md or release notes
+```
 
-#### Windows-Specific Setup
+#### 2. Create Release Tag
 
-**Prerequisites for Windows:**
+```bash
+# Create and push release tag
+git tag -a v0.1.0 -m "Catzilla v0.1.0 - Ultra-fast Python web framework"
+git push origin v0.1.0
+```
 
-1. **Install Visual Studio Build Tools** (if you don't have Visual Studio):
-   - Download from: https://visualstudio.microsoft.com/visual-cpp-build-tools/
-   - Install "C++ build tools" workload
+#### 3. Automated Release Process
 
-2. **Install CMake:**
-   - Option 1: Download from https://cmake.org/download/
-   - Option 2: Use chocolatey: `choco install cmake`
-   - Option 3: Use scoop: `scoop install cmake`
+The GitHub Actions workflow (`.github/workflows/release.yml`) automatically:
 
-3. **Install Git:**
-   - Download from https://git-scm.com/download/win
-   - Or use chocolatey: `choco install git`
+1. **Builds wheels** for all supported platforms and Python versions
+2. **Tests wheels** on each platform to ensure they work
+3. **Creates GitHub Release** with:
+   - Professional release notes
+   - Platform-specific installation instructions
+   - All built wheels as downloadable assets
+   - Source distribution (sdist)
 
-**Note**: All Windows batch scripts (`.bat`) are already provided and work with both Command Prompt and PowerShell.
+#### 4. Manual Release (Alternative)
 
-### Initial Setup
+If you need to create a release manually:
+
+```bash
+# Build for current platform
+python -m build
+
+# Upload to GitHub Releases
+# - Go to https://github.com/your-username/catzilla/releases
+# - Click "Create a new release"
+# - Upload dist/*.whl and dist/*.tar.gz files
+# - Add release notes following the template in release.yml
+```
+
+### Release Artifacts
+
+Each release includes:
+
+- **Windows Wheels**: `catzilla-*-win_amd64.whl`
+- **macOS Wheels**: `catzilla-*-macosx_*.whl`
+- **Linux Wheels**: `catzilla-*-linux_x86_64.whl`
+- **Source Distribution**: `catzilla-*.tar.gz`
+
+### Installation from GitHub Releases
+
+Users can install Catzilla from GitHub Releases:
+
+```bash
+# Download the appropriate wheel for your platform
+curl -L -O https://github.com/your-username/catzilla/releases/download/v0.1.0/catzilla-0.1.0-cp310-cp310-linux_x86_64.whl
+
+# Install with pip
+pip install catzilla-0.1.0-cp310-cp310-linux_x86_64.whl
+```
+
+### Build System Requirements
+
+The release process requires:
+
+1. **PEP 517 Compliance**: `pyproject.toml` with proper build system configuration
+2. **Multi-platform C Extensions**: CMake-based build system
+3. **GitHub Actions**: Automated CI/CD pipeline
+4. **Testing Infrastructure**: Comprehensive test suite validation
+
+### Troubleshooting Releases
+
+Common issues and solutions:
+
+#### Build Failures
+```bash
+# Clean build environment
+rm -rf build/ dist/ *.egg-info/
+python -m build
+
+# Check CMake configuration
+cmake --version  # Should be 3.15+
+```
+
+#### Wheel Installation Issues
+```bash
+# Force rebuild of C extensions
+pip install --force-reinstall --no-cache-dir dist/*.whl
+
+# Check platform compatibility
+pip debug --verbose
+```
+
+#### GitHub Actions Failures
+- Check workflow logs in the Actions tab
+- Verify all required secrets are set
+- Ensure submodules are properly initialized
+
+## 📦 Initial Setup
 
 1. **Fork and Clone the Repository**
    ```bash
@@ -130,18 +200,63 @@ The Catzilla framework provides a modern development experience:
    pre-commit install
    ```
 
-### Types of Contributions
+### Development Environment
 
-Catzilla welcomes various types of contributions:
+- **Python 3.8+** (3.10+ recommended)
+- **CMake 3.15+**
+- **Compiler**:
+  - **Linux/macOS**: GCC or Clang
+  - **Windows**: Visual Studio 2019+ or Visual Studio Build Tools
+- **Git** with submodule support
 
-- **🔧 Core Development** - C/Python code improvements, performance optimizations
-- **🧪 Testing** - Unit tests, integration tests, benchmarks
-- **📚 Documentation** - User guides, API docs, examples (see [Documentation Contributions](#-contributing-to-documentation))
-- **🐛 Bug Reports** - Issues, bug fixes, problem reproduction
-- **💡 Feature Requests** - New functionality, enhancements, design suggestions
-- **🎯 Examples** - Real-world usage examples, tutorials, demo applications
+#### Windows-Specific Setup
 
-Each contribution type has specific guidelines covered in the relevant sections below.
+**Prerequisites for Windows:**
+
+1. **Install Visual Studio Build Tools** (if you don't have Visual Studio):
+   - Download from: https://visualstudio.microsoft.com/visual-cpp-build-tools/
+   - Install "C++ build tools" workload
+
+2. **Install CMake:**
+   - Option 1: Download from https://cmake.org/download/
+   - Option 2: Use chocolatey: `choco install cmake`
+   - Option 3: Use scoop: `scoop install cmake`
+
+3. **Install Git:**
+   - Download from https://git-scm.com/download/win
+   - Or use chocolatey: `choco install git`
+
+**Note**: All Windows batch scripts (`.bat`) are already provided and work with both Command Prompt and PowerShell.
+
+### Development Features
+
+The Catzilla framework provides a modern development experience:
+
+1. **RouterGroup System**
+   - Organize routes with shared prefixes
+   - Logical grouping of related endpoints
+   - Clean API structure with `include_routes()` method
+
+2. **C-Accelerated Routing**
+   - Transparent C acceleration for route matching
+   - Efficient path parameter extraction
+   - Automatic fallback to Python when needed
+
+3. **Development Setup**
+   ```python
+   # Standard development setup
+   from catzilla import App, RouterGroup
+
+   app = App()
+   api = RouterGroup(prefix="/api/v1")
+
+   @api.get("/users/{user_id}")
+   def get_user(request):
+       user_id = request.path_params["user_id"]
+       return {"user_id": user_id}
+
+   app.include_routes(api)
+   ```
 
 ## 🔨 Development Workflow
 

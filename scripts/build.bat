@@ -68,8 +68,19 @@ echo.
 echo [32m⚙️  Configuring with CMake...[0m
 
 if "%BUILD_TYPE%"=="auto" (
-    echo [33m   🎯 Using automatic build type detection (CMake will choose optimal configuration)[0m
-    cmake .. -DPython3_EXECUTABLE="!PYTHON_EXE!"
+    echo [33m   🎯 Using automatic build type detection (using Release for maximum compatibility)[0m
+    cmake .. -DCMAKE_BUILD_TYPE=Release -DPython3_EXECUTABLE="!PYTHON_EXE!"
+) else if "%BUILD_TYPE%"=="Debug" (
+    echo [33m   ⚠️  Debug build requested - checking for Python debug libraries...[0m
+    python -c "import sys; import os; debug_lib = os.path.join(os.path.dirname(sys.executable), 'libs', f'python{sys.version_info.major}{sys.version_info.minor}_d.lib'); print('✅ Debug libraries found' if os.path.exists(debug_lib) else '❌ Debug libraries not found'); exit(0 if os.path.exists(debug_lib) else 1)" 2>nul
+    if !errorlevel! neq 0 (
+        echo [31m   ❌ Python debug libraries not found![0m
+        echo [33m   💡 Using RelWithDebInfo instead (optimized + debug symbols)[0m
+        echo [33m      This provides debugging capabilities without requiring Python debug libraries[0m
+        set BUILD_TYPE=RelWithDebInfo
+    )
+    echo [33m   🎯 Using build type: !BUILD_TYPE![0m
+    cmake .. -DCMAKE_BUILD_TYPE=!BUILD_TYPE! -DPython3_EXECUTABLE="!PYTHON_EXE!"
 ) else (
     echo [33m   🎯 Using explicit build type: %BUILD_TYPE%[0m
     cmake .. -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DPython3_EXECUTABLE="!PYTHON_EXE!"
@@ -89,8 +100,8 @@ echo.
 echo [32m🔧 Building Catzilla...[0m
 
 if "%BUILD_TYPE%"=="auto" (
-    REM For auto detection, build with whatever CMake chose
-    cmake --build . -j !cores!
+    REM For auto detection, we're using Release mode for maximum compatibility
+    cmake --build . --config Release -j !cores!
 ) else (
     REM For explicit build type, use it for the build step too
     cmake --build . --config %BUILD_TYPE% -j !cores!
@@ -141,8 +152,8 @@ echo [32mUsage:[0m
 echo   build.bat [BUILD_TYPE] [OPTIONS]
 echo.
 echo [32mBuild Types:[0m
-echo   auto         Auto-detect optimal configuration (default)
-echo   Debug        Full debugging symbols (requires Python debug libraries)
+echo   auto         Use Release mode for maximum compatibility (default)
+echo   Debug        Full debugging symbols (automatically falls back to RelWithDebInfo if Python debug libs unavailable)
 echo   Release      Optimized build (recommended for production)
 echo   RelWithDebInfo   Optimized + debug symbols (best for development)
 echo   MinSizeRel   Minimal size optimized build
@@ -157,8 +168,8 @@ echo   build.bat Debug             # Build with full debugging
 echo   build.bat RelWithDebInfo    # Build optimized with debug symbols
 echo.
 echo [33m💡 Tips:[0m
-echo   - Use 'auto' for best compatibility across different Python installations
+echo   - Use 'auto' for best compatibility across different Python installations (uses Release)
 echo   - Use 'RelWithDebInfo' for development on Windows (debugging without Python debug libs)
 echo   - Use 'Release' for production builds or benchmarking
-echo   - Use 'Debug' only if you have Python debug libraries installed
+echo   - Use 'Debug' for full debugging (auto-falls back to RelWithDebInfo if needed)
 goto :eof

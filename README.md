@@ -46,6 +46,84 @@ Whether you're building **real-time AI applications**, **low-latency APIs**, or 
 
 ---
 
+## 📦 Installation
+
+### From GitHub Releases (Recommended for v0.1.0)
+
+Catzilla v0.1.0 is distributed through GitHub Releases with pre-built wheels for multiple platforms and Python versions.
+
+#### Quick Installation
+
+Download and install the appropriate wheel for your platform:
+
+```bash
+# For Python 3.10 on Linux (most common)
+curl -L -O https://github.com/rezwanahmedsami/catzilla/releases/download/v0.1.0/catzilla-0.1.0-cp310-cp310-linux_x86_64.whl
+pip install catzilla-0.1.0-cp310-cp310-linux_x86_64.whl
+
+# For Python 3.10 on macOS
+curl -L -O https://github.com/rezwanahmedsami/catzilla/releases/download/v0.1.0/catzilla-0.1.0-cp310-cp310-macosx_10_15_universal2.whl
+pip install catzilla-0.1.0-cp310-cp310-macosx_10_15_universal2.whl
+
+# For Python 3.10 on Windows
+curl -L -O https://github.com/rezwanahmedsami/catzilla/releases/download/v0.1.0/catzilla-0.1.0-cp310-cp310-win_amd64.whl
+pip install catzilla-0.1.0-cp310-cp310-win_amd64.whl
+```
+
+#### Platform-Specific Wheels
+
+Visit the [Releases page](https://github.com/rezwanahmedsami/catzilla/releases/tag/v0.1.0) to download wheels for:
+
+- **Python Versions**: 3.8, 3.9, 3.10, 3.11, 3.12
+- **Platforms**:
+  - **Linux**: `linux_x86_64`
+  - **macOS**: `macosx_10_15_universal2`
+  - **Windows**: `win_amd64`
+
+#### Installation Verification
+
+```bash
+python -c "import catzilla; print(f'Catzilla v{catzilla.__version__} installed successfully!')"
+```
+
+### From Source (Development)
+
+For development or if pre-built wheels aren't available for your platform:
+
+```bash
+# Clone with submodules
+git clone --recursive https://github.com/rezwanahmedsami/catzilla.git
+cd catzilla
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install build dependencies
+pip install -e ".[dev]"
+
+# Build and install
+python -m build
+pip install dist/*.whl
+```
+
+#### Build Requirements
+
+- **Python 3.8+**
+- **CMake 3.15+**
+- **C Compiler**: GCC/Clang (Linux/macOS) or MSVC (Windows)
+
+### Future PyPI Distribution
+
+Starting with v1.0.0, Catzilla will be available on PyPI for standard installation:
+
+```bash
+# Coming in v1.0.0
+pip install catzilla
+```
+
+---
+
 ## 📊 Performance Benchmarks
 
 Catzilla v0.1.0 has been extensively benchmarked against other popular Python web frameworks using `wrk` with 100 concurrent connections over 10 seconds on a **real production server**.

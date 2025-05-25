@@ -1,0 +1,241 @@
+[build-system]
+requires = [
+    "setuptools>=61.0",
+    "wheel>=0.37.0",
+    "cmake>=3.15.0",
+    "pybind11>=2.6.0"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "catzilla"
+version = "0.1.0"
+description = "Ultra-fast Python web framework with C-accelerated routing"
+readme = "README.md"
+license = "MIT"
+authors = [
+    {name = "Rezwan Ahmed Sami", email = "samiahmed0f0@gmail.com"}
+]
+maintainers = [
+    {name = "Rezwan Ahmed Sami", email = "samiahmed0f0@gmail.com"}
+]
+keywords = [
+    "web-framework",
+    "fast",
+    "performance",
+    "c-extension",
+    "routing",
+    "http",
+    "asgi",
+    "web-server",
+    "high-performance",
+    "micro-framework"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: C",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Operating System :: OS Independent",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Environment :: Web Environment",
+    "Framework :: AsyncIO",
+    "Typing :: Typed"
+]
+requires-python = ">=3.8"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pre-commit>=2.20.0",
+    "black>=22.0.0",
+    "flake8>=5.0.0",
+    "mypy>=1.0.0",
+    "build>=0.10.0",
+    "twine>=4.0.0"
+]
+benchmarks = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.24.0",
+    "flask>=2.3.0",
+    "django>=4.2.0",
+    "gunicorn>=21.2.0",
+    "psutil>=5.9.0",
+    "matplotlib>=3.7.0",
+    "pandas>=2.0.0",
+    "seaborn>=0.12.0",
+    "numpy>=1.24.0",
+    "requests>=2.31.0",
+    "pillow>=10.0.0",
+    "kiwisolver>=1.4.0"
+]
+docs = [
+    "sphinx>=7.0.0",
+    "sphinx-rtd-theme>=2.0.0",
+    "myst-parser>=2.0.0",
+    "sphinx-autodoc-typehints>=1.20.0"
+]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-benchmark>=4.0.0",
+    "requests>=2.31.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/rezwanahmedsami/catzilla"
+Documentation = "https://rezwanahmedsami.github.io/catzilla/"
+Repository = "https://github.com/rezwanahmedsami/catzilla"
+"Bug Tracker" = "https://github.com/rezwanahmedsami/catzilla/issues"
+"Source Code" = "https://github.com/rezwanahmedsami/catzilla"
+Changelog = "https://github.com/rezwanahmedsami/catzilla/blob/main/CHANGELOG.md"
+"Performance Report" = "https://github.com/rezwanahmedsami/catzilla/blob/main/PERFORMANCE_REPORT_v0.1.0.md"
+
+[project.scripts]
+catzilla-server = "catzilla.cli:main"
+
+[tool.setuptools]
+packages = ["catzilla"]
+package-dir = {"catzilla" = "python/catzilla"}
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.package-data]
+catzilla = [
+    "*.so",
+    "*.dll",
+    "*.dylib",
+    "py.typed"
+]
+
+[tool.setuptools.exclude-package-data]
+"*" = [
+    "tests*",
+    "benchmarks*",
+    "examples*"
+]
+
+# Development tools configuration
+[tool.black]
+line-length = 88
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+    # Exclude build artifacts
+    build/
+    | dist/
+    | \.eggs/
+    | \.git/
+    | \.tox/
+    | venv/
+    | _build/
+    | buck-out/
+    | __pycache__/
+)/
+'''
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "catzilla._catzilla",
+    "catzilla.tests.*"
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+python_classes = ["Test*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+    "--tb=short"
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "benchmark: marks tests as benchmark tests"
+]
+filterwarnings = [
+    "error",
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning"
+]
+
+[tool.coverage.run]
+source = ["python/catzilla"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "setup.py"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:"
+]
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = [
+    "E203",  # whitespace before ':'
+    "E501",  # line too long (handled by black)
+    "W503",  # line break before binary operator
+]
+exclude = [
+    ".git",
+    "__pycache__",
+    "build",
+    "dist",
+    "*.egg-info",
+    "venv",
+    ".venv",
+    ".tox"
+]
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+line_length = 88
