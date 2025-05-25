@@ -114,12 +114,69 @@ if(WIN32)
             message(STATUS "Python include error: ${Python3_INCLUDE_ERROR}")
         endif()
 
+        # ENHANCED: Also try to get library directory from Python itself
+        execute_process(
+            COMMAND ${Python3_EXECUTABLE} -c "
+import sys, os, glob
+print('=== Python Library Detection ===')
+print(f'sys.prefix: {sys.prefix}')
+print(f'sys.exec_prefix: {sys.exec_prefix}')
+print(f'sys.base_prefix: {getattr(sys, \"base_prefix\", sys.prefix)}')
+
+# Try to find library directory
+possible_lib_dirs = [
+    os.path.join(sys.prefix, 'libs'),
+    os.path.join(sys.prefix, 'lib'),
+    os.path.join(sys.exec_prefix, 'libs'),
+    os.path.join(sys.exec_prefix, 'lib'),
+    os.path.join(sys.base_prefix, 'libs') if hasattr(sys, 'base_prefix') else None,
+]
+
+version_nodot = f'{sys.version_info.major}{sys.version_info.minor}'
+lib_name = f'python{version_nodot}.lib'
+
+print(f'Looking for: {lib_name}')
+for lib_dir in possible_lib_dirs:
+    if lib_dir and os.path.exists(lib_dir):
+        lib_path = os.path.join(lib_dir, lib_name)
+        print(f'Checking: {lib_path}')
+        if os.path.exists(lib_path):
+            print(f'FOUND: {lib_path}')
+            break
+else:
+    print('NOT FOUND via Python detection')
+"
+            OUTPUT_VARIABLE PYTHON_LIBRARY_DETECTION_OUTPUT
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_VARIABLE PYTHON_LIBRARY_DETECTION_ERROR
+            RESULT_VARIABLE PYTHON_LIBRARY_DETECTION_RESULT
+        )
+
+        message(STATUS "=== Python Library Detection Output ===")
+        message(STATUS "${PYTHON_LIBRARY_DETECTION_OUTPUT}")
+        if(PYTHON_LIBRARY_DETECTION_ERROR)
+            message(STATUS "Python library detection error: ${PYTHON_LIBRARY_DETECTION_ERROR}")
+        endif()
+
         # Manually construct the Python library path (ALWAYS release version)
         string(REPLACE "." "" Python3_VERSION_NODOT "${Python3_VERSION}")
-        set(Python3_LIBRARY "${Python3_PREFIX}/libs/python${Python3_VERSION_NODOT}.lib")
-        set(Python3_LIBRARIES "${Python3_LIBRARY}")
 
-        message(STATUS "Constructed Python library path: ${Python3_LIBRARY}")
+        # Try multiple construction methods
+        set(PRIMARY_PYTHON_LIB "${Python3_PREFIX}/libs/python${Python3_VERSION_NODOT}.lib")
+
+        # Extract library path from Python's own detection if available
+        string(REGEX MATCH "FOUND: ([^\r\n]+)" PYTHON_DETECTED_LIB_MATCH "${PYTHON_LIBRARY_DETECTION_OUTPUT}")
+        if(PYTHON_DETECTED_LIB_MATCH)
+            string(REGEX REPLACE "FOUND: " "" PYTHON_DETECTED_LIB "${PYTHON_DETECTED_LIB_MATCH}")
+            file(TO_CMAKE_PATH "${PYTHON_DETECTED_LIB}" PYTHON_DETECTED_LIB)
+            message(STATUS "Python self-detected library: ${PYTHON_DETECTED_LIB}")
+            set(PRIMARY_PYTHON_LIB "${PYTHON_DETECTED_LIB}")
+        endif()
+
+        set(Python3_LIBRARY "${PRIMARY_PYTHON_LIB}")
+        set(Python3_LIBRARIES "${PRIMARY_PYTHON_LIB}")
+
+        message(STATUS "Primary constructed Python library path: ${Python3_LIBRARY}")
 
         # Verify the library exists
         if(EXISTS "${Python3_LIBRARY}")
@@ -152,7 +209,36 @@ if(WIN32)
                 "${Python3_PREFIX}/Python${Python3_VERSION_NODOT}.lib"
                 "C:/Program Files/Python${Python3_VERSION_NODOT}/libs/python${Python3_VERSION_NODOT}.lib"
                 "C:/Users/$ENV{USERNAME}/AppData/Local/Programs/Python/Python${Python3_VERSION_NODOT}/libs/python${Python3_VERSION_NODOT}.lib"
+                # GitHub Actions and CI-specific paths
+                "C:/hostedtoolcache/windows/Python/${Python3_VERSION}.*/x64/libs/python${Python3_VERSION_NODOT}.lib"
+                "C:/tools/miniconda3/libs/python${Python3_VERSION_NODOT}.lib"
+                "C:/Python${Python3_VERSION_NODOT}/libs/python${Python3_VERSION_NODOT}.lib"
+                # Add more comprehensive search
+                "${Python3_PREFIX}/../libs/python${Python3_VERSION_NODOT}.lib"
+                "${Python3_PREFIX}/../../libs/python${Python3_VERSION_NODOT}.lib"
             )
+
+            # Also try to use file(GLOB) to search for Python libraries
+            file(GLOB_RECURSE PYTHON_LIB_CANDIDATES
+                "C:/hostedtoolcache/windows/Python/*/libs/python${Python3_VERSION_NODOT}.lib"
+                "C:/Python*/libs/python${Python3_VERSION_NODOT}.lib"
+                "${Python3_PREFIX}/../*/libs/python${Python3_VERSION_NODOT}.lib"
+            )
+
+            message(STATUS "=== COMPREHENSIVE Python Library Search ===")
+            message(STATUS "Alternative paths to try:")
+            foreach(ALT_PATH ${ALTERNATIVE_PATHS})
+                message(STATUS "  - ${ALT_PATH}")
+            endforeach()
+
+            if(PYTHON_LIB_CANDIDATES)
+                message(STATUS "Glob search found candidates:")
+                foreach(CANDIDATE ${PYTHON_LIB_CANDIDATES})
+                    message(STATUS "  - ${CANDIDATE}")
+                endforeach()
+                # Add glob results to alternative paths
+                list(APPEND ALTERNATIVE_PATHS ${PYTHON_LIB_CANDIDATES})
+            endif()
 
             set(FOUND_PYTHON_LIB "")
             foreach(ALT_PATH ${ALTERNATIVE_PATHS})
@@ -178,26 +264,30 @@ if(WIN32)
                 message(STATUS "=== FALLBACK Windows Python Override SUCCESS ===")
                 message(STATUS "Found Python library: ${Python3_LIBRARY}")
             else()
-                # LAST RESORT: Use find_package but force release library
-                message(WARNING "=== USING LAST RESORT: find_package with forced release ===")
-                find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+                # CRITICAL: Never use find_package as fallback - it causes debug library issues
+                # Instead, create a fake library that will force the build to fail with a clear message
+                message(FATAL_ERROR "
+=== PYTHON LIBRARY NOT FOUND ON WINDOWS ===
+Tried the following paths:
+- ${Python3_PREFIX}/libs/python${Python3_VERSION_NODOT}.lib
+- ${Python3_PREFIX}/lib/python${Python3_VERSION_NODOT}.lib
+- ${Python3_PREFIX}/Python${Python3_VERSION_NODOT}.lib
+- C:/Program Files/Python${Python3_VERSION_NODOT}/libs/python${Python3_VERSION_NODOT}.lib
+- C:/Users/$ENV{USERNAME}/AppData/Local/Programs/Python/Python${Python3_VERSION_NODOT}/libs/python${Python3_VERSION_NODOT}.lib
 
-                # Force override any debug library references
-                string(REGEX REPLACE "_d\\.lib" ".lib" Python3_LIBRARY "${Python3_LIBRARY}")
-                string(REGEX REPLACE "_d\\.lib" ".lib" Python3_LIBRARIES "${Python3_LIBRARIES}")
+Python prefix: ${Python3_PREFIX}
+Python version: ${Python3_VERSION} (${Python3_VERSION_NODOT})
 
-                # Force cache override
-                set(Python3_LIBRARY "${Python3_LIBRARY}" CACHE STRING "Forced release Python library" FORCE)
-                set(Python3_LIBRARIES "${Python3_LIBRARIES}" CACHE STRING "Forced release Python libraries" FORCE)
+Please ensure Python development libraries are installed.
+On Windows, this usually means installing Python from python.org with the 'dev' option enabled.
 
-                # Create custom target
-                add_library(PythonForCatzilla INTERFACE IMPORTED)
-                set_target_properties(PythonForCatzilla PROPERTIES
-                    INTERFACE_LINK_LIBRARIES "${Python3_LIBRARY}"
-                    INTERFACE_INCLUDE_DIRECTORIES "${Python3_INCLUDE_DIRS}"
-                )
+DEBUG INFO:
+- Python executable: ${Python3_EXECUTABLE}
+- Expected library name: python${Python3_VERSION_NODOT}.lib
+- NOT pythonXX_d.lib (debug version)
 
-                message(STATUS "Last resort Python library: ${Python3_LIBRARY}")
+This error prevents fallback to find_package which would cause python3XX_d.lib linking errors.
+")
             endif()
         endif()
     else()
