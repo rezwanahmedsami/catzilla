@@ -9,6 +9,13 @@ if(MSVC)
     set(CMAKE_C_FLAGS_RELEASE "/O2 /DNDEBUG")
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
     add_definitions(-DWIN32_LEAN_AND_MEAN)
+    add_definitions(-D_WIN32_WINNT=0x0600)  # Windows Vista or later
+
+    # Handle potential Python debug library issues
+    add_definitions(-DPy_ENABLE_SHARED)
+
+    # Suppress common Windows warnings
+    add_definitions(-D_WINSOCK_DEPRECATED_NO_WARNINGS)
 else()
     # GCC/Clang compiler flags (Unix-like systems)
     add_compile_options(-g -O0)
@@ -20,6 +27,36 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "")
 
 # Python support
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+
+# Windows-specific Python linking fixes
+if(WIN32)
+    # On Windows, prefer release libraries over debug libraries
+    # This avoids issues with missing python3XX_d.lib debug libraries
+    set(Python3_USE_STATIC_LIBS FALSE)
+
+    # For MSVC, we need to handle the debug library issue differently
+    if(MSVC)
+        # Force the use of release Python libraries even in debug builds
+        # This prevents linking against debug Python libraries that may not be installed
+        set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG Release)
+        set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
+
+        # Override Python library settings for debug builds
+        get_target_property(PYTHON_LIBRARY_RELEASE Python3::Python IMPORTED_LOCATION_RELEASE)
+        if(PYTHON_LIBRARY_RELEASE)
+            set_target_properties(Python3::Python PROPERTIES
+                IMPORTED_LOCATION_DEBUG "${PYTHON_LIBRARY_RELEASE}"
+                IMPORTED_IMPLIB_DEBUG "${PYTHON_LIBRARY_RELEASE}"
+            )
+        endif()
+    endif()
+
+    # Ensure we link against the correct Python library paths
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        # In debug builds, prefer release Python libs to avoid missing debug lib issues
+        set_property(TARGET Python3::Python PROPERTY IMPORTED_CONFIGURATIONS "RELEASE;DEBUG")
+    endif()
+endif()
 
 # libuv
 add_subdirectory(deps/libuv)

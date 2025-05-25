@@ -2,6 +2,7 @@
 #include <Python.h>
 #include "server.h"           // Provides catzilla_server_t, catzilla_server_init, etc.
 #include "router.h"           // Provides catzilla_router_t, catzilla_router_match, etc.
+#include "windows_compat.h"   // Windows compatibility
 #include <uv.h>               // For uv_stream_t
 #include <stdio.h>
 #include <string.h>

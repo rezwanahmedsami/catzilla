@@ -1,6 +1,7 @@
 #include "server.h"
 #include "router.h"
 #include "logging.h"
+#include "windows_compat.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
