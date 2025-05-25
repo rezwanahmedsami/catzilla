@@ -70,6 +70,12 @@ O(log n) route lookup performance while maintaining a clean, Pythonic API.
 
 .. toctree::
    :maxdepth: 2
+   :caption: Performance
+
+   performance-benchmarks.md
+
+.. toctree::
+   :maxdepth: 2
    :caption: Reference
 
    c-accelerated-routing.md
@@ -80,7 +86,8 @@ Why Choose Catzilla?
 --------------------
 
 🚀 **Exceptional Performance**
-   Catzilla delivers **2-4x faster** throughput than FastAPI with **60% lower latency**.
+   Catzilla delivers **6-8x faster** throughput than FastAPI with **87% lower latency**.
+   Real server benchmarks show 24,759 RPS vs FastAPI's 2,844 RPS on Intel Xeon hardware.
    Our C-accelerated routing engine provides production-grade performance for high-traffic applications.
 
 ⚡ **Zero Boilerplate**
