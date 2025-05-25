@@ -1,47 +1,48 @@
 ## System Information
 
-**Collection Time**: 2025-05-25T22:54:36.017547
+**Collection Time**: 2025-05-25T18:07:41.999568
 
 ### Operating System
-- **System**: Darwin
-- **Release**: 24.4.0
-- **Version**: Darwin Kernel Version 24.4.0: Fri Apr 11 18:28:23 PDT 2025; root:xnu-11417.101.15~117/RELEASE_X86_64
-- **Platform**: macOS-15.4.1-x86_64-i386-64bit
+- **System**: Linux
+- **Release**: 4.18.0-513.9.1.el8_9.x86_64
+- **Version**: #1 SMP Sat Dec 2 05:23:44 EST 2023
+- **Platform**: Linux-4.18.0-513.9.1.el8_9.x86_64-x86_64-with-glibc2.2.5
 - **Machine**: x86_64
 
-#### macOS Details
-- **ProductName**: macOS
-- **ProductVersion**: 15.4.1
-- **BuildVersion**: 24E263
+#### Linux Distribution
+- **NAME**: AlmaLinux
+- **VERSION**: 8.10 (Cerulean Leopard)
+- **ID**: almalinux
+- **ID_LIKE**: rhel centos fedora
+- **VERSION_ID**: 8.10
 
 ### CPU
-- **Processor**: i386
+- **Processor**: x86_64
 - **Architecture**: 64bit
 - **Logical Cores**: 8
 - **Physical Cores**: 4
-- **Model**: Quad-Core Intel Core i5
-- **Speed**: 1.1 GHz
-- **Current Frequency**: 1100 MHz
-- **Max Frequency**: 1100 MHz
+- **Model**: Intel(R) Xeon(R) CPU E3-1245 v5 @ 3.50GHz
+- **Current Frequency**: 3538.27 MHz
+- **Max Frequency**: 3900.0 MHz
 
 ### Memory
-- **Total RAM**: 8.0 GB
-- **Available RAM**: 2.07 GB
-- **Used RAM**: 4.18 GB (74.1%)
-- **Total Swap**: 2.0 GB
-- **Used Swap**: 44.8%
+- **Total RAM**: 31.17 GB
+- **Available RAM**: 9.1 GB
+- **Used RAM**: 20.14 GB (70.8%)
+- **Total Swap**: 1.0 GB
+- **Used Swap**: 100.0%
 
 ### Disk
-- **Total Space**: 418.16 GB
-- **Free Space**: 36.59 GB
-- **Used Space**: 365.34 GB (87.4%)
+- **Total Space**: 1859.98 GB
+- **Free Space**: 1760.17 GB
+- **Used Space**: 99.81 GB (5.4%)
 
 ### Python Environment
-- **Python Version**: 3.10.11
-- **Implementation**: cpython 3.10.11
-- **Executable**: /Users/user/devwork/catzilla/venv/bin/python3
+- **Python Version**: 3.8.12
+- **Implementation**: cpython 3.8.12
+- **Executable**: /root/devwork/catzilla/venv/bin/python3
 
 ### System Load
-- **1 minute**: 4.37
-- **5 minutes**: 22.22
-- **15 minutes**: 28.46
+- **1 minute**: 1.00
+- **5 minutes**: 0.69
+- **15 minutes**: 0.36

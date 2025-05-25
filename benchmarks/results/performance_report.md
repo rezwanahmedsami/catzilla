@@ -1,72 +1,72 @@
 # 🚀 Catzilla Performance Benchmark Report
 
-Generated on: 2025-05-25 16:37:11
+Generated on: 2025-05-25 18:09:30
 
 ## 📊 Executive Summary
 
 - **Best Overall RPS Framework**: catzilla
 - **Best Overall Latency Framework**: catzilla
-- **Catzilla vs Django**: +693.9% requests/sec
-- **Catzilla vs Fastapi**: +649.3% requests/sec
-- **Catzilla vs Flask**: +547.1% requests/sec
+- **Catzilla vs Django**: +671.2% requests/sec
+- **Catzilla vs Fastapi**: +662.1% requests/sec
+- **Catzilla vs Flask**: +540.7% requests/sec
 
 ## 📈 Detailed Framework Statistics
 
 ### Catzilla
-- **Avg RPS**: 16820 (±5060)
-- **Max RPS**: 24637
-- **Avg Latency**: 6.37ms (±1.78)
-- **Min Latency**: 4.06ms
+- **Avg RPS**: 16818 (±5022)
+- **Max RPS**: 24758
+- **Avg Latency**: 6.37ms (±1.77)
+- **Min Latency**: 4.07ms
 
 ### Django
-- **Avg RPS**: 2119 (±137)
-- **Max RPS**: 2297
-- **Avg Latency**: 47.11ms (±3.10)
-- **Min Latency**: 43.31ms
+- **Avg RPS**: 2181 (±132)
+- **Max RPS**: 2339
+- **Avg Latency**: 45.76ms (±2.87)
+- **Min Latency**: 42.56ms
 
 ### Fastapi
-- **Avg RPS**: 2245 (±588)
-- **Max RPS**: 2921
-- **Avg Latency**: 47.40ms (±14.72)
-- **Min Latency**: 34.13ms
+- **Avg RPS**: 2207 (±531)
+- **Max RPS**: 2844
+- **Avg Latency**: 47.70ms (±13.54)
+- **Min Latency**: 35.04ms
 
 ### Flask
-- **Avg RPS**: 2599 (±171)
-- **Max RPS**: 2851
-- **Avg Latency**: 38.41ms (±2.49)
-- **Min Latency**: 34.90ms
+- **Avg RPS**: 2625 (±168)
+- **Max RPS**: 2875
+- **Avg Latency**: 38.03ms (±2.38)
+- **Min Latency**: 34.60ms
 
 ## 🎯 Endpoint Performance Breakdown
 
 ### Complex Json
-🥇 **Catzilla**: 13803 req/s
-🥈 **Flask**: 2516 req/s
-🥉 **Django**: 2104 req/s
-   **Fastapi**: 2003 req/s
+🥇 **Catzilla**: 14842 req/s
+🥈 **Flask**: 2521 req/s
+🥉 **Django**: 2162 req/s
+   **Fastapi**: 2008 req/s
 
 ### Hello World
-🥇 **Catzilla**: 24637 req/s
-🥈 **Fastapi**: 2921 req/s
-🥉 **Flask**: 2851 req/s
-   **Django**: 2297 req/s
+🥇 **Catzilla**: 24758 req/s
+🥈 **Flask**: 2875 req/s
+🥉 **Fastapi**: 2844 req/s
+   **Django**: 2339 req/s
 
 ### Json Response
-🥇 **Catzilla**: 18408 req/s
-🥈 **Flask**: 2664 req/s
-🥉 **Fastapi**: 2616 req/s
-   **Django**: 2159 req/s
+🥇 **Catzilla**: 15754 req/s
+🥈 **Flask**: 2672 req/s
+🥉 **Fastapi**: 2421 req/s
+   **Django**: 2208 req/s
 
 ### Path Params
-🥇 **Catzilla**: 15775 req/s
-🥈 **Flask**: 2570 req/s
-🥉 **Fastapi**: 2292 req/s
-   **Django**: 2117 req/s
+🥇 **Catzilla**: 17590 req/s
+🥈 **Flask**: 2624 req/s
+🥉 **Fastapi**: 2341 req/s
+   **Django**: 2219 req/s
 
 ### Query Params
-🥇 **Catzilla**: 11474 req/s
-🥈 **Flask**: 2394 req/s
-🥉 **Django**: 1916 req/s
-   **Fastapi**: 1391 req/s
+🥇 **Catzilla**: 11145 req/s
+🥈 **Flask**: 2431 req/s
+🥉 **Django**: 1975 req/s
+   **Fastapi**: 1419 req/s
 
 ## ⚙️ Test Configuration
 
