@@ -305,6 +305,21 @@ generate_summary() {
 
     local summary_file="$RESULTS_DIR/benchmark_summary.json"
     local summary_md="$RESULTS_DIR/benchmark_summary.md"
+    local system_info_file="$RESULTS_DIR/system_info.json"
+    local system_info_md="$RESULTS_DIR/system_info.md"
+
+    # Collect system information
+    print_status "Collecting system information..."
+    if python3 "$BENCHMARK_DIR/system_info.py" --output "$system_info_file"; then
+        print_success "System information collected"
+
+        # Also generate markdown format for easy inclusion in reports
+        python3 "$BENCHMARK_DIR/system_info.py" --format markdown --output "$system_info_md"
+    else
+        print_warning "Failed to collect system information, continuing without it"
+        echo '{"error": "System information collection failed"}' > "$system_info_file"
+        echo "## System Information\n\n**Error**: System information collection failed" > "$system_info_md"
+    fi
 
     # Create JSON summary
     echo "{" > "$summary_file"
@@ -315,12 +330,20 @@ generate_summary() {
     echo "    \"threads\": $THREADS," >> "$summary_file"
     echo "    \"tool\": \"wrk\"" >> "$summary_file"
     echo "  }," >> "$summary_file"
+
+    # Add system information to summary
+    if [ -f "$system_info_file" ]; then
+        echo "  \"system_info\": " >> "$summary_file"
+        cat "$system_info_file" >> "$summary_file"
+        echo "," >> "$summary_file"
+    fi
+
     echo "  \"results\": [" >> "$summary_file"
 
     # Collect all individual results
     local first=true
     for json_file in "$RESULTS_DIR"/*.json; do
-        if [ -f "$json_file" ] && [[ "$json_file" != *"summary"* ]]; then
+        if [ -f "$json_file" ] && [[ "$json_file" != *"summary"* ]] && [[ "$json_file" != *"system_info"* ]]; then
             if [ "$first" = true ]; then
                 first=false
             else
@@ -347,6 +370,33 @@ EOF
     echo "- **Threads**: $THREADS" >> "$summary_md"
     echo "- **Tool**: wrk" >> "$summary_md"
     echo "- **Date**: $(date)" >> "$summary_md"
+    echo "" >> "$summary_md"
+
+    # Add system information to markdown summary
+    if [ -f "$system_info_md" ]; then
+        cat "$system_info_md" >> "$summary_md"
+        echo "" >> "$summary_md"
+    fi
+
+    # Add performance results table
+    echo "## Performance Results" >> "$summary_md"
+    echo "" >> "$summary_md"
+    echo "| Framework | Endpoint | Requests/sec | Avg Latency | 99% Latency |" >> "$summary_md"
+    echo "|-----------|----------|--------------|-------------|-------------|" >> "$summary_md"
+
+    # Parse JSON results to create table
+    for json_file in "$RESULTS_DIR"/*.json; do
+        if [ -f "$json_file" ] && [[ "$json_file" != *"summary"* ]] && [[ "$json_file" != *"system_info"* ]]; then
+            local framework=$(grep '"framework"' "$json_file" | cut -d'"' -f4)
+            local endpoint=$(grep '"endpoint_name"' "$json_file" | cut -d'"' -f4)
+            local rps=$(grep '"requests_per_sec"' "$json_file" | cut -d'"' -f4)
+            local avg_lat=$(grep '"avg_latency"' "$json_file" | cut -d'"' -f4)
+            local p99_lat=$(grep '"p99_latency"' "$json_file" | cut -d'"' -f4)
+
+            echo "| $framework | $endpoint | $rps | $avg_lat | $p99_lat |" >> "$summary_md"
+        fi
+    done
+
     echo "" >> "$summary_md"
 
     print_success "Markdown summary saved to: $summary_md"

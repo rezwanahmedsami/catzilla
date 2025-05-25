@@ -10,6 +10,9 @@ flask==2.3.3
 django==4.2.13
 gunicorn==21.2.0  # WSGI server for Flask and Django
 
+# --- System information collection ---
+psutil==5.9.8  # For collecting system specs (CPU, RAM, etc.)
+
 # --- Data processing and plotting ---
 numpy==1.24.4
 pandas==2.0.3
