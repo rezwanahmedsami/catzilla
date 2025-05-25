@@ -9,7 +9,7 @@ if(MSVC)
     set(CMAKE_C_FLAGS_RELEASE "/O2 /DNDEBUG")
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
     add_definitions(-DWIN32_LEAN_AND_MEAN)
-    add_definitions(-D_WIN32_WINNT=0x0600)  # Windows Vista or later
+    add_definitions(-D_WIN32_WINNT=0x0602)  # Windows 8 or later (required for GetSystemTimePreciseAsFileTime)
 
     # Handle potential Python debug library issues
     add_definitions(-DPy_ENABLE_SHARED)
