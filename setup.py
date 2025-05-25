@@ -71,6 +71,8 @@ setup(
             "uvicorn>=0.24.0",
             "flask>=2.3.0",
             "django>=4.2.0",
+            "gunicorn>=21.2.0",
+            "psutil>=5.9.0",  # For system information collection
             "matplotlib>=3.7.0",
             "pandas>=2.0.0",
             "seaborn>=0.12.0",

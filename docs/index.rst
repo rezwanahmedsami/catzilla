@@ -150,7 +150,7 @@ This creates a production-ready API with:
 Performance Highlights
 ----------------------
 
-Catzilla has been extensively benchmarked against popular Python frameworks:
+Catzilla has been extensively benchmarked against popular Python frameworks on Intel Xeon E3-1245 v5 server:
 
 .. list-table:: **Performance Comparison vs FastAPI**
    :header-rows: 1
@@ -160,27 +160,27 @@ Catzilla has been extensively benchmarked against popular Python frameworks:
      - FastAPI RPS
      - Performance Gain
    * - Hello World
-     - 8,130
-     - 2,087
-     - **+289% faster**
+     - 24,759
+     - 2,844
+     - **+771% faster**
    * - JSON Response
-     - 5,165
-     - 1,844
-     - **+180% faster**
+     - 15,754
+     - 2,421
+     - **+551% faster**
    * - Path Parameters
-     - 5,765
-     - 1,621
-     - **+256% faster**
+     - 17,590
+     - 2,341
+     - **+651% faster**
    * - Query Parameters
-     - 3,785
-     - 923
-     - **+310% faster**
+     - 11,145
+     - 1,419
+     - **+685% faster**
    * - Complex JSON
-     - 5,156
-     - 1,344
-     - **+284% faster**
+     - 14,843
+     - 2,008
+     - **+639% faster**
 
-**Latency Excellence**: Average latency of 25.36ms vs FastAPI's 69.11ms (**63% lower**)
+**Latency Excellence**: Average latency of 6.37ms vs FastAPI's 47.70ms (**87% lower**)
 
 Architecture Overview
 ---------------------
