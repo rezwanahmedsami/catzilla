@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 # 🎯 Single source of truth - change this to update version everywhere
-VERSION = "0.1.0"
+VERSION = "0.1.0-beta"
 
 class VersionManager:
     def __init__(self):
@@ -148,7 +148,7 @@ class VersionManager:
         """Update VERSION constant in this script"""
         script_path = Path(__file__)
         content = script_path.read_text()
-        content = re.sub(r'VERSION = "[^"]*"', f'VERSION = "{new_version}"', content)
+        content = re.sub(r'VERSION = "0.1.0-beta"]*"', f'VERSION = "0.1.0-beta"', content)
         script_path.write_text(content)
         print(f"✅ Updated version.py to {new_version}")
 
