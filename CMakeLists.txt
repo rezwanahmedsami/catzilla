@@ -1,14 +1,61 @@
 cmake_minimum_required(VERSION 3.15)
 project(catzilla LANGUAGES C)
 
-# Windows-specific configuration to avoid debug Python library issues
+# Windows-specific configuration for professional Python library handling
 if(WIN32)
-    # Use Release instead of Debug to avoid python3XX_d.lib issues
-    set(CMAKE_BUILD_TYPE Release CACHE STRING "Force Release build type on Windows to avoid debug Python library issues" FORCE)
-    message(STATUS "Windows: Using ${CMAKE_BUILD_TYPE} build type to avoid Python debug library issues")
+    # Professional Windows Python library detection and configuration
+    message(STATUS "Windows: Configuring Python library detection...")
+
+    # Check if Python debug libraries are available
+    find_library(PYTHON_DEBUG_LIB
+        NAMES python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}_d
+        PATHS ${Python3_LIBRARY_DIRS}
+        NO_DEFAULT_PATH)
+
+    # Determine optimal build configuration
+    if(NOT CMAKE_BUILD_TYPE)
+        if(PYTHON_DEBUG_LIB)
+            set(CMAKE_BUILD_TYPE Debug CACHE STRING "Default build type" FORCE)
+            message(STATUS "Windows: Python debug libraries found - using Debug build")
+        else()
+            set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Default build type" FORCE)
+            message(STATUS "Windows: Python debug libraries not found - using RelWithDebInfo")
+        endif()
+    else()
+        # User specified build type - validate it works
+        if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT PYTHON_DEBUG_LIB)
+            message(WARNING
+                "Debug build requested but Python debug libraries not found.\n"
+                "This may cause linking errors (python3XX_d.lib not found).\n"
+                "Consider using 'RelWithDebInfo' for debugging with release Python libraries,\n"
+                "or install Python with debug libraries.\n"
+                "Continuing with Debug build as requested...")
+        endif()
+    endif()
+
+    message(STATUS "Windows: Using ${CMAKE_BUILD_TYPE} build configuration")
+
+    # Configure Python library linking based on build type
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND PYTHON_DEBUG_LIB)
+        # Use debug Python library if available
+        set(Python3_LIBRARIES ${PYTHON_DEBUG_LIB})
+        message(STATUS "Windows: Using Python debug library: ${PYTHON_DEBUG_LIB}")
+    else()
+        # Use release Python library (safer default)
+        if(Python3_LIBRARY_RELEASE)
+            set(Python3_LIBRARIES ${Python3_LIBRARY_RELEASE})
+            message(STATUS "Windows: Using Python release library: ${Python3_LIBRARY_RELEASE}")
+        elseif(Python3_LIBRARY)
+            # Ensure we're not using debug library by accident
+            string(REGEX REPLACE "_d\\.lib$" ".lib" Python3_LIBRARIES "${Python3_LIBRARY}")
+            message(STATUS "Windows: Modified Python library path: ${Python3_LIBRARIES}")
+        endif()
+    endif()
 else()
-    # Set Debug build type only for non-Windows platforms
-    set(CMAKE_BUILD_TYPE Debug)
+    # Unix-like systems: use Debug by default
+    if(NOT CMAKE_BUILD_TYPE)
+        set(CMAKE_BUILD_TYPE Debug CACHE STRING "Default build type" FORCE)
+    endif()
 endif()
 
 # Platform-specific compiler flags
