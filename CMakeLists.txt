@@ -45,133 +45,80 @@ endif()
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "")
 
 # Python support
-find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
-
-# IMMEDIATE Windows Python debug library override
 if(WIN32)
-    # Override any debug library references immediately after find_package
-    if(Python3_LIBRARY)
-        string(REGEX REPLACE "python[0-9]+_d\\.lib" "python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.lib"
-               Python3_LIBRARY "${Python3_LIBRARY}")
-        string(REGEX REPLACE "_d\\.lib" ".lib" Python3_LIBRARY "${Python3_LIBRARY}")
-    endif()
-    if(Python3_LIBRARIES)
-        string(REGEX REPLACE "python[0-9]+_d\\.lib" "python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.lib"
-               Python3_LIBRARIES "${Python3_LIBRARIES}")
-        string(REGEX REPLACE "_d\\.lib" ".lib" Python3_LIBRARIES "${Python3_LIBRARIES}")
+    # NUCLEAR OPTION: On Windows, completely bypass find_package for Python
+    # and manually configure Python to avoid any debug library issues
+
+    # Try to find Python executable first
+    find_program(Python3_EXECUTABLE python3 python)
+    if(NOT Python3_EXECUTABLE)
+        find_program(Python3_EXECUTABLE python)
     endif()
 
-    # Force override these CMake variables immediately
-    set(Python3_LIBRARY "${Python3_LIBRARY}" CACHE STRING "Override Python library" FORCE)
-    set(Python3_LIBRARIES "${Python3_LIBRARIES}" CACHE STRING "Override Python libraries" FORCE)
+    if(Python3_EXECUTABLE)
+        # Get Python version and paths manually
+        execute_process(
+            COMMAND ${Python3_EXECUTABLE} -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
+            OUTPUT_VARIABLE Python3_VERSION
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
 
-    message(STATUS "IMMEDIATE Python library override - Python3_LIBRARY: ${Python3_LIBRARY}")
-    message(STATUS "IMMEDIATE Python library override - Python3_LIBRARIES: ${Python3_LIBRARIES}")
+        execute_process(
+            COMMAND ${Python3_EXECUTABLE} -c "import sys; print(sys.prefix)"
+            OUTPUT_VARIABLE Python3_PREFIX
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+
+        execute_process(
+            COMMAND ${Python3_EXECUTABLE} -c "import sysconfig; print(sysconfig.get_path('include'))"
+            OUTPUT_VARIABLE Python3_INCLUDE_DIRS
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+
+        # Manually construct the Python library path (ALWAYS release version)
+        string(REPLACE "." "" Python3_VERSION_NODOT "${Python3_VERSION}")
+        set(Python3_LIBRARY "${Python3_PREFIX}/libs/python${Python3_VERSION_NODOT}.lib")
+        set(Python3_LIBRARIES "${Python3_LIBRARY}")
+
+        # Verify the library exists
+        if(EXISTS "${Python3_LIBRARY}")
+            message(STATUS "=== NUCLEAR Windows Python Override ===")
+            message(STATUS "Python3_EXECUTABLE: ${Python3_EXECUTABLE}")
+            message(STATUS "Python3_VERSION: ${Python3_VERSION}")
+            message(STATUS "Python3_PREFIX: ${Python3_PREFIX}")
+            message(STATUS "Python3_INCLUDE_DIRS: ${Python3_INCLUDE_DIRS}")
+            message(STATUS "Python3_LIBRARY: ${Python3_LIBRARY}")
+            message(STATUS "Python library exists: YES")
+
+            set(Python3_FOUND TRUE)
+
+            # Create our custom Python target
+            add_library(PythonForCatzilla INTERFACE IMPORTED)
+            set_target_properties(PythonForCatzilla PROPERTIES
+                INTERFACE_LINK_LIBRARIES "${Python3_LIBRARY}"
+                INTERFACE_INCLUDE_DIRECTORIES "${Python3_INCLUDE_DIRS}"
+            )
+        else()
+            message(FATAL_ERROR "Could not find Python library at: ${Python3_LIBRARY}")
+        endif()
+    else()
+        message(FATAL_ERROR "Could not find Python executable on Windows")
+    endif()
+else()
+    # Use normal find_package for non-Windows platforms
+    find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 endif()
 
 # Debug Python configuration on Windows
 if(WIN32)
+    message(STATUS "=== Windows Python Configuration (Manual) ===")
     message(STATUS "Python3_FOUND: ${Python3_FOUND}")
     message(STATUS "Python3_INCLUDE_DIRS: ${Python3_INCLUDE_DIRS}")
     message(STATUS "Python3_LIBRARIES: ${Python3_LIBRARIES}")
     message(STATUS "Python3_LIBRARY: ${Python3_LIBRARY}")
-    message(STATUS "Python3_RUNTIME_LIBRARY_DIRS: ${Python3_RUNTIME_LIBRARY_DIRS}")
     message(STATUS "Python3_VERSION: ${Python3_VERSION}")
     message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
-
-    # On Windows, check if we have the Python DLL import library
-    if(TARGET Python3::Python)
-        get_target_property(PYTHON_IMPLIB Python3::Python IMPORTED_IMPLIB)
-        get_target_property(PYTHON_LOCATION Python3::Python IMPORTED_LOCATION)
-        message(STATUS "Python3::Python IMPORTED_IMPLIB: ${PYTHON_IMPLIB}")
-        message(STATUS "Python3::Python IMPORTED_LOCATION: ${PYTHON_LOCATION}")
-    endif()
-endif()
-
-# Windows-specific Python linking fixes
-if(WIN32)
-    # CRITICAL FIX: On Windows, completely override Python linking to avoid python3XX_d.lib issues
-    # Python extensions on Windows should link against the release DLL import library only
-
-    # Force release configuration mapping for all build types
-    set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG Release)
-    set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
-    set(CMAKE_MAP_IMPORTED_CONFIG_MINSIZEREL Release)
-
-    # Force release Python libraries in all build configurations
-    set(Python3_USE_STATIC_LIBS FALSE)
-
-    # Get the Python DLL import library path (python39.lib, python310.lib, etc.)
-    if(Python3_LIBRARY)
-        set(PYTHON_DLL_IMPORT_LIB "${Python3_LIBRARY}")
-    elseif(Python3_LIBRARIES)
-        set(PYTHON_DLL_IMPORT_LIB "${Python3_LIBRARIES}")
-    else()
-        # Last resort: construct the path
-        set(PYTHON_DLL_IMPORT_LIB "${Python3_LIBRARY_DIRS}/python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.lib")
-    endif()
-
-    # Ensure we're using the release library, not debug
-    string(REGEX REPLACE "python[0-9]+_d\\.lib" "python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.lib"
-           PYTHON_DLL_IMPORT_LIB "${PYTHON_DLL_IMPORT_LIB}")
-    string(REGEX REPLACE "_d\\.lib" ".lib" PYTHON_DLL_IMPORT_LIB "${PYTHON_DLL_IMPORT_LIB}")
-
-    message(STATUS "=== AGGRESSIVE Windows Python Linking Override ===")
-    message(STATUS "Python3_VERSION: ${Python3_VERSION}")
-    message(STATUS "Python3_LIBRARY: ${Python3_LIBRARY}")
-    message(STATUS "Python3_LIBRARIES: ${Python3_LIBRARIES}")
-    message(STATUS "FORCED Python DLL import lib: ${PYTHON_DLL_IMPORT_LIB}")
-    message(STATUS "Current CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
-
-    # COMPLETELY destroy and recreate Python3::Python target if it exists
-    if(TARGET Python3::Python)
-        message(STATUS "DESTROYING and RECREATING Python3::Python target for Windows")
-
-        # Remove the existing target completely
-        get_target_property(PYTHON_TARGET_TYPE Python3::Python TYPE)
-        if(PYTHON_TARGET_TYPE STREQUAL "INTERFACE_LIBRARY")
-            # Can't remove interface libraries, so override all properties aggressively
-            set_target_properties(Python3::Python PROPERTIES
-                INTERFACE_LINK_LIBRARIES "${PYTHON_DLL_IMPORT_LIB}"
-                INTERFACE_INCLUDE_DIRECTORIES "${Python3_INCLUDE_DIRS}"
-            )
-        else()
-            # Override imported target properties completely
-            set_target_properties(Python3::Python PROPERTIES
-                IMPORTED_IMPLIB "${PYTHON_DLL_IMPORT_LIB}"
-                IMPORTED_IMPLIB_DEBUG "${PYTHON_DLL_IMPORT_LIB}"
-                IMPORTED_IMPLIB_RELEASE "${PYTHON_DLL_IMPORT_LIB}"
-                IMPORTED_IMPLIB_RELWITHDEBINFO "${PYTHON_DLL_IMPORT_LIB}"
-                IMPORTED_IMPLIB_MINSIZEREL "${PYTHON_DLL_IMPORT_LIB}"
-                IMPORTED_LOCATION "${PYTHON_DLL_IMPORT_LIB}"
-                IMPORTED_LOCATION_DEBUG "${PYTHON_DLL_IMPORT_LIB}"
-                IMPORTED_LOCATION_RELEASE "${PYTHON_DLL_IMPORT_LIB}"
-                IMPORTED_LOCATION_RELWITHDEBINFO "${PYTHON_DLL_IMPORT_LIB}"
-                IMPORTED_LOCATION_MINSIZEREL "${PYTHON_DLL_IMPORT_LIB}"
-                IMPORTED_CONFIGURATIONS "Release;Debug;RelWithDebInfo;MinSizeRel"
-            )
-        endif()
-    endif()
-
-    # Also force ALL Python3 variables to our specific library
-    set(Python3_LIBRARIES "${PYTHON_DLL_IMPORT_LIB}" CACHE STRING "Forced Python library" FORCE)
-    set(Python3_LIBRARY "${PYTHON_DLL_IMPORT_LIB}" CACHE STRING "Forced Python library" FORCE)
-
-    # Create a completely custom target that bypasses CMake's Python detection
-    if(NOT TARGET PythonForCatzilla)
-        add_library(PythonForCatzilla INTERFACE IMPORTED)
-        set_target_properties(PythonForCatzilla PROPERTIES
-            INTERFACE_LINK_LIBRARIES "${PYTHON_DLL_IMPORT_LIB}"
-            INTERFACE_INCLUDE_DIRECTORIES "${Python3_INCLUDE_DIRS}"
-        )
-        message(STATUS "Created custom PythonForCatzilla target with library: ${PYTHON_DLL_IMPORT_LIB}")
-    endif()
-
-    # Also create an alias that completely masks Python3::Python
-    if(NOT TARGET Python3::PythonOriginal)
-        # Backup the original target under a different name if needed
-        add_library(Python3::PythonOriginal ALIAS Python3::Python)
-    endif()
+    message(STATUS "PythonForCatzilla target created: YES")
 endif()
 
 # libuv
