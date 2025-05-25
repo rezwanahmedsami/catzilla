@@ -54,11 +54,20 @@ if(WIN32)
         message(STATUS "Windows: Modified Python library path: ${Python3_LIBRARIES}")
     endif()
 
+    # Additional protection: Set explicit Python library for all configurations
+    # This ensures MSBuild doesn't override our Python library choice
+    if(Python3_LIBRARY_RELEASE)
+        set(PYTHON_LIBRARY_FOR_ALL_CONFIGS ${Python3_LIBRARY_RELEASE})
+    else()
+        string(REGEX REPLACE "_d\\.lib$" ".lib" PYTHON_LIBRARY_FOR_ALL_CONFIGS "${Python3_LIBRARY}")
+    endif()
+
     message(STATUS "Windows Python configuration:")
     message(STATUS "  Python3_VERSION: ${Python3_VERSION}")
     message(STATUS "  Python3_EXECUTABLE: ${Python3_EXECUTABLE}")
     message(STATUS "  Python3_INCLUDE_DIRS: ${Python3_INCLUDE_DIRS}")
     message(STATUS "  Python3_LIBRARIES: ${Python3_LIBRARIES}")
+    message(STATUS "  PYTHON_LIBRARY_FOR_ALL_CONFIGS: ${PYTHON_LIBRARY_FOR_ALL_CONFIGS}")
     message(STATUS "  CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 endif()
 
@@ -71,6 +80,22 @@ if(WIN32)
 endif()
 
 add_subdirectory(deps/libuv)
+
+# Windows helper function to set Python library for all configurations
+if(WIN32)
+    function(set_windows_python_library target_name)
+        # Use generator expressions to ensure the release Python library is used for all configurations
+        if(PYTHON_LIBRARY_FOR_ALL_CONFIGS)
+            target_link_libraries(${target_name} PRIVATE
+                "$<$<CONFIG:Debug>:${PYTHON_LIBRARY_FOR_ALL_CONFIGS}>"
+                "$<$<CONFIG:Release>:${PYTHON_LIBRARY_FOR_ALL_CONFIGS}>"
+                "$<$<CONFIG:RelWithDebInfo>:${PYTHON_LIBRARY_FOR_ALL_CONFIGS}>"
+                "$<$<CONFIG:MinSizeRel>:${PYTHON_LIBRARY_FOR_ALL_CONFIGS}>"
+            )
+            message(STATUS "Windows: Set explicit Python library for target ${target_name}: ${PYTHON_LIBRARY_FOR_ALL_CONFIGS}")
+        endif()
+    endfunction()
+endif()
 
 # llhttp
 include(FetchContent)
@@ -125,6 +150,8 @@ if(WIN32)
     target_link_libraries(_catzilla PRIVATE ws2_32 iphlpapi userenv)
     # Ensure Python extensions use shared Python libraries
     target_compile_definitions(_catzilla PRIVATE Py_ENABLE_SHARED)
+    # Set explicit Python library for all configurations
+    set_windows_python_library(_catzilla)
 endif()
 
 # Force appropriate suffix for Python module based on platform
@@ -166,6 +193,7 @@ target_link_libraries(test_router PRIVATE
 # Windows-specific linking for tests
 if(WIN32)
     target_link_libraries(test_router PRIVATE ws2_32 iphlpapi userenv)
+    set_windows_python_library(test_router)
 endif()
 
 # Add test_advanced_router executable
@@ -188,6 +216,7 @@ target_link_libraries(test_advanced_router PRIVATE
 # Windows-specific linking
 if(WIN32)
     target_link_libraries(test_advanced_router PRIVATE ws2_32 iphlpapi userenv)
+    set_windows_python_library(test_advanced_router)
 endif()
 
 # Add test_server_integration executable
@@ -210,6 +239,7 @@ target_link_libraries(test_server_integration PRIVATE
 # Windows-specific linking
 if(WIN32)
     target_link_libraries(test_server_integration PRIVATE ws2_32 iphlpapi userenv)
+    set_windows_python_library(test_server_integration)
 endif()
 
 # Standalone server executable
@@ -223,6 +253,7 @@ target_link_libraries(catzilla-server PRIVATE
 # Windows-specific linking for standalone server
 if(WIN32)
     target_link_libraries(catzilla-server PRIVATE ws2_32 iphlpapi userenv)
+    set_windows_python_library(catzilla-server)
 endif()
 
 target_include_directories(catzilla-server PRIVATE ${Python3_INCLUDE_DIRS})

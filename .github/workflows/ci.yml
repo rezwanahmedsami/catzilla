@@ -54,7 +54,7 @@ jobs:
     - name: Build C extension
       run: |
         cmake -S . -B build
-        cmake --build build --verbose
+        cmake --build build --config RelWithDebInfo --verbose
 
     - name: Debug build output (Windows)
       if: runner.os == 'Windows'
