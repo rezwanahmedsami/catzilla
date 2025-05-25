@@ -60,11 +60,11 @@ jobs:
       if: runner.os == 'Windows'
       run: |
         echo "=== Build directory contents ==="
-        dir build
+        Get-ChildItem build
         echo "=== CMake cache ==="
-        type build\CMakeCache.txt | findstr /i "python\|compiler\|error"
+        Get-Content build\CMakeCache.txt | Select-String -Pattern "python|compiler|error" -CaseSensitive:$false
         echo "=== Any error logs ==="
-        if exist build\*.log type build\*.log
+        if (Test-Path "build\*.log") { Get-Content build\*.log }
 
     - name: Install package
       run: |
