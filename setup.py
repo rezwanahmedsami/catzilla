@@ -15,21 +15,39 @@ class CMakeBuild(build_ext):
         os.makedirs(build_dir, exist_ok=True)
 
         # 1) Configure
-        subprocess.check_call([
+        configure_cmd = [
             'cmake', '-S', '.', '-B', build_dir,
             f'-DPython3_EXECUTABLE={sys.executable}',
             f'-DCMAKE_OSX_DEPLOYMENT_TARGET={os.getenv("MACOSX_DEPLOYMENT_TARGET","10.15")}'
-        ])
+        ]
+        subprocess.check_call(configure_cmd)
 
         # 2) Build
-        subprocess.check_call(['cmake', '--build', build_dir])
+        build_cmd = ['cmake', '--build', build_dir]
+        # On Windows, explicitly use Release configuration to avoid python3XX_d.lib issues
+        if sys.platform == 'win32':
+            build_cmd.extend(['--config', 'Release'])
+        subprocess.check_call(build_cmd)
 
-        # 3) Locate the one _catzilla.so
-        so_path = os.path.join(build_dir, '_catzilla.so')
+        # 3) Locate the built extension file
+        if sys.platform == 'win32':
+            # On Windows with Release config, files are in Release subdirectory
+            ext_name = '_catzilla.pyd'
+            so_path = os.path.join(build_dir, 'Release', ext_name)
+            if not os.path.isfile(so_path):
+                # Fallback: try build_dir root
+                so_path = os.path.join(build_dir, ext_name)
+        else:
+            # Unix-like systems use .so extension
+            ext_name = '_catzilla.so'
+            so_path = os.path.join(build_dir, ext_name)
+
         if not os.path.isfile(so_path):
             # debugging dump
             print("=== build_dir contents ===", os.listdir(build_dir))
-            raise RuntimeError(f"Expected _catzilla.so in {build_dir}, but not found")
+            if sys.platform == 'win32' and os.path.isdir(os.path.join(build_dir, 'Release')):
+                print("=== Release subdirectory contents ===", os.listdir(os.path.join(build_dir, 'Release')))
+            raise RuntimeError(f"Expected {ext_name} in {so_path}, but not found")
 
         # 4) Copy it into your package
         dest_path = self.get_ext_fullpath('catzilla._catzilla')
