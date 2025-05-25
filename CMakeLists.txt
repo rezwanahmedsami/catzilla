@@ -56,10 +56,9 @@ if(WIN32)
 endif()
 
 # Windows-specific Python linking fixes
-if(WIN32 AND MSVC)
-    # Critical fix for Windows Python extensions:
-    # On Windows, Python extensions should link against the Python DLL import library
-    # (e.g., python311.lib for python311.dll), NOT debug libraries (python311_d.lib)
+if(WIN32)
+    # CRITICAL FIX: On Windows, completely override Python linking to avoid python3XX_d.lib issues
+    # Python extensions on Windows should link against the release DLL import library only
 
     # Prevent CMake from automatically trying to link debug Python libraries
     add_definitions(-UPy_DEBUG)
@@ -69,38 +68,53 @@ if(WIN32 AND MSVC)
     set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG Release)
     set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 
-    # Get the correct Python DLL import library path
-    # For Windows, we want the .lib file that imports from the .dll
+    # Get the Python DLL import library path (python39.lib, python310.lib, etc.)
     if(Python3_LIBRARY)
-        # Use the primary Python library (should be the DLL import library)
         set(PYTHON_DLL_IMPORT_LIB "${Python3_LIBRARY}")
+    elseif(Python3_LIBRARIES)
+        set(PYTHON_DLL_IMPORT_LIB "${Python3_LIBRARIES}")
     else()
-        # Fallback: construct the path manually
-        get_filename_component(PYTHON_LIB_DIR "${Python3_LIBRARIES}" DIRECTORY)
-        set(PYTHON_DLL_IMPORT_LIB "${PYTHON_LIB_DIR}/python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.lib")
+        # Last resort: construct the path
+        set(PYTHON_DLL_IMPORT_LIB "${Python3_LIBRARY_DIRS}/python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.lib")
     endif()
 
-    # Ensure we're not trying to link against debug libraries
+    # Ensure we're using the release library, not debug
     string(REGEX REPLACE "python[0-9]+_d\\.lib" "python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.lib"
            PYTHON_DLL_IMPORT_LIB "${PYTHON_DLL_IMPORT_LIB}")
+    string(REGEX REPLACE "_d\\.lib" ".lib" PYTHON_DLL_IMPORT_LIB "${PYTHON_DLL_IMPORT_LIB}")
 
-    message(STATUS "Windows Python DLL Fix Applied")
-    message(STATUS "Using Python DLL import library: ${PYTHON_DLL_IMPORT_LIB}")
+    message(STATUS "=== Windows Python Linking Override ===")
+    message(STATUS "Python3_VERSION: ${Python3_VERSION}")
+    message(STATUS "Python3_LIBRARY: ${Python3_LIBRARY}")
+    message(STATUS "Python3_LIBRARIES: ${Python3_LIBRARIES}")
+    message(STATUS "FORCED Python DLL import lib: ${PYTHON_DLL_IMPORT_LIB}")
 
-    # Override Python3::Python target to use the correct DLL import library
+    # COMPLETELY override Python3::Python target if it exists
     if(TARGET Python3::Python)
+        message(STATUS "Overriding Python3::Python target properties for Windows")
         set_target_properties(Python3::Python PROPERTIES
+            IMPORTED_IMPLIB "${PYTHON_DLL_IMPORT_LIB}"
             IMPORTED_IMPLIB_DEBUG "${PYTHON_DLL_IMPORT_LIB}"
             IMPORTED_IMPLIB_RELEASE "${PYTHON_DLL_IMPORT_LIB}"
             IMPORTED_IMPLIB_RELWITHDEBINFO "${PYTHON_DLL_IMPORT_LIB}"
+            IMPORTED_LOCATION "${PYTHON_DLL_IMPORT_LIB}"
             IMPORTED_LOCATION_DEBUG "${PYTHON_DLL_IMPORT_LIB}"
             IMPORTED_LOCATION_RELEASE "${PYTHON_DLL_IMPORT_LIB}"
             IMPORTED_LOCATION_RELWITHDEBINFO "${PYTHON_DLL_IMPORT_LIB}"
         )
     endif()
 
-    # Also update the Python3_LIBRARIES variable for direct use
+    # Also force the Python3_LIBRARIES variable
     set(Python3_LIBRARIES "${PYTHON_DLL_IMPORT_LIB}")
+
+    # Create a custom target to ensure our library is used
+    if(NOT TARGET PythonForCatzilla)
+        add_library(PythonForCatzilla INTERFACE IMPORTED)
+        set_target_properties(PythonForCatzilla PROPERTIES
+            INTERFACE_LINK_LIBRARIES "${PYTHON_DLL_IMPORT_LIB}"
+            INTERFACE_INCLUDE_DIRECTORIES "${Python3_INCLUDE_DIRS}"
+        )
+    endif()
 endif()
 
 # libuv
@@ -155,13 +169,13 @@ target_include_directories(_catzilla PRIVATE
 )
 
 # Windows-specific Python library handling for the extension
-if(WIN32 AND MSVC)
-    # Link directly to the Python DLL import library to avoid debug library issues
+if(WIN32)
+    # Use our custom Python target to ensure correct linking
     target_link_libraries(_catzilla PRIVATE
       catzilla_core
       llhttp_static
       yyjson
-      "${PYTHON_DLL_IMPORT_LIB}"
+      PythonForCatzilla
     )
     # Also add Python compile definitions to prevent debug mode issues
     target_compile_definitions(_catzilla PRIVATE Py_ENABLE_SHARED)
@@ -211,10 +225,10 @@ target_include_directories(test_router PRIVATE
 )
 
 # Windows-specific Python library handling for tests
-if(WIN32 AND MSVC)
+if(WIN32)
     target_link_libraries(test_router PRIVATE
       catzilla_core
-      "${PYTHON_DLL_IMPORT_LIB}"
+      PythonForCatzilla
     )
 else()
     target_link_libraries(test_router PRIVATE
@@ -241,10 +255,10 @@ target_include_directories(test_advanced_router PRIVATE
 )
 
 # Windows-specific Python library handling for advanced router tests
-if(WIN32 AND MSVC)
+if(WIN32)
     target_link_libraries(test_advanced_router PRIVATE
       catzilla_core
-      "${PYTHON_DLL_IMPORT_LIB}"
+      PythonForCatzilla
     )
 else()
     target_link_libraries(test_advanced_router PRIVATE
@@ -271,10 +285,10 @@ target_include_directories(test_server_integration PRIVATE
 )
 
 # Windows-specific Python library handling for server integration tests
-if(WIN32 AND MSVC)
+if(WIN32)
     target_link_libraries(test_server_integration PRIVATE
       catzilla_core
-      "${PYTHON_DLL_IMPORT_LIB}"
+      PythonForCatzilla
     )
 else()
     target_link_libraries(test_server_integration PRIVATE
@@ -292,10 +306,10 @@ endif()
 add_executable(catzilla-server src/core/main.c)
 
 # Windows-specific Python library handling for standalone server
-if(WIN32 AND MSVC)
+if(WIN32)
     target_link_libraries(catzilla-server PRIVATE
       catzilla_core
-      "${PYTHON_DLL_IMPORT_LIB}"
+      PythonForCatzilla
     )
 else()
     target_link_libraries(catzilla-server PRIVATE
