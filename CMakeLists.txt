@@ -5,7 +5,18 @@ project(catzilla LANGUAGES C)
 # This prevents CMake from looking for debug Python libraries (python3XX_d.lib)
 if(WIN32)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Force Release build type on Windows to avoid debug Python library issues" FORCE)
+
+    # CRITICAL: Clear any cached Python debug library references
+    unset(Python3_LIBRARY CACHE)
+    unset(Python3_LIBRARIES CACHE)
+    unset(Python3_LIBRARY_DEBUG CACHE)
+    unset(Python3_LIBRARY_RELEASE CACHE)
+
+    # Force CMake to not look for debug libraries
+    set(CMAKE_FIND_DEBUG_MODE FALSE)
+
     message(STATUS "FORCED CMAKE_BUILD_TYPE to Release on Windows: ${CMAKE_BUILD_TYPE}")
+    message(STATUS "Cleared all cached Python library references")
 endif()
 
 # Platform-specific compiler flags
@@ -49,11 +60,15 @@ if(WIN32)
     # NUCLEAR OPTION: On Windows, completely bypass find_package for Python
     # and manually configure Python to avoid any debug library issues
 
+    message(STATUS "=== STARTING NUCLEAR Windows Python Detection ===")
+
     # Try to find Python executable first
     find_program(Python3_EXECUTABLE python3 python)
     if(NOT Python3_EXECUTABLE)
         find_program(Python3_EXECUTABLE python)
     endif()
+
+    message(STATUS "Python3_EXECUTABLE found: ${Python3_EXECUTABLE}")
 
     if(Python3_EXECUTABLE)
         # Get Python version and paths manually
@@ -61,28 +76,54 @@ if(WIN32)
             COMMAND ${Python3_EXECUTABLE} -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
             OUTPUT_VARIABLE Python3_VERSION
             OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_VARIABLE Python3_VERSION_ERROR
+            RESULT_VARIABLE Python3_VERSION_RESULT
         )
+
+        message(STATUS "Python version detection result: ${Python3_VERSION_RESULT}")
+        message(STATUS "Python version: ${Python3_VERSION}")
+        if(Python3_VERSION_ERROR)
+            message(STATUS "Python version error: ${Python3_VERSION_ERROR}")
+        endif()
 
         execute_process(
             COMMAND ${Python3_EXECUTABLE} -c "import sys; print(sys.prefix)"
             OUTPUT_VARIABLE Python3_PREFIX
             OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_VARIABLE Python3_PREFIX_ERROR
+            RESULT_VARIABLE Python3_PREFIX_RESULT
         )
+
+        message(STATUS "Python prefix detection result: ${Python3_PREFIX_RESULT}")
+        message(STATUS "Python prefix: ${Python3_PREFIX}")
+        if(Python3_PREFIX_ERROR)
+            message(STATUS "Python prefix error: ${Python3_PREFIX_ERROR}")
+        endif()
 
         execute_process(
             COMMAND ${Python3_EXECUTABLE} -c "import sysconfig; print(sysconfig.get_path('include'))"
             OUTPUT_VARIABLE Python3_INCLUDE_DIRS
             OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_VARIABLE Python3_INCLUDE_ERROR
+            RESULT_VARIABLE Python3_INCLUDE_RESULT
         )
+
+        message(STATUS "Python include detection result: ${Python3_INCLUDE_RESULT}")
+        message(STATUS "Python include dirs: ${Python3_INCLUDE_DIRS}")
+        if(Python3_INCLUDE_ERROR)
+            message(STATUS "Python include error: ${Python3_INCLUDE_ERROR}")
+        endif()
 
         # Manually construct the Python library path (ALWAYS release version)
         string(REPLACE "." "" Python3_VERSION_NODOT "${Python3_VERSION}")
         set(Python3_LIBRARY "${Python3_PREFIX}/libs/python${Python3_VERSION_NODOT}.lib")
         set(Python3_LIBRARIES "${Python3_LIBRARY}")
 
+        message(STATUS "Constructed Python library path: ${Python3_LIBRARY}")
+
         # Verify the library exists
         if(EXISTS "${Python3_LIBRARY}")
-            message(STATUS "=== NUCLEAR Windows Python Override ===")
+            message(STATUS "=== NUCLEAR Windows Python Override SUCCESS ===")
             message(STATUS "Python3_EXECUTABLE: ${Python3_EXECUTABLE}")
             message(STATUS "Python3_VERSION: ${Python3_VERSION}")
             message(STATUS "Python3_PREFIX: ${Python3_PREFIX}")
@@ -98,11 +139,69 @@ if(WIN32)
                 INTERFACE_LINK_LIBRARIES "${Python3_LIBRARY}"
                 INTERFACE_INCLUDE_DIRECTORIES "${Python3_INCLUDE_DIRS}"
             )
+
+            message(STATUS "PythonForCatzilla target created successfully")
         else()
-            message(FATAL_ERROR "Could not find Python library at: ${Python3_LIBRARY}")
+            # CRITICAL FALLBACK: If our constructed path doesn't exist, try to find it manually
+            message(WARNING "Constructed Python library path not found: ${Python3_LIBRARY}")
+
+            # Try alternative paths
+            set(ALTERNATIVE_PATHS
+                "${Python3_PREFIX}/libs/python${Python3_VERSION_NODOT}.lib"
+                "${Python3_PREFIX}/lib/python${Python3_VERSION_NODOT}.lib"
+                "${Python3_PREFIX}/Python${Python3_VERSION_NODOT}.lib"
+                "C:/Program Files/Python${Python3_VERSION_NODOT}/libs/python${Python3_VERSION_NODOT}.lib"
+                "C:/Users/$ENV{USERNAME}/AppData/Local/Programs/Python/Python${Python3_VERSION_NODOT}/libs/python${Python3_VERSION_NODOT}.lib"
+            )
+
+            set(FOUND_PYTHON_LIB "")
+            foreach(ALT_PATH ${ALTERNATIVE_PATHS})
+                if(EXISTS "${ALT_PATH}")
+                    set(FOUND_PYTHON_LIB "${ALT_PATH}")
+                    message(STATUS "Found Python library at alternative path: ${ALT_PATH}")
+                    break()
+                endif()
+            endforeach()
+
+            if(FOUND_PYTHON_LIB)
+                set(Python3_LIBRARY "${FOUND_PYTHON_LIB}")
+                set(Python3_LIBRARIES "${FOUND_PYTHON_LIB}")
+                set(Python3_FOUND TRUE)
+
+                # Create our custom Python target with found library
+                add_library(PythonForCatzilla INTERFACE IMPORTED)
+                set_target_properties(PythonForCatzilla PROPERTIES
+                    INTERFACE_LINK_LIBRARIES "${Python3_LIBRARY}"
+                    INTERFACE_INCLUDE_DIRECTORIES "${Python3_INCLUDE_DIRS}"
+                )
+
+                message(STATUS "=== FALLBACK Windows Python Override SUCCESS ===")
+                message(STATUS "Found Python library: ${Python3_LIBRARY}")
+            else()
+                # LAST RESORT: Use find_package but force release library
+                message(WARNING "=== USING LAST RESORT: find_package with forced release ===")
+                find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+
+                # Force override any debug library references
+                string(REGEX REPLACE "_d\\.lib" ".lib" Python3_LIBRARY "${Python3_LIBRARY}")
+                string(REGEX REPLACE "_d\\.lib" ".lib" Python3_LIBRARIES "${Python3_LIBRARIES}")
+
+                # Force cache override
+                set(Python3_LIBRARY "${Python3_LIBRARY}" CACHE STRING "Forced release Python library" FORCE)
+                set(Python3_LIBRARIES "${Python3_LIBRARIES}" CACHE STRING "Forced release Python libraries" FORCE)
+
+                # Create custom target
+                add_library(PythonForCatzilla INTERFACE IMPORTED)
+                set_target_properties(PythonForCatzilla PROPERTIES
+                    INTERFACE_LINK_LIBRARIES "${Python3_LIBRARY}"
+                    INTERFACE_INCLUDE_DIRECTORIES "${Python3_INCLUDE_DIRS}"
+                )
+
+                message(STATUS "Last resort Python library: ${Python3_LIBRARY}")
+            endif()
         endif()
     else()
-        message(FATAL_ERROR "Could not find Python executable on Windows")
+        message(FATAL_ERROR "NUCLEAR PYTHON DETECTION FAILED: Could not find Python executable on Windows")
     endif()
 else()
     # Use normal find_package for non-Windows platforms
