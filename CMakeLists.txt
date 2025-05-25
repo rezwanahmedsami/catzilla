@@ -3,8 +3,8 @@ project(catzilla LANGUAGES C)
 
 # Windows-specific configuration to avoid debug Python library issues
 if(WIN32)
-    # Use RelWithDebInfo instead of Debug to avoid python3XX_d.lib issues
-    set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Force RelWithDebInfo build type on Windows to avoid debug Python library issues" FORCE)
+    # Use Release instead of Debug to avoid python3XX_d.lib issues
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Force Release build type on Windows to avoid debug Python library issues" FORCE)
     message(STATUS "Windows: Using ${CMAKE_BUILD_TYPE} build type to avoid Python debug library issues")
 else()
     # Set Debug build type only for non-Windows platforms
