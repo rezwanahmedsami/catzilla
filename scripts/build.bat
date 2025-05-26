@@ -90,6 +90,7 @@ if "%BUILD_TYPE%"=="auto" (
 )
 
 echo   Final build type: !ACTUAL_BUILD_TYPE!
+echo   DEBUG: BUILD_TYPE="%BUILD_TYPE%", ACTUAL_BUILD_TYPE="!ACTUAL_BUILD_TYPE!"
 
 REM Run CMake configuration only once
 cmake .. -DCMAKE_BUILD_TYPE=!ACTUAL_BUILD_TYPE! -DPython3_EXECUTABLE="!PYTHON_EXE!"
@@ -106,8 +107,10 @@ if %errorlevel% neq 0 (
 REM 5. Build with appropriate configuration
 echo.
 echo Building Catzilla...
+echo   DEBUG: About to build with config "!ACTUAL_BUILD_TYPE!" and !cores! cores
 
 REM Use the determined build type for building
+echo   Running: cmake --build . --config !ACTUAL_BUILD_TYPE! --parallel !cores!
 cmake --build . --config !ACTUAL_BUILD_TYPE! --parallel !cores!
 
 if %errorlevel% neq 0 (
