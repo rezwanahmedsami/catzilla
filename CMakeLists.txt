@@ -88,13 +88,29 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "")
 
 # macOS multi-architecture support
 if(APPLE)
-    # Handle multi-architecture builds for macOS
-    # Check if we're building for specific architectures via environment variables
-    if(DEFINED ENV{CMAKE_OSX_ARCHITECTURES})
-        set(CMAKE_OSX_ARCHITECTURES $ENV{CMAKE_OSX_ARCHITECTURES} CACHE STRING "Build architectures for macOS")
-        message(STATUS "macOS: Using architectures from environment: ${CMAKE_OSX_ARCHITECTURES}")
-    elseif(DEFINED ENV{ARCHFLAGS})
-        # Parse ARCHFLAGS environment variable (common in Python wheel building)
+    # Enhanced architecture detection for macOS wheel building
+    message(STATUS "macOS: Configuring architecture detection...")
+
+    # Priority 1: Check environment variables from cibuildwheel/wheel building
+    set(TARGET_ARCH "")
+
+    # Check for cibuildwheel's explicit architecture environment variable
+    if(DEFINED ENV{_PYTHON_HOST_PLATFORM})
+        string(REGEX MATCH "macosx-[0-9._]+-([a-zA-Z0-9_]+)" ARCH_MATCH $ENV{_PYTHON_HOST_PLATFORM})
+        if(CMAKE_MATCH_1)
+            set(TARGET_ARCH ${CMAKE_MATCH_1})
+            message(STATUS "macOS: Detected architecture from _PYTHON_HOST_PLATFORM: ${TARGET_ARCH}")
+        endif()
+    endif()
+
+    # Check CMAKE_OSX_ARCHITECTURES environment variable
+    if(NOT TARGET_ARCH AND DEFINED ENV{CMAKE_OSX_ARCHITECTURES})
+        set(TARGET_ARCH $ENV{CMAKE_OSX_ARCHITECTURES})
+        message(STATUS "macOS: Using architecture from CMAKE_OSX_ARCHITECTURES env: ${TARGET_ARCH}")
+    endif()
+
+    # Check ARCHFLAGS (common in Python extension building)
+    if(NOT TARGET_ARCH AND DEFINED ENV{ARCHFLAGS})
         string(REGEX MATCHALL "-arch ([a-zA-Z0-9_]+)" ARCH_MATCHES $ENV{ARCHFLAGS})
         set(PARSED_ARCHS "")
         foreach(ARCH_MATCH ${ARCH_MATCHES})
@@ -102,36 +118,54 @@ if(APPLE)
             list(APPEND PARSED_ARCHS ${ARCH})
         endforeach()
         if(PARSED_ARCHS)
-            set(CMAKE_OSX_ARCHITECTURES ${PARSED_ARCHS} CACHE STRING "Build architectures for macOS")
-            message(STATUS "macOS: Using architectures from ARCHFLAGS: ${CMAKE_OSX_ARCHITECTURES}")
+            # Use the first architecture if multiple are specified
+            list(GET PARSED_ARCHS 0 TARGET_ARCH)
+            message(STATUS "macOS: Using architecture from ARCHFLAGS: ${TARGET_ARCH}")
         endif()
-    else()
-        # Default to current system architecture if not specified
+    endif()
+
+    # Check for platform-specific markers in environment
+    if(NOT TARGET_ARCH)
+        if(DEFINED ENV{PLAT_NAME})
+            if($ENV{PLAT_NAME} MATCHES "arm64")
+                set(TARGET_ARCH "arm64")
+                message(STATUS "macOS: Detected ARM64 from PLAT_NAME")
+            elseif($ENV{PLAT_NAME} MATCHES "x86_64")
+                set(TARGET_ARCH "x86_64")
+                message(STATUS "macOS: Detected x86_64 from PLAT_NAME")
+            endif()
+        endif()
+    endif()
+
+    # Fallback to system detection
+    if(NOT TARGET_ARCH)
         execute_process(
             COMMAND uname -m
             OUTPUT_VARIABLE SYSTEM_ARCH
             OUTPUT_STRIP_TRAILING_WHITESPACE
         )
-        if(SYSTEM_ARCH STREQUAL "arm64")
-            set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "Build architectures for macOS")
-        else()
-            set(CMAKE_OSX_ARCHITECTURES "x86_64" CACHE STRING "Build architectures for macOS")
-        endif()
-        message(STATUS "macOS: Auto-detected architecture: ${CMAKE_OSX_ARCHITECTURES}")
+        set(TARGET_ARCH ${SYSTEM_ARCH})
+        message(STATUS "macOS: Auto-detected system architecture: ${TARGET_ARCH}")
     endif()
 
-    # Ensure compiler respects the architecture setting
-    if(CMAKE_OSX_ARCHITECTURES)
-        foreach(ARCH ${CMAKE_OSX_ARCHITECTURES})
-            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -arch ${ARCH}")
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -arch ${ARCH}")
-        endforeach()
-        message(STATUS "macOS: Architecture flags added to compiler")
-    endif()
+    # Set CMAKE_OSX_ARCHITECTURES to the target architecture
+    set(CMAKE_OSX_ARCHITECTURES ${TARGET_ARCH} CACHE STRING "Build architectures for macOS" FORCE)
+    message(STATUS "macOS: Final target architecture: ${CMAKE_OSX_ARCHITECTURES}")
+
+    # Set architecture-specific compiler flags
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -arch ${TARGET_ARCH}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -arch ${TARGET_ARCH}")
+    message(STATUS "macOS: Added architecture flags: -arch ${TARGET_ARCH}")
 
     # Additional macOS-specific optimizations
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-common")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-common")
+
+    # Ensure proper deployment target handling
+    if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+        set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum macOS deployment target")
+    endif()
+    message(STATUS "macOS: Deployment target: ${CMAKE_OSX_DEPLOYMENT_TARGET}")
 endif()
 
 # Python support
@@ -405,9 +439,14 @@ target_link_libraries(_catzilla PRIVATE
   yyjson
 )
 
-# Only link to Python libraries if they exist and are needed (not for manylinux)
-if(Python3_LIBRARIES AND NOT (UNIX AND NOT APPLE))
+# Only link to Python libraries if they exist and are needed (not for manylinux or macOS)
+# macOS Python extensions should not link to Python libraries - symbols are provided at runtime
+if(Python3_LIBRARIES AND NOT (UNIX AND NOT APPLE) AND NOT APPLE)
     target_link_libraries(_catzilla PRIVATE ${Python3_LIBRARIES})
+elseif(APPLE)
+    # macOS: Set undefined dynamic lookup for Python symbols (standard for extensions)
+    target_link_options(_catzilla PRIVATE "-undefined" "dynamic_lookup")
+    message(STATUS "macOS: Using dynamic lookup for Python symbols (no explicit Python linking)")
 endif()
 
 # Windows-specific linking for Python extension
