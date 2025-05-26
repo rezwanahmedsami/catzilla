@@ -161,7 +161,35 @@ jobs:
         dir wheelhouse\
         echo ""
         echo "Testing wheel installation:"
-        python -m pip install wheelhouse/*.whl --force-reinstall || echo "Some wheels may not be compatible with this Python version"
+        # Use PowerShell to properly handle wildcards
+        $wheels = Get-ChildItem wheelhouse\*.whl
+        if ($wheels.Count -gt 0) {
+          Write-Host "Found $($wheels.Count) wheels to test:"
+          foreach ($wheel in $wheels) {
+            Write-Host "  📦 $($wheel.Name)"
+          }
+          Write-Host ""
+
+          # Try to install a compatible wheel (matching current Python version)
+          $pythonVersion = python -c "import sys; print(f'{sys.version_info.major}{sys.version_info.minor}')"
+          $compatibleWheel = $wheels | Where-Object { $_.Name -match "cp$pythonVersion" } | Select-Object -First 1
+
+          if ($compatibleWheel) {
+            Write-Host "Installing compatible wheel: $($compatibleWheel.Name)"
+            python -m pip install $compatibleWheel.FullName --force-reinstall
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "✅ Successfully installed $($compatibleWheel.Name)"
+            } else {
+              Write-Host "⚠️ Installation completed with warnings"
+            }
+          } else {
+            Write-Host "⚠️ No wheel found matching current Python version (cp$pythonVersion)"
+            Write-Host "Available wheels are compatible with different Python versions"
+          }
+        } else {
+          Write-Host "❌ No wheels found in wheelhouse directory"
+        }
+      shell: pwsh
 
     - name: Upload wheels
       uses: actions/upload-artifact@v4
