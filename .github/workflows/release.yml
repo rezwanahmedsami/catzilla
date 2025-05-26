@@ -156,7 +156,14 @@ jobs:
         CIBW_MANYLINUX_AARCH64_IMAGE: manylinux2014
 
         # Install CMake and build tools before building
-        CIBW_BEFORE_ALL_LINUX: yum install -y cmake3 && ln -sf /usr/bin/cmake3 /usr/bin/cmake
+        CIBW_BEFORE_ALL_LINUX: >
+          yum install -y cmake3 python3-devel python3-libs gcc gcc-c++ make ||
+          (apt-get update && apt-get install -y cmake python3-dev libpython3-dev build-essential) &&
+          ln -sf /usr/bin/cmake3 /usr/bin/cmake || true &&
+          python --version &&
+          cmake --version || echo 'CMake not found in PATH' &&
+          python -c 'import sysconfig; print("Python include dir:", sysconfig.get_path("include"))' &&
+          python -c 'import sysconfig; print("Python library dir:", sysconfig.get_path("stdlib"))'
         CIBW_BEFORE_ALL_MACOS: brew install cmake
         CIBW_BEFORE_ALL_WINDOWS: choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
 
@@ -165,7 +172,10 @@ jobs:
         CIBW_TEST_COMMAND: python -c "from catzilla import App, JSONResponse; print('Wheel test passed for {platform}'.format(platform='{platform}'))"
 
         # Configure build environment
-        CIBW_ENVIRONMENT_LINUX: CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
+        CIBW_ENVIRONMENT_LINUX: >
+          CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release -DPython3_EXECUTABLE={python} -DPython3_FIND_STRATEGY=LOCATION -DPython3_ROOT_DIR={python_dir}"
+          PYTHON="{python}"
+          CMAKE_PREFIX_PATH="{python_dir}"
         CIBW_ENVIRONMENT_MACOS: CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15"
         CIBW_ENVIRONMENT_WINDOWS: CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
 
