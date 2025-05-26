@@ -389,94 +389,100 @@ else()
 endif()
 
 # ——— Tests ———
-# Test framework
-# Add test_router executable
-add_executable(test_router
-  tests/c/test_router.c
-  deps/unity/src/unity.c
-)
-
-target_include_directories(test_router PRIVATE
-  src/core
-  deps/unity/src
-  ${Python3_INCLUDE_DIRS}
-)
-
-target_link_libraries(test_router PRIVATE
-  catzilla_core
-  ${Python3_LIBRARIES}
-)
-
-# Windows-specific linking for tests
-if(WIN32)
-    target_link_libraries(test_router PRIVATE ws2_32 iphlpapi userenv)
-    set_windows_python_library(test_router)
+# Only build tests when not in wheel building mode (skip for manylinux containers)
+# Check if we're in a wheel building environment by looking for common indicators
+set(WHEEL_BUILD_MODE OFF)
+if(DEFINED ENV{AUDITWHEEL_PLAT} OR DEFINED ENV{CIBW_BUILD} OR
+   (UNIX AND NOT APPLE AND EXISTS "/opt/_internal"))
+    set(WHEEL_BUILD_MODE ON)
+    message(STATUS "Detected wheel building environment - skipping test executables")
 endif()
 
-# Add test_advanced_router executable
-add_executable(test_advanced_router
-  tests/c/test_advanced_router.c
-  deps/unity/src/unity.c
-)
+if(NOT WHEEL_BUILD_MODE)
+    message(STATUS "Building test executables")
 
-target_include_directories(test_advanced_router PRIVATE
-  src/core
-  deps/unity/src
-  ${Python3_INCLUDE_DIRS}
-)
+    # Test framework
+    # Add test_router executable
+    add_executable(test_router
+      tests/c/test_router.c
+      deps/unity/src/unity.c
+    )
 
-target_link_libraries(test_advanced_router PRIVATE
-  catzilla_core
-  ${Python3_LIBRARIES}
-)
+    target_include_directories(test_router PRIVATE
+      src/core
+      deps/unity/src
+      ${Python3_INCLUDE_DIRS}
+    )
 
-# Windows-specific linking
-if(WIN32)
-    target_link_libraries(test_advanced_router PRIVATE ws2_32 iphlpapi userenv)
-    set_windows_python_library(test_advanced_router)
+    target_link_libraries(test_router PRIVATE
+      catzilla_core
+    )
+
+    # Link Python libraries for tests (needed for symbols in catzilla_core)
+    if(Python3_LIBRARIES)
+        target_link_libraries(test_router PRIVATE ${Python3_LIBRARIES})
+    endif()
+
+    # Windows-specific linking for tests
+    if(WIN32)
+        target_link_libraries(test_router PRIVATE ws2_32 iphlpapi userenv)
+        set_windows_python_library(test_router)
+    endif()
+
+    # Add test_advanced_router executable
+    add_executable(test_advanced_router
+      tests/c/test_advanced_router.c
+      deps/unity/src/unity.c
+    )
+
+    target_include_directories(test_advanced_router PRIVATE
+      src/core
+      deps/unity/src
+      ${Python3_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(test_advanced_router PRIVATE
+      catzilla_core
+    )
+
+    # Link Python libraries for tests (needed for symbols in catzilla_core)
+    if(Python3_LIBRARIES)
+        target_link_libraries(test_advanced_router PRIVATE ${Python3_LIBRARIES})
+    endif()
+
+    # Windows-specific linking
+    if(WIN32)
+        target_link_libraries(test_advanced_router PRIVATE ws2_32 iphlpapi userenv)
+        set_windows_python_library(test_advanced_router)
+    endif()
+
+    # Add test_server_integration executable
+    add_executable(test_server_integration
+      tests/c/test_server_integration.c
+      deps/unity/src/unity.c
+    )
+
+    target_include_directories(test_server_integration PRIVATE
+      src/core
+      deps/unity/src
+      ${Python3_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(test_server_integration PRIVATE
+      catzilla_core
+    )
+
+    # Link Python libraries for tests (needed for symbols in catzilla_core)
+    if(Python3_LIBRARIES)
+        target_link_libraries(test_server_integration PRIVATE ${Python3_LIBRARIES})
+    endif()
+
+    # Windows-specific linking
+    if(WIN32)
+        target_link_libraries(test_server_integration PRIVATE ws2_32 iphlpapi userenv)
+        set_windows_python_library(test_server_integration)
+    endif()
 endif()
-
-# Add test_server_integration executable
-add_executable(test_server_integration
-  tests/c/test_server_integration.c
-  deps/unity/src/unity.c
-)
-
-target_include_directories(test_server_integration PRIVATE
-  src/core
-  deps/unity/src
-  ${Python3_INCLUDE_DIRS}
-)
-
-target_link_libraries(test_server_integration PRIVATE
-  catzilla_core
-  ${Python3_LIBRARIES}
-)
-
-# Windows-specific linking
-if(WIN32)
-    target_link_libraries(test_server_integration PRIVATE ws2_32 iphlpapi userenv)
-    set_windows_python_library(test_server_integration)
-endif()
-
-# Standalone server executable
-add_executable(catzilla-server src/core/main.c)
-
-target_link_libraries(catzilla-server PRIVATE
-  catzilla_core
-  ${Python3_LIBRARIES}
-)
-
-# Windows-specific linking for standalone server
-if(WIN32)
-    target_link_libraries(catzilla-server PRIVATE ws2_32 iphlpapi userenv)
-    set_windows_python_library(catzilla-server)
-endif()
-
-target_include_directories(catzilla-server PRIVATE ${Python3_INCLUDE_DIRS})
-set_target_properties(catzilla-server PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-)
 
 # Install rules (unused by pip, but here for completeness)
 install(TARGETS _catzilla DESTINATION python/catzilla)

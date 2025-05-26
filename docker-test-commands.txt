@@ -1,0 +1,5 @@
+# to test ubuntu-latest build wheel github action in locally
+cd /Users/user/devwork/catzilla && CIBW_BUILD="cp310-manylinux_x86_64" cibuildwheel --platform linux
+
+#build wheel locally
+cd /Users/user/devwork/catzilla && cibuildwheel --platform linux --archs x86_64
