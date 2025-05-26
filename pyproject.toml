@@ -259,19 +259,7 @@ before-build = [
     # Ensure Python development libraries are available for the current Python version
     "python -c \"import sysconfig; print('Using Python at:', sysconfig.get_path('stdlib'))\"",
     # Create development library symlinks if needed for current Python version
-    "python -c \"",
-    "import sysconfig, os, sys",
-    "lib_dir = os.path.join(os.path.dirname(sys.executable), '..', 'lib')",
-    "os.makedirs(lib_dir, exist_ok=True)",
-    "version = f'{sys.version_info.major}.{sys.version_info.minor}'",
-    "for sys_lib in [f'/usr/lib64/libpython{version}.so', f'/usr/lib64/libpython{version}m.so', f'/lib64/libpython{version}.so']:",
-    "    if os.path.exists(sys_lib):",
-    "        link_path = os.path.join(lib_dir, os.path.basename(sys_lib))",
-    "        try:",
-    "            if not os.path.exists(link_path): os.symlink(sys_lib, link_path)",
-    "        except: pass",
-    "print('Development library setup complete')",
-    "\""
+    "python -c \"import sysconfig, os, sys; lib_dir = os.path.join(os.path.dirname(sys.executable), '..', 'lib'); os.makedirs(lib_dir, exist_ok=True); version = f'{sys.version_info.major}.{sys.version_info.minor}'; [os.symlink(sys_lib, os.path.join(lib_dir, os.path.basename(sys_lib))) for sys_lib in [f'/usr/lib64/libpython{version}.so', f'/usr/lib64/libpython{version}m.so', f'/lib64/libpython{version}.so'] if os.path.exists(sys_lib) and not os.path.exists(os.path.join(lib_dir, os.path.basename(sys_lib)))]; print('Development library setup complete')\""
 ]
 
 # Test settings
