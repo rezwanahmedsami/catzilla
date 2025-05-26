@@ -87,7 +87,66 @@ endif()
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "")
 
 # Python support
-find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+# Set Python-related variables to help CMake find Python in containerized environments
+if(DEFINED ENV{Python3_ROOT_DIR})
+    set(Python3_ROOT_DIR $ENV{Python3_ROOT_DIR})
+endif()
+
+if(DEFINED ENV{Python3_EXECUTABLE})
+    set(Python3_EXECUTABLE $ENV{Python3_EXECUTABLE})
+endif()
+
+# Use the current Python executable if available
+if(NOT Python3_EXECUTABLE AND DEFINED ENV{PYTHON})
+    set(Python3_EXECUTABLE $ENV{PYTHON})
+endif()
+
+# For manylinux containers, try to use the active Python
+if(NOT Python3_EXECUTABLE)
+    find_program(Python3_EXECUTABLE NAMES python3 python)
+endif()
+
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development Development.Embed)
+
+# Debug Python detection for troubleshooting
+message(STATUS "Python detection results:")
+message(STATUS "  Python3_FOUND: ${Python3_FOUND}")
+message(STATUS "  Python3_VERSION: ${Python3_VERSION}")
+message(STATUS "  Python3_EXECUTABLE: ${Python3_EXECUTABLE}")
+message(STATUS "  Python3_INCLUDE_DIRS: ${Python3_INCLUDE_DIRS}")
+message(STATUS "  Python3_LIBRARIES: ${Python3_LIBRARIES}")
+message(STATUS "  Python3_LIBRARY_DIRS: ${Python3_LIBRARY_DIRS}")
+
+# Additional fallback for manylinux containers if libraries are not found
+if(UNIX AND NOT APPLE AND NOT Python3_LIBRARIES)
+    message(STATUS "Python3_LIBRARIES not found, attempting fallback detection...")
+
+    # Try to find Python library manually
+    execute_process(
+        COMMAND ${Python3_EXECUTABLE} -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))"
+        OUTPUT_VARIABLE PYTHON_LIB_DIR
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    execute_process(
+        COMMAND ${Python3_EXECUTABLE} -c "import sysconfig; print(f\"python{sysconfig.get_config_var('py_version_short')}\")"
+        OUTPUT_VARIABLE PYTHON_LIB_NAME
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    if(PYTHON_LIB_DIR AND PYTHON_LIB_NAME)
+        find_library(PYTHON_FALLBACK_LIB
+            NAMES ${PYTHON_LIB_NAME}
+            PATHS ${PYTHON_LIB_DIR}
+            NO_DEFAULT_PATH
+        )
+
+        if(PYTHON_FALLBACK_LIB)
+            set(Python3_LIBRARIES ${PYTHON_FALLBACK_LIB})
+            message(STATUS "Fallback: Found Python library: ${Python3_LIBRARIES}")
+        endif()
+    endif()
+endif()
 
 # Windows-specific Python library override to prevent debug library linking
 if(WIN32)

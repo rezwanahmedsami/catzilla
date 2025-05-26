@@ -266,14 +266,28 @@ environment = { CMAKE_BUILD_TYPE = "Release" }
 [tool.cibuildwheel.linux]
 # Linux-specific settings
 before-all = [
-    "yum install -y cmake3 || apt-get update && apt-get install -y cmake",
-    "ln -sf /usr/bin/cmake3 /usr/bin/cmake || true"
+    # Install cmake and Python development headers for manylinux containers
+    # Try yum first (RHEL/CentOS-based), then apt (Debian/Ubuntu-based)
+    "yum install -y cmake3 python3-devel python3-libs || (apt-get update && apt-get install -y cmake python3-dev libpython3-dev)",
+    # Ensure cmake is available in PATH
+    "ln -sf /usr/bin/cmake3 /usr/bin/cmake || true",
+    # Install additional development packages that may be needed
+    "yum install -y gcc gcc-c++ make || apt-get install -y build-essential",
+    # Verify installations
+    "python --version",
+    "cmake --version || echo 'CMake not found in PATH'",
+    "python -c 'import sysconfig; print(\"Python include dir:\", sysconfig.get_path(\"include\"))'",
+    "python -c 'import sysconfig; print(\"Python library dir:\", sysconfig.get_path(\"stdlib\"))'"
 ]
 manylinux-x86_64-image = "manylinux2014"
 manylinux-aarch64-image = "manylinux2014"
 
 [tool.cibuildwheel.linux.environment]
-CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release"
+CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release -DPython3_EXECUTABLE={python} -DPython3_FIND_STRATEGY=LOCATION -DPython3_ROOT_DIR={python_dir}"
+# Help CMake find Python in manylinux containers
+PYTHON = "{python}"
+# Ensure Python development headers are found
+CMAKE_PREFIX_PATH = "{python_dir}"
 
 [tool.cibuildwheel.macos]
 # macOS-specific settings
