@@ -1,5 +1,6 @@
 include CMakeLists.txt
 include LICENSE
+include debug_import.py
 recursive-include src *
 recursive-include deps *
 recursive-include python/catzilla *
