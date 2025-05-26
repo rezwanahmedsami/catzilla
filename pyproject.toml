@@ -265,7 +265,9 @@ test-command = "python -c \"from catzilla import App, JSONResponse; app = App();
 # Environment variables for all platforms
 environment = { CMAKE_BUILD_TYPE = "Release" }
 
+# Architecture selection for different platforms
 [tool.cibuildwheel.linux]
+archs = ["x86_64", "aarch64"]
 # Linux-specific settings for manylinux containers
 before-all = [
     # Try to use vault.centos.org mirrors if standard ones fail
@@ -280,20 +282,24 @@ before-all = [
 manylinux-x86_64-image = "manylinux2014"
 manylinux-aarch64-image = "manylinux2014"
 
-[tool.cibuildwheel.linux.environment]
-CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release"
-
 [tool.cibuildwheel.macos]
+# Build for both Intel and Apple Silicon
+archs = ["x86_64", "arm64"]
 # macOS-specific settings
 before-all = "brew install cmake"
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64"]
+# Windows-specific settings
+before-all = "choco install cmake --installargs='ADD_CMAKE_TO_PATH=System'"
+
+[tool.cibuildwheel.linux.environment]
+CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release"
 
 [tool.cibuildwheel.macos.environment]
 CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15"
 MACOSX_DEPLOYMENT_TARGET = "10.15"
-
-[tool.cibuildwheel.windows]
-# Windows-specific settings
-before-all = "choco install cmake --installargs='ADD_CMAKE_TO_PATH=System'"
+# Enable multi-architecture support - cibuildwheel will set CMAKE_OSX_ARCHITECTURES automatically
 
 [tool.cibuildwheel.windows.environment]
 CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release"

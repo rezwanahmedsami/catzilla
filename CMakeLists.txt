@@ -86,6 +86,54 @@ endif()
 
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "")
 
+# macOS multi-architecture support
+if(APPLE)
+    # Handle multi-architecture builds for macOS
+    # Check if we're building for specific architectures via environment variables
+    if(DEFINED ENV{CMAKE_OSX_ARCHITECTURES})
+        set(CMAKE_OSX_ARCHITECTURES $ENV{CMAKE_OSX_ARCHITECTURES} CACHE STRING "Build architectures for macOS")
+        message(STATUS "macOS: Using architectures from environment: ${CMAKE_OSX_ARCHITECTURES}")
+    elseif(DEFINED ENV{ARCHFLAGS})
+        # Parse ARCHFLAGS environment variable (common in Python wheel building)
+        string(REGEX MATCHALL "-arch ([a-zA-Z0-9_]+)" ARCH_MATCHES $ENV{ARCHFLAGS})
+        set(PARSED_ARCHS "")
+        foreach(ARCH_MATCH ${ARCH_MATCHES})
+            string(REGEX REPLACE "-arch " "" ARCH ${ARCH_MATCH})
+            list(APPEND PARSED_ARCHS ${ARCH})
+        endforeach()
+        if(PARSED_ARCHS)
+            set(CMAKE_OSX_ARCHITECTURES ${PARSED_ARCHS} CACHE STRING "Build architectures for macOS")
+            message(STATUS "macOS: Using architectures from ARCHFLAGS: ${CMAKE_OSX_ARCHITECTURES}")
+        endif()
+    else()
+        # Default to current system architecture if not specified
+        execute_process(
+            COMMAND uname -m
+            OUTPUT_VARIABLE SYSTEM_ARCH
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        if(SYSTEM_ARCH STREQUAL "arm64")
+            set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "Build architectures for macOS")
+        else()
+            set(CMAKE_OSX_ARCHITECTURES "x86_64" CACHE STRING "Build architectures for macOS")
+        endif()
+        message(STATUS "macOS: Auto-detected architecture: ${CMAKE_OSX_ARCHITECTURES}")
+    endif()
+
+    # Ensure compiler respects the architecture setting
+    if(CMAKE_OSX_ARCHITECTURES)
+        foreach(ARCH ${CMAKE_OSX_ARCHITECTURES})
+            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -arch ${ARCH}")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -arch ${ARCH}")
+        endforeach()
+        message(STATUS "macOS: Architecture flags added to compiler")
+    endif()
+
+    # Additional macOS-specific optimizations
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-common")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-common")
+endif()
+
 # Python support
 # Set Python-related variables to help CMake find Python in containerized environments
 if(DEFINED ENV{Python3_ROOT_DIR})
