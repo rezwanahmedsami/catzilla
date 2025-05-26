@@ -260,7 +260,7 @@ before-build = "pip install cmake pybind11"
 
 # Test settings
 test-requires = "pytest"
-test-command = "python -c \"from catzilla import App, JSONResponse; print('Wheel test passed')\""
+test-command = "python -c \"from catzilla import App, JSONResponse; app = App(); print('✅ Wheel test passed')\""
 
 # Environment variables for all platforms
 environment = { CMAKE_BUILD_TYPE = "Release" }

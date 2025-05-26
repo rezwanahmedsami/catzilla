@@ -9,3 +9,8 @@ recursive-include scripts *
 global-exclude *.pyc
 global-exclude __pycache__
 global-exclude .git*
+global-exclude *.so
+global-exclude *.dll
+global-exclude *.dylib
+global-exclude build/*
+global-exclude *.egg-info/*

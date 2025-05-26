@@ -106,7 +106,32 @@ if(NOT Python3_EXECUTABLE)
     find_program(Python3_EXECUTABLE NAMES python3 python)
 endif()
 
-find_package(Python3 REQUIRED COMPONENTS Interpreter Development Development.Embed)
+# Platform-specific Python finding strategy for better manylinux compatibility
+if(UNIX AND NOT APPLE)
+    # Linux: Be more flexible for manylinux compatibility
+    # First try with just Interpreter (always works)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+    # Try to find Development.Module (preferred for extensions)
+    find_package(Python3 QUIET COMPONENTS Development.Module)
+    if(NOT Python3_Development.Module_FOUND)
+        # Fallback to basic Development (without .Embed which needs libpython)
+        find_package(Python3 QUIET COMPONENTS Development)
+    endif()
+
+    # Get Python info manually if CMake detection fails
+    if(NOT Python3_INCLUDE_DIRS)
+        execute_process(
+            COMMAND ${Python3_EXECUTABLE} -c "import sysconfig; print(sysconfig.get_path('include'))"
+            OUTPUT_VARIABLE Python3_INCLUDE_DIRS
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        message(STATUS "Python include dirs from sysconfig: ${Python3_INCLUDE_DIRS}")
+    endif()
+else()
+    # Windows and macOS: use the full approach (libraries are usually available)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter Development Development.Embed)
+endif()
 
 # Debug Python detection for troubleshooting
 message(STATUS "Python detection results:")
