@@ -69,31 +69,41 @@ REM 4. Configure with CMake
 echo.
 echo Configuring with CMake...
 
-REM Determine the actual build type to use
+REM Determine the actual build type to use - using immediate assignment
 if "%BUILD_TYPE%"=="auto" (
-    echo   Using automatic build type detection (using Release for maximum compatibility)
-    set ACTUAL_BUILD_TYPE=Release
+    echo   Using Release build (auto mode default for maximum compatibility)
+    goto :set_release
 ) else if "%BUILD_TYPE%"=="Debug" (
-    echo   Debug build requested - checking for Python debug libraries...
-    python -c "import sys; import os; debug_lib = os.path.join(os.path.dirname(sys.executable), 'libs', f'python{sys.version_info.major}{sys.version_info.minor}_d.lib'); print('Debug libraries found' if os.path.exists(debug_lib) else 'Debug libraries not found'); exit(0 if os.path.exists(debug_lib) else 1)" 2>nul
-    if !errorlevel! neq 0 (
-        echo   Python debug libraries not found!
-        echo   Using RelWithDebInfo instead (optimized + debug symbols)
-        echo   This provides debugging capabilities without requiring Python debug libraries
-        set ACTUAL_BUILD_TYPE=RelWithDebInfo
-    ) else (
-        set ACTUAL_BUILD_TYPE=Debug
-    )
+    echo   Debug build requested - using Release for maximum compatibility
+    echo   Note: Python debug libraries are rarely available, using Release build
+    goto :set_release
 ) else (
     echo   Using explicit build type: %BUILD_TYPE%
-    set ACTUAL_BUILD_TYPE=%BUILD_TYPE%
+    goto :set_explicit
 )
 
-echo   Final build type: !ACTUAL_BUILD_TYPE!
-echo   DEBUG: BUILD_TYPE="%BUILD_TYPE%", ACTUAL_BUILD_TYPE="!ACTUAL_BUILD_TYPE!"
+:set_release
+set ACTUAL_BUILD_TYPE=Release
+goto :continue_build
+
+:set_debug
+set ACTUAL_BUILD_TYPE=Debug
+goto :continue_build
+
+:set_relwithdebinfo
+set ACTUAL_BUILD_TYPE=RelWithDebInfo
+goto :continue_build
+
+:set_explicit
+set ACTUAL_BUILD_TYPE=%BUILD_TYPE%
+goto :continue_build
+
+:continue_build
+echo   Final build type: %ACTUAL_BUILD_TYPE%
+echo   DEBUG: BUILD_TYPE="%BUILD_TYPE%", ACTUAL_BUILD_TYPE="%ACTUAL_BUILD_TYPE%"
 
 REM Run CMake configuration only once
-cmake .. -DCMAKE_BUILD_TYPE=!ACTUAL_BUILD_TYPE! -DPython3_EXECUTABLE="!PYTHON_EXE!"
+cmake .. -DCMAKE_BUILD_TYPE=%ACTUAL_BUILD_TYPE% -DPython3_EXECUTABLE="!PYTHON_EXE!"
 
 if %errorlevel% neq 0 (
     echo CMake configuration failed!
@@ -107,11 +117,11 @@ if %errorlevel% neq 0 (
 REM 5. Build with appropriate configuration
 echo.
 echo Building Catzilla...
-echo   DEBUG: About to build with config "!ACTUAL_BUILD_TYPE!" and !cores! cores
+echo   DEBUG: About to build with config "%ACTUAL_BUILD_TYPE%" and !cores! cores
 
 REM Use the determined build type for building
-echo   Running: cmake --build . --config !ACTUAL_BUILD_TYPE! --parallel !cores!
-cmake --build . --config !ACTUAL_BUILD_TYPE! --parallel !cores!
+echo   Running: cmake --build . --config %ACTUAL_BUILD_TYPE% --parallel !cores!
+cmake --build . --config %ACTUAL_BUILD_TYPE% --parallel !cores!
 
 if %errorlevel% neq 0 (
     echo Build failed!
@@ -141,7 +151,7 @@ if %errorlevel% neq 0 (
 echo.
 echo Build completed successfully!
 echo Build Summary:
-echo   - Configuration: !ACTUAL_BUILD_TYPE!
+echo   - Configuration: %ACTUAL_BUILD_TYPE%
 echo   - Python: !PYTHON_EXE!
 echo   - Cores used: !cores!
 echo.
@@ -159,7 +169,7 @@ echo   build.bat [BUILD_TYPE] [OPTIONS]
 echo.
 echo Build Types:
 echo   auto         Use Release mode for maximum compatibility (default)
-echo   Debug        Full debugging symbols (automatically falls back to RelWithDebInfo if Python debug libs unavailable)
+echo   Debug        Use Release mode (Python debug libs rarely available)
 echo   Release      Optimized build (recommended for production)
 echo   RelWithDebInfo   Optimized + debug symbols (best for development)
 echo   MinSizeRel   Minimal size optimized build
@@ -177,5 +187,5 @@ echo Tips:
 echo   - Use 'auto' for best compatibility across different Python installations (uses Release)
 echo   - Use 'RelWithDebInfo' for development on Windows (debugging without Python debug libs)
 echo   - Use 'Release' for production builds or benchmarking
-echo   - Use 'Debug' for full debugging (auto-falls back to RelWithDebInfo if needed)
+echo   - Debug mode also uses Release since Python debug libraries are rarely available
 goto :eof
