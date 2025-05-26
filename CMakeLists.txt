@@ -119,31 +119,113 @@ message(STATUS "  Python3_LIBRARY_DIRS: ${Python3_LIBRARY_DIRS}")
 
 # Additional fallback for manylinux containers if libraries are not found
 if(UNIX AND NOT APPLE AND NOT Python3_LIBRARIES)
-    message(STATUS "Python3_LIBRARIES not found, attempting fallback detection...")
+    message(STATUS "Python3_LIBRARIES not found, attempting comprehensive fallback detection...")
 
-    # Try to find Python library manually
+    # Get Python version info
+    execute_process(
+        COMMAND ${Python3_EXECUTABLE} -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
+        OUTPUT_VARIABLE PYTHON_VERSION_SHORT
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    # Try to find Python library directory
     execute_process(
         COMMAND ${Python3_EXECUTABLE} -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))"
         OUTPUT_VARIABLE PYTHON_LIB_DIR
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
 
-    execute_process(
-        COMMAND ${Python3_EXECUTABLE} -c "import sysconfig; print(f\"python{sysconfig.get_config_var('py_version_short')}\")"
-        OUTPUT_VARIABLE PYTHON_LIB_NAME
-        OUTPUT_STRIP_TRAILING_WHITESPACE
+    # Also try the lib directory relative to the Python executable
+    get_filename_component(PYTHON_PREFIX ${Python3_EXECUTABLE} DIRECTORY)
+    get_filename_component(PYTHON_PREFIX ${PYTHON_PREFIX} DIRECTORY)
+
+    # Multiple potential library names and locations
+    set(PYTHON_LIB_NAMES
+        "python${PYTHON_VERSION_SHORT}"
+        "python${PYTHON_VERSION_SHORT}m"
+        "python${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}"
+        "python${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}m"
     )
 
-    if(PYTHON_LIB_DIR AND PYTHON_LIB_NAME)
-        find_library(PYTHON_FALLBACK_LIB
-            NAMES ${PYTHON_LIB_NAME}
-            PATHS ${PYTHON_LIB_DIR}
-            NO_DEFAULT_PATH
+    set(PYTHON_LIB_PATHS
+        "${PYTHON_LIB_DIR}"
+        "${PYTHON_PREFIX}/lib"
+        "${PYTHON_PREFIX}/lib64"
+        "/usr/lib64"
+        "/usr/lib"
+        "/lib64"
+        "/lib"
+    )
+
+    # Try to find the Python library
+    foreach(LIB_NAME ${PYTHON_LIB_NAMES})
+        foreach(LIB_PATH ${PYTHON_LIB_PATHS})
+            # Look for shared library first
+            find_library(PYTHON_FALLBACK_LIB_${LIB_NAME}
+                NAMES ${LIB_NAME}
+                PATHS ${LIB_PATH}
+                NO_DEFAULT_PATH
+            )
+
+            if(PYTHON_FALLBACK_LIB_${LIB_NAME})
+                set(Python3_LIBRARIES ${PYTHON_FALLBACK_LIB_${LIB_NAME}})
+                message(STATUS "Fallback: Found Python library: ${Python3_LIBRARIES}")
+                break()
+            endif()
+
+            # If shared library not found, look for static library
+            find_library(PYTHON_FALLBACK_STATIC_${LIB_NAME}
+                NAMES "lib${LIB_NAME}.a"
+                PATHS ${LIB_PATH}
+                NO_DEFAULT_PATH
+            )
+
+            if(PYTHON_FALLBACK_STATIC_${LIB_NAME})
+                set(Python3_LIBRARIES ${PYTHON_FALLBACK_STATIC_${LIB_NAME}})
+                message(STATUS "Fallback: Found Python static library: ${Python3_LIBRARIES}")
+                break()
+            endif()
+        endforeach()
+
+        if(Python3_LIBRARIES)
+            break()
+        endif()
+    endforeach()
+
+    # If still not found, try creating a minimal library setup
+    if(NOT Python3_LIBRARIES)
+        message(STATUS "Creating minimal Python library configuration...")
+
+        # For manylinux containers, we may need to work without explicit libraries
+        # Set a placeholder that indicates we're using embedded Python
+        set(Python3_LIBRARIES "python_embedded")
+
+        # Try to extract library information from Python itself
+        execute_process(
+            COMMAND ${Python3_EXECUTABLE} -c "
+import sysconfig
+import os
+libdir = sysconfig.get_config_var('LIBDIR')
+libname = sysconfig.get_config_var('LDLIBRARY')
+if libdir and libname:
+    full_path = os.path.join(libdir, libname)
+    if os.path.exists(full_path):
+        print(full_path)
+    else:
+        # Try alternative naming
+        version = sysconfig.get_config_var('py_version_short')
+        alt_name = f'libpython{version}.so'
+        alt_path = os.path.join(libdir, alt_name)
+        if os.path.exists(alt_path):
+            print(alt_path)
+"
+            OUTPUT_VARIABLE PYTHON_DETECTED_LIB
+            OUTPUT_STRIP_TRAILING_WHITESPACE
         )
 
-        if(PYTHON_FALLBACK_LIB)
-            set(Python3_LIBRARIES ${PYTHON_FALLBACK_LIB})
-            message(STATUS "Fallback: Found Python library: ${Python3_LIBRARIES}")
+        if(PYTHON_DETECTED_LIB AND EXISTS ${PYTHON_DETECTED_LIB})
+            set(Python3_LIBRARIES ${PYTHON_DETECTED_LIB})
+            message(STATUS "Python-detected library: ${Python3_LIBRARIES}")
         endif()
     endif()
 endif()

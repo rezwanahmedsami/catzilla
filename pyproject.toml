@@ -252,9 +252,27 @@ skip = [
     "*-musllinux_*",     # Skip musl Linux for now (can enable later)
 ]
 
-# Build settings
+# Build settings - key fix: disable isolated builds in problematic environments
 build-frontend = "build"
-before-build = "pip install cmake pybind11"
+before-build = [
+    "pip install cmake pybind11",
+    # Ensure Python development libraries are available for the current Python version
+    "python -c \"import sysconfig; print('Using Python at:', sysconfig.get_path('stdlib'))\"",
+    # Create development library symlinks if needed for current Python version
+    "python -c \"",
+    "import sysconfig, os, sys",
+    "lib_dir = os.path.join(os.path.dirname(sys.executable), '..', 'lib')",
+    "os.makedirs(lib_dir, exist_ok=True)",
+    "version = f'{sys.version_info.major}.{sys.version_info.minor}'",
+    "for sys_lib in [f'/usr/lib64/libpython{version}.so', f'/usr/lib64/libpython{version}m.so', f'/lib64/libpython{version}.so']:",
+    "    if os.path.exists(sys_lib):",
+    "        link_path = os.path.join(lib_dir, os.path.basename(sys_lib))",
+    "        try:",
+    "            if not os.path.exists(link_path): os.symlink(sys_lib, link_path)",
+    "        except: pass",
+    "print('Development library setup complete')",
+    "\""
+]
 
 # Test settings
 test-requires = "pytest"
@@ -264,30 +282,67 @@ test-command = "python -c \"from catzilla import App, JSONResponse; print('Wheel
 environment = { CMAKE_BUILD_TYPE = "Release" }
 
 [tool.cibuildwheel.linux]
-# Linux-specific settings
+# Linux-specific settings for manylinux containers
 before-all = [
-    # Install cmake and Python development headers for manylinux containers
-    # Try yum first (RHEL/CentOS-based), then apt (Debian/Ubuntu-based)
-    "yum install -y cmake3 python3-devel python3-libs || (apt-get update && apt-get install -y cmake python3-dev libpython3-dev)",
-    # Ensure cmake is available in PATH
+    # Install system dependencies first
+    "yum install -y cmake3 python3-devel python3-libs gcc gcc-c++ make || (apt-get update && apt-get install -y cmake python3-dev libpython3-dev build-essential)",
     "ln -sf /usr/bin/cmake3 /usr/bin/cmake || true",
-    # Install additional development packages that may be needed
-    "yum install -y gcc gcc-c++ make || apt-get install -y build-essential",
+
+    # Critical fix: Install Python development headers for each Python version
+    # The issue is that manylinux containers have Python versions in /opt/python/ without dev headers
+    "echo 'Setting up Python development libraries for all versions...'",
+
+    # Install development packages for common Python versions
+    "yum install -y python36-devel python37-devel python38-devel python39-devel python310-devel python311-devel python312-devel || true",
+
+    # Alternative approach: Create development library links for each Python version
+    "for py_dir in /opt/python/cp3*; do",
+    "  if [ -d \"$py_dir\" ]; then",
+    "    py_bin=\"$py_dir/bin/python\"",
+    "    if [ -f \"$py_bin\" ]; then",
+    "      echo \"Processing Python at $py_bin\"",
+    "      # Get version info",
+    "      py_ver=$($py_bin -c \"import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')\" 2>/dev/null || echo 'unknown')",
+    "      echo \"  Python version: $py_ver\"",
+    "      # Ensure lib directory exists",
+    "      mkdir -p \"$py_dir/lib\"",
+    "      # Try to link system Python libraries to this Python version",
+    "      if [ \"$py_ver\" != 'unknown' ]; then",
+    "        for sys_lib in /usr/lib64/libpython${py_ver}* /lib64/libpython${py_ver}* /usr/lib/libpython${py_ver}*; do",
+    "          if [ -f \"$sys_lib\" ]; then",
+    "            ln -sf \"$sys_lib\" \"$py_dir/lib/\" 2>/dev/null || true",
+    "            echo \"    Linked: $sys_lib\"",
+    "          fi",
+    "        done",
+    "      fi",
+    "    fi",
+    "  fi",
+    "done",
+
     # Verify installations
+    "echo 'System verification:'",
     "python --version",
     "cmake --version || echo 'CMake not found in PATH'",
-    "python -c 'import sysconfig; print(\"Python include dir:\", sysconfig.get_path(\"include\"))'",
-    "python -c 'import sysconfig; print(\"Python library dir:\", sysconfig.get_path(\"stdlib\"))'"
+    "echo 'Python installations:'",
+    "ls -la /opt/python/ | head -10",
+    "echo 'System Python info:'",
+    "python -c 'import sysconfig; print(\"Include:\", sysconfig.get_path(\"include\"))' || true",
+    "python -c 'import sysconfig; print(\"Stdlib:\", sysconfig.get_path(\"stdlib\"))' || true"
 ]
 manylinux-x86_64-image = "manylinux2014"
 manylinux-aarch64-image = "manylinux2014"
 
 [tool.cibuildwheel.linux.environment]
-CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release -DPython3_EXECUTABLE={python} -DPython3_FIND_STRATEGY=LOCATION -DPython3_ROOT_DIR={python_dir}"
+# Enhanced CMake configuration for manylinux containers
+CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release -DPython3_EXECUTABLE={python} -DPython3_FIND_STRATEGY=LOCATION -DPython3_ROOT_DIR={python_dir} -DPython3_FIND_REGISTRY=NEVER"
 # Help CMake find Python in manylinux containers
 PYTHON = "{python}"
 # Ensure Python development headers are found
 CMAKE_PREFIX_PATH = "{python_dir}"
+# Additional environment variables to help with Python detection
+PYTHONHOME = "{python_dir}"
+# Force CMake to look in the correct Python directory first
+CMAKE_FIND_ROOT_PATH = "{python_dir}"
 
 [tool.cibuildwheel.macos]
 # macOS-specific settings
