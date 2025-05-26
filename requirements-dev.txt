@@ -6,6 +6,10 @@ pytest>=8.0
 
 # Code quality tools
 pre-commit
+flake8>=6.0.0
+bandit>=1.7.0
+safety>=2.0.0
+pip-audit>=2.0.0
 
 # HTTP client for integration testing
 requests>=2.31.0

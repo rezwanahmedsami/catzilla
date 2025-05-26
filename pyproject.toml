@@ -238,3 +238,54 @@ force_grid_wrap = 0
 use_parentheses = true
 ensure_newline_before_comments = true
 line_length = 88
+
+# cibuildwheel configuration for professional wheel building
+[tool.cibuildwheel]
+# Build for Python 3.8-3.12 across all platforms
+build = "cp38-* cp39-* cp310-* cp311-* cp312-*"
+
+# Skip problematic builds
+skip = [
+    "*-win32",           # Skip 32-bit Windows
+    "*-manylinux_i686",  # Skip 32-bit Linux
+    "pp*",               # Skip PyPy builds
+    "*-musllinux_*",     # Skip musl Linux for now (can enable later)
+]
+
+# Build settings
+build-frontend = "build"
+before-build = "pip install cmake pybind11"
+
+# Test settings
+test-requires = "pytest"
+test-command = "python -c \"from catzilla import App, JSONResponse; print('Wheel test passed')\""
+
+# Environment variables for all platforms
+environment = { CMAKE_BUILD_TYPE = "Release" }
+
+[tool.cibuildwheel.linux]
+# Linux-specific settings
+before-all = [
+    "yum install -y cmake3 || apt-get update && apt-get install -y cmake",
+    "ln -sf /usr/bin/cmake3 /usr/bin/cmake || true"
+]
+manylinux-x86_64-image = "manylinux2014"
+manylinux-aarch64-image = "manylinux2014"
+
+[tool.cibuildwheel.linux.environment]
+CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release"
+
+[tool.cibuildwheel.macos]
+# macOS-specific settings
+before-all = "brew install cmake"
+
+[tool.cibuildwheel.macos.environment]
+CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15"
+MACOSX_DEPLOYMENT_TARGET = "10.15"
+
+[tool.cibuildwheel.windows]
+# Windows-specific settings
+before-all = "choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'"
+
+[tool.cibuildwheel.windows.environment]
+CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release"
