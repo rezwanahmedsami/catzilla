@@ -222,8 +222,8 @@ if(UNIX AND NOT APPLE AND NOT Python3_LIBRARIES)
         message(STATUS "Creating minimal Python library configuration...")
 
         # For manylinux containers, we may need to work without explicit libraries
-        # Set a placeholder that indicates we're using embedded Python
-        set(Python3_LIBRARIES "python_embedded")
+        # Python extensions don't actually need to link against libpython in most cases
+        set(Python3_LIBRARIES "")
 
         # Try to extract library information from Python itself
         execute_process(
@@ -355,8 +355,12 @@ target_link_libraries(_catzilla PRIVATE
   catzilla_core
   llhttp_static
   yyjson
-  ${Python3_LIBRARIES}
 )
+
+# Only link to Python libraries if they exist and are needed (not for manylinux)
+if(Python3_LIBRARIES AND NOT (UNIX AND NOT APPLE))
+    target_link_libraries(_catzilla PRIVATE ${Python3_LIBRARIES})
+endif()
 
 # Windows-specific linking for Python extension
 if(WIN32)

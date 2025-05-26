@@ -12,7 +12,8 @@ name = "catzilla"
 version = "0.1.0"
 description = "Ultra-fast Python web framework with C-accelerated routing"
 readme = "README.md"
-license = {file = "LICENSE"}
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     {name = "Rezwan Ahmed Sami", email = "samiahmed0f0@gmail.com"}
 ]
@@ -268,7 +269,13 @@ environment = { CMAKE_BUILD_TYPE = "Release" }
 [tool.cibuildwheel.linux]
 # Linux-specific settings for manylinux containers
 before-all = [
-    "yum install -y cmake3 gcc gcc-c++ make python3-devel || (apt-get update && apt-get install -y cmake build-essential python3-dev)",
+    # Try to use vault.centos.org mirrors if standard ones fail
+    "yum-config-manager --add-repo http://vault.centos.org/centos/7/os/x86_64/ || true",
+    "yum-config-manager --add-repo http://vault.centos.org/centos/7/updates/x86_64/ || true",
+    "yum clean all || true",
+    # Install build dependencies with fallback to apt (for Ubuntu-based images)
+    "yum install -y cmake3 gcc gcc-c++ make python3-devel --skip-broken || (apt-get update && apt-get install -y cmake build-essential python3-dev)",
+    # Create cmake symlink for compatibility
     "ln -sf /usr/bin/cmake3 /usr/bin/cmake || true",
 ]
 manylinux-x86_64-image = "manylinux2014"
