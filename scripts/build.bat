@@ -60,6 +60,8 @@ echo   Python found: !PYTHON_EXE!
 
 REM Detect number of cores for parallel build
 for /f "tokens=2 delims==" %%i in ('wmic cpu get NumberOfCores /value ^| find "=" 2^>nul') do set cores=%%i
+REM Strip any whitespace/newlines from cores variable
+for /f "tokens=* delims= " %%a in ("!cores!") do set cores=%%a
 if "!cores!"=="" set cores=2
 echo   CPU cores detected: !cores!
 
@@ -67,9 +69,10 @@ REM 4. Configure with CMake
 echo.
 echo Configuring with CMake...
 
+REM Determine the actual build type to use
 if "%BUILD_TYPE%"=="auto" (
     echo   Using automatic build type detection (using Release for maximum compatibility)
-    cmake .. -DCMAKE_BUILD_TYPE=Release -DPython3_EXECUTABLE="!PYTHON_EXE!"
+    set ACTUAL_BUILD_TYPE=Release
 ) else if "%BUILD_TYPE%"=="Debug" (
     echo   Debug build requested - checking for Python debug libraries...
     python -c "import sys; import os; debug_lib = os.path.join(os.path.dirname(sys.executable), 'libs', f'python{sys.version_info.major}{sys.version_info.minor}_d.lib'); print('Debug libraries found' if os.path.exists(debug_lib) else 'Debug libraries not found'); exit(0 if os.path.exists(debug_lib) else 1)" 2>nul
@@ -77,14 +80,19 @@ if "%BUILD_TYPE%"=="auto" (
         echo   Python debug libraries not found!
         echo   Using RelWithDebInfo instead (optimized + debug symbols)
         echo   This provides debugging capabilities without requiring Python debug libraries
-        set BUILD_TYPE=RelWithDebInfo
+        set ACTUAL_BUILD_TYPE=RelWithDebInfo
+    ) else (
+        set ACTUAL_BUILD_TYPE=Debug
     )
-    echo   Using build type: !BUILD_TYPE!
-    cmake .. -DCMAKE_BUILD_TYPE=!BUILD_TYPE! -DPython3_EXECUTABLE="!PYTHON_EXE!"
 ) else (
     echo   Using explicit build type: %BUILD_TYPE%
-    cmake .. -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DPython3_EXECUTABLE="!PYTHON_EXE!"
+    set ACTUAL_BUILD_TYPE=%BUILD_TYPE%
 )
+
+echo   Final build type: !ACTUAL_BUILD_TYPE!
+
+REM Run CMake configuration only once
+cmake .. -DCMAKE_BUILD_TYPE=!ACTUAL_BUILD_TYPE! -DPython3_EXECUTABLE="!PYTHON_EXE!"
 
 if %errorlevel% neq 0 (
     echo CMake configuration failed!
@@ -99,13 +107,8 @@ REM 5. Build with appropriate configuration
 echo.
 echo Building Catzilla...
 
-if "%BUILD_TYPE%"=="auto" (
-    REM For auto detection, we're using Release mode for maximum compatibility
-    cmake --build . --config Release -j !cores!
-) else (
-    REM For explicit build type, use it for the build step too
-    cmake --build . --config %BUILD_TYPE% -j !cores!
-)
+REM Use the determined build type for building
+cmake --build . --config !ACTUAL_BUILD_TYPE! --parallel !cores!
 
 if %errorlevel% neq 0 (
     echo Build failed!
@@ -135,7 +138,7 @@ if %errorlevel% neq 0 (
 echo.
 echo Build completed successfully!
 echo Build Summary:
-echo   - Configuration: %BUILD_TYPE%
+echo   - Configuration: !ACTUAL_BUILD_TYPE!
 echo   - Python: !PYTHON_EXE!
 echo   - Cores used: !cores!
 echo.
