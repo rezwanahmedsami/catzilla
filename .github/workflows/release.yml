@@ -140,44 +140,10 @@ jobs:
         python-version: '3.10'
 
     - name: Install cibuildwheel
-      run: python -m pip install cibuildwheel
+      run: python -m pip install cibuildwheel==2.16.2
 
     - name: Build wheels
       run: python -m cibuildwheel --output-dir wheelhouse
-      env:
-        # Build for Python 3.8-3.12
-        CIBW_BUILD: cp38-* cp39-* cp310-* cp311-* cp312-*
-
-        # Skip 32-bit builds and older Linux
-        CIBW_SKIP: "*-win32 *-manylinux_i686 pp*"
-
-        # Use manylinux2014 for better compatibility
-        CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
-        CIBW_MANYLINUX_AARCH64_IMAGE: manylinux2014
-
-        # Install CMake and build tools before building
-        CIBW_BEFORE_ALL_LINUX: >
-          yum install -y cmake3 python3-devel python3-libs gcc gcc-c++ make ||
-          (apt-get update && apt-get install -y cmake python3-dev libpython3-dev build-essential) &&
-          ln -sf /usr/bin/cmake3 /usr/bin/cmake || true &&
-          python --version &&
-          cmake --version || echo 'CMake not found in PATH' &&
-          python -c 'import sysconfig; print("Python include dir:", sysconfig.get_path("include"))' &&
-          python -c 'import sysconfig; print("Python library dir:", sysconfig.get_path("stdlib"))'
-        CIBW_BEFORE_ALL_MACOS: brew install cmake
-        CIBW_BEFORE_ALL_WINDOWS: choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
-
-        # Test the built wheels
-        CIBW_TEST_REQUIRES: pytest
-        CIBW_TEST_COMMAND: python -c "from catzilla import App, JSONResponse; print('Wheel test passed for {platform}'.format(platform='{platform}'))"
-
-        # Configure build environment
-        CIBW_ENVIRONMENT_LINUX: >
-          CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release -DPython3_EXECUTABLE={python} -DPython3_FIND_STRATEGY=LOCATION -DPython3_ROOT_DIR={python_dir}"
-          PYTHON="{python}"
-          CMAKE_PREFIX_PATH="{python_dir}"
-        CIBW_ENVIRONMENT_MACOS: CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15"
-        CIBW_ENVIRONMENT_WINDOWS: CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
 
     - name: Show built wheels (Unix)
       if: runner.os != 'Windows'
@@ -185,8 +151,8 @@ jobs:
         echo "Built wheels:"
         ls -la wheelhouse/
         echo ""
-        echo "Wheel details:"
-        python -m pip install wheelhouse/*.whl --force-reinstall --find-links wheelhouse/ || echo "Some wheels may not be compatible with this Python version"
+        echo "Testing wheel installation:"
+        python -m pip install wheelhouse/*.whl --force-reinstall || echo "Some wheels may not be compatible with this Python version"
 
     - name: Show built wheels (Windows)
       if: runner.os == 'Windows'
@@ -194,8 +160,8 @@ jobs:
         echo "Built wheels:"
         dir wheelhouse\
         echo ""
-        echo "Wheel details:"
-        python -m pip install wheelhouse/*.whl --force-reinstall --find-links wheelhouse/ || echo "Some wheels may not be compatible with this Python version"
+        echo "Testing wheel installation:"
+        python -m pip install wheelhouse/*.whl --force-reinstall || echo "Some wheels may not be compatible with this Python version"
 
     - name: Upload wheels
       uses: actions/upload-artifact@v4

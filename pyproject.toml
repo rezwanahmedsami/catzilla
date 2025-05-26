@@ -149,7 +149,7 @@ extend-exclude = '''
 '''
 
 [tool.mypy]
-python_version = "0.1.0"
+python_version = "3.8"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -252,65 +252,11 @@ skip = [
     "*-musllinux_*",     # Skip musl Linux for now (can enable later)
 ]
 
-# Build settings - comprehensive Python development environment setup
+# Build settings
 build-frontend = "build"
-before-build = [
-    "pip install cmake pybind11",
-    # Comprehensive Python development setup for current build environment
-    "python -c \"import sys, os, sysconfig, shutil; print(f'Setting up Python {sys.version_info.major}.{sys.version_info.minor} development environment'); py_dir = os.path.dirname(sys.executable); print(f'Python directory: {py_dir}')\"",
 
-    # Install development packages specifically for the current Python version
-    "python -c \"import sys, subprocess, os; version=f'{sys.version_info.major}{sys.version_info.minor}'; subprocess.run(['yum', 'install', '-y', f'python{version}-devel', f'python{sys.version_info.major}-devel'], capture_output=True); subprocess.run(['yum', 'install', '-y', 'python3-devel', 'python-devel'], capture_output=True)\"",
-
-    # Create comprehensive development library structure
-    "python -c \"",
-    "import sys, os, shutil, glob",
-    "py_dir = os.path.dirname(sys.executable)",
-    "lib_dir = os.path.join(py_dir, '..', 'lib')",
-    "include_dir = os.path.join(py_dir, '..', 'include')",
-    "os.makedirs(lib_dir, exist_ok=True)",
-    "os.makedirs(include_dir, exist_ok=True)",
-    "version = f'{sys.version_info.major}.{sys.version_info.minor}'",
-    "version_nodot = f'{sys.version_info.major}{sys.version_info.minor}'",
-    "# Look for system Python libraries in multiple locations",
-    "lib_patterns = [",
-    "    f'/usr/lib64/libpython{version}*.so*',",
-    "    f'/usr/lib/x86_64-linux-gnu/libpython{version}*.so*',",
-    "    f'/lib64/libpython{version}*.so*',",
-    "    f'/usr/lib/libpython{version}*.so*',",
-    "    '/usr/lib64/libpython3*.so*',",
-    "    '/usr/lib/x86_64-linux-gnu/libpython3*.so*'",
-    "]",
-    "# Look for system Python headers",
-    "include_patterns = [",
-    "    f'/usr/include/python{version}*',",
-    "    f'/usr/include/python{sys.version_info.major}*',",
-    "    '/usr/include/python3*'",
-    "]",
-    "# Copy/link libraries",
-    "for pattern in lib_patterns:",
-    "    for lib_file in glob.glob(pattern):",
-    "        if os.path.isfile(lib_file):",
-    "            dest = os.path.join(lib_dir, os.path.basename(lib_file))",
-    "            if not os.path.exists(dest):",
-    "                try:",
-    "                    shutil.copy2(lib_file, dest)",
-    "                    print(f'Copied library: {lib_file} -> {dest}')",
-    "                except: pass",
-    "# Copy/link headers",
-    "for pattern in include_patterns:",
-    "    for inc_dir in glob.glob(pattern):",
-    "        if os.path.isdir(inc_dir):",
-    "            dest = os.path.join(include_dir, f'python{version}')",
-    "            if not os.path.exists(dest):",
-    "                try:",
-    "                    shutil.copytree(inc_dir, dest)",
-    "                    print(f'Copied headers: {inc_dir} -> {dest}')",
-    "                    break",
-    "                except: pass",
-    "print(f'Development environment setup complete for Python {version}')",
-    "\""
-]
+# Install build dependencies
+before-build = "pip install cmake pybind11"
 
 # Test settings
 test-requires = "pytest"
@@ -320,94 +266,16 @@ test-command = "python -c \"from catzilla import App, JSONResponse; print('Wheel
 environment = { CMAKE_BUILD_TYPE = "Release" }
 
 [tool.cibuildwheel.linux]
-# Linux-specific settings for manylinux containers - comprehensive Python development setup
+# Linux-specific settings for manylinux containers
 before-all = [
-    # Install comprehensive system dependencies
-    "echo 'Installing comprehensive Python development environment...'",
-
-    # Install basic build tools and Python development packages
-    "yum update -y || true",
-    "yum groupinstall -y 'Development Tools' || yum install -y gcc gcc-c++ make || true",
-    "yum install -y cmake3 python3-devel python3-libs python-devel || (apt-get update && apt-get install -y cmake python3-dev libpython3-dev build-essential)",
-    "ln -sf /usr/bin/cmake3 /usr/bin/cmake || ln -sf /usr/bin/cmake /usr/bin/cmake3 || true",
-
-    # Install Python development packages for all versions available in the container
-    "yum install -y python27-devel python36-devel python37-devel python38-devel python39-devel python310-devel python311-devel python312-devel || true",
-    "yum install -y python3-devel python38-devel python39-devel python310-devel python311-devel python312-devel || true",
-
-    # Install additional library packages that might be needed
-    "yum install -y zlib-devel openssl-devel sqlite-devel bzip2-devel libffi-devel || true",
-
-    # Create comprehensive development environment for all Python versions in /opt/python/
-    "echo 'Setting up development environments for all Python installations...'",
-    "for py_dir in /opt/python/cp3*; do",
-    "  if [ -d \"$py_dir\" ]; then",
-    "    py_bin=\"$py_dir/bin/python\"",
-    "    if [ -f \"$py_bin\" ]; then",
-    "      echo \"==== Processing Python at $py_bin ====\"",
-    "      # Get version info",
-    "      py_ver=$($py_bin -c \"import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')\" 2>/dev/null || echo 'unknown')",
-    "      py_ver_nodot=$($py_bin -c \"import sys; print(f'{sys.version_info.major}{sys.version_info.minor}')\" 2>/dev/null || echo 'unknown')",
-    "      echo \"  Python version: $py_ver (nodot: $py_ver_nodot)\"",
-    "      ",
-    "      # Create necessary directories",
-    "      mkdir -p \"$py_dir/lib\" \"$py_dir/include\"",
-    "      ",
-    "      # Copy system Python libraries to this Python installation",
-    "      echo \"  Copying libraries...\"",
-    "      for lib_pattern in \"/usr/lib64/libpython${py_ver}*\" \"/usr/lib64/libpython${py_ver_nodot}*\" \"/usr/lib/x86_64-linux-gnu/libpython${py_ver}*\" \"/lib64/libpython${py_ver}*\" \"/usr/lib64/libpython3*\" \"/usr/lib/x86_64-linux-gnu/libpython3*\"; do",
-    "        for lib_file in $lib_pattern; do",
-    "          if [ -f \"$lib_file\" ]; then",
-    "            cp \"$lib_file\" \"$py_dir/lib/\" 2>/dev/null || true",
-    "            echo \"    Copied: $lib_file\"",
-    "          fi",
-    "        done",
-    "      done",
-    "      ",
-    "      # Copy system Python headers to this Python installation",
-    "      echo \"  Copying headers...\"",
-    "      for inc_pattern in \"/usr/include/python${py_ver}*\" \"/usr/include/python${py_ver_nodot}*\" \"/usr/include/python3*\"; do",
-    "        for inc_dir in $inc_pattern; do",
-    "          if [ -d \"$inc_dir\" ]; then",
-    "            cp -r \"$inc_dir\"/* \"$py_dir/include/\" 2>/dev/null || true",
-    "            echo \"    Copied headers from: $inc_dir\"",
-    "            break",
-    "          fi",
-    "        done",
-    "      done",
-    "      ",
-    "      echo \"  Setup complete for Python $py_ver\"",
-    "    fi",
-    "  fi",
-    "done",
-
-    # Verify installations and provide diagnostic information
-    "echo '==== System verification ===='",
-    "python --version || echo 'System python not found'",
-    "cmake --version || echo 'CMake not found in PATH'",
-    "ls -la /usr/lib64/libpython* | head -5 || echo 'No system Python libraries found in /usr/lib64'",
-    "ls -la /usr/include/python* | head -5 || echo 'No system Python headers found in /usr/include'",
-    "echo 'Python installations in /opt/python/:'",
-    "ls -la /opt/python/ | head -10",
-    "echo 'Development environment setup complete!'"
+    "yum install -y cmake3 gcc gcc-c++ make python3-devel || (apt-get update && apt-get install -y cmake build-essential python3-dev)",
+    "ln -sf /usr/bin/cmake3 /usr/bin/cmake || true",
 ]
 manylinux-x86_64-image = "manylinux2014"
 manylinux-aarch64-image = "manylinux2014"
 
 [tool.cibuildwheel.linux.environment]
-# Enhanced CMake configuration for manylinux containers with comprehensive Python detection
-CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release -DPython3_EXECUTABLE={python} -DPython3_FIND_STRATEGY=LOCATION -DPython3_ROOT_DIR={python_dir} -DPython3_FIND_REGISTRY=NEVER -DPython3_FIND_FRAMEWORK=NEVER -DCMAKE_FIND_DEBUG_MODE=ON"
-# Comprehensive Python environment setup
-PYTHON = "{python}"
-PYTHONHOME = "{python_dir}"
-CMAKE_PREFIX_PATH = "{python_dir}:/usr"
-CMAKE_FIND_ROOT_PATH = "{python_dir}:/usr"
-# Additional library and include paths
-CMAKE_LIBRARY_PATH = "{python_dir}/lib:/usr/lib64:/usr/lib/x86_64-linux-gnu:/lib64"
-CMAKE_INCLUDE_PATH = "{python_dir}/include:/usr/include"
-# Force CMake to look for Python components in our prepared directories
-Python3_LIBRARY_DIRS = "{python_dir}/lib:/usr/lib64:/usr/lib/x86_64-linux-gnu"
-Python3_INCLUDE_DIRS = "{python_dir}/include:/usr/include"
+CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release"
 
 [tool.cibuildwheel.macos]
 # macOS-specific settings
@@ -419,7 +287,7 @@ MACOSX_DEPLOYMENT_TARGET = "10.15"
 
 [tool.cibuildwheel.windows]
 # Windows-specific settings
-before-all = "choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'"
+before-all = "choco install cmake --installargs='ADD_CMAKE_TO_PATH=System'"
 
 [tool.cibuildwheel.windows.environment]
 CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release"
