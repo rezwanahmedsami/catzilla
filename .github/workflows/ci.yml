@@ -86,7 +86,7 @@ jobs:
       run: |
         python -c "
         from catzilla import App, JSONResponse
-        print('✅ Catzilla imported successfully')
+        print('Catzilla imported successfully')
 
         # Test basic app creation
         app = App()
@@ -95,7 +95,7 @@ jobs:
         def hello(request):
             return JSONResponse({'message': 'Hello, World!'})
 
-        print('✅ Basic functionality test passed')
+        print('Basic functionality test passed')
         "
 
   build:
@@ -150,12 +150,12 @@ jobs:
         # Test that it can be imported and used
         python -c "
         from catzilla import App, JSONResponse
-        print('✅ Built package works correctly')
+        print('Built package works correctly')
         app = App()
         @app.get('/')
         def test(req):
             return JSONResponse({'status': 'ok'})
-        print('✅ Package functionality verified')
+        print('Package functionality verified')
         "
 
     - name: Upload artifacts
