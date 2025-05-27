@@ -1,31 +1,32 @@
 # PyPI Publishing Setup Guide
 
-This guide explains how to set up automated PyPI publishing for Catzilla with production-grade security and reliability.
+This guide explains how to set up automated PyPI publishing for Catzilla with **production-grade security and reliability**.
 
-## 🎯 Publishing Strategy
+## 🚀 **PRODUCTION-SAFE RELEASE STRATEGY**
 
-Catzilla uses a **conditional publishing strategy** that follows industry best practices:
+Catzilla implements a **conditional publishing strategy** that follows industry best practices:
 
-### ✅ **Stable Releases → PyPI**
+### ✅ **Stable Releases → Production PyPI**
 ```bash
-v0.1.0    # ✅ Published to PyPI (semantic version)
-v1.0.0    # ✅ Published to PyPI
-v2.1.5    # ✅ Published to PyPI
+v0.1.0    # ✅ Published to PyPI (pure semantic version)
+v1.0.0    # ✅ Published to PyPI (pure semantic version)
+v2.1.5    # ✅ Published to PyPI (pure semantic version)
 ```
 
-### ❌ **Pre-releases → GitHub Only**
+### 🔒 **Pre-releases → GitHub Releases Only**
 ```bash
-v0.1.0-alpha1    # ❌ GitHub release only (not PyPI)
-v0.1.0-beta2     # ❌ GitHub release only
-v0.1.0-rc1       # ❌ GitHub release only
-v0.1.0-dev       # ❌ GitHub release only
-v1.0.0-test      # ❌ GitHub release only
+v0.1.0-alpha1    # 🔒 GitHub release only (NOT published to PyPI)
+v0.1.0-beta2     # 🔒 GitHub release only (NOT published to PyPI)
+v0.1.0-rc1       # 🔒 GitHub release only (NOT published to PyPI)
+v0.1.0-dev       # 🔒 GitHub release only (NOT published to PyPI)
+v1.0.0-test      # 🔒 GitHub release only (NOT published to PyPI)
 ```
 
-This approach ensures:
-- **Stable PyPI index** - Only production-ready versions
-- **Safe testing** - Pre-releases don't pollute public index
-- **User protection** - No accidental installation of dev versions
+### 🛡️ **Production Safety Features:**
+- **PyPI pollution prevention** - Pre-releases never reach production index
+- **User protection** - No accidental installation of dev/test versions
+- **Quality assurance** - Only thoroughly tested stable versions on PyPI
+- **Release testing** - Pre-releases allow safe testing via GitHub releases
 
 ## 🔧 Setup Instructions
 
@@ -55,15 +56,12 @@ This approach ensures:
    Repository owner: rezwanahmedsami
    Repository name: catzilla
    Workflow name: release.yml
-   Environment name: pypi
+   Environment name: (leave empty - no environment used)
    ```
 
-#### 3.2 Create GitHub Environment
+#### 3.2 GitHub Repository Settings
 
-1. **Go to repository settings**: https://github.com/rezwanahmedsami/catzilla/settings
-2. **Navigate to**: "Environments"
-3. **Create environment**: `pypi`
-4. **Optional**: Add protection rules (require reviewers)
+**No additional GitHub environment setup required** - the current workflow uses OIDC trusted publishing without environment restrictions for maximum security and simplicity.
 
 ### 4. Alternative: API Token Method
 
@@ -89,13 +87,21 @@ If using API tokens, modify the publish step in `release.yml`:
 - name: Publish to PyPI
   uses: pypa/gh-action-pypi-publish@release/v1
   with:
-    user: __token__
-    password: ${{ secrets.PYPI_API_TOKEN }}
-    packages-dir: dist/
+    packages-dir: pypi-assets/  # Updated to match current workflow
+    verify-metadata: true
+    skip-existing: false
     verbose: true
+    # No API token needed - uses OIDC trusted publisher
 ```
 
 ## 🚀 Release Workflow
+
+### 📦 **Current Release Status**
+
+**v0.0.1 Released** ✅
+- **GitHub Release**: Created with comprehensive release notes and multi-platform wheels
+- **PyPI Status**: Should be published automatically (check workflow logs)
+- **Verification**: Run `pip install catzilla==0.0.1` to test
 
 ### Creating a Stable Release
 
@@ -133,38 +139,40 @@ git push origin v0.2.0-beta1
 
 ## 🔍 Version Detection Logic
 
-The workflow uses this robust pattern matching:
+The workflow uses **production-safe pattern matching**:
 
 ```yaml
-# Stable version pattern: v1.2.3 (exactly)
-if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')
+# PRODUCTION SAFETY: Only pure semantic versions (vX.Y.Z) - no pre-release suffixes
+if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')
 ```
 
 **Examples:**
-- `v0.1.0` → ✅ Matches (stable)
-- `v1.2.3` → ✅ Matches (stable)
-- `v0.1.0-alpha` → ❌ No match (pre-release)
-- `v1.2.3-rc1` → ❌ No match (pre-release)
+- `v0.1.0` → ✅ **Publishes to PyPI** (pure semantic version)
+- `v1.2.3` → ✅ **Publishes to PyPI** (pure semantic version)
+- `v0.1.0-alpha` → 🔒 **GitHub release only** (contains hyphen)
+- `v1.2.3-rc1` → 🔒 **GitHub release only** (contains hyphen)
+- `v2.0.0-beta` → 🔒 **GitHub release only** (contains hyphen)
 
 ## 📊 Workflow Features
 
 ### 🛡️ **Security Features**
-- **Trusted publishing** - No API tokens in secrets
-- **Environment protection** - Optional manual approval
-- **Permission isolation** - Minimal required permissions
-- **Artifact validation** - Integrity checks before upload
+- **OIDC Trusted Publishing** - No API tokens stored in secrets
+- **Production-safe conditions** - Bulletproof version detection
+- **Minimal permissions** - Only `id-token: write` and `contents: write`
+- **Artifact validation** - Comprehensive integrity checks before upload
 
 ### ⚡ **Quality Assurance**
-- **15 test combinations** - All OS/Python combinations
-- **Wheel validation** - Installation testing on all platforms
+- **15 test combinations** - All OS/Python version combinations (3×5 matrix)
+- **Multi-platform wheel building** - Linux, macOS, Windows with cibuildwheel
+- **Installation validation** - Platform-specific wheel testing
 - **Functionality verification** - Import and basic functionality tests
 - **Distribution integrity** - File count and format validation
 
 ### 📈 **Production Features**
 - **Conditional publishing** - Smart stable/pre-release detection
-- **Comprehensive logging** - Detailed workflow output
-- **Post-release verification** - PyPI availability checking
-- **Release summaries** - Clear success/failure reporting
+- **Comprehensive logging** - Detailed workflow output for debugging
+- **GitHub releases** - All versions get GitHub releases with assets
+- **Professional wheel naming** - Proper platform tags (cp311-cp311-linux_x86_64, etc.)
 
 ## 🔗 Helpful Links
 

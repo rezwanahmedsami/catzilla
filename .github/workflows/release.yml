@@ -6,6 +6,11 @@ on:
       - 'v*'
   workflow_dispatch:
 
+# 🚀 PRODUCTION-SAFE RELEASE STRATEGY:
+# - Pure semantic versions (v1.0.0, v0.2.1) → Production PyPI
+# - Pre-releases (v1.0.0-beta, v0.1.0-rc1) → Test PyPI only
+# - All releases create GitHub releases with wheels
+
 env:
   PYTHONUNBUFFERED: 1
   FORCE_COLOR: 1
@@ -335,3 +340,84 @@ jobs:
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Publish to PyPI using Trusted Publisher (OIDC) - PRODUCTION SAFE
+  # Only publishes for pure semantic versions (v1.0.0, v0.2.1, etc.)
+  # Pre-releases (v1.0.0-beta, v0.1.0-rc1) are excluded for safety
+  publish-pypi:
+    name: Publish to Production PyPI
+    needs: [test, build-sdist, build-wheels, release]
+    runs-on: ubuntu-latest
+    # PRODUCTION SAFETY: Only pure semantic versions (vX.Y.Z) - no pre-release suffixes
+    if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')
+    permissions:
+      id-token: write  # Required for trusted publishing
+
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts/
+
+    - name: Prepare PyPI assets
+      run: |
+        mkdir -p pypi-assets
+        find artifacts/ -name "*.whl" -exec cp {} pypi-assets/ \;
+        find artifacts/ -name "*.tar.gz" -exec cp {} pypi-assets/ \;
+        echo "PyPI assets prepared:"
+        ls -la pypi-assets/
+        echo ""
+        echo "Asset count verification:"
+        wheel_count=$(find pypi-assets/ -name "*.whl" | wc -l)
+        sdist_count=$(find pypi-assets/ -name "*.tar.gz" | wc -l)
+        echo "Wheels: $wheel_count"
+        echo "Source distributions: $sdist_count"
+
+        if [ "$wheel_count" -eq 0 ] && [ "$sdist_count" -eq 0 ]; then
+          echo "❌ Error: No distribution files found!"
+          exit 1
+        fi
+
+    - name: Publish to PyPI (Trusted Publisher)
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: pypi-assets/
+        verify-metadata: true
+        skip-existing: false
+        verbose: true
+        # No API token needed - uses OIDC trusted publisher
+
+  # Publish to Test PyPI (for pre-releases and testing)
+  # This handles all non-production releases safely
+  publish-test-pypi:
+    name: Publish to Test PyPI
+    needs: [test, build-sdist, build-wheels]
+    runs-on: ubuntu-latest
+    # SAFETY: Only pre-releases (tags with -) go to Test PyPI
+    if: startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '-')
+    permissions:
+      id-token: write  # Required for trusted publishing
+
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts/
+
+    - name: Prepare Test PyPI assets
+      run: |
+        mkdir -p testpypi-assets
+        find artifacts/ -name "*.whl" -exec cp {} testpypi-assets/ \;
+        find artifacts/ -name "*.tar.gz" -exec cp {} testpypi-assets/ \;
+        echo "Test PyPI assets prepared:"
+        ls -la testpypi-assets/
+
+    - name: Publish to Test PyPI (Trusted Publisher)
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: testpypi-assets/
+        repository-url: https://test.pypi.org/legacy/
+        verify-metadata: true
+        skip-existing: true
+        verbose: true
+        # No API token needed - uses OIDC trusted publisher
