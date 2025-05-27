@@ -1,104 +1,500 @@
-# Contributing to Catzilla
+# 🚀 Contributing to Catzilla
 
-Welcome to Catzilla! We're excited that you're interested in contributing to this high-performance Python web framework. This guide will help you get up and running for development and testing.
+Welcome to **Catzilla** - a high-performance Python web framework with C-accelerated routing! This comprehensive guide will take you from zero to hero in contributing to this professional-grade project.
 
-## 🚀 Quick Start for Developers
+## 📋 Table of Contents
 
-> **⚠️ IMPORTANT: Virtual Environment Required**
-> Before starting any development work on Catzilla, you **MUST** create and activate a Python virtual environment. This is not optional and prevents dependency conflicts. See the [Initial Setup](#initial-setup) section below for detailed instructions.
+- [🎯 Quick Start](#-quick-start)
+- [🛠️ Environment Setup](#️-environment-setup)
+- [🏗️ Development Workflow](#️-development-workflow)
+- [📦 Version Management](#-version-management)
+- [🚀 Release Process](#-release-process)
+- [🧪 Testing Guidelines](#-testing-guidelines)
+- [💡 Code Standards](#-code-standards)
+- [📚 Documentation](#-documentation)
+- [🚨 Troubleshooting](#-troubleshooting)
+- [✨ Best Practices](#-best-practices)
 
-## 📦 Release Process
+---
 
-### Release Overview
+## 🎯 Quick Start
 
-Catzilla v0.1.0 uses GitHub Releases for distribution with automated multi-platform wheel building through GitHub Actions. This approach ensures reliable distribution while preparing for future PyPI publication.
+> **⚠️ CRITICAL REQUIREMENT: Python Virtual Environment**
+>
+> You **MUST** use a Python virtual environment for Catzilla development. This is **non-negotiable** and prevents dependency conflicts that can break your system.
 
-### Release Strategy
-
-1. **GitHub Releases (Current - v0.1.0)**
-   - Automated wheel building for Python 3.8-3.12
-   - Multi-platform support (Windows, macOS, Linux)
-   - Direct download and pip installation from wheels
-   - Professional release notes with installation instructions
-
-2. **Future PyPI Publishing (v1.0.0+)**
-   - Transition to PyPI for broader accessibility
-   - Automated publishing pipeline
-   - Version management and dependency resolution
-
-### Creating a Release
-
-#### 1. Prepare for Release
+### 5-Minute Setup
 
 ```bash
-# Ensure all tests pass
-python -m pytest tests/python/ -v
-cd build/temp.* && make test
+# 1. Clone and setup
+git clone https://github.com/rezwanahmedsami/catzilla.git
+cd catzilla
+git submodule update --init --recursive
 
-# Verify build system
-python -m build
-python -m pip install dist/*.whl --force-reinstall
-python -c "import catzilla; print(f'Catzilla v{catzilla.__version__} ready!')"
+# 2. Create virtual environment (REQUIRED!)
+python -m venv venv
+source venv/bin/activate  # macOS/Linux
+# venv\Scripts\activate     # Windows
 
-# Update version if needed (pyproject.toml)
-# Update CHANGELOG.md or release notes
+# 3. Install dependencies
+pip install -r requirements-dev.txt
+
+# 4. Build and test
+./scripts/build.sh          # macOS/Linux
+# scripts\build.bat         # Windows
+
+# 5. Verify installation
+python -c "import catzilla; print(f'✅ Catzilla {catzilla.__version__} ready!')"
 ```
 
-#### 2. Create Release Tag
+---
 
+## 🛠️ Environment Setup
+
+### Prerequisites
+
+#### Required Software
+- **Python 3.8+** (3.10+ recommended)
+- **CMake 3.15+**
+- **Git** with submodule support
+- **Compiler**:
+  - **macOS**: Xcode Command Line Tools (`xcode-select --install`)
+  - **Linux**: GCC 7+ or Clang 8+ (`sudo apt install build-essential`)
+  - **Windows**: Visual Studio 2019+ or Build Tools
+
+#### System-Specific Setup
+
+**macOS:**
 ```bash
-# Create and push release tag
-git tag -a v0.1.0 -m "Catzilla v0.1.0 - Ultra-fast Python web framework"
-git push origin v0.1.0
+# Install Xcode Command Line Tools
+xcode-select --install
+
+# Install CMake (choose one)
+brew install cmake                    # Homebrew
+# Or download from https://cmake.org/
 ```
 
-#### 3. Automated Release Process
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt update
+sudo apt install build-essential cmake git python3-dev python3-venv
+```
 
-The GitHub Actions workflow (`.github/workflows/release.yml`) automatically:
+**Windows:**
+```powershell
+# Install Visual Studio Build Tools
+# Download: https://visualstudio.microsoft.com/visual-cpp-build-tools/
+# Select "C++ build tools" workload
 
-1. **Builds wheels** for all supported platforms and Python versions
-2. **Tests wheels** on each platform to ensure they work
-3. **Creates GitHub Release** with:
-   - Professional release notes
-   - Platform-specific installation instructions
-   - All built wheels as downloadable assets
-   - Source distribution (sdist)
+# Install CMake
+# Download: https://cmake.org/download/
+# Or use chocolatey: choco install cmake
+```
 
-#### 4. Manual Release (Alternative)
+### Virtual Environment Setup (MANDATORY)
 
-If you need to create a release manually:
+**Why Virtual Environments Are Required:**
+- Prevents dependency conflicts with system Python
+- Ensures reproducible development environment
+- Isolates Catzilla's development dependencies
+- Protects your system from potential package conflicts
 
 ```bash
-# Build for current platform
-python -m build
+# Create virtual environment
+cd catzilla
+python -m venv venv
 
-# Upload to GitHub Releases
-# - Go to https://github.com/your-username/catzilla/releases
-# - Click "Create a new release"
-# - Upload dist/*.whl and dist/*.tar.gz files
-# - Add release notes following the template in release.yml
+# Activate virtual environment
+source venv/bin/activate              # macOS/Linux
+# venv\Scripts\activate.bat           # Windows CMD
+# venv\Scripts\Activate.ps1           # Windows PowerShell
+
+# Verify activation (IMPORTANT!)
+which python                          # macOS/Linux - should show venv path
+# where python                        # Windows - should show venv path
+
+# Your prompt should show: (venv) $
+```
+
+**🚨 Critical Rules:**
+- ✅ **ALWAYS** activate venv before development work
+- ✅ **NEVER** commit the `venv/` folder (already in .gitignore)
+- ✅ **VERIFY** your prompt shows `(venv)` before running commands
+- ❌ **NEVER** use `sudo pip` or system pip for Catzilla dependencies
+
+### Development Dependencies
+
+```bash
+# With virtual environment activated
+pip install -r requirements-dev.txt
+
+# Verify installation
+pip list | grep -E "(pytest|pre-commit|sphinx)"
+```
+
+**Dependencies Overview:**
+- **pytest**: Testing framework
+- **pre-commit**: Code quality hooks
+- **sphinx**: Documentation generation
+- **black**: Code formatting
+- **flake8**: Linting
+- **mypy**: Type checking
+
+---
+
+## 🏗️ Development Workflow
+
+### Project Structure
+
+```
+catzilla/
+├── src/                    # C/C++ source code
+│   ├── core/              # Core C library
+│   ├── router/            # HTTP routing logic
+│   └── python/            # Python C extension
+├── python/catzilla/       # Python package
+├── scripts/               # Build and release scripts
+├── tests/                 # Test suites
+├── docs/                  # Documentation
+├── examples/              # Usage examples
+└── benchmarks/            # Performance tests
+```
+
+### Building the Project
+
+**Automated Build (Recommended):**
+```bash
+# Clean build with all components
+./scripts/build.sh                    # macOS/Linux
+# scripts\build.bat                   # Windows
+```
+
+**Manual Build (Advanced):**
+```bash
+# Configure CMake
+mkdir -p build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Debug
+
+# Build C components
+make -j$(nproc)                       # Linux
+# make -j$(sysctl -n hw.ncpu)         # macOS
+# cmake --build . --config Debug      # Windows
+
+# Install Python package in development mode
+cd ..
+pip install -e .
+```
+
+**Build Verification:**
+```bash
+# Test C extension loads
+python -c "import catzilla._catzilla; print('✅ C extension loaded')"
+
+# Test Python package
+python -c "import catzilla; print(f'✅ Catzilla {catzilla.__version__} ready')"
+
+# Run basic functionality test
+python test_basic_app.py
+```
+
+### Code Changes Workflow
+
+1. **Create Feature Branch**
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+2. **Make Changes**
+   - Edit C code in `src/`
+   - Edit Python code in `python/catzilla/`
+   - Follow [Code Standards](#-code-standards)
+
+3. **Build and Test**
+   ```bash
+   ./scripts/build.sh
+   ./scripts/run_tests.sh
+   ```
+
+4. **Commit Changes**
+   ```bash
+   git add .
+   git commit -m "feat: add your feature description"
+   ```
+
+5. **Push and Create PR**
+   ```bash
+   git push origin feature/your-feature-name
+   # Create Pull Request on GitHub
+   ```
+
+---
+
+## 📦 Version Management
+
+> **🎯 CRITICAL: Understanding Catzilla's Professional Version Handling**
+>
+> Catzilla uses industry-standard version management that separates git release tags from project file versions. This section is **essential reading** for any contributor.
+
+### Version Handling Philosophy
+
+Catzilla follows **professional version handling** used by major projects like LLVM, OpenCV, and Boost:
+
+- **Git Tags**: Track full release versions (e.g., `v0.1.0-beta`, `v0.1.0`)
+- **Project Files**: Use clean semantic versions (e.g., `0.1.0`)
+- **CMake**: Uses numeric format only (e.g., `0.1.0`)
+
+**Why This Matters:**
+- ✅ Users get clean package versions: `pip install catzilla==0.1.0`
+- ✅ Release tracking via git tags: `v0.1.0-beta` for pre-releases
+- ✅ Tool compatibility: Works with PyPI, CMake, and CI/CD systems
+- ✅ No user confusion: Package metadata is always clean
+
+### Version Scripts Overview
+
+Catzilla provides **two professional release scripts** for different scenarios:
+
+| Script | Purpose | When to Use |
+|--------|---------|-------------|
+| `scripts/bump_version.sh` | **Comprehensive releases** | Major/minor releases, new features |
+| `scripts/release.py` | **Quick releases** | Hotfixes, emergency patches |
+
+### Understanding Version Separation
+
+**Example: Pre-release Version `v0.1.0-beta`**
+
+```bash
+# Input command
+python scripts/version.py 0.1.0-beta
+
+# Results:
+✅ Git tag: v0.1.0-beta           # For release tracking
+✅ pyproject.toml: "0.1.0"        # Clean package version
+✅ __init__.py: "0.1.0"           # Clean import version
+✅ setup.py: "0.1.0"              # Clean build version
+✅ CMakeLists.txt: 0.1.0          # Numeric CMake version
+```
+
+**What Users See:**
+```bash
+pip install catzilla==0.1.0      # Clean, professional version
+python -c "import catzilla; print(catzilla.__version__)"  # Shows: 0.1.0
+```
+
+### Version Management Scripts
+
+#### 1. Comprehensive Release Script
+
+**Use `scripts/bump_version.sh` for:**
+- ✅ Major releases (1.0.0)
+- ✅ Minor releases (0.2.0)
+- ✅ Feature releases with new functionality
+- ✅ Pre-releases that need full testing (0.2.0-beta)
+
+```bash
+# Full development workflow
+./scripts/bump_version.sh 0.2.0
+
+# What it does:
+# 1. Runs comprehensive test suite
+# 2. Updates all version files with base version (0.2.0)
+# 3. Commits changes
+# 4. Creates git tag (v0.2.0)
+# 5. Provides next steps guidance
+```
+
+**Options:**
+```bash
+./scripts/bump_version.sh 0.2.0 --dry-run      # Preview changes
+./scripts/bump_version.sh 0.2.0 --no-tests     # Skip tests (not recommended)
+./scripts/bump_version.sh 0.2.0-beta           # Pre-release
+```
+
+#### 2. Quick Release Script
+
+**Use `scripts/release.py` for:**
+- ✅ Emergency hotfixes (0.1.1-hotfix)
+- ✅ Quick patches when tests already pass
+- ✅ Rapid iteration during development
+- ✅ Situations where speed matters
+
+```bash
+# Quick release workflow
+python scripts/release.py v0.1.1-hotfix
+
+# What it does:
+# 1. Validates version format
+# 2. Checks git status
+# 3. Updates project files with base version (0.1.1)
+# 4. Creates and pushes git tag (v0.1.1-hotfix)
+```
+
+**Options:**
+```bash
+python scripts/release.py v0.1.1 --dry-run           # Preview changes
+python scripts/release.py v0.1.1 --update-version    # Force version update
+```
+
+### Version Script Selection Guide
+
+**🤔 Which Script Should I Use?**
+
+| Scenario | Command | Reason |
+|----------|---------|--------|
+| **Major Release (1.0.0)** | `./scripts/bump_version.sh 1.0.0` | Full testing + validation required |
+| **Minor Release (0.2.0)** | `./scripts/bump_version.sh 0.2.0` | New features need comprehensive workflow |
+| **Patch Release (0.1.1)** | `./scripts/bump_version.sh 0.1.1` | Bug fixes need full test coverage |
+| **Pre-release Testing** | `./scripts/bump_version.sh 0.2.0-beta` | Safe validation with full workflow |
+| **Security Hotfix** | `python scripts/release.py 0.1.1-security` | Speed matters for critical fixes |
+| **Emergency Patch** | `python scripts/release.py 0.1.2` | Quick deployment needed |
+
+### Professional Version Handling Rules
+
+#### ✅ DO - Correct Usage Patterns
+
+```bash
+# Pattern 1: Comprehensive Development Release
+./scripts/bump_version.sh 0.2.0
+git push origin main && git push origin v0.2.0
+
+# Pattern 2: Quick Emergency Release
+python scripts/release.py 0.1.1-hotfix
+
+# Pattern 3: Development to Production Pipeline
+./scripts/bump_version.sh 0.2.0-rc1    # Release candidate with full testing
+# Test thoroughly in staging...
+python scripts/release.py 0.2.0        # Quick stable release when ready
+```
+
+#### ❌ DON'T - Avoid These Mistakes
+
+```bash
+# ❌ NEVER: Running both scripts for same version
+./scripts/bump_version.sh 0.2.0
+python scripts/release.py 0.2.0        # CONFLICT! Will cause issues
+
+# ❌ NEVER: Manually editing version files
+vim pyproject.toml                      # Use scripts instead
+
+# ❌ NEVER: Creating tags manually without updating files
+git tag v0.2.0                          # Use scripts for consistency
+```
+
+### Version Consistency Checking
+
+**Always verify version consistency:**
+```bash
+# Check current version status
+python scripts/version.py --check
+
+# Expected output:
+# ✅ pyproject.toml: 0.1.0
+# ✅ setup.py: 0.1.0
+# ✅ __init__.py: 0.1.0
+# ✅ CMakeLists.txt: 0.1.0 (CMake format)
+# ✅ All versions are consistent!
+```
+
+**If versions are inconsistent:**
+```bash
+# Fix with version script
+python scripts/version.py 0.1.0        # Updates all files to consistent state
+```
+
+---
+
+## 🚀 Release Process
+
+### Automated Release Pipeline
+
+Catzilla uses **GitHub Actions** for professional release automation:
+
+```mermaid
+graph LR
+    A[Push Tag] --> B[GitHub Actions]
+    B --> C[Build Wheels]
+    B --> D[Run Tests]
+    B --> E[Create Release]
+    C --> F[PyPI Publish]
+    D --> F
+    E --> F
+```
+
+### Release Types and PyPI Publishing
+
+**🎯 PyPI Publishing Logic:**
+- **Stable releases** (e.g., `v1.0.0`, `v0.2.0`): Published to PyPI automatically
+- **Pre-releases** (e.g., `v0.2.0-beta`, `v0.1.0-rc1`): GitHub releases only
+
+### Complete Release Workflow
+
+#### Step 1: Prepare Release
+
+```bash
+# Ensure clean working directory
+git status
+
+# Run full test suite
+./scripts/run_tests.sh
+
+# Verify build works on clean checkout
+git stash
+./scripts/build.sh
+python -c "import catzilla; print('✅ Build verified')"
+git stash pop
+```
+
+#### Step 2: Version Update
+
+**For Major/Minor Releases:**
+```bash
+./scripts/bump_version.sh 0.2.0
+```
+
+**For Quick Hotfixes:**
+```bash
+python scripts/release.py 0.1.1-hotfix
+```
+
+#### Step 3: Push and Deploy
+
+```bash
+# Push version changes and tags
+git push origin main
+git push origin v0.2.0
+
+# GitHub Actions automatically:
+# 1. Builds wheels for all platforms (Linux, macOS, Windows)
+# 2. Tests wheels on each platform
+# 3. Creates GitHub Release with assets
+# 4. Publishes to PyPI (if stable release)
+```
+
+#### Step 4: Verify Release
+
+```bash
+# Check GitHub Release created
+# Visit: https://github.com/rezwanahmedsami/catzilla/releases
+
+# For stable releases, verify PyPI publication
+pip install catzilla==0.2.0 --no-cache-dir
+python -c "import catzilla; print(f'✅ PyPI install works: {catzilla.__version__}')"
 ```
 
 ### Release Artifacts
 
-Each release includes:
+Each release automatically creates:
 
-- **Windows Wheels**: `catzilla-*-win_amd64.whl`
-- **macOS Wheels**: `catzilla-*-macosx_*.whl`
-- **Linux Wheels**: `catzilla-*-linux_x86_64.whl`
-- **Source Distribution**: `catzilla-*.tar.gz`
+**GitHub Release Assets:**
+- `catzilla-0.2.0-py3-none-win_amd64.whl` (Windows)
+- `catzilla-0.2.0-py3-none-macosx_10_9_x86_64.whl` (macOS Intel)
+- `catzilla-0.2.0-py3-none-macosx_11_0_arm64.whl` (macOS ARM64)
+- `catzilla-0.2.0-py3-none-linux_x86_64.whl` (Linux)
+- `catzilla-0.2.0.tar.gz` (Source distribution)
 
-### Installation from GitHub Releases
-
-Users can install Catzilla from GitHub Releases:
-
-```bash
-# Download the appropriate wheel for your platform
-curl -L -O https://github.com/your-username/catzilla/releases/download/v0.1.0/catzilla-0.1.0-cp310-cp310-linux_x86_64.whl
-
-# Install with pip
-pip install catzilla-0.1.0-cp310-cp310-linux_x86_64.whl
-```
+**PyPI Package (Stable Releases Only):**
+- Available via `pip install catzilla==0.2.0`
+- Automatic dependency resolution
+- Universal wheel compatibility
 
 ### Build System Requirements
 
@@ -427,6 +823,9 @@ scripts\run_tests.bat
 
 # Verbose output for debugging
 ./scripts/run_tests.sh --verbose
+
+# Specific test file
+python -m pytest tests/python/test_routing.py -v
 ```
 
 **On Windows:**
@@ -441,880 +840,1168 @@ scripts\run_tests.bat --c
 scripts\run_tests.bat --verbose
 ```
 
-#### Test Coverage Overview
-- **Total Tests: 90**
-  - **C Tests: 28** (Basic router: 3, Advanced router: 14, Server integration: 11)
-  - **Python Tests: 62** (Advanced routing: 22, HTTP responses: 17, Basic: 10, Requests: 13)
+### Writing Tests
 
-### Development Commands
+#### C Tests (Unity Framework)
 
-#### Running Examples
+**Location**: `tests/c/`
 
-**On macOS/Linux:**
-```bash
-# Start a development server with an example
-./scripts/run_example.sh examples/hello_world/main.py
-
-# Or use the CLI after installation
-catzilla run examples/hello_world/main.py:app --reload
-```
-
-**On Windows:**
-```cmd
-# Start a development server with an example
-scripts\run_example.bat examples\hello_world\main.py
-
-# Or use the CLI after installation
-catzilla run examples/hello_world/main.py:app --reload
-```
-
-#### Manual Building (Advanced)
-
-**On macOS/Linux:**
-```bash
-# Clean build
-rm -rf build/ dist/ *.egg-info/ **/*.so **/__pycache__
-
-# Configure with CMake
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-
-# Build (use available CPU cores)
-cmake --build build -j$(nproc)
-
-# Install in development mode
-pip install -e .
-```
-
-**On Windows:**
-```cmd
-# Clean build
-rmdir /s /q build dist
-del /s /q *.egg-info
-for /r %%i in (*.pyd __pycache__) do if exist "%%i" rmdir /s /q "%%i"
-
-# Configure with CMake
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-
-# Build (use available CPU cores)
-cmake --build build -j %NUMBER_OF_PROCESSORS%
-
-# Install in development mode
-pip install -e .
-```
-
-## 🏗️ Project Architecture
-
-### Core Components
-
-#### C Core (`src/core/`)
-- **`server.c/h`** - Main HTTP server implementation with libuv
-- **`router.c/h`** - Advanced trie-based routing engine
-- **Memory management** - Zero-leak design with proper cleanup
-
-#### Python Integration (`src/python/`)
-- **`module.c`** - CPython extension bridging C core to Python
-- **GIL handling** - Proper threading and concurrency support
-
-#### Python Layer (`python/catzilla/`)
-- **`routing.py`** - High-level Router class with method normalization
-- **`router_group.py`** - RouterGroup implementation for hierarchical routing
-- **`__init__.py`** - Public API and framework interface
-- **`params.py`** - Path parameter extraction and validation
-
-### Key Features Implemented
-
-1. **C-Accelerated Hybrid Routing**
-   - C core engine for 18.5% faster route matching
-   - Zero-copy path parameter extraction
-   - Automatic fallback to Python routing when needed
-   - Optimized tree traversal for complex routing patterns
-
-2. **RouterGroup System**
-   - Hierarchical route organization with prefix support
-   - Nested RouterGroups with parameter inheritance
-   - HTTP method decorators (@get, @post, @put, @delete, @patch)
-   - FastAPI-style route organization and metadata support
-
-3. **Enhanced Path Parameter Extraction**
-   - C-accelerated parameter parsing (35% faster)
-   - Complex nested route parameter support
-   - Type validation and automatic conversion
-   - Custom parameter validators and converters
-
-4. **Advanced Dynamic Routing**
-   - Trie-based router with O(log n) lookup
-   - Dynamic path parameters: `/users/{user_id}`
-   - Route conflict detection and warnings
-   - Multiple HTTP methods per path
-
-5. **HTTP Status Code Handling**
-   - 404 Not Found for missing routes
-   - 405 Method Not Allowed with proper Allow headers
-   - 415 Unsupported Media Type for parsing errors
-
-6. **Production-Grade Memory Management**
-   - Recursive cleanup of trie structures
-   - No memory leaks (validated by extensive testing)
-   - 42% reduction in memory usage for large RouterGroup hierarchies
-
-7. **Performance Monitoring**
-   - Built-in benchmarking and profiling tools
-   - Route introspection and debugging APIs
-   - Performance metrics and monitoring capabilities
-
-## 🧪 Testing Guidelines
-
-### Writing C Tests
-
-C tests use the Unity testing framework. Add new tests to `tests/c/`:
-
+**Template for new C tests:**
 ```c
 #include "unity.h"
 #include "../../src/core/router.h"
 
-void test_new_router_feature(void) {
+void setUp(void) {
+    // Setup code before each test
+}
+
+void tearDown(void) {
+    // Cleanup code after each test
+}
+
+void test_new_feature_basic_functionality(void) {
+    // Arrange
     catzilla_router_t router;
     catzilla_router_init(&router);
 
-    // Your test code here
-    TEST_ASSERT_EQUAL(EXPECTED, actual);
+    // Act
+    int result = catzilla_router_add_route(&router, "GET", "/test", handler);
+
+    // Assert
+    TEST_ASSERT_EQUAL(0, result);
+    TEST_ASSERT_NOT_NULL(router.root);
+
+    // Cleanup
+    catzilla_router_cleanup(&router);
+}
+
+void test_new_feature_error_handling(void) {
+    // Test error conditions and edge cases
+    catzilla_router_t router;
+    catzilla_router_init(&router);
+
+    // Test invalid input
+    int result = catzilla_router_add_route(&router, NULL, "/test", handler);
+    TEST_ASSERT_EQUAL(-1, result);
 
     catzilla_router_cleanup(&router);
 }
+
+int main(void) {
+    UNITY_BEGIN();
+    RUN_TEST(test_new_feature_basic_functionality);
+    RUN_TEST(test_new_feature_error_handling);
+    return UNITY_END();
+}
 ```
 
-**Register tests in CMakeLists.txt:**
+**Register in CMakeLists.txt:**
 ```cmake
 add_executable(test_new_feature tests/c/test_new_feature.c)
 target_link_libraries(test_new_feature catzilla_core unity)
+add_test(NAME test_new_feature COMMAND test_new_feature)
 ```
 
-### Writing Python Tests
+#### Python Tests (pytest Framework)
 
-Python tests use pytest. Add tests to `tests/python/`:
+**Location**: `tests/python/`
 
+**Template for new Python tests:**
 ```python
 import pytest
 from catzilla import App, RouterGroup
 
-def test_new_feature():
-    app = App()
-    # Your test code here
-    assert expected == actual
+class TestNewFeature:
+    """Test suite for new feature functionality."""
 
-def test_router_group_feature():
+    def setup_method(self):
+        """Setup for each test method."""
+        self.app = App()
+
+    def test_basic_functionality(self):
+        """Test basic feature functionality."""
+        # Arrange
+        api = RouterGroup(prefix="/api")
+
+        @api.get("/test")
+        def test_handler(request):
+            return {"message": "test"}
+
+        self.app.include_routes(api)
+
+        # Act & Assert
+        routes = self.app.get_routes()
+        assert len(routes) == 1
+        assert routes[0]["path"] == "/api/test"
+        assert routes[0]["method"] == "GET"
+
+    def test_error_handling(self):
+        """Test error conditions and edge cases."""
+        with pytest.raises(ValueError):
+            RouterGroup(prefix="invalid-prefix")  # Missing leading slash
+
+    def test_edge_cases(self):
+        """Test edge cases and boundary conditions."""
+        # Test empty inputs, large datasets, special characters
+        api = RouterGroup(prefix="/api")
+
+        # Test special characters in routes
+        @api.get("/test/{param}")
+        def handler(request):
+            return {"param": request.path_params["param"]}
+
+        assert api.prefix == "/api"
+
+@pytest.fixture
+def sample_app():
+    """Fixture providing a sample app for testing."""
     app = App()
     api = RouterGroup(prefix="/api/v1")
 
     @api.get("/users/{user_id}")
     def get_user(request):
-        user_id = request.path_params["user_id"]
-        return {"user_id": user_id}
+        return {"user_id": request.path_params["user_id"]}
 
     app.include_routes(api)
-    # Test routing behavior
-    # Note: Use actual API methods available in the framework
+    return app
 
-class TestRouterGroupClass:
-    def test_nested_router_groups(self):
-        # Test RouterGroup functionality
-        app = App()
-        api = RouterGroup(prefix="/api")
-        app.include_routes(api)
-
-    def test_path_parameters(self):
-        # Test path parameter extraction
-        pass
+def test_integration_with_fixture(sample_app):
+    """Test using pytest fixtures."""
+    routes = sample_app.get_routes()
+    assert len(routes) == 1
+    assert "/api/v1/users/{user_id}" in str(routes[0])
 ```
 
 ### Test Best Practices
 
-1. **Always test cleanup** - Ensure no memory leaks in C tests
-2. **Test edge cases** - Empty inputs, large datasets, invalid parameters
-3. **Use descriptive names** - `test_router_handles_dynamic_paths_with_multiple_parameters`
-4. **Group related tests** - Use test classes or separate files for feature areas
-5. **Mock external dependencies** - Keep tests isolated and fast
+#### General Principles
+1. **Test pyramid**: Lots of unit tests, fewer integration tests
+2. **Fast feedback**: Tests should run quickly for development workflow
+3. **Isolated tests**: Each test should be independent and not affect others
+4. **Descriptive names**: Test names should clearly describe what they test
+5. **AAA pattern**: Arrange, Act, Assert structure for clarity
 
-## 🔍 Debugging
+#### C Testing Best Practices
+1. **Memory management**: Always test cleanup - no memory leaks
+2. **Error conditions**: Test both success and failure paths
+3. **Boundary testing**: Test edge cases, NULL inputs, empty data
+4. **Resource cleanup**: Use setUp/tearDown for consistent test environment
+5. **Assertion specificity**: Use specific assertions (TEST_ASSERT_EQUAL vs TEST_ASSERT)
 
-### Debug Builds
+#### Python Testing Best Practices
+1. **Use pytest features**: Fixtures, parametrization, markers
+2. **Mock external dependencies**: Keep tests fast and isolated
+3. **Test public APIs**: Focus on the interfaces users will use
+4. **Group related tests**: Use classes or modules for organization
+5. **Test data validation**: Ensure proper error handling for invalid inputs
 
-The build script creates debug builds by default with:
-- Debug symbols (`-g`)
-- Memory debugging tools compatibility
-- Verbose logging enabled
+### Test Coverage
 
-### Logging
+#### Measuring Coverage
+```bash
+# Install coverage tools
+pip install coverage pytest-cov
 
-The codebase includes comprehensive logging:
+# Run with coverage
+python -m pytest tests/python/ --cov=catzilla --cov-report=html
+
+# View coverage report
+open htmlcov/index.html
+```
+
+#### Coverage Targets
+- **Core functionality**: 95%+ coverage
+- **Error handling**: 90%+ coverage
+- **Public APIs**: 100% coverage
+- **Overall project**: 85%+ coverage
+
+### Performance Testing
+
+#### Benchmarking
+```bash
+# Run performance benchmarks
+cd benchmarks/
+python run_router_benchmark.py
+
+# Compare C vs Python routing performance
+python benchmark_c_acceleration.py
+```
+
+#### Regression Testing
+```bash
+# Baseline performance measurement
+python -m pytest benchmarks/ --benchmark-only --benchmark-save=baseline
+
+# Compare against baseline
+python -m pytest benchmarks/ --benchmark-only --benchmark-compare=baseline
+```
+
+### Continuous Integration Testing
+
+#### Local CI Simulation
+```bash
+# Test multiple Python versions with tox
+pip install tox
+tox
+
+# Test specific Python version
+tox -e py310
+
+# Test documentation builds
+tox -e docs
+```
+
+#### Platform Testing
+```bash
+# Test cross-platform builds locally
+CIBW_BUILD="cp310-*" cibuildwheel --platform linux
+CIBW_BUILD="cp310-*" cibuildwheel --platform macos
+```
+
+---
+
+## 💡 Code Standards
+
+### Overview
+
+Catzilla maintains high code quality standards to ensure maintainability, performance, and reliability. These standards are enforced through automated tools and peer review.
+
+### C Code Standards
+
+#### Style Guidelines
+
+**Formatting:**
 ```c
-// In C code
-LOG_DEBUG("Router", "Adding route: %s %s", method, path);
-LOG_INFO("Server", "Server started on port %d", port);
-LOG_ERROR("Router", "Failed to add route: %s", error_msg);
-```
-
-### Memory Debugging
-
-Use tools like Valgrind on Linux or AddressSanitizer:
-```bash
-# AddressSanitizer (recommended)
-export CFLAGS="-fsanitize=address -g"
-./scripts/build.sh
-./scripts/run_tests.sh
-
-# Valgrind (Linux)
-valgrind --leak-check=full ./build/test_router
-```
-
-## 🐛 Debug Logging System
-
-Catzilla provides a professional debug logging system designed for contributors while keeping clean output for end users. The system uses environment variables to control debug output across both C and Python components.
-
-### Quick Start
-
-#### For End Users (Clean Output)
-```bash
-# Normal usage - clean, professional output only
-python app.py
-./scripts/run_example.sh examples/hello_world/main.py
-```
-
-#### For Contributors (Rich Debugging)
-```bash
-# Enable all debugging (both C and Python)
-CATZILLA_C_DEBUG=1 CATZILLA_DEBUG=1 python app.py
-
-# Or use the convenient script flags
-./scripts/run_example.sh --debug examples/hello_world/main.py
-```
-
-### Debug Environment Variables
-
-| Variable | Component | Description |
-|----------|-----------|-------------|
-| `CATZILLA_C_DEBUG=1` | C Core | Enables debug logging for server, router, and HTTP components |
-| `CATZILLA_DEBUG=1` | Python | Enables debug logging for Python types and application components |
-
-### Script Debug Flags
-
-The `run_example.sh` script provides convenient debug flags:
-
-```bash
-# Enable all debugging (C + Python)
-./scripts/run_example.sh --debug examples/hello_world/main.py
-
-# Enable only C debugging
-./scripts/run_example.sh --debug_c examples/hello_world/main.py
-
-# Enable only Python debugging
-./scripts/run_example.sh --debug_py examples/hello_world/main.py
-
-# Normal operation (no debug output)
-./scripts/run_example.sh examples/hello_world/main.py
-```
-
-### C Debug Logging
-
-The C logging system in `src/core/logging.h` provides color-coded, module-specific logging:
-
-#### Available Macros
-```c
-// Server module
-LOG_SERVER_DEBUG(message, ...);
-LOG_SERVER_INFO(message, ...);
-LOG_SERVER_WARN(message, ...);
-LOG_SERVER_ERROR(message, ...);
-
-// Router module
-LOG_ROUTER_DEBUG(message, ...);
-LOG_ROUTER_INFO(message, ...);
-LOG_ROUTER_WARN(message, ...);
-LOG_ROUTER_ERROR(message, ...);
-
-// HTTP module
-LOG_HTTP_DEBUG(message, ...);
-LOG_HTTP_INFO(message, ...);
-LOG_HTTP_WARN(message, ...);
-LOG_HTTP_ERROR(message, ...);
-```
-
-#### Color Scheme
-- **DEBUG**: Cyan - Detailed debugging information
-- **INFO**: Green - Important operational information
-- **WARN**: Yellow - Warnings and potential issues
-- **ERROR**: Red - Error conditions and failures
-
-#### Example Usage in C Code
-```c
-#include "logging.h"
-
-void example_function() {
-    LOG_SERVER_DEBUG("Starting server initialization on port %d", port);
-
-    if (setup_successful) {
-        LOG_SERVER_INFO("Server successfully bound to port %d", port);
-    } else {
-        LOG_SERVER_ERROR("Failed to bind to port %d: %s", port, error_msg);
-    }
-
-    LOG_SERVER_WARN("Using default configuration for missing setting");
-}
-```
-
-#### Performance Impact
-- **Zero overhead when disabled** - No performance impact in production
-- **Runtime control** - No recompilation needed to enable/disable debugging
-- **Module-specific** - Only show logs from components you're debugging
-
-### Python Debug Logging
-
-The Python logging system in `python/catzilla/logging.py` provides matching functionality:
-
-#### Available Functions
-```python
-# Types module
-log_types_debug(message)
-log_types_info(message)
-log_types_warn(message)
-log_types_error(message)
-
-# Application module
-log_app_debug(message)
-log_app_info(message)
-log_app_warn(message)
-log_app_error(message)
-
-# Request module
-log_request_debug(message)
-log_request_info(message)
-log_request_warn(message)
-log_request_error(message)
-```
-
-#### Example Usage in Python Code
-```python
-from catzilla.logging import log_types_debug, log_types_info, log_types_error
-
-def process_request(request):
-    log_types_debug(f"Processing {request.method} request to {request.path}")
-
-    try:
-        result = handle_request(request)
-        log_types_info(f"Successfully processed request: {result}")
-        return result
-    except Exception as e:
-        log_types_error(f"Request processing failed: {e}")
-        raise
-```
-
-### Debug Output Examples
-
-#### Clean End User Output
-```bash
-$ python app.py
-Server starting on http://localhost:8000
-Press Ctrl+C to stop
-```
-
-#### Rich Contributor Debugging
-```bash
-$ CATZILLA_C_DEBUG=1 CATZILLA_DEBUG=1 python app.py
-[DEBUG-C][Server] Initializing server on port 8000
-[DEBUG-C][Router] Router initialized with empty route table
-[DEBUG-PY-TYPES] Loading application configuration
-[DEBUG-C][Server] Setting up libuv event loop
-[INFO-C][Server] Server successfully bound to port 8000
-[DEBUG-PY-APP] Application startup complete
-Server starting on http://localhost:8000
-[DEBUG-C][Server] Server listening for connections
-Press Ctrl+C to stop
-```
-
-### Integration with Development Workflow
-
-#### During Development
-1. **Start with clean output** to see the user experience
-2. **Enable debugging** when investigating issues or implementing features
-3. **Use module-specific debugging** to focus on relevant components
-4. **Add logging to new code** using the appropriate macros/functions
-
-#### Example Development Session
-```bash
-# Test user experience first
-./scripts/run_example.sh examples/hello_world/main.py
-
-# Enable debugging to investigate an issue
-./scripts/run_example.sh --debug examples/hello_world/main.py
-
-# Focus on just C router debugging
-CATZILLA_C_DEBUG=1 python examples/router_groups/main.py
-
-# Focus on just Python types debugging
-CATZILLA_DEBUG=1 python examples/hello_world/main.py
-```
-
-#### Testing with Debug Logging
-```bash
-# Test normal operation (clean output)
-./scripts/run_tests.sh
-
-# Test with full debugging enabled
-CATZILLA_C_DEBUG=1 CATZILLA_DEBUG=1 ./scripts/run_tests.sh
-
-# Debug specific test failures
-CATZILLA_C_DEBUG=1 python -m pytest tests/python/test_specific.py -v
-```
-
-### Adding Debug Logging to New Code
-
-#### For C Code
-1. **Include the logging header**: `#include "logging.h"`
-2. **Choose appropriate module**: SERVER, ROUTER, or HTTP
-3. **Select appropriate level**: DEBUG, INFO, WARN, or ERROR
-4. **Use descriptive messages**: Include relevant context and data
-
-```c
-#include "logging.h"
-
-int new_feature_function(const char* param) {
-    LOG_SERVER_DEBUG("Starting new feature with param: %s", param);
-
-    if (!param) {
-        LOG_SERVER_ERROR("Invalid parameter: param cannot be NULL");
+// ✅ Correct indentation (4 spaces, no tabs)
+int catzilla_router_add_route(catzilla_router_t *router,
+                              const char *method,
+                              const char *path,
+                              request_handler_t handler) {
+    if (!router || !method || !path || !handler) {
         return -1;
     }
 
     // Implementation here
+    return 0;
+}
 
-    LOG_SERVER_INFO("New feature completed successfully");
+// ❌ Incorrect formatting
+int catzilla_router_add_route(catzilla_router_t *router, const char *method, const char *path, request_handler_t handler) {
+if(!router||!method||!path||!handler){
+return -1;
+}
+return 0;
+}
+```
+
+**Naming Conventions:**
+```c
+// ✅ Consistent naming patterns
+typedef struct {
+    char *method;
+    char *path;
+    request_handler_t handler;
+} catzilla_route_t;
+
+// Function names: module_action_target
+int catzilla_router_add_route(...);
+void catzilla_router_cleanup(...);
+static int router_find_route(...);  // static functions: module_action
+
+// Constants: UPPERCASE with underscores
+#define CATZILLA_MAX_PATH_LENGTH 1024
+#define CATZILLA_DEFAULT_PORT 8000
+
+// Variables: snake_case
+int route_count;
+char *request_path;
+```
+
+#### Error Handling
+```c
+// ✅ Comprehensive error handling
+int catzilla_router_add_route(catzilla_router_t *router,
+                              const char *method,
+                              const char *path,
+                              request_handler_t handler) {
+    // Validate inputs
+    if (!router) {
+        LOG_ROUTER_ERROR("Router cannot be NULL");
+        return CATZILLA_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (!method || strlen(method) == 0) {
+        LOG_ROUTER_ERROR("Method cannot be empty");
+        return CATZILLA_ERROR_INVALID_ARGUMENT;
+    }
+
+    // Attempt operation
+    int result = internal_add_route(router, method, path, handler);
+    if (result != 0) {
+        LOG_ROUTER_ERROR("Failed to add route %s %s: error %d", method, path, result);
+        return result;
+    }
+
+    LOG_ROUTER_DEBUG("Successfully added route %s %s", method, path);
+    return CATZILLA_SUCCESS;
+}
+
+// ❌ Poor error handling
+int bad_function(void *ptr) {
+    // No input validation
+    // No error logging
+    // No meaningful return codes
+    do_something(ptr);
     return 0;
 }
 ```
 
-#### For Python Code
-1. **Import logging functions**: `from catzilla.logging import log_*_*`
-2. **Choose appropriate module**: types, app, or request
-3. **Use f-strings for formatting**: More readable and performant
-4. **Log at appropriate times**: Entry/exit, errors, important state changes
+#### Memory Management
+```c
+// ✅ Proper memory management
+catzilla_route_t* catzilla_route_create(const char *method, const char *path) {
+    catzilla_route_t *route = malloc(sizeof(catzilla_route_t));
+    if (!route) {
+        LOG_ROUTER_ERROR("Failed to allocate memory for route");
+        return NULL;
+    }
+
+    // Initialize all fields
+    route->method = strdup(method);
+    route->path = strdup(path);
+    route->handler = NULL;
+
+    // Check allocations
+    if (!route->method || !route->path) {
+        catzilla_route_destroy(route);  // Cleanup on failure
+        return NULL;
+    }
+
+    return route;
+}
+
+void catzilla_route_destroy(catzilla_route_t *route) {
+    if (route) {
+        free(route->method);
+        free(route->path);
+        free(route);
+    }
+}
+
+// ❌ Memory leaks and errors
+catzilla_route_t* bad_create(const char *method) {
+    catzilla_route_t *route = malloc(sizeof(catzilla_route_t));
+    route->method = malloc(strlen(method) + 1);  // No null check
+    strcpy(route->method, method);  // No bounds checking
+    return route;  // No cleanup on errors
+}
+```
+
+#### Performance Guidelines
+```c
+// ✅ Performance-conscious code
+// Cache frequently accessed values
+static const char* http_methods[] = {"GET", "POST", "PUT", "DELETE", NULL};
+
+int is_valid_method(const char *method) {
+    // O(1) lookup for common methods
+    for (int i = 0; http_methods[i]; i++) {
+        if (strcmp(method, http_methods[i]) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+// Use appropriate data structures
+typedef struct route_node {
+    char *path_segment;
+    struct route_node *children[MAX_CHILDREN];  // Array for O(1) access
+    request_handler_t handler;
+} route_node_t;
+
+// ❌ Performance anti-patterns
+int slow_method_check(const char *method) {
+    // String creation in hot path
+    char *methods = "GET,POST,PUT,DELETE";
+    return strstr(methods, method) != NULL;  // Inefficient
+}
+```
+
+#### Security Guidelines
+```c
+// ✅ Secure coding practices
+int catzilla_router_add_route(catzilla_router_t *router,
+                              const char *method,
+                              const char *path,
+                              request_handler_t handler) {
+    // Validate all inputs
+    if (!router || !method || !path || !handler) {
+        return CATZILLA_ERROR_INVALID_ARGUMENT;
+    }
+
+    // Check string lengths to prevent buffer overflows
+    if (strlen(method) > MAX_METHOD_LENGTH) {
+        return CATZILLA_ERROR_METHOD_TOO_LONG;
+    }
+
+    if (strlen(path) > MAX_PATH_LENGTH) {
+        return CATZILLA_ERROR_PATH_TOO_LONG;
+    }
+
+    // Validate path format to prevent path traversal
+    if (strstr(path, "..") || strstr(path, "//")) {
+        return CATZILLA_ERROR_INVALID_PATH;
+    }
+
+    return router_add_route_internal(router, method, path, handler);
+}
+
+// ❌ Security vulnerabilities
+int bad_add_route(catzilla_router_t *router, char *path) {
+    strcpy(router->buffer, path);  // Buffer overflow risk
+    // No validation, path traversal possible
+}
+```
+
+### Python Code Standards
+
+#### Style Guidelines (PEP 8 Compliance)
+
+**Enforced by tools:**
+- **black**: Code formatting
+- **isort**: Import sorting
+- **flake8**: Style and complexity checking
+- **mypy**: Type checking
 
 ```python
-from catzilla.logging import log_app_debug, log_app_info, log_app_error
+# ✅ Proper Python style
+from typing import Dict, List, Optional, Union
+from catzilla.types import Request, Response
 
-def new_feature_function(param):
-    log_app_debug(f"Starting new feature with param: {param}")
+class RouterGroup:
+    """A group of related routes with a common prefix.
+
+    RouterGroup enables hierarchical organization of routes with shared
+    prefixes, middleware, and other common configuration.
+
+    Args:
+        prefix: URL prefix for all routes in this group
+        middleware: Optional middleware functions to apply
+
+    Example:
+        >>> api = RouterGroup(prefix="/api/v1")
+        >>> @api.get("/users/{user_id}")
+        ... def get_user(request):
+        ...     return {"user_id": request.path_params["user_id"]}
+        >>>
+        >>> app.include_routes(api)
+
+    Attributes:
+        prefix (str): The URL prefix for this router group.
+        middleware (Optional[List[callable]]): The middleware functions to apply.
+    """
+
+    def __init__(self, prefix: str, middleware: Optional[List] = None) -> None:
+        if not prefix.startswith("/"):
+            raise ValueError("Prefix must start with '/'")
+
+        self._prefix = prefix.rstrip("/")
+        self._routes: List[Dict[str, Union[str, callable]]] = []
+        self._middleware = middleware or []
+
+    @property
+    def prefix(self) -> str:
+        """Get the URL prefix for this router group."""
+        return self._prefix
+
+    def get(self, path: str) -> callable:
+        """Register a GET route handler.
+
+        Args:
+            path: URL path pattern (can include {param} placeholders)
+
+        Returns:
+            Decorator function for the route handler
+        """
+        return self._add_route("GET", path)
+
+    def _add_route(self, method: str, path: str) -> callable:
+        """Internal method to add a route."""
+        def decorator(handler: callable) -> callable:
+            full_path = self._prefix + path
+            self._routes.append({
+                "method": method,
+                "path": full_path,
+                "handler": handler,
+            })
+            return handler
+        return decorator
+
+# ❌ Poor Python style
+class bad_router_group:  # Wrong naming
+    def __init__(self,prefix,middleware=None):  # Missing spaces, no types
+        self.prefix=prefix  # No validation
+        self.routes=[]  # No type hints
+
+    def get(self,path):  # Missing spaces, no types, no docstring
+        def decorator(handler):
+            self.routes.append({"method":"GET","path":self.prefix+path,"handler":handler})
+            return handler
+        return decorator
+```
+
+#### Type Hints
+```python
+# ✅ Comprehensive type hints
+from typing import Any, Dict, List, Optional, Protocol, Union
+
+class RequestHandler(Protocol):
+    """Protocol for request handler functions."""
+    def __call__(self, request: Request) -> Union[Dict[str, Any], Response]: ...
+
+class Router:
+    """High-performance router with C acceleration."""
+
+    def __init__(self) -> None:
+        self._routes: List[Dict[str, Any]] = []
+        self._c_router: Optional[Any] = None
+
+    def add_route(self,
+                  method: str,
+                  path: str,
+                  handler: RequestHandler) -> None:
+        """Add a route to the router."""
+        pass
+
+    def find_route(self,
+                   method: str,
+                   path: str) -> Optional[Dict[str, Any]]:
+        """Find a matching route for the given method and path."""
+        pass
+
+# ❌ Missing type hints
+class Router:  # No types anywhere
+    def __init__(self):
+        self.routes = []
+
+    def add_route(self, method, path, handler):  # No type information
+        pass
+```
+
+#### Error Handling
+```python
+# ✅ Proper error handling
+from catzilla.exceptions import CatzillaError, RouterError
+
+class RouterGroup:
+    def __init__(self, prefix: str) -> None:
+        if not isinstance(prefix, str):
+            raise TypeError(f"Prefix must be string, got {type(prefix)}")
+
+        if not prefix.startswith("/"):
+            raise ValueError("Prefix must start with '/'")
+
+        if "//" in prefix:
+            raise ValueError("Prefix cannot contain double slashes")
+
+        self._prefix = prefix.rstrip("/")
+
+    def include_routes(self, other: 'RouterGroup') -> None:
+        """Include routes from another RouterGroup."""
+        try:
+            for route in other.get_routes():
+                self._add_existing_route(route)
+        except Exception as e:
+            raise RouterError(f"Failed to include routes: {e}") from e
+
+    def _add_existing_route(self, route: Dict[str, Any]) -> None:
+        """Add an existing route definition."""
+        required_keys = {"method", "path", "handler"}
+        if not required_keys.issubset(route.keys()):
+            missing = required_keys - route.keys()
+            raise RouterError(f"Route missing required keys: {missing}")
+
+        self._routes.append(route)
+
+# ❌ Poor error handling
+class RouterGroup:
+    def __init__(self, prefix):
+        self.prefix = prefix  # No validation
+
+    def include_routes(self, other):
+        for route in other.routes:  # No error handling
+            self.routes.append(route)  # Could fail silently
+```
+
+#### Memory Management
+```python
+# ✅ Safe memory handling
+char* safe_string_copy(const char *src, size_t max_len) {
+    if (!src) return NULL;
+
+    size_t src_len = strlen(src);
+    if (src_len > max_len) {
+        return NULL;  // Prevent oversized allocations
+    }
+
+    char *dst = malloc(src_len + 1);
+    if (!dst) return NULL;
+
+    memcpy(dst, src, src_len);
+    dst[src_len] = '\0';
+    return dst;
+}
+
+void cleanup_router_node(route_node_t *node) {
+    if (!node) return;
+
+    // Recursively clean up children
+    for (int i = 0; i < node->child_count; i++) {
+        cleanup_router_node(node->children[i]);
+    }
+
+    // Clean up node data
+    free(node->path_segment);
+    free(node->children);
+    free(node);
+}
+```
+
+### Code Quality Tools
+
+#### Pre-commit Hooks Setup
+```bash
+# Install pre-commit
+pip install pre-commit
+
+# Install hooks
+pre-commit install
+
+# Run hooks manually
+pre-commit run --all-files
+```
+
+#### Configuration Files
+
+**`.pre-commit-config.yaml`:**
+```yaml
+repos:
+  - repo: https://github.com/psf/black
+    rev: 23.3.0
+    hooks:
+      - id: black
+        language_version: python3
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.12.0
+    hooks:
+      - id: isort
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 6.0.0
+    hooks:
+      - id: flake8
+        additional_dependencies: [flake8-docstrings]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.3.0
+    hooks:
+      - id: mypy
+```
+
+**`pyproject.toml` (code quality config):**
+```toml
+[tool.black]
+line-length = 88
+target-version = ['py38', 'py39', 'py310', 'py311']
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+```
+
+#### Static Analysis
+
+```bash
+# Run comprehensive static analysis
+./scripts/check_code_quality.sh
+
+# Individual tools
+black --check python/catzilla/
+isort --check-only python/catzilla/
+flake8 python/catzilla/
+mypy python/catzilla/
+
+# Fix formatting issues
+black python/catzilla/
+isort python/catzilla/
+```
+
+### Documentation Standards
+
+#### Docstring Format
+```python
+# ✅ Comprehensive docstrings (Google style)
+def add_route(self, method: str, path: str, handler: RequestHandler) -> None:
+    """Add a route to the router.
+
+    Registers a new route with the specified HTTP method, URL path pattern,
+    and handler function. The path can include parameter placeholders using
+    curly braces (e.g., '/users/{user_id}').
+
+    Args:
+        method: HTTP method (GET, POST, PUT, DELETE, etc.)
+        path: URL path pattern with optional {param} placeholders
+        handler: Function to handle requests matching this route
+
+    Raises:
+        ValueError: If method or path is invalid
+        RouterError: If route conflicts with existing routes
+
+    Example:
+        >>> router = Router()
+        >>> def get_user(request):
+        ...     return {"user": request.path_params["user_id"]}
+        >>> router.add_route("GET", "/users/{user_id}", get_user)
+    """
+```
+
+#### Code Comments
+```python
+# ✅ Meaningful comments
+class CRouter:
+    """C-accelerated router for high-performance routing."""
+
+    def __init__(self) -> None:
+        # Initialize the C router if available, fall back to Python
+        self._c_router = None
+        try:
+            import catzilla._catzilla as c_ext
+            self._c_router = c_ext.Router()
+        except ImportError:
+            # C extension not available, will use Python fallback
+            pass
+
+        # Track routes for introspection and debugging
+        self._routes: List[Dict[str, Any]] = []
+
+    def find_route(self, path: str) -> Optional[Dict[str, Any]]:
+        """Find matching route using C acceleration when available."""
+        if self._c_router:
+            # Use C implementation for optimal performance
+            result = self._c_router.find_route(method, path)
+            if result:
+                return self._convert_c_result(result)
+
+        # Fallback to Python implementation
+        return self._python_find_route(method, path)
+
+# ❌ Useless comments
+def add_route(self, method, path, handler):
+    # Add a route
+    self.routes.append(route)  # Append route to routes
+```
+
+---
+
+## ✨ Best Practices
+
+### Development Workflow Best Practices
+
+#### 1. Environment Management
+```bash
+# ✅ Always use virtual environment
+source venv/bin/activate  # Every development session
+pip list | head -5        # Verify you're in correct environment
+
+# ✅ Keep dependencies updated
+pip install --upgrade pip setuptools wheel
+pip-compile requirements-dev.in  # If using pip-tools
+
+# ❌ Never use system Python for development
+sudo pip install ...     # NEVER do this
+```
+
+#### 2. Branch Management
+```bash
+# ✅ Feature branch workflow
+git checkout -b feature/router-performance-optimization
+# Make changes, test, commit
+git push origin feature/router-performance-optimization
+# Create PR, get review, merge
+
+# ✅ Descriptive branch names
+feature/add-middleware-support
+bugfix/memory-leak-in-router-cleanup
+hotfix/security-path-traversal
+
+# ❌ Poor branch practices
+git checkout main         # Working directly on main
+git checkout -b temp      # Non-descriptive names
+```
+
+#### 3. Commit Message Guidelines
+```bash
+# ✅ Conventional commits format
+git commit -m "feat(router): add middleware support for route groups
+
+- Add middleware chain execution before route handlers
+- Support for both synchronous and asynchronous middleware
+- Include middleware timing metrics for performance monitoring
+- Add comprehensive tests for middleware functionality
+
+Closes #123"
+
+git commit -m "fix(memory): resolve memory leak in router cleanup
+
+- Fix recursive cleanup of trie structure in catzilla_router_cleanup
+- Add proper null checks before free() calls
+- Update tests to verify no memory leaks with valgrind
+- Improve error handling in cleanup paths"
+
+git commit -m "docs: update CONTRIBUTING.md with testing guidelines"
+
+# ❌ Poor commit messages
+git commit -m "fix stuff"
+git commit -m "working on router"
+git commit -m "update"
+```
+
+#### 4. Code Review Process
+
+**Before Requesting Review:**
+```bash
+# ✅ Complete checklist
+./scripts/build.sh           # Ensure clean build
+./scripts/run_tests.sh       # All tests pass
+git status                   # Clean working directory
+pre-commit run --all-files   # Code quality checks
+```
+
+**Review Guidelines:**
+- **Focus on**: Logic correctness, security, performance, maintainability
+- **Check for**: Memory leaks, error handling, edge cases, documentation
+- **Verify**: Tests cover new functionality, no breaking changes
+- **Consider**: Alternative approaches, code simplification opportunities
+
+### Performance Best Practices
+
+#### 1. C Performance Guidelines
+```c
+// ✅ Efficient memory usage
+typedef struct route_cache {
+    char path[256];           // Fixed-size for common cases
+    route_node_t *node;       // Direct pointer, no lookups
+    uint64_t access_count;    // Track usage for LRU
+} route_cache_t;
+
+// ✅ Minimize allocations in hot paths
+static char path_buffer[1024];  // Reuse buffer
+int extract_params(const char *path, param_t *params) {
+    // Use stack allocation and string manipulation
+    // instead of malloc/strdup in request handling
+}
+
+// ✅ Use appropriate data structures
+// Trie for route matching: O(log n) lookup
+// Hash table for method lookup: O(1) average case
+// Array for small, fixed collections: O(1) access
+
+// ❌ Performance anti-patterns
+void slow_route_lookup(const char *path) {
+    for (int i = 0; i < route_count; i++) {  // O(n) linear search
+        if (strcmp(routes[i].path, path) == 0) {
+            // Found route - inefficient for large route tables
+        }
+    }
+}
+```
+
+#### 2. Python Performance Guidelines
+```python
+# ✅ Efficient Python patterns
+class RouterGroup:
+    def __init__(self, prefix: str) -> None:
+        self._prefix = prefix
+        # Use __slots__ for memory efficiency in large objects
+        __slots__ = ['_prefix', '_routes', '_middleware']
+
+        # Pre-compile regex patterns if using regex routing
+        self._compiled_patterns = {}
+
+    def find_route(self, path: str) -> Optional[Dict[str, Any]]:
+        # Use C acceleration when available
+        if hasattr(self, '_c_router') and self._c_router:
+            return self._c_router.find_route(path)
+
+        # Efficient Python fallback
+        return self._python_find_route(path)
+
+# ✅ Leverage C extension appropriately
+def route_matching_performance_critical(request_path: str) -> Dict[str, Any]:
+    """Use C extension for performance-critical route matching."""
+    try:
+        # Prefer C implementation for speed
+        import catzilla._catzilla as c_ext
+        return c_ext.find_route(request_path)
+    except ImportError:
+        # Graceful fallback to Python
+        return python_route_matcher(request_path)
+
+# ❌ Performance anti-patterns
+def slow_path_params(path: str) -> Dict[str, str]:
+    # String manipulation in loop instead of C extraction
+    params = {}
+    parts = path.split('/')
+    for part in parts:
+        if part.startswith('{') and part.endswith('}'):
+            # Inefficient parameter parsing
+            pass
+    return params
+```
+
+#### 3. Security Best Practices
+
+#### 1. Input Validation
+```c
+// ✅ Comprehensive input validation
+int catzilla_router_add_route(catzilla_router_t *router,
+                              const char *method,
+                              const char *path,
+                              request_handler_t handler) {
+    // Validate all inputs
+    if (!router || !method || !path || !handler) {
+        return CATZILLA_ERROR_INVALID_ARGUMENT;
+    }
+
+    // Check string lengths to prevent buffer overflows
+    if (strlen(method) > MAX_METHOD_LENGTH) {
+        return CATZILLA_ERROR_METHOD_TOO_LONG;
+    }
+
+    if (strlen(path) > MAX_PATH_LENGTH) {
+        return CATZILLA_ERROR_PATH_TOO_LONG;
+    }
+
+    // Validate path format to prevent path traversal
+    if (strstr(path, "..") || strstr(path, "//")) {
+        return CATZILLA_ERROR_INVALID_PATH;
+    }
+
+    return router_add_route_internal(router, method, path, handler);
+}
+
+// ❌ Security vulnerabilities
+int bad_add_route(catzilla_router_t *router, char *path) {
+    strcpy(router->buffer, path);  // Buffer overflow risk
+    // No validation, path traversal possible
+}
+```
+
+```python
+# ✅ Python input validation
+def add_route(self, method: str, path: str, handler: callable) -> None:
+    """Add route with comprehensive validation."""
+    # Type checking
+    if not isinstance(method, str):
+        raise TypeError(f"Method must be string, got {type(method)}")
+
+    if not isinstance(path, str):
+        raise TypeError(f"Path must be string, got {type(path)}")
+
+    # Security validation
+    if not path.startswith('/'):
+        raise ValueError("Path must start with '/'")
+
+    if '..' in path or '//' in path:
+        raise ValueError("Path contains invalid sequences")
+
+    # Length limits
+    if len(path) > 1000:
+        raise ValueError("Path too long")
+
+    if method.upper() not in ALLOWED_METHODS:
+        raise ValueError(f"Unsupported HTTP method: {method}")
+```
+
+#### 2. Memory Safety
+```c
+// ✅ Safe memory handling
+char* safe_string_copy(const char *src, size_t max_len) {
+    if (!src) return NULL;
+
+    size_t src_len = strlen(src);
+    if (src_len > max_len) {
+        return NULL;  // Prevent oversized allocations
+    }
+
+    char *dst = malloc(src_len + 1);
+    if (!dst) return NULL;
+
+    memcpy(dst, src, src_len);
+    dst[src_len] = '\0';
+    return dst;
+}
+
+void cleanup_router_node(route_node_t *node) {
+    if (!node) return;
+
+    // Recursively clean up children
+    for (int i = 0; i < node->child_count; i++) {
+        cleanup_router_node(node->children[i]);
+    }
+
+    // Clean up node data
+    free(node->path_segment);
+    free(node->children);
+    free(node);
+}
+```
+
+### Maintainability Best Practices
+
+#### 1. Code Organization
+```python
+# ✅ Clear module structure
+# python/catzilla/
+# ├── __init__.py          # Public API
+# ├── app.py               # Application class
+# ├── routing.py           # Route management
+# ├── router_group.py      # RouterGroup implementation
+# ├── request.py           # Request handling
+# ├── response.py          # Response formatting
+# ├── exceptions.py        # Custom exceptions
+# └── types.py             # Type definitions
+
+# ✅ Clear imports and exports
+# In __init__.py
+from .app import App
+from .router_group import RouterGroup
+from .exceptions import CatzillaError
+
+__all__ = ["App", "RouterGroup", "CatzillaError"]
+__version__ = "0.1.0"
+```
+
+#### 2. Documentation Standards
+```python
+# ✅ Comprehensive module documentation
+"""Catzilla RouterGroup Implementation.
+
+This module provides the RouterGroup class for hierarchical organization
+of routes with shared prefixes and middleware. RouterGroup enables clean
+API design and logical grouping of related endpoints.
+
+Example:
+    >>> from catzilla import App, RouterGroup
+    >>> app = App()
+    >>> api = RouterGroup(prefix="/api/v1")
+    >>>
+    >>> @api.get("/users/{user_id}")
+    ... def get_user(request):
+    ...     return {"user_id": request.path_params["user_id"]}
+    >>>
+    >>> app.include_routes(api)
+
+Classes:
+    RouterGroup: Route grouping with shared configuration
+
+Functions:
+    create_api_group: Factory function for common API patterns
+"""
+```
+
+#### 3. Backward Compatibility
+```python
+# ✅ Deprecation handling
+def old_method(self) -> None:
+    """Legacy method - use new_method() instead.
+
+    .. deprecated:: 0.2.0
+        This method will be removed in version 1.0.0.
+        Use :meth:`new_method` instead.
+    """
+    import warnings
+    warnings.warn(
+        "old_method is deprecated, use new_method instead",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return self.new_method()
+
+# ✅ Version compatibility checks
+def check_compatibility() -> None:
+    """Check runtime compatibility requirements."""
+    import sys
+    if sys.version_info < (3, 8):
+        raise RuntimeError("Catzilla requires Python 3.8 or later")
+```
+
+### Debugging and Troubleshooting Best Practices
+
+#### 1. Effective Logging
+```python
+# ✅ Structured logging
+import logging
+
+logger = logging.getLogger(__name__)
+
+def process_request(request):
+    """Process incoming request with proper logging."""
+    logger.debug(
+        "Processing request",
+        extra={
+            "method": request.method,
+            "path": request.path,
+            "remote_addr": request.remote_addr,
+            "user_agent": request.headers.get("User-Agent"),
+        }
+    )
 
     try:
-        # Implementation here
-        result = process_param(param)
-        log_app_info(f"New feature completed: {result}")
+        result = handle_request(request)
+        logger.info(
+            "Request processed successfully",
+            extra={"status": 200, "response_size": len(str(result))}
+        )
         return result
     except Exception as e:
-        log_app_error(f"New feature failed: {e}")
+        logger.error(
+            "Request processing failed",
+            extra={"error": str(e), "error_type": type(e).__name__},
+            exc_info=True
+        )
         raise
 ```
 
-### Debugging Best Practices
-
-1. **Use appropriate log levels**:
-   - **DEBUG**: Verbose information for debugging (loops, state changes)
-   - **INFO**: Important milestones (startup, successful operations)
-   - **WARN**: Potential issues (using defaults, recoverable errors)
-   - **ERROR**: Serious problems (failures, exceptions)
-
-2. **Include context in messages**:
-   - Parameter values, state information, error details
-   - Module/function names when not obvious
-   - Request IDs or identifiers when available
-
-3. **Keep messages concise but informative**:
-   - Avoid extremely long messages that clutter output
-   - Include the most relevant information for debugging
-   - Use consistent formatting within modules
-
-4. **Test both modes**:
-   - Always verify clean output for end users
-   - Ensure debug output provides useful information
-   - Check that logging doesn't impact performance
-
-This professional logging system enables contributors to debug effectively while ensuring end users see only clean, professional output. The environment variable approach allows easy switching between modes without code changes.
-
-## 📁 Code Organization
-
-### Directory Structure
-```
-catzilla/
-├── src/core/           # C core implementation
-├── src/python/         # Python C extension
-├── python/catzilla/    # Python package
-├── tests/c/           # C unit tests
-├── tests/python/      # Python tests
-├── examples/          # Example applications
-├── scripts/           # Development scripts
-└── docs/             # Documentation
-```
-
-### File Naming Conventions
-- **C files**: `snake_case.c/.h`
-- **Python files**: `snake_case.py`
-- **Test files**: `test_*.c` or `test_*.py`
-- **Example files**: Descriptive names in subdirectories
-
-## 🚀 Performance Considerations
-
-### Optimization Guidelines
-
-1. **Memory Allocation**
-   - Minimize malloc/free calls in hot paths
-   - Use object pools for frequently allocated structures
-   - Prefer stack allocation for small, short-lived objects
-
-2. **Routing Performance**
-   - Trie structure provides O(log n) average case lookup
-   - Static routes are optimized separately from dynamic routes
-   - Route compilation happens at startup, not per-request
-
-3. **RouterGroup Organization**
-   - Design RouterGroup hierarchies efficiently (< 6 levels deep)
-   - Use clear, descriptive prefixes for maintainability
-   - Group related routes together logically
-
-4. **C-Accelerated Benefits**
-   - C engine handles route matching transparently
-   - Python layer manages business logic and handler execution
-   - Automatic fallback ensures compatibility across environments
-
-### Performance Testing
-
+#### 2. Debugging Tools Integration
 ```bash
-# Run examples to test performance
-python examples/c_router_demo/main.py
+# ✅ Debugging workflow
+# Enable debug mode during development
+export CATZILLA_DEBUG=1
+export CATZILLA_C_DEBUG=1
 
-# Test RouterGroups and examples
-python examples/router_groups/main.py
+# Use appropriate debugging tools
+gdb --args python app.py                    # C debugging
+python -m pdb app.py                        # Python debugging
+valgrind --tool=memcheck python app.py      # Memory debugging
 
-# Test C acceleration
-python examples/c_router_demo/main.py
-
-# Run comprehensive tests
-./scripts/run_tests.sh
+# Performance profiling
+python -m cProfile -o profile.out app.py
+python -c "import pstats; pstats.Stats('profile.out').sort_stats('cumulative').print_stats(20)"
 ```
 
-## 🤝 Contribution Guidelines
-
-### Pull Request Process
-
-1. **Fork the repository** and create a feature branch
-2. **Write tests** for your changes (both C and Python if applicable)
-3. **Ensure all tests pass**: `./scripts/run_tests.sh`
-4. **Follow code style** (pre-commit hooks help with this)
-5. **Write clear commit messages** describing your changes
-6. **Submit a pull request** with a detailed description
-
-### Code Style
-
-#### C Code
-- **Indentation**: 4 spaces (no tabs)
-- **Naming**: `snake_case` for functions and variables
-- **Structs**: `typedef struct { ... } name_t;`
-- **Error handling**: Always check return values
-- **Memory**: Every malloc must have a corresponding free
-
-#### Python Code
-- **Follow PEP 8** (enforced by pre-commit hooks)
-- **Type hints**: Use them for public APIs
-- **Docstrings**: Document all public functions and classes
-- **Import order**: isort handles this automatically
-
-### Bug Reports
-
-When filing bug reports, please include:
-1. **Catzilla version** and platform
-2. **Minimal reproduction case**
-3. **Expected vs actual behavior**
-4. **Full error output** with stack traces
-5. **Environment details** (Python version, OS, etc.)
-
-### Feature Requests
-
-For new features:
-1. **Check existing issues** to avoid duplicates
-2. **Describe the use case** and motivation
-3. **Provide examples** of the proposed API
-4. **Consider backward compatibility**
-5. **Discuss implementation approach** if you plan to contribute
-
-## 🔧 Troubleshooting
-
-### Virtual Environment Issues
-
-**Problem: Commands fail with "module not found" errors**
-```bash
-# Solution: Ensure virtual environment is active
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-**Problem: `python` command uses system Python instead of venv**
-```bash
-# Check which Python you're using
-which python
-# Should show: /path/to/catzilla/venv/bin/python
-# If not, reactivate: source venv/bin/activate
-```
-
-**Problem: Dependencies seem to be missing after setup**
-```bash
-# Verify virtual environment and reinstall dependencies
-source venv/bin/activate
-pip list  # Check installed packages
-pip install -r requirements.txt --force-reinstall
-```
-
-**Problem: Virtual environment doesn't activate**
-```bash
-# Try recreating the virtual environment
-rm -rf venv
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-**Problem: Build fails with missing dependencies**
-```bash
-# Ensure you're in virtual environment and have all build dependencies
-source venv/bin/activate
-pip install --upgrade pip setuptools wheel
-pip install -r requirements.txt
-./scripts/build.sh
-```
-
-### Common Development Issues
-
-**Problem: Tests fail unexpectedly**
-```bash
-# Ensure clean environment and rebuild
-source venv/bin/activate
-./scripts/build.sh
-./scripts/run_tests.sh
-```
-
-**Problem: C compilation errors**
-```bash
-# Check that CMake and compiler are available
-cmake --version
-gcc --version  # or clang --version
-```
-
-## 📚 Contributing to Documentation
-
-The Catzilla documentation is built with Sphinx and hosted as professional-grade docs. We welcome contributions to improve documentation for all users.
-
-### Documentation Structure
-
-The documentation lives in the `docs/` directory with this structure:
-
-- **`index.rst`** - Main documentation homepage
-- **`quickstart.rst`** - Getting started guide
-- **`advanced.rst`** - Advanced usage patterns
-- **`conf.py`** - Sphinx configuration
-- **`build_docs.py`** - Build and serve script
-- **Reference docs** - Specialized topic guides (`.md` files)
-
-### Setting Up Documentation Environment
-
-1. **Install documentation dependencies:**
-   ```bash
-   source venv/bin/activate
-   pip install -r requirements-dev.txt
-   ```
-
-2. **Build documentation locally:**
-   ```bash
-   cd docs
-   python build_docs.py build
-   # or
-   make html
-   ```
-
-3. **Serve documentation locally:**
-   ```bash
-   python build_docs.py build-serve
-   # Opens on http://localhost:8080
-   ```
-
-### Documentation Contribution Guidelines
-
-#### Adding New Content
-
-1. **Create new documentation files:**
-   - Use `.rst` for main guides (preferred)
-   - Use `.md` for specialized topics
-   - Follow existing structure and style
-
-2. **Update the table of contents:**
-   - Add new files to `index.rst` toctree
-   - Organize by appropriate section (Getting Started, User Guide, Reference)
-
-3. **Test your changes:**
-   ```bash
-   cd docs
-   python build_docs.py build
-   # Check for warnings and fix any issues
-   ```
-
-#### Editing Existing Documentation
-
-1. **Update content files:**
-   - Maintain consistent formatting
-   - Keep code examples functional and tested
-   - Follow the established writing style
-
-2. **Verify examples work:**
-   ```bash
-   # Test any code examples you modify
-   cd examples/
-   python your_example.py
-   ```
-
-3. **Build and review:**
-   ```bash
-   cd docs
-   python build_docs.py build-serve
-   # Review changes in browser
-   ```
-
-#### Documentation Standards
-
-**Writing Style:**
-- Clear, concise explanations
-- Developer-focused content
-- Step-by-step instructions for tutorials
-- Real-world, practical examples
-
-**Code Examples:**
-- All examples must be functional and tested
-- Include complete, runnable code when possible
-- Follow Python best practices
-- Add comments explaining key concepts
-
-**Technical Requirements:**
-- Documentation builds without warnings
-- Cross-references work correctly
-- All links and internal references are valid
-- Mobile-responsive and accessible
-
-### Documentation Deployment
-
-#### Automatic Deployment (GitHub Actions)
-
-Documentation is automatically built and deployed when you push changes:
-
-- **Workflow**: `.github/workflows/docs.yml`
-- **Triggers**: Changes to `docs/**` or `python/catzilla/**` on main branch
-- **Deployment**: GitHub Pages at `https://[username].github.io/catzilla/`
-
-**Before submitting documentation PRs:**
-
-```bash
-# Clean and rebuild to catch issues
-cd docs
-python build_docs.py clean
-python build_docs.py build
-
-# Check for warnings or errors in output
-# Test locally before pushing
-python build_docs.py serve
-```
-
-#### Manual Deployment Options
-
-For custom hosting setups:
-
-```bash
-# Build for production
-cd docs
-python build_docs.py build
-
-# Deploy _build/html/ contents to your hosting service
-# (Netlify, Vercel, custom server, etc.)
-```
-
-### Common Documentation Tasks
-
-#### Adding API Documentation
-
-```bash
-# Document new features in quickstart.rst or advanced.rst
-# Include practical examples:
-
-@app.get("/api/users/{user_id}")
-def get_user(request):
-    user_id = request.path_params["user_id"]
-    return {"user_id": user_id, "name": "John Doe"}
-```
-
-#### Updating Framework Examples
-
-```bash
-# Test examples work with current codebase:
-cd examples/
-python hello_world/app.py
-
-# Update docs to match any API changes
-vim docs/quickstart.rst
-```
-
-#### Adding Performance Documentation
-
-```bash
-# Include benchmarks and performance tips:
-cd benchmarks/
-./run_all.sh
-# Use results to update docs/performance.md
-```
-
-### Documentation Deployment
-
-The documentation is automatically deployed via GitHub Actions when changes are merged to main. For local testing:
-
-```bash
-# Full documentation workflow:
-cd docs
-python build_docs.py clean  # if needed
-python build_docs.py build
-python build_docs.py serve
-```
-
-### Documentation Issues
-
-When reporting documentation issues:
-1. Specify the exact page/section
-2. Include suggested improvements
-3. Test with the latest Catzilla version
-4. Check that examples work as documented
-
-For documentation questions, see our comprehensive [Documentation README](docs/README.md).
-
-## 🆘 Getting Help
-
-- **GitHub Issues**: For bugs and feature requests
-- **GitHub Discussions**: For questions and community discussion
-- **Discord/Slack**: Coming soon for real-time chat
-- **Email**: [samiahmed0f0@gmail.com](mailto:samiahmed0f0@gmail.com) for direct contact
-
-## 📚 Additional Resources
-
-### Learning Resources
-- **libuv Documentation**: https://docs.libuv.org/
-- **llhttp**: https://github.com/nodejs/llhttp
-- **CPython Extending**: https://docs.python.org/3/extending/
-- **Unity Testing**: https://github.com/ThrowTheSwitch/Unity
-
-### Development Tools
-- **IDE Setup**: VS Code with C/C++ and Python extensions
-- **Debugging**: GDB, LLDB, or IDE debuggers
-- **Profiling**: Valgrind, perf, or platform-specific tools
-- **Static Analysis**: clang-static-analyzer, cppcheck
-
-Thank you for contributing to Catzilla! Your efforts help make this framework faster, more reliable, and more useful for the entire Python community. 🚀
+These comprehensive best practices ensure that Catzilla maintains its high standards for performance, security, maintainability, and developer experience. Following these guidelines helps create code that is not only functional but also professional-grade and sustainable for long-term development.

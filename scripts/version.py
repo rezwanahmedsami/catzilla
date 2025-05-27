@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 # 🎯 Single source of truth - change this to update version everywhere
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 class VersionManager:
     def __init__(self):
@@ -33,6 +33,12 @@ class VersionManager:
     def get_cmake_version(self, version_string: str) -> str:
         """Extract CMake-compatible version (MAJOR.MINOR.PATCH only)"""
         # CMake only accepts numeric MAJOR.MINOR.PATCH format
+        match = re.match(r'(\d+\.\d+\.\d+)', version_string)
+        return match.group(1) if match else "0.1.0"
+
+    def get_base_version(self, version_string: str) -> str:
+        """Extract base semantic version without pre-release identifiers (MAJOR.MINOR.PATCH only)"""
+        # Extract just the base version for project files
         match = re.match(r'(\d+\.\d+\.\d+)', version_string)
         return match.group(1) if match else "0.1.0"
 
@@ -161,24 +167,38 @@ class VersionManager:
     def update_all_versions(self, new_version: str):
         """Update version in all files"""
         print(f"🔄 Updating Catzilla version to {new_version}")
-        print(f"📐 CMake will use: {self.get_cmake_version(new_version)} (CMake format)")
+
+        # Extract base version for project files (removes pre-release identifiers)
+        base_version = self.get_base_version(new_version)
+        cmake_version = self.get_cmake_version(new_version)
+
+        print(f"📦 Project files will use: {base_version} (base semantic version)")
+        print(f"📐 CMake will use: {cmake_version} (CMake format)")
+        print(f"🏷️  Git tag will use: {new_version} (full version)")
         print()
 
         for file_name, update_func in self.version_files.items():
             try:
-                update_func(new_version)
+                if file_name == "CMakeLists.txt":
+                    # CMake uses base version (already handled by get_cmake_version)
+                    update_func(base_version)
+                else:
+                    # All other files use base version (no pre-release identifiers)
+                    update_func(base_version)
             except Exception as e:
                 print(f"❌ Failed to update {file_name}: {e}")
                 return False
 
-        # Update this script's VERSION constant
-        self.update_version_script(new_version)
+        # Update this script's VERSION constant to the base version
+        self.update_version_script(base_version)
 
         print(f"\n🎉 All files updated!")
         print(f"💡 Professional version handling:")
-        print(f"   • Python/PyPI: {new_version} (full semver)")
-        print(f"   • CMake: {self.get_cmake_version(new_version)} (numeric only)")
-        print(f"   • Git tag: v{new_version}")
+        print(f"   • Project files: {base_version} (base semantic version)")
+        print(f"   • CMake: {cmake_version} (numeric only)")
+        print(f"   • Git tag: v{new_version} (full version with pre-release)")
+        if new_version != base_version:
+            print(f"   📋 Note: Pre-release identifier '{new_version[len(base_version):]}' is only used for git tag")
         return True
 
     def update_version_script(self, new_version: str):
