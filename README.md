@@ -1,4 +1,4 @@
-# Catzilla v0.1.0
+# Catzilla
 Blazing-fast Python web framework with production-grade routing backed by a minimal, event-driven C core
 
 [![CI](https://github.com/rezwanahmedsami/catzilla/actions/workflows/ci.yml/badge.svg)](https://github.com/rezwanahmedsami/catzilla/actions)
