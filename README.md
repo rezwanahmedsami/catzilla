@@ -106,7 +106,7 @@ pip install dist/*.whl
 
 #### Build Requirements
 
-- **Python 3.8+**
+- **Python 3.8-3.13**
 - **CMake 3.15+**
 - **C Compiler**: GCC/Clang (Linux/macOS) or MSVC (Windows)
 
@@ -146,6 +146,7 @@ Catzilla v0.1.0 provides comprehensive cross-platform support with pre-built whe
 | **3.10** | ✅ | ✅ | ✅ | ✅ |
 | **3.11** | ✅ | ✅ | ✅ | ✅ |
 | **3.12** | ✅ | ✅ | ✅ | ✅ |
+| **3.13** | ✅ | ✅ | ✅ | ✅ |
 
 ### 🔧 Installation Methods by Platform
 

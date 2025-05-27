@@ -127,6 +127,8 @@ jobs:
             os: ubuntu-latest
           - python-version: '3.12'
             os: ubuntu-latest
+          - python-version: '3.13'
+            os: ubuntu-latest
 
     steps:
     - name: Checkout

@@ -392,17 +392,17 @@ Catzilla provides comprehensive cross-platform support with pre-built wheels:
 +--------------+------------------+-------------------------+------------------+
 | Platform     | Architecture     | Python Versions        | Status           |
 +==============+==================+=========================+==================+
-| **Linux**    | x86_64           | 3.8, 3.9, 3.10-3.12    | ✅ Full Support  |
+| **Linux**    | x86_64           | 3.8, 3.9, 3.10-3.13    | ✅ Full Support  |
 +--------------+------------------+-------------------------+------------------+
-| **macOS**    | Intel (x86_64)   | 3.8, 3.9, 3.10-3.12    | ✅ Full Support  |
+| **macOS**    | Intel (x86_64)   | 3.8, 3.9, 3.10-3.13    | ✅ Full Support  |
 +--------------+------------------+-------------------------+------------------+
-| **macOS**    | Apple Silicon    | 3.8, 3.9, 3.10-3.12    | ✅ Full Support  |
+| **macOS**    | Apple Silicon    | 3.8, 3.9, 3.10-3.13    | ✅ Full Support  |
 +--------------+------------------+-------------------------+------------------+
-| **Windows**  | x86_64           | 3.8, 3.9, 3.10-3.12    | ✅ Full Support  |
+| **Windows**  | x86_64           | 3.8, 3.9, 3.10-3.13    | ✅ Full Support  |
 +--------------+------------------+-------------------------+------------------+
 
 **Build Requirements (Source Installation):**
-- Python 3.8+ with development headers
+- Python 3.8-3.13 with development headers
 - CMake 3.15+
 - C compiler (GCC/Clang/MSVC) with C11 support
 - Git (for submodule dependencies)
