@@ -3,8 +3,46 @@ name: CI
 on:
   push:
     branches: [ main, develop ]
+    paths:
+      # Run CI when source code changes
+      - 'src/**'
+      - 'python/**'
+      - 'tests/**'
+      - 'examples/**'
+      # Run CI when build configuration changes
+      - 'CMakeLists.txt'
+      - 'setup.py'
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+      - 'Makefile'
+      - 'MANIFEST.in'
+      # Run CI when scripts change
+      - 'scripts/**'
+      # Run CI when CI configuration changes
+      - '.github/workflows/**'
+      # Run CI when dependencies change
+      - 'deps/**'
+
   pull_request:
     branches: [ main, develop ]
+    paths:
+      # Same paths as push for consistency
+      - 'src/**'
+      - 'python/**'
+      - 'tests/**'
+      - 'examples/**'
+      - 'CMakeLists.txt'
+      - 'setup.py'
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+      - 'Makefile'
+      - 'MANIFEST.in'
+      - 'scripts/**'
+      - '.github/workflows/**'
+      - 'deps/**'
+
+  # Allow manual triggering for testing
+  workflow_dispatch:
 
 env:
   PYTHONUNBUFFERED: 1

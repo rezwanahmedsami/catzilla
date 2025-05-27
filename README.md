@@ -414,6 +414,34 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 
 ---
 
+## 🤖 Built with AI
+
+<div align="center">
+
+| **Claude Sonnet 4** | **GitHub Copilot** | **Visual Studio Code** |
+|:---:|:---:|:---:|
+| <img src="https://claude.ai/images/claude_app_icon.png" width="80" alt="Claude Logo"><br>**Architecture & Design** | <img src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/assets/githubcopilot.svg" width="80" alt="GitHub Copilot Logo"><br>**Code Intelligence** | <img src="https://code.visualstudio.com/assets/images/code-stable.png" width="80" alt="VS Code Logo"><br>**Development Environment** |
+
+</div>
+
+This project was developed using cutting-edge AI-assisted development tools:
+
+- **[Claude Sonnet 4](https://anthropic.com/)** - Advanced technical architecture, debugging, and problem-solving
+- **[GitHub Copilot](https://github.com/features/copilot)** - Intelligent code completion and development acceleration
+- **[Visual Studio Code](https://code.visualstudio.com/)** - Primary development environment with AI integration
+
+*AI partnership enabled rapid development from an estimated 3-6 months to just 1 week, while maintaining production-grade code quality, comprehensive testing (90 tests), and cross-platform compatibility.*
+
+### Development Workflow
+- **Architecture & Design**: Claude Sonnet 4 for system design, C/Python integration strategies, and technical decision-making
+- **Code Implementation**: GitHub Copilot for intelligent code suggestions, boilerplate generation, and pattern completion
+- **Quality Assurance**: AI-assisted bug detection, performance optimization, and cross-platform compatibility testing
+- **Documentation**: AI-powered technical writing for comprehensive documentation and guides
+
+*This represents the future of software development—human creativity enhanced by AI precision.* 🚀
+
+---
+
 ## 👤 Author
 
 **Rezwan Ahmed Sami**
