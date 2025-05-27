@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(catzilla VERSION 0.0.1 LANGUAGES C CXX)
+project(catzilla VERSION 0.0.2 LANGUAGES C CXX)
 
 # Windows-specific configuration for professional Python library handling
 if(WIN32)
