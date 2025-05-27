@@ -78,6 +78,7 @@ O(log n) route lookup performance while maintaining a clean, Pythonic API.
    :maxdepth: 2
    :caption: Reference
 
+   ../SYSTEM_COMPATIBILITY.md
    c-accelerated-routing.md
    error-handling.md
    performance.md
@@ -373,23 +374,42 @@ Catzilla uses **only Python standard library** - no external runtime dependencie
 
 .. code-block:: bash
 
-   # Production installation
+   # Production installation (v0.1.0 from GitHub Releases)
+   pip install https://github.com/rezwanahmedsami/catzilla/releases/download/v0.1.0/catzilla-0.1.0-cp310-cp310-linux_x86_64.whl
+
+   # Future PyPI installation (v1.0.0+)
    pip install catzilla
 
    # Development installation
-   git clone https://github.com/rezwanahmedsami/catzilla.git
+   git clone --recursive https://github.com/rezwanahmedsami/catzilla.git
    cd catzilla
    pip install -e .
 
-**Requirements:**
-- Python 3.8+
-- No external dependencies (pure Python standard library)
-- C compiler for building from source (CMake, GCC/Clang/MSVC)
+**System Compatibility:**
 
-**Supported Platforms:**
-- Linux (x86_64, ARM64)
-- macOS (Intel, Apple Silicon)
-- Windows (x86_64)
+Catzilla provides comprehensive cross-platform support with pre-built wheels:
+
++--------------+------------------+-------------------------+------------------+
+| Platform     | Architecture     | Python Versions        | Status           |
++==============+==================+=========================+==================+
+| **Linux**    | x86_64           | 3.8, 3.9, 3.10-3.12    | ✅ Full Support  |
++--------------+------------------+-------------------------+------------------+
+| **macOS**    | Intel (x86_64)   | 3.8, 3.9, 3.10-3.12    | ✅ Full Support  |
++--------------+------------------+-------------------------+------------------+
+| **macOS**    | Apple Silicon    | 3.8, 3.9, 3.10-3.12    | ✅ Full Support  |
++--------------+------------------+-------------------------+------------------+
+| **Windows**  | x86_64           | 3.8, 3.9, 3.10-3.12    | ✅ Full Support  |
++--------------+------------------+-------------------------+------------------+
+
+**Build Requirements (Source Installation):**
+- Python 3.8+ with development headers
+- CMake 3.15+
+- C compiler (GCC/Clang/MSVC) with C11 support
+- Git (for submodule dependencies)
+
+.. note::
+   For detailed platform support, wheel information, and troubleshooting,
+   see the :doc:`System Compatibility Guide <../SYSTEM_COMPATIBILITY>`.
 
 Community & Support
 -------------------

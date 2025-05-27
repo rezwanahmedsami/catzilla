@@ -329,6 +329,76 @@ build/
 └── test_server_integration # Server integration tests
 ```
 
+### Local Wheel Building and Testing
+
+For cross-platform compatibility testing and wheel validation, use `cibuildwheel` to locally reproduce GitHub Actions wheel builds:
+
+#### Prerequisites
+
+Install `cibuildwheel` for local wheel testing:
+```bash
+pip install cibuildwheel
+```
+
+#### Test Specific Platform Builds
+
+**Test Ubuntu-latest build (manylinux):**
+```bash
+cd /Users/user/devwork/catzilla && CIBW_BUILD="cp310-manylinux_x86_64" cibuildwheel --platform linux
+```
+
+**Test macOS Intel build:**
+```bash
+cd /Users/user/devwork/catzilla && CIBW_BUILD="cp310-macosx_x86_64" cibuildwheel --platform macos
+```
+
+**Test macOS ARM64 build:**
+```bash
+cd /Users/user/devwork/catzilla && CIBW_BUILD="cp310-macosx_arm64" cibuildwheel --platform macos
+```
+
+#### Build All Supported Wheels Locally
+
+**Linux wheels (requires Docker):**
+```bash
+cd /Users/user/devwork/catzilla && cibuildwheel --platform linux --archs x86_64
+```
+
+**macOS wheels:**
+```bash
+cd /Users/user/devwork/catzilla && cibuildwheel --platform macos
+```
+
+#### Cross-Platform Testing Workflow
+
+1. **Test GitHub Actions compatibility locally**:
+   ```bash
+   # Reproduce exact GitHub Actions environment
+   CIBW_BUILD="cp310-manylinux_x86_64" cibuildwheel --platform linux
+   ```
+
+2. **Validate wheel installation**:
+   ```bash
+   # Test wheel from wheelhouse/
+   pip install wheelhouse/catzilla-*.whl --force-reinstall
+   python -c "import catzilla; print('✅ Wheel works!')"
+   ```
+
+3. **Cross-compilation testing** (for ARM64 builds):
+   ```bash
+   # Test ARM64 macOS builds on Intel Macs
+   CIBW_BUILD="cp310-macosx_arm64" cibuildwheel --platform macos
+   ```
+
+#### When to Use Local Wheel Testing
+
+- **Before major platform changes** - Test builds across all platforms
+- **CI debugging** - Reproduce GitHub Actions failures locally
+- **Performance validation** - Test wheel performance vs development builds
+- **Cross-platform compatibility** - Ensure consistent behavior across architectures
+
+**Note**: Linux builds require Docker. macOS builds work natively. Windows builds require Windows or Windows containers.
+
 ### Running Tests
 
 Catzilla has a comprehensive test suite covering both C and Python components:

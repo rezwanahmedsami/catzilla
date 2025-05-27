@@ -4,10 +4,7 @@ Blazing-fast Python web framework with production-grade routing backed by a mini
 [![CI](https://github.com/rezwanahmedsami/catzilla/actions/workflows/ci.yml/badge.svg)](https://github.com/rezwanahmedsami/catzilla/actions)
 [![PyPI version](https://img.shields.io/pypi/v/catzilla.svg)](https://pypi.org/project/catzilla/)
 [![Python versions](https://img.shields.io/pypi/pyversions/catzilla.svg)](https://pypi.org/project/catzilla/)
-
-> [!NOTE]
->
-> 🚀 **Catzilla v0.1.0 is feature-complete with advanced routing capabilities!** The core routing system is production-ready with comprehensive test coverage (90 tests passing).
+[![Documentation](https://img.shields.io/badge/docs-catzilla.rezwanahmedsami.com-blue)](https://catzilla.rezwanahmedsami.com/)
 
 ---
 
@@ -405,6 +402,9 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 
 ## 📚 Documentation
 
+📖 **[Complete Documentation](https://catzilla.rezwanahmedsami.com/)** - Comprehensive guides, API reference, and tutorials
+
+### Quick References
 - **[Getting Started Guide](docs/getting-started.md)** - Quick start tutorial
 - **[API Reference](docs/api-reference.md)** - Complete API documentation
 - **[Routing Guide](docs/routing.md)** - Advanced routing features

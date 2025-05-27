@@ -97,7 +97,7 @@ test = [
 
 [project.urls]
 Homepage = "https://github.com/rezwanahmedsami/catzilla"
-Documentation = "https://rezwanahmedsami.github.io/catzilla/"
+Documentation = "https://catzilla.rezwanahmedsami.com/"
 Repository = "https://github.com/rezwanahmedsami/catzilla"
 "Bug Tracker" = "https://github.com/rezwanahmedsami/catzilla/issues"
 "Source Code" = "https://github.com/rezwanahmedsami/catzilla"
