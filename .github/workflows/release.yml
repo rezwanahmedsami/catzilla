@@ -244,7 +244,6 @@ jobs:
         tag_name: ${{ steps.tag.outputs.tag }}
         name: "Catzilla ${{ steps.tag.outputs.tag }}"
         body: |
-          # Catzilla ${{ steps.tag.outputs.tag }}
 
           Ultra-fast Python web framework with C-accelerated routing.
 
