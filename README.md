@@ -420,7 +420,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 
 | **Claude Sonnet 4** | **GitHub Copilot** | **Visual Studio Code** |
 |:---:|:---:|:---:|
-| <img src="https://claude.ai/images/claude_app_icon.png" width="80" alt="Claude Logo"><br>**Architecture & Design** | <img src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/assets/githubcopilot.svg" width="80" alt="GitHub Copilot Logo"><br>**Code Intelligence** | <img src="https://code.visualstudio.com/assets/images/code-stable.png" width="80" alt="VS Code Logo"><br>**Development Environment** |
+| <img src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/assets/claude_app_icon.png" width="80" alt="Claude Logo"><br>**Architecture & Design** | <img src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/assets/githubcopilot.svg" width="80" alt="GitHub Copilot Logo"><br>**Code Intelligence** | <img src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/assets/images/code-stable.png" width="80" alt="VS Code Logo"><br>**Development Environment** |
 
 </div>
 
