@@ -248,6 +248,7 @@ build = "cp38-* cp39-* cp310-* cp311-* cp312-*"
 skip = [
     "*-win32",           # Skip 32-bit Windows
     "*-manylinux_i686",  # Skip 32-bit Linux
+    "*-manylinux_aarch64", # Skip ARM64 Linux (requires QEMU emulation on x86_64 runners)
     "pp*",               # Skip PyPy builds
     "*-musllinux_*",     # Skip musl Linux for now (can enable later)
 ]
@@ -269,7 +270,7 @@ environment = { CMAKE_BUILD_TYPE = "Release" }
 
 # Architecture selection for different platforms
 [tool.cibuildwheel.linux]
-archs = ["x86_64", "aarch64"]
+archs = ["x86_64"]  # Removed aarch64 to prevent stuck builds on x86_64 runners
 # Linux-specific settings for manylinux containers
 before-all = [
     # Try to use vault.centos.org mirrors if standard ones fail
