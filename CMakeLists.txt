@@ -476,13 +476,74 @@ else()
 endif()
 
 # ——— Tests ———
-# Only build tests when not in wheel building mode (skip for manylinux containers)
-# Check if we're in a wheel building environment by looking for common indicators
+# Only build tests when not in wheel building mode (skip for wheel building environments)
+# Enhanced detection for all wheel building environments including cibuildwheel
 set(WHEEL_BUILD_MODE OFF)
-if(DEFINED ENV{AUDITWHEEL_PLAT} OR DEFINED ENV{CIBW_BUILD} OR
-   (UNIX AND NOT APPLE AND EXISTS "/opt/_internal"))
+
+# Check for various wheel building environment indicators
+if(DEFINED ENV{AUDITWHEEL_PLAT} OR
+   DEFINED ENV{CIBW_BUILD} OR
+   DEFINED ENV{CIBUILDWHEEL} OR
+   DEFINED ENV{_PYTHON_HOST_PLATFORM} OR
+   DEFINED ENV{PLAT_NAME} OR
+   (UNIX AND NOT APPLE AND EXISTS "/opt/_internal") OR
+   (APPLE AND DEFINED ENV{ARCHFLAGS}) OR
+   (APPLE AND DEFINED ENV{CMAKE_OSX_ARCHITECTURES}))
     set(WHEEL_BUILD_MODE ON)
     message(STATUS "Detected wheel building environment - skipping test executables")
+
+    # Log which indicators were detected for debugging
+    if(DEFINED ENV{AUDITWHEEL_PLAT})
+        message(STATUS "  - AUDITWHEEL_PLAT: $ENV{AUDITWHEEL_PLAT}")
+    endif()
+    if(DEFINED ENV{CIBW_BUILD})
+        message(STATUS "  - CIBW_BUILD: $ENV{CIBW_BUILD}")
+    endif()
+    if(DEFINED ENV{CIBUILDWHEEL})
+        message(STATUS "  - CIBUILDWHEEL: $ENV{CIBUILDWHEEL}")
+    endif()
+    if(DEFINED ENV{_PYTHON_HOST_PLATFORM})
+        message(STATUS "  - _PYTHON_HOST_PLATFORM: $ENV{_PYTHON_HOST_PLATFORM}")
+    endif()
+    if(DEFINED ENV{PLAT_NAME})
+        message(STATUS "  - PLAT_NAME: $ENV{PLAT_NAME}")
+    endif()
+    if(DEFINED ENV{ARCHFLAGS})
+        message(STATUS "  - ARCHFLAGS: $ENV{ARCHFLAGS}")
+    endif()
+    if(DEFINED ENV{CMAKE_OSX_ARCHITECTURES})
+        message(STATUS "  - CMAKE_OSX_ARCHITECTURES: $ENV{CMAKE_OSX_ARCHITECTURES}")
+    endif()
+endif()
+
+# Additional check: if we're building in a cross-compilation environment for macOS
+# where the host architecture differs from target architecture, skip tests
+if(APPLE AND CMAKE_OSX_ARCHITECTURES)
+    execute_process(
+        COMMAND uname -m
+        OUTPUT_VARIABLE HOST_ARCH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if(NOT CMAKE_OSX_ARCHITECTURES STREQUAL HOST_ARCH)
+        set(WHEEL_BUILD_MODE ON)
+        message(STATUS "Cross-compilation detected (host: ${HOST_ARCH}, target: ${CMAKE_OSX_ARCHITECTURES}) - skipping test executables")
+    endif()
+endif()
+
+# Final check: if CMAKE was called with specific Python extension targets, skip tests
+if(CMAKE_BUILD_TYPE STREQUAL "Release" AND APPLE AND NOT CMAKE_CROSSCOMPILING)
+    # In release mode on macOS, prefer skipping tests to avoid architecture conflicts
+    get_cmake_property(cache_vars CACHE_VARIABLES)
+    foreach(cache_var ${cache_vars})
+        if(cache_var MATCHES "Python" OR cache_var MATCHES "_PYTHON_")
+            # If many Python-related cache variables are set, we're likely in wheel building
+            if(NOT WHEEL_BUILD_MODE)
+                set(WHEEL_BUILD_MODE ON)
+                message(STATUS "Python extension build mode detected - skipping test executables for compatibility")
+                break()
+            endif()
+        endif()
+    endforeach()
 endif()
 
 if(NOT WHEEL_BUILD_MODE)
