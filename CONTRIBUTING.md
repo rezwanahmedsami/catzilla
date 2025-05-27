@@ -533,6 +533,148 @@ pip debug --verbose
 - Verify all required secrets are set
 - Ensure submodules are properly initialized
 
+---
+
+## 📦 PyPI Publishing Strategy
+
+### 🚀 Production-Safe Publishing Overview
+
+Catzilla implements a **production-safe PyPI publishing strategy** that protects users from accidentally installing development or test versions:
+
+**🎯 Publishing Logic:**
+- **Stable releases** (`v1.0.0`, `v0.2.1`) → **Production PyPI** (available via `pip install catzilla`)
+- **Pre-releases** (`v1.0.0-beta`, `v0.1.0-rc1`) → **GitHub releases only** (NOT published to PyPI)
+
+### 🔧 How It Works
+
+The GitHub Actions workflow uses smart version detection:
+
+```yaml
+# Production PyPI - Only pure semantic versions
+if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')
+
+# GitHub releases only - Pre-releases with hyphens
+if: startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '-')
+```
+
+**Examples:**
+- `v0.1.0` ✅ → Published to PyPI (pure semantic version)
+- `v1.2.3` ✅ → Published to PyPI (pure semantic version)
+- `v0.1.0-alpha` 🔒 → GitHub release only (contains hyphen)
+- `v1.2.3-rc1` 🔒 → GitHub release only (contains hyphen)
+- `v0.1.0-dev` 🔒 → GitHub release only (contains hyphen)
+
+### 📋 Developer Guidelines
+
+#### For Stable Production Releases:
+
+```bash
+# Use comprehensive release script for stable versions
+./scripts/bump_version.sh 1.0.0
+git push origin main && git push origin v1.0.0
+
+# Results in:
+# ✅ GitHub Release with wheels and source
+# ✅ PyPI publication (pip install catzilla==1.0.0)
+# ✅ Full test suite validation
+```
+
+#### For Pre-release Testing:
+
+```bash
+# Use pre-release suffix for testing
+./scripts/bump_version.sh 1.0.0-rc1
+git push origin main && git push origin v1.0.0-rc1
+
+# Results in:
+# ✅ GitHub Release with wheels and source
+# 🔒 NO PyPI publication (safe testing)
+# ✅ Full test suite validation
+```
+
+#### For Emergency Hotfixes:
+
+```bash
+# Quick stable release for critical fixes
+python scripts/release.py 0.1.1-hotfix
+# Results in GitHub-only release
+
+# Followed by stable release when ready
+python scripts/release.py 0.1.1
+# Results in PyPI publication
+```
+
+### 🛡️ Safety Features
+
+**PyPI Pollution Prevention:**
+- Pre-releases never reach production PyPI index
+- Users cannot accidentally install development versions
+- Only thoroughly tested stable versions are publicly available
+
+**Quality Assurance:**
+- **15 test combinations** (3 OS × 5 Python versions)
+- **Multi-platform wheel building** (Linux, macOS, Windows)
+- **Installation validation** on all platforms
+- **Functionality verification** before publication
+
+**Security:**
+- **OIDC Trusted Publishing** (no API tokens in secrets)
+- **Minimal permissions** (only `id-token: write`)
+- **Production-safe conditions** prevent accidental releases
+
+### 🔍 Monitoring and Verification
+
+**After Creating a Release:**
+
+1. **Monitor GitHub Actions:** https://github.com/rezwanahmedsami/catzilla/actions
+2. **Check GitHub Releases:** https://github.com/rezwanahmedsami/catzilla/releases
+3. **Verify PyPI Publication** (stable releases only): https://pypi.org/project/catzilla/
+
+**Verify Installation:**
+```bash
+# For stable releases published to PyPI
+pip install catzilla==1.0.0 --no-cache-dir
+python -c "import catzilla; print(f'✅ PyPI version: {catzilla.__version__}')"
+
+# For pre-releases (download from GitHub)
+# Visit: https://github.com/rezwanahmedsami/catzilla/releases
+```
+
+### 🎯 Best Practices for Contributors
+
+1. **Always test pre-releases** before creating stable versions
+2. **Use semantic versioning** consistently (MAJOR.MINOR.PATCH)
+3. **Monitor workflow logs** to ensure successful publication
+4. **Document breaking changes** in release notes
+5. **Test installation** after PyPI publication
+6. **Use meaningful version identifiers** for pre-releases (alpha, beta, rc)
+
+**Example Development Workflow:**
+```bash
+# 1. Develop and test feature
+git checkout -b feature/new-routing
+# ... development work ...
+
+# 2. Create pre-release for testing
+./scripts/bump_version.sh 0.2.0-beta1
+git push origin main && git push origin v0.2.0-beta1
+
+# 3. Test thoroughly from GitHub release
+# Download and test wheels from GitHub release page
+
+# 4. Create stable release when ready
+./scripts/bump_version.sh 0.2.0
+git push origin main && git push origin v0.2.0
+```
+
+### 📚 Additional Resources
+
+- **Detailed PyPI Setup:** See [PYPI_SETUP.md](PYPI_SETUP.md) for complete setup instructions
+- **Release Quick Reference:** See [RELEASE_GUIDE.md](RELEASE_GUIDE.md) for command cheat sheet
+- **Version Management:** See [docs/VERSION_MANAGEMENT.md](docs/VERSION_MANAGEMENT.md) for version handling details
+
+---
+
 ## 📦 Initial Setup
 
 1. **Fork and Clone the Repository**
