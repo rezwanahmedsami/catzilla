@@ -11,6 +11,13 @@ This directory contains the complete documentation for the Catzilla web framewor
 - **`build_docs.py`** - Helper script for building and serving documentation
 - **`_static/logo.png`** - Catzilla logo (automatically copied from root during build)
 
+## Additional Documentation Files
+
+- **`../SYSTEM_COMPATIBILITY.md`** - Comprehensive platform and system compatibility guide
+- **`../VERSION_MANAGEMENT.md`** - Version management and release workflow documentation
+- **`performance-benchmarks.md`** - Detailed performance analysis and benchmarking results
+- **`c-accelerated-routing.md`** - Technical deep-dive into the C routing implementation
+
 ## Building the Documentation
 
 ### Prerequisites

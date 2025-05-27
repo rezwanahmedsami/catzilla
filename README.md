@@ -124,6 +124,66 @@ pip install catzilla
 
 ---
 
+## 🖥️ System Compatibility
+
+Catzilla v0.1.0 provides comprehensive cross-platform support with pre-built wheels for all major operating systems and Python versions.
+
+### 📋 Supported Platforms
+
+| Platform | Architecture | Status | Wheel Available |
+|----------|-------------|---------|-----------------|
+| **Linux** | x86_64 | ✅ Full Support | ✅ manylinux2014 |
+| **macOS** | x86_64 (Intel) | ✅ Full Support | ✅ macOS 10.15+ |
+| **macOS** | ARM64 (Apple Silicon) | ✅ Full Support | ✅ macOS 11.0+ |
+| **Windows** | x86_64 | ✅ Full Support | ✅ Windows 10+ |
+| **Linux** | ARM64 | ⚠️ Source Only* | ❌ No pre-built wheel |
+
+*\*ARM64 Linux requires building from source with proper build tools installed.*
+
+### 🐍 Python Version Support
+
+| Python Version | Linux x86_64 | macOS Intel | macOS ARM64 | Windows |
+|----------------|--------------|-------------|-------------|---------|
+| **3.8** | ✅ | ✅ | ✅ | ✅ |
+| **3.9** | ✅ | ✅ | ✅ | ✅ |
+| **3.10** | ✅ | ✅ | ✅ | ✅ |
+| **3.11** | ✅ | ✅ | ✅ | ✅ |
+| **3.12** | ✅ | ✅ | ✅ | ✅ |
+
+### 🔧 Installation Methods by Platform
+
+#### ✅ Pre-built Wheels (Recommended)
+- **Instant installation** with zero compilation time
+- **No build dependencies** required (CMake, compilers, etc.)
+- **Optimized binaries** for maximum performance
+- Available for: Linux x86_64, macOS (Intel/ARM64), Windows x86_64
+
+```bash
+# Automatic platform detection
+pip install <wheel-url-from-releases>
+```
+
+#### 🛠️ Source Installation
+- **Build from source** when pre-built wheels aren't available
+- **Requires build tools**: CMake 3.15+, C compiler, Python headers
+- **Longer installation time** due to compilation
+
+```bash
+# For ARM64 Linux or custom builds
+pip install https://github.com/rezwanahmedsami/catzilla/releases/download/v0.1.0/catzilla-0.1.0.tar.gz
+```
+
+### ⚡ Performance Notes
+
+- **Native performance** on all supported platforms
+- **Architecture-specific optimizations** in pre-built wheels
+- **Cross-platform C core** ensures consistent behavior
+- **Platform-specific wheel tags** for optimal compatibility
+
+For detailed compatibility information, see [SYSTEM_COMPATIBILITY.md](SYSTEM_COMPATIBILITY.md).
+
+---
+
 ## 📊 Performance Benchmarks
 
 Catzilla v0.1.0 has been extensively benchmarked against other popular Python web frameworks using `wrk` with 100 concurrent connections over 10 seconds on a **real production server**.
@@ -348,6 +408,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 - **[Getting Started Guide](docs/getting-started.md)** - Quick start tutorial
 - **[API Reference](docs/api-reference.md)** - Complete API documentation
 - **[Routing Guide](docs/routing.md)** - Advanced routing features
+- **[System Compatibility](SYSTEM_COMPATIBILITY.md)** - Platform support and installation guide
 - **[Examples](examples/)** - Real-world example applications
 - **[Contributing](CONTRIBUTING.md)** - Development guide for contributors
 
