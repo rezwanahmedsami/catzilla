@@ -611,20 +611,23 @@ void catzilla_server_cleanup(catzilla_server_t* server) {
 }
 
 int catzilla_server_listen(catzilla_server_t* server, const char* host, int port) {
+    // Fallback to default host if NULL or empty
+    const char* bind_host = (host != NULL && strlen(host) > 0) ? host : "0.0.0.0";
+
     struct sockaddr_in addr;
-    int rc = uv_ip4_addr(host, port, &addr);
+    int rc = uv_ip4_addr(bind_host, port, &addr);
     if (rc) {
-        LOG_SERVER_ERROR("Failed to resolve %s:%d: %s", host, port, uv_strerror(rc));
+        LOG_SERVER_ERROR("Failed to resolve %s:%d: %s", bind_host, port, uv_strerror(rc));
         return rc;
     }
     rc = uv_tcp_bind(&server->server, (const struct sockaddr*)&addr, 0);
     if (rc) {
-        LOG_SERVER_ERROR("Bind %s:%d: %s", host, port, uv_strerror(rc));
+        LOG_SERVER_ERROR("Bind %s:%d: %s", bind_host, port, uv_strerror(rc));
         return rc;
     }
     rc = uv_listen((uv_stream_t*)&server->server, 128, on_connection);
     if (rc) {
-        LOG_SERVER_ERROR("Listen %s:%d: %s", host, port, uv_strerror(rc));
+        LOG_SERVER_ERROR("Listen %s:%d: %s", bind_host, port, uv_strerror(rc));
         return rc;
     }
 
@@ -635,7 +638,7 @@ int catzilla_server_listen(catzilla_server_t* server, const char* host, int port
         return rc;
     }
 
-    LOG_SERVER_INFO("Catzilla server listening on %s:%d", host, port);
+    LOG_SERVER_INFO("Catzilla server listening on %s:%d", bind_host, port);
     LOG_SERVER_INFO("Press Ctrl+C to stop the server");
 
     server->is_running = true;
