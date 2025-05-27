@@ -155,9 +155,9 @@ if [[ -n $(git status --porcelain) ]]; then
     fi
 fi
 
-# Show current version status
+# Show current version status (informational only - don't exit on inconsistencies)
 print_status "📋 Current version status:"
-python3 scripts/version.py --check
+python3 scripts/version.py --check || print_warning "⚠️  Version inconsistencies detected - will be fixed during update"
 
 # Check if tag already exists
 if git tag -l | grep -q "^v$NEW_VERSION$"; then

@@ -7,7 +7,7 @@ from .response import ResponseBuilder, response
 from .routing import Router, RouterGroup
 from .types import HTMLResponse, JSONResponse, Request, Response
 
-__version__ = "0.0.2"
+__version__ = "0.1.0"
 
 __all__ = [
     "App",

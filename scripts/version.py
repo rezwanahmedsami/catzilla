@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 # 🎯 Single source of truth - change this to update version everywhere
-VERSION = "0.0.2"
+VERSION = "0.1.0"
 
 class VersionManager:
     def __init__(self):
