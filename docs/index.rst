@@ -1,15 +1,8 @@
 Catzilla Documentation
 ======================
 
-.. meta::
-   :description: The FastAPI killer is here! Lightning fast Python web framework with C-accelerated routing that outperforms FastAPI. Build blazing-fast APIs with minimal overhead and maximum speed.
-   :keywords: python, web framework, fast, performance, C accelerated, routing, API, REST, microframework, high performance, catzilla, fastapi killer, fastapi alternative, faster than fastapi
-
-:meta description: The FastAPI killer is here! Lightning fast Python web framework with C-accelerated routing that outperforms FastAPI. Build blazing-fast APIs with minimal overhead and maximum speed.
-:meta keywords: python, web framework, fast, performance, C accelerated, routing, API, REST, microframework, high performance, catzilla, fastapi killer, fastapi alternative, faster than fastapi
-
 .. image:: _static/logo.png
-   :alt: Catzilla Logo
+   :alt: Catzilla - The FastAPI Killer | Lightning Fast Python Web Framework
    :width: 200px
    :align: center
 

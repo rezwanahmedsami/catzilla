@@ -69,21 +69,8 @@ html_theme_options = {
     'titles_only': False
 }
 
-# Global meta tags for all pages
-html_meta = {
-    'description': 'The FastAPI killer is here! Lightning fast Python web framework with C-accelerated routing that outperforms FastAPI. Build blazing-fast APIs with minimal overhead and maximum speed.',
-    'keywords': 'python, web framework, fast, performance, C accelerated, routing, API, REST, microframework, high performance, catzilla, python web development, asynchronous, HTTP server, web development, fastapi killer, fastapi alternative, faster than fastapi',
-    'author': 'Rezwan Ahmed Sami',
-    'viewport': 'width=device-width, initial-scale=1.0, maximum-scale=5.0',
-    'robots': 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1',
-    'googlebot': 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1',
-    'bingbot': 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1',
-    'google-site-verification': '',  # Add your Google Search Console verification code here
-    'msvalidate.01': '',  # Add your Bing Webmaster verification code here
-    'yandex-verification': '',  # Add your Yandex verification code here
-    'format-detection': 'telephone=no',
-    'referrer': 'origin-when-cross-origin',
-}
+# Global meta tags for all pages - handled by layout.html template
+# Removed html_meta to prevent duplicate meta tags
 
 # Language and locale
 language = 'en'
