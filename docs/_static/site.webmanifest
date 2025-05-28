@@ -1,0 +1,63 @@
+{
+  "name": "Catzilla Web Framework",
+  "short_name": "Catzilla",
+  "description": "The fastest Python web framework with Rust-powered performance",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3B82F6",
+  "orientation": "portrait-primary",
+  "categories": ["productivity", "development", "utilities"],
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Quick Start",
+      "short_name": "Quick Start",
+      "description": "Get started with Catzilla",
+      "url": "/quickstart.html",
+      "icons": [{ "src": "favicon-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "API Reference",
+      "short_name": "API",
+      "description": "Browse API documentation",
+      "url": "/api.html",
+      "icons": [{ "src": "favicon-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Benchmarks",
+      "short_name": "Benchmarks",
+      "description": "View performance benchmarks",
+      "url": "/benchmarks.html",
+      "icons": [{ "src": "favicon-96x96.png", "sizes": "96x96" }]
+    }
+  ]
+}

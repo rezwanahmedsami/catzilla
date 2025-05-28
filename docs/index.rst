@@ -1,6 +1,13 @@
 Catzilla Documentation
 ======================
 
+.. meta::
+   :description: The FastAPI killer is here! Lightning fast Python web framework with C-accelerated routing that outperforms FastAPI. Build blazing-fast APIs with minimal overhead and maximum speed.
+   :keywords: python, web framework, fast, performance, C accelerated, routing, API, REST, microframework, high performance, catzilla, fastapi killer, fastapi alternative, faster than fastapi
+
+:meta description: The FastAPI killer is here! Lightning fast Python web framework with C-accelerated routing that outperforms FastAPI. Build blazing-fast APIs with minimal overhead and maximum speed.
+:meta keywords: python, web framework, fast, performance, C accelerated, routing, API, REST, microframework, high performance, catzilla, fastapi killer, fastapi alternative, faster than fastapi
+
 .. image:: _static/logo.png
    :alt: Catzilla Logo
    :width: 200px
@@ -389,17 +396,10 @@ Catzilla uses **only Python standard library** - no external runtime dependencie
 
 Catzilla provides comprehensive cross-platform support with pre-built wheels:
 
-+--------------+------------------+-------------------------+------------------+
-| Platform     | Architecture     | Python Versions        | Status           |
-+==============+==================+=========================+==================+
-| **Linux**    | x86_64           | 3.8, 3.9, 3.10-3.13    | ✅ Full Support  |
-+--------------+------------------+-------------------------+------------------+
-| **macOS**    | Intel (x86_64)   | 3.8, 3.9, 3.10-3.13    | ✅ Full Support  |
-+--------------+------------------+-------------------------+------------------+
-| **macOS**    | Apple Silicon    | 3.8, 3.9, 3.10-3.13    | ✅ Full Support  |
-+--------------+------------------+-------------------------+------------------+
-| **Windows**  | x86_64           | 3.8, 3.9, 3.10-3.13    | ✅ Full Support  |
-+--------------+------------------+-------------------------+------------------+
+* **Linux** (x86_64): Python 3.8, 3.9, 3.10-3.13 - Full Support
+* **macOS Intel** (x86_64): Python 3.8, 3.9, 3.10-3.13 - Full Support
+* **macOS Apple Silicon**: Python 3.8, 3.9, 3.10-3.13 - Full Support
+* **Windows** (x86_64): Python 3.8, 3.9, 3.10-3.13 - Full Support
 
 **Build Requirements (Source Installation):**
 - Python 3.8-3.13 with development headers
