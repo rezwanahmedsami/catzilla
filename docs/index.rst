@@ -434,7 +434,7 @@ The MIT License allows you to:
 - ✅ Sell applications built with Catzilla
 
 Index & Search
-==============
+----------------
 
 * :ref:`genindex`
 * :ref:`modindex`
