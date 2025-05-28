@@ -124,6 +124,7 @@ html_context = {
     }
 }
 
+
 # Additional SEO settings
 html_use_opensearch = 'http://catzilla.rezwanahmedsami.com/'
 html_search_language = 'en'
