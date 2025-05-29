@@ -45,47 +45,38 @@ Whether you're building **real-time AI applications**, **low-latency APIs**, or 
 
 ## 📦 Installation
 
-### From GitHub Releases (Recommended for v0.1.0)
+### Quick Start (Recommended)
 
-Catzilla v0.1.0 is distributed through GitHub Releases with pre-built wheels for multiple platforms and Python versions.
-
-#### Quick Installation
-
-Download and install the appropriate wheel for your platform:
+Install Catzilla from PyPI:
 
 ```bash
-# For Python 3.10 on Linux (most common)
-curl -L -O https://github.com/rezwanahmedsami/catzilla/releases/download/v0.1.0/catzilla-0.1.0-cp310-cp310-linux_x86_64.whl
-pip install catzilla-0.1.0-cp310-cp310-linux_x86_64.whl
-
-# For Python 3.10 on macOS
-curl -L -O https://github.com/rezwanahmedsami/catzilla/releases/download/v0.1.0/catzilla-0.1.0-cp310-cp310-macosx_10_15_universal2.whl
-pip install catzilla-0.1.0-cp310-cp310-macosx_10_15_universal2.whl
-
-# For Python 3.10 on Windows
-curl -L -O https://github.com/rezwanahmedsami/catzilla/releases/download/v0.1.0/catzilla-0.1.0-cp310-cp310-win_amd64.whl
-pip install catzilla-0.1.0-cp310-cp310-win_amd64.whl
+pip install catzilla
 ```
 
-#### Platform-Specific Wheels
+**System Requirements:**
+- Python 3.8+ (3.10+ recommended)
+- Windows, macOS, or Linux
+- No additional dependencies required
 
-Visit the [Releases page](https://github.com/rezwanahmedsami/catzilla/releases/tag/v0.1.0) to download wheels for:
-
-- **Python Versions**: 3.8, 3.9, 3.10, 3.11, 3.12
-- **Platforms**:
-  - **Linux**: `linux_x86_64`
-  - **macOS**: `macosx_10_15_universal2`
-  - **Windows**: `win_amd64`
-
-#### Installation Verification
+### Installation Verification
 
 ```bash
 python -c "import catzilla; print(f'Catzilla v{catzilla.__version__} installed successfully!')"
 ```
 
-### From Source (Development)
+### Alternative Installation Methods
 
-For development or if pre-built wheels aren't available for your platform:
+#### From GitHub Releases
+For specific versions or if PyPI is unavailable:
+
+```bash
+# Download specific wheel for your platform from:
+# https://github.com/rezwanahmedsami/catzilla/releases/tag/v0.1.0
+pip install <downloaded-wheel-file>
+```
+
+#### From Source (Development)
+For development or contributing:
 
 ```bash
 # Clone with submodules
@@ -96,28 +87,47 @@ cd catzilla
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install build dependencies
-pip install -e ".[dev]"
-
-# Build and install
-python -m build
-pip install dist/*.whl
+# Install in development mode
+pip install -e .
 ```
 
-#### Build Requirements
-
+**Build Requirements (Source Only):**
 - **Python 3.8-3.13**
 - **CMake 3.15+**
 - **C Compiler**: GCC/Clang (Linux/macOS) or MSVC (Windows)
 
-### Future PyPI Distribution
+---
 
-Starting with v1.0.0, Catzilla will be available on PyPI for standard installation:
+## 🚀 Quick Start
+
+Create your first Catzilla app:
+
+```python
+# app.py
+from catzilla import App
+
+app = App()
+
+@app.get("/")
+def hello():
+    return "Hello, Catzilla! 🐱⚡"
+
+@app.get("/users/{user_id}")
+def get_user(request):
+    user_id = request.path_params["user_id"]
+    return {"user_id": user_id, "name": f"User {user_id}"}
+
+if __name__ == "__main__":
+    app.listen(8000)
+```
+
+Run your app:
 
 ```bash
-# Coming in v1.0.0
-pip install catzilla
+python app.py
 ```
+
+Visit `http://localhost:8000` to see your blazing-fast API in action! 🚀
 
 ---
 
@@ -415,31 +425,31 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 
 ---
 
-## 🤖 Built with AI
+## 🤖 Built with the Help of AI Development Partners
 
 <div align="center">
 
 | **Claude Sonnet 4** | **GitHub Copilot** | **Visual Studio Code** |
 |:---:|:---:|:---:|
-| <img src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/assets/claude_app_icon.png" width="80" alt="Claude Logo"><br>**Architecture & Design** | <img src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/assets/githubcopilot.svg" width="80" alt="GitHub Copilot Logo"><br>**Code Intelligence** | <img src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/assets/code-stable.png" width="80" alt="VS Code Logo"><br>**Development Environment** |
+| <img src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/assets/claude_app_icon.png" width="80" alt="Claude Logo"><br>**Technical Guidance** | <img src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/assets/githubcopilot.svg" width="80" alt="GitHub Copilot Logo"><br>**Code Assistance** | <img src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/assets/code-stable.png" width="80" alt="VS Code Logo"><br>**Development Environment** |
 
 </div>
 
-This project was developed using cutting-edge AI-assisted development tools:
+Catzilla was developed with the assistance of cutting-edge AI development tools that enhanced productivity and code quality:
 
-- **[Claude Sonnet 4](https://anthropic.com/)** - Advanced technical architecture, debugging, and problem-solving
-- **[GitHub Copilot](https://github.com/features/copilot)** - Intelligent code completion and development acceleration
-- **[Visual Studio Code](https://code.visualstudio.com/)** - Primary development environment with AI integration
+- **[Claude Sonnet 4](https://anthropic.com/)** - Technical consultation for architecture decisions, debugging assistance, and problem-solving guidance
+- **[GitHub Copilot](https://github.com/features/copilot)** - Intelligent code suggestions and development acceleration
+- **[Visual Studio Code](https://code.visualstudio.com/)** - Primary development environment with integrated AI assistance
 
-*AI partnership enabled rapid development from an estimated 3-6 months to just 1 week, while maintaining production-grade code quality, comprehensive testing (90 tests), and cross-platform compatibility.*
+*AI partnership accelerated development from an estimated 3-6 months to just 1 week, while maintaining production-grade code quality, comprehensive testing (90 tests), and cross-platform compatibility.*
 
-### Development Workflow
-- **Architecture & Design**: Claude Sonnet 4 for system design, C/Python integration strategies, and technical decision-making
-- **Code Implementation**: GitHub Copilot for intelligent code suggestions, boilerplate generation, and pattern completion
-- **Quality Assurance**: AI-assisted bug detection, performance optimization, and cross-platform compatibility testing
-- **Documentation**: AI-powered technical writing for comprehensive documentation and guides
+### Development Approach
+- **Human-Driven Architecture**: Core design decisions and technical vision by the developer
+- **AI-Assisted Implementation**: Code suggestions, boilerplate generation, and pattern completion
+- **Collaborative Debugging**: AI-enhanced problem identification and solution guidance
+- **Enhanced Documentation**: AI-supported technical writing and comprehensive guides
 
-*This represents the future of software development—human creativity enhanced by AI precision.* 🚀
+*This showcases the potential of human creativity amplified by AI assistance—developer expertise enhanced by intelligent tooling.* 🚀
 
 ---
 
