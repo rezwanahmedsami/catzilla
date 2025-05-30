@@ -4,10 +4,11 @@
 # --------------------------------------
 
 # --- Web frameworks for comparison ---
-fastapi==0.110.2
-uvicorn==0.33.0
-flask==2.3.3
-django==4.2.13
+fastapi==0.115.12
+pydantic_core==2.34.1  # Required by FastAPI
+uvicorn==0.34.0
+flask==3.1.1
+django==5.2.1
 gunicorn==21.2.0  # WSGI server for Flask and Django
 
 # --- System information collection ---
