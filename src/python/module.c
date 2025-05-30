@@ -2,6 +2,7 @@
 #include <Python.h>
 #include "server.h"           // Provides catzilla_server_t, catzilla_server_init, etc.
 #include "router.h"           // Provides catzilla_router_t, catzilla_router_match, etc.
+#include "memory.h"           // Provides memory system functions
 #include "windows_compat.h"   // Windows compatibility
 #include <uv.h>               // For uv_stream_t
 #include <stdio.h>
@@ -521,6 +522,44 @@ static PyObject* router_add_route(PyObject *self, PyObject *args)
     return PyLong_FromLong(route_id);
 }
 
+// Check if jemalloc is available
+static PyObject* has_jemalloc(PyObject *self, PyObject *args)
+{
+    return PyBool_FromLong(catzilla_memory_has_jemalloc());
+}
+
+// Get memory statistics
+static PyObject* get_memory_stats(PyObject *self, PyObject *args)
+{
+    catzilla_memory_stats_t stats;
+    catzilla_memory_get_stats(&stats);
+
+    PyObject *dict = PyDict_New();
+    if (!dict) return NULL;
+
+    PyDict_SetItemString(dict, "allocated", PyLong_FromSize_t(stats.allocated));
+    PyDict_SetItemString(dict, "active", PyLong_FromSize_t(stats.active));
+    PyDict_SetItemString(dict, "metadata", PyLong_FromSize_t(stats.metadata));
+    PyDict_SetItemString(dict, "peak_allocated", PyLong_FromSize_t(stats.peak_allocated));
+    PyDict_SetItemString(dict, "allocation_count", PyLong_FromUnsignedLongLong(stats.allocation_count));
+    PyDict_SetItemString(dict, "deallocation_count", PyLong_FromUnsignedLongLong(stats.deallocation_count));
+    PyDict_SetItemString(dict, "memory_efficiency_score", PyFloat_FromDouble(stats.memory_efficiency_score));
+    PyDict_SetItemString(dict, "fragmentation_ratio", PyFloat_FromDouble(stats.fragmentation_ratio));
+
+    return dict;
+}
+
+// Initialize memory system
+static PyObject* init_memory_system(PyObject *self, PyObject *args)
+{
+    int result = catzilla_memory_init();
+    if (result != 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to initialize memory system");
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
+
 // Method tables and module definition
 static PyMethodDef CatzillaServer_methods[] = {
     {"listen",    (PyCFunction)CatzillaServer_listen,   METH_VARARGS, "Start listening"},
@@ -552,6 +591,9 @@ static PyMethodDef module_methods[] = {
     {"get_query_param", get_query_param, METH_VARARGS, "Get query parameter value"},
     {"router_match", router_match, METH_VARARGS, "Match route using C router"},
     {"router_add_route", router_add_route, METH_VARARGS, "Add route to C router"},
+    {"has_jemalloc", has_jemalloc, METH_NOARGS, "Check if jemalloc is available"},
+    {"get_memory_stats", get_memory_stats, METH_NOARGS, "Get memory statistics"},
+    {"init_memory_system", init_memory_system, METH_NOARGS, "Initialize memory system"},
     {NULL}
 };
 

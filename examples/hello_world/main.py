@@ -1,11 +1,19 @@
 """
 Catzilla Hello World Example with RouterGroup
 Demonstrates how to organize routes using RouterGroup for better code structure.
+
+NEW in v0.2.0: Memory Revolution with automatic jemalloc optimization!
 """
 
-from catzilla import App, Response, JSONResponse, HTMLResponse, RouterGroup
+from catzilla import Catzilla, Response, JSONResponse, HTMLResponse, RouterGroup
 
-app = App()
+# 🚀 NEW: Catzilla v0.2.0 with Memory Revolution (advanced configuration)
+app = Catzilla(
+    use_jemalloc=True,           # 30% less memory usage
+    memory_profiling=True,       # Real-time optimization
+    auto_memory_tuning=True,     # Adaptive memory management
+    memory_stats_interval=30     # Check every 30 seconds
+)
 
 # Create router groups for different sections
 api_router = RouterGroup(prefix="/api", tags=["api"])
@@ -132,9 +140,19 @@ def hello(request):
 def api_info(request):
     return JSONResponse({
         "name": "Catzilla",
-        "version": "0.1.0",
-        "description": "High-performance Python web framework with C core",
-        "router_group": "api"
+        "version": "0.2.0",
+        "description": "High-performance Python web framework with C core and jemalloc memory revolution",
+        "router_group": "api",
+        "memory_revolution": True
+    })
+
+@api_router.get("/memory-stats")
+def memory_stats(request):
+    """NEW v0.2.0: Real-time memory statistics from jemalloc"""
+    stats = app.get_memory_stats()
+    return JSONResponse({
+        "memory_stats": stats,
+        "message": "Catzilla v0.2.0 Memory Revolution statistics"
     })
 
 @api_router.post("/echo")

@@ -1,13 +1,14 @@
 {
   "benchmark_info": {
-    "timestamp": "2025-05-25T18:07:42+01:00",
+    "timestamp": "2025-05-31T01:16:44+06:00",
     "duration": "10s",
     "connections": 100,
     "threads": 4,
     "tool": "wrk"
   },
   "system_info":
-{"collection_timestamp": "2025-05-25T18:07:41.884439", "collection_utc": "2025-05-25T17:07:41.884447Z", "os": {"system": "Linux", "release": "4.18.0-513.9.1.el8_9.x86_64", "version": "#1 SMP Sat Dec 2 05:23:44 EST 2023", "machine": "x86_64", "processor": "x86_64", "platform": "Linux-4.18.0-513.9.1.el8_9.x86_64-x86_64-with-glibc2.2.5", "node": "ns537244.ip-139-99-131.net", "linux_distribution": {"NAME": "AlmaLinux", "VERSION": "8.10 (Cerulean Leopard)", "ID": "almalinux", "ID_LIKE": "rhel centos fedora", "VERSION_ID": "8.10", "PLATFORM_ID": "platform:el8", "PRETTY_NAME": "AlmaLinux 8.10 (Cerulean Leopard)", "ANSI_COLOR": "0;34", "LOGO": "fedora-logo-icon", "CPE_NAME": "cpe:/o:almalinux:almalinux:8::baseos", "HOME_URL": "https://almalinux.org/", "DOCUMENTATION_URL": "https://wiki.almalinux.org/", "BUG_REPORT_URL": "https://bugs.almalinux.org/", "ALMALINUX_MANTISBT_PROJECT": "AlmaLinux-8", "ALMALINUX_MANTISBT_PROJECT_VERSION": "8.10", "REDHAT_SUPPORT_PRODUCT": "AlmaLinux", "REDHAT_SUPPORT_PRODUCT_VERSION": "8.10", "SUPPORT_END": "2029-06-01"}}, "cpu": {"processor": "x86_64", "machine": "x86_64", "architecture": "64bit", "cpu_count_logical": 8, "cpu_count_physical": 4, "cpu_freq": {"current": 3537.34, "min": 800.0, "max": 3900.0}, "model": "Intel(R) Xeon(R) CPU E3-1245 v5 @ 3.50GHz"}, "memory": {"total": 33465876480, "available": 9770987520, "used": 21627879424, "free": 299495424, "percent_used": 70.8, "total_gb": 31.17, "available_gb": 9.1, "used_gb": 20.14, "swap": {"total": 1073733632, "used": 1073733632, "free": 0, "percent": 100.0, "total_gb": 1.0}}, "disk": {"path": "/root/devwork/catzilla", "total": 1997138358272, "used": 107172696064, "free": 1889965662208, "total_gb": 1859.98, "used_gb": 99.81, "free_gb": 1760.17, "percent_used": 5.37}, "network": {"hostname": "ns537244.ip-139-99-131.net", "interfaces": {"lo": [{"family": "IPv4", "address": "127.0.0.1", "netmask": "255.0.0.0", "broadcast": null}, {"family": "IPv6", "address": "::1", "netmask": "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"}], "enp1s0f0": [{"family": "IPv4", "address": "139.99.131.146", "netmask": "255.255.255.0", "broadcast": "139.99.131.255"}, {"family": "IPv6", "address": "fe80::ec4:7aff:fe84:1842%enp1s0f0", "netmask": "ffff:ffff:ffff:ffff::"}], "docker0": [{"family": "IPv4", "address": "172.17.0.1", "netmask": "255.255.0.0", "broadcast": "172.17.255.255"}]}, "io_counters": {"bytes_sent": 96540865375, "bytes_recv": 112377400269, "packets_sent": 109422166, "packets_recv": 120003594}}, "python": {"version": "3.8.12 (default, Jan 28 2025, 15:47:47) \n[GCC 8.5.0 20210514 (Red Hat 8.5.0-22)]", "version_info": {"major": 3, "minor": 8, "micro": 12, "releaselevel": "final", "serial": 0}, "executable": "/root/devwork/catzilla/venv/bin/python3", "platform": "linux", "implementation": {"name": "cpython", "version": "3.8.12"}, "path": ["/root/devwork/catzilla/benchmarks", "/root/.pyenv/versions/3.8.12/lib/python38.zip", "/root/.pyenv/versions/3.8.12/lib/python3.8"]}, "process": {"pid": 80991, "ppid": 80298, "name": "python3", "cpu_percent": 0.0, "memory_info": {"rss": 13271040, "vms": 65994752, "rss_mb": 12.66, "vms_mb": 62.94}, "create_time": 1748192860.96, "cwd": "/root/devwork/catzilla"}, "load_average": {"1min": 1.0, "5min": 0.69, "15min": 0.36}},
+{"error": "System information collection failed"}
+,
   "results": [
     {
       "framework": "catzilla",
@@ -16,11 +17,11 @@
       "duration": "10s",
       "connections": 100,
       "threads": 4,
-      "requests_per_sec": "14842.50",
-      "avg_latency": "6.79ms",
-      "p99_latency": "9.70ms",
-      "transfer_per_sec": "6.69MB",
-      "timestamp": "2025-05-25T18:03:33+01:00"
+      "requests_per_sec": "15551.51",
+      "avg_latency": "7.30ms",
+      "p99_latency": "15.36ms",
+      "transfer_per_sec": "7.00MB",
+      "timestamp": "2025-05-31T01:14:40+06:00"
     }
 ,
     {
@@ -30,11 +31,11 @@
       "duration": "10s",
       "connections": 100,
       "threads": 4,
-      "requests_per_sec": "24758.50",
-      "avg_latency": "4.07ms",
-      "p99_latency": "5.98ms",
-      "transfer_per_sec": "2.38MB",
-      "timestamp": "2025-05-25T18:02:33+01:00"
+      "requests_per_sec": "30812.76",
+      "avg_latency": "3.40ms",
+      "p99_latency": "4.69ms",
+      "transfer_per_sec": "2.97MB",
+      "timestamp": "2025-05-31T01:13:39+06:00"
     }
 ,
     {
@@ -44,11 +45,11 @@
       "duration": "10s",
       "connections": 100,
       "threads": 4,
-      "requests_per_sec": "15753.65",
-      "avg_latency": "6.38ms",
-      "p99_latency": "8.37ms",
-      "transfer_per_sec": "2.34MB",
-      "timestamp": "2025-05-25T18:02:48+01:00"
+      "requests_per_sec": "22114.04",
+      "avg_latency": "4.87ms",
+      "p99_latency": "6.91ms",
+      "transfer_per_sec": "3.27MB",
+      "timestamp": "2025-05-31T01:13:54+06:00"
     }
 ,
     {
@@ -58,11 +59,11 @@
       "duration": "10s",
       "connections": 100,
       "threads": 4,
-      "requests_per_sec": "17589.58",
-      "avg_latency": "5.68ms",
-      "p99_latency": "7.36ms",
-      "transfer_per_sec": "3.29MB",
-      "timestamp": "2025-05-25T18:03:03+01:00"
+      "requests_per_sec": "18219.36",
+      "avg_latency": "8.18ms",
+      "p99_latency": "118.12ms",
+      "transfer_per_sec": "3.41MB",
+      "timestamp": "2025-05-31T01:14:09+06:00"
     }
 ,
     {
@@ -72,11 +73,11 @@
       "duration": "10s",
       "connections": 100,
       "threads": 4,
-      "requests_per_sec": "11144.58",
-      "avg_latency": "8.95ms",
-      "p99_latency": "11.28ms",
-      "transfer_per_sec": "14.76MB",
-      "timestamp": "2025-05-25T18:03:18+01:00"
+      "requests_per_sec": "11149.48",
+      "avg_latency": "10.23ms",
+      "p99_latency": "10.23ms",
+      "transfer_per_sec": "14.77MB",
+      "timestamp": "2025-05-31T01:14:24+06:00"
     }
 ,
     {
@@ -86,11 +87,11 @@
       "duration": "10s",
       "connections": 100,
       "threads": 4,
-      "requests_per_sec": "2161.83",
-      "avg_latency": "46.00ms",
-      "p99_latency": "50.06ms",
-      "transfer_per_sec": "1.08MB",
-      "timestamp": "2025-05-25T18:07:35+01:00"
+      "requests_per_sec": "759.15",
+      "avg_latency": "133.95ms",
+      "p99_latency": "417.17ms",
+      "transfer_per_sec": "387.13KB",
+      "timestamp": "2025-05-31T01:16:38+06:00"
     }
 ,
     {
@@ -100,11 +101,11 @@
       "duration": "10s",
       "connections": 100,
       "threads": 4,
-      "requests_per_sec": "2338.89",
-      "avg_latency": "42.56ms",
-      "p99_latency": "46.49ms",
-      "transfer_per_sec": "347.19KB",
-      "timestamp": "2025-05-25T18:06:35+01:00"
+      "requests_per_sec": "314.91",
+      "avg_latency": "309.86ms",
+      "p99_latency": "648.94ms",
+      "transfer_per_sec": "46.74KB",
+      "timestamp": "2025-05-25T22:53:27+06:00"
     }
 ,
     {
@@ -114,11 +115,11 @@
       "duration": "10s",
       "connections": 100,
       "threads": 4,
-      "requests_per_sec": "2207.93",
-      "avg_latency": "45.04ms",
-      "p99_latency": "52.15ms",
-      "transfer_per_sec": "439.86KB",
-      "timestamp": "2025-05-25T18:06:50+01:00"
+      "requests_per_sec": "256.67",
+      "avg_latency": "375.55ms",
+      "p99_latency": "764.29ms",
+      "transfer_per_sec": "51.40KB",
+      "timestamp": "2025-05-25T22:53:42+06:00"
     }
 ,
     {
@@ -128,11 +129,11 @@
       "duration": "10s",
       "connections": 100,
       "threads": 4,
-      "requests_per_sec": "2219.09",
-      "avg_latency": "44.82ms",
-      "p99_latency": "47.93ms",
-      "transfer_per_sec": "533.10KB",
-      "timestamp": "2025-05-25T18:07:05+01:00"
+      "requests_per_sec": "987.44",
+      "avg_latency": "102.33ms",
+      "p99_latency": "298.69ms",
+      "transfer_per_sec": "237.22KB",
+      "timestamp": "2025-05-31T01:16:07+06:00"
     }
 ,
     {
@@ -142,11 +143,11 @@
       "duration": "10s",
       "connections": 100,
       "threads": 4,
-      "requests_per_sec": "1975.37",
-      "avg_latency": "50.37ms",
-      "p99_latency": "55.36ms",
-      "transfer_per_sec": "2.71MB",
-      "timestamp": "2025-05-25T18:07:20+01:00"
+      "requests_per_sec": "70.49",
+      "avg_latency": "127.38ms",
+      "p99_latency": "185.46ms",
+      "transfer_per_sec": "99.06KB",
+      "timestamp": "2025-05-31T01:16:23+06:00"
     }
 ,
     {
@@ -156,11 +157,11 @@
       "duration": "10s",
       "connections": 100,
       "threads": 4,
-      "requests_per_sec": "2007.83",
-      "avg_latency": "49.63ms",
-      "p99_latency": "51.00ms",
-      "transfer_per_sec": "0.91MB",
-      "timestamp": "2025-05-25T18:04:54+01:00"
+      "requests_per_sec": "1703.07",
+      "avg_latency": "58.51ms",
+      "p99_latency": "105.64ms",
+      "transfer_per_sec": "787.01KB",
+      "timestamp": "2025-05-25T18:11:32+06:00"
     }
 ,
     {
@@ -170,11 +171,11 @@
       "duration": "10s",
       "connections": 100,
       "threads": 4,
-      "requests_per_sec": "2843.94",
-      "avg_latency": "35.04ms",
-      "p99_latency": "36.02ms",
-      "transfer_per_sec": "408.29KB",
-      "timestamp": "2025-05-25T18:03:54+01:00"
+      "requests_per_sec": "1734.47",
+      "avg_latency": "57.92ms",
+      "p99_latency": "130.68ms",
+      "transfer_per_sec": "249.03KB",
+      "timestamp": "2025-05-25T18:10:31+06:00"
     }
 ,
     {
@@ -184,11 +185,11 @@
       "duration": "10s",
       "connections": 100,
       "threads": 4,
-      "requests_per_sec": "2421.29",
-      "avg_latency": "41.16ms",
-      "p99_latency": "43.74ms",
-      "transfer_per_sec": "432.71KB",
-      "timestamp": "2025-05-25T18:04:09+01:00"
+      "requests_per_sec": "1602.76",
+      "avg_latency": "64.35ms",
+      "p99_latency": "226.20ms",
+      "transfer_per_sec": "286.43KB",
+      "timestamp": "2025-05-25T18:10:47+06:00"
     }
 ,
     {
@@ -198,11 +199,11 @@
       "duration": "10s",
       "connections": 100,
       "threads": 4,
-      "requests_per_sec": "2340.97",
-      "avg_latency": "42.58ms",
-      "p99_latency": "43.98ms",
-      "transfer_per_sec": "498.37KB",
-      "timestamp": "2025-05-25T18:04:24+01:00"
+      "requests_per_sec": "1868.35",
+      "avg_latency": "53.63ms",
+      "p99_latency": "116.06ms",
+      "transfer_per_sec": "397.78KB",
+      "timestamp": "2025-05-25T18:11:02+06:00"
     }
 ,
     {
@@ -212,11 +213,11 @@
       "duration": "10s",
       "connections": 100,
       "threads": 4,
-      "requests_per_sec": "1419.16",
-      "avg_latency": "70.08ms",
-      "p99_latency": "71.84ms",
-      "transfer_per_sec": "1.75MB",
-      "timestamp": "2025-05-25T18:04:39+01:00"
+      "requests_per_sec": "946.06",
+      "avg_latency": "107.00ms",
+      "p99_latency": "287.25ms",
+      "transfer_per_sec": "1.17MB",
+      "timestamp": "2025-05-25T18:11:17+06:00"
     }
 ,
     {
@@ -226,11 +227,11 @@
       "duration": "10s",
       "connections": 100,
       "threads": 4,
-      "requests_per_sec": "2520.75",
-      "avg_latency": "39.47ms",
-      "p99_latency": "43.68ms",
-      "transfer_per_sec": "1.19MB",
-      "timestamp": "2025-05-25T18:06:15+01:00"
+      "requests_per_sec": "472.78",
+      "avg_latency": "209.32ms",
+      "p99_latency": "450.22ms",
+      "transfer_per_sec": "228.17KB",
+      "timestamp": "2025-05-25T22:53:03+06:00"
     }
 ,
     {
@@ -240,11 +241,11 @@
       "duration": "10s",
       "connections": 100,
       "threads": 4,
-      "requests_per_sec": "2875.21",
-      "avg_latency": "34.60ms",
-      "p99_latency": "38.87ms",
-      "transfer_per_sec": "466.10KB",
-      "timestamp": "2025-05-25T18:05:14+01:00"
+      "requests_per_sec": "1259.57",
+      "avg_latency": "75.87ms",
+      "p99_latency": "95.93ms",
+      "transfer_per_sec": "204.19KB",
+      "timestamp": "2025-05-31T01:15:35+06:00"
     }
 ,
     {
@@ -254,11 +255,11 @@
       "duration": "10s",
       "connections": 100,
       "threads": 4,
-      "requests_per_sec": "2671.96",
-      "avg_latency": "37.23ms",
-      "p99_latency": "43.31ms",
-      "transfer_per_sec": "532.30KB",
-      "timestamp": "2025-05-25T18:05:29+01:00"
+      "requests_per_sec": "542.91",
+      "avg_latency": "157.11ms",
+      "p99_latency": "331.72ms",
+      "transfer_per_sec": "108.16KB",
+      "timestamp": "2025-05-25T22:52:30+06:00"
     }
 ,
     {
@@ -268,11 +269,11 @@
       "duration": "10s",
       "connections": 100,
       "threads": 4,
-      "requests_per_sec": "2624.16",
-      "avg_latency": "37.93ms",
-      "p99_latency": "41.89ms",
-      "transfer_per_sec": "612.48KB",
-      "timestamp": "2025-05-25T18:05:44+01:00"
+      "requests_per_sec": "987.63",
+      "avg_latency": "102.05ms",
+      "p99_latency": "267.05ms",
+      "transfer_per_sec": "230.51KB",
+      "timestamp": "2025-05-25T18:12:23+06:00"
     }
 ,
     {
@@ -282,11 +283,11 @@
       "duration": "10s",
       "connections": 100,
       "threads": 4,
-      "requests_per_sec": "2431.46",
-      "avg_latency": "40.90ms",
-      "p99_latency": "47.22ms",
-      "transfer_per_sec": "3.05MB",
-      "timestamp": "2025-05-25T18:06:00+01:00"
+      "requests_per_sec": "613.58",
+      "avg_latency": "161.38ms",
+      "p99_latency": "186.67ms",
+      "transfer_per_sec": "787.35KB",
+      "timestamp": "2025-05-25T22:52:48+06:00"
     }
 
   ]
