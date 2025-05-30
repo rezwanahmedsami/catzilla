@@ -2,6 +2,7 @@
 #include "server.h"
 #include "logging.h"
 #include "windows_compat.h"
+#include "memory.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -26,23 +27,23 @@ int catzilla_router_init(catzilla_router_t* router) {
 
     memset(router, 0, sizeof(catzilla_router_t));
 
-    // Initialize root node
-    router->root = malloc(sizeof(catzilla_route_node_t));
+    // Initialize root node using optimized memory allocation
+    router->root = catzilla_cache_alloc(sizeof(catzilla_route_node_t));
     if (!router->root) return -1;
     memset(router->root, 0, sizeof(catzilla_route_node_t));
 
     // Initialize root node arrays
     router->root->child_capacity = 4;
-    router->root->children = malloc(sizeof(catzilla_route_node_t*) * router->root->child_capacity);
-    router->root->child_segments = malloc(sizeof(char*) * router->root->child_capacity);
+    router->root->children = catzilla_cache_alloc(sizeof(catzilla_route_node_t*) * router->root->child_capacity);
+    router->root->child_segments = catzilla_cache_alloc(sizeof(char*) * router->root->child_capacity);
     router->root->handler_capacity = 4;
-    router->root->handlers = malloc(sizeof(catzilla_route_t*) * router->root->handler_capacity);
-    router->root->methods = malloc(sizeof(char*) * router->root->handler_capacity);
+    router->root->handlers = catzilla_cache_alloc(sizeof(catzilla_route_t*) * router->root->handler_capacity);
+    router->root->methods = catzilla_cache_alloc(sizeof(char*) * router->root->handler_capacity);
 
     if (!router->root->children || !router->root->child_segments ||
         !router->root->handlers || !router->root->methods) {
-        free(router->root->children);
-        free(router->root->child_segments);
+        catzilla_cache_free(router->root->children);
+        catzilla_cache_free(router->root->child_segments);
         free(router->root->handlers);
         free(router->root->methods);
         free(router->root);
@@ -56,13 +57,13 @@ int catzilla_router_init(catzilla_router_t* router) {
 
     // Initialize routes array
     router->route_capacity = 64;
-    router->routes = malloc(sizeof(catzilla_route_t*) * router->route_capacity);
+    router->routes = catzilla_cache_alloc(sizeof(catzilla_route_t*) * router->route_capacity);
     if (!router->routes) {
-        free(router->root->children);
-        free(router->root->child_segments);
-        free(router->root->handlers);
-        free(router->root->methods);
-        free(router->root);
+        catzilla_cache_free(router->root->children);
+        catzilla_cache_free(router->root->child_segments);
+        catzilla_cache_free(router->root->handlers);
+        catzilla_cache_free(router->root->methods);
+        catzilla_cache_free(router->root);
         return -1;
     }
 
@@ -84,14 +85,14 @@ void catzilla_router_cleanup(catzilla_router_t* router) {
             // Free parameter names
             if (router->routes[i]->param_names) {
                 for (int j = 0; j < router->routes[i]->param_count; j++) {
-                    free(router->routes[i]->param_names[j]);
+                    catzilla_cache_free(router->routes[i]->param_names[j]);
                 }
-                free(router->routes[i]->param_names);
+                catzilla_cache_free(router->routes[i]->param_names);
             }
-            free(router->routes[i]);
+            catzilla_cache_free(router->routes[i]);
         }
     }
-    free(router->routes);
+    catzilla_cache_free(router->routes);
 
     // Free the trie structure (this handles all trie-related memory)
     if (router->root) {
@@ -103,27 +104,27 @@ void catzilla_router_cleanup(catzilla_router_t* router) {
 }
 
 static catzilla_route_node_t* catzilla_router_create_node(catzilla_router_t* router) {
-    catzilla_route_node_t* node = malloc(sizeof(catzilla_route_node_t));
+    catzilla_route_node_t* node = catzilla_cache_alloc(sizeof(catzilla_route_node_t));
     if (!node) return NULL;
 
     memset(node, 0, sizeof(catzilla_route_node_t));
 
     // Initialize children arrays
     node->child_capacity = 4;
-    node->children = malloc(sizeof(catzilla_route_node_t*) * node->child_capacity);
-    node->child_segments = malloc(sizeof(char*) * node->child_capacity);
+    node->children = catzilla_cache_alloc(sizeof(catzilla_route_node_t*) * node->child_capacity);
+    node->child_segments = catzilla_cache_alloc(sizeof(char*) * node->child_capacity);
 
     // Initialize handlers arrays
     node->handler_capacity = 4;
-    node->handlers = malloc(sizeof(catzilla_route_t*) * node->handler_capacity);
-    node->methods = malloc(sizeof(char*) * node->handler_capacity);
+    node->handlers = catzilla_cache_alloc(sizeof(catzilla_route_t*) * node->handler_capacity);
+    node->methods = catzilla_cache_alloc(sizeof(char*) * node->handler_capacity);
 
     if (!node->children || !node->child_segments || !node->handlers || !node->methods) {
-        free(node->children);
-        free(node->child_segments);
-        free(node->handlers);
-        free(node->methods);
-        free(node);
+        catzilla_cache_free(node->children);
+        catzilla_cache_free(node->child_segments);
+        catzilla_cache_free(node->handlers);
+        catzilla_cache_free(node->methods);
+        catzilla_cache_free(node);
         return NULL;
     }
 
@@ -143,7 +144,7 @@ static void catzilla_router_free_node(catzilla_router_t* router, catzilla_route_
         if (node->children[i]) {
             catzilla_router_free_node(router, node->children[i]);
         }
-        free(node->child_segments[i]);
+        catzilla_cache_free(node->child_segments[i]);
     }
 
     // Free parameter child
@@ -153,14 +154,14 @@ static void catzilla_router_free_node(catzilla_router_t* router, catzilla_route_
 
     // Free method strings
     for (int i = 0; i < node->handler_count; i++) {
-        free(node->methods[i]);
+        catzilla_cache_free(node->methods[i]);
     }
 
-    free(node->children);
-    free(node->child_segments);
-    free(node->handlers);
-    free(node->methods);
-    free(node);
+    catzilla_cache_free(node->children);
+    catzilla_cache_free(node->child_segments);
+    catzilla_cache_free(node->handlers);
+    catzilla_cache_free(node->methods);
+    catzilla_cache_free(node);
 }
 
 static int catzilla_router_split_path(const char* path, char segments[][CATZILLA_PATH_SEGMENT_MAX], int max_segments) {
@@ -274,7 +275,7 @@ uint32_t catzilla_router_add_route(catzilla_router_t* router,
     }
 
     // Create route object
-    catzilla_route_t* route = malloc(sizeof(catzilla_route_t));
+    catzilla_route_t* route = catzilla_cache_alloc(sizeof(catzilla_route_t));
     if (!route) {
         LOG_ROUTER_ERROR("Failed to allocate route");
         return 0;
@@ -297,9 +298,9 @@ uint32_t catzilla_router_add_route(catzilla_router_t* router,
     }
 
     if (route->param_count > 0) {
-        route->param_names = malloc(sizeof(char*) * route->param_count);
+        route->param_names = catzilla_cache_alloc(sizeof(char*) * route->param_count);
         if (!route->param_names) {
-            free(route);
+            catzilla_cache_free(route);
             return 0;
         }
 
@@ -309,14 +310,14 @@ uint32_t catzilla_router_add_route(catzilla_router_t* router,
                 char param_name[CATZILLA_PARAM_NAME_MAX];
                 catzilla_router_extract_param_name(segments[i], param_name);
 
-                route->param_names[param_idx] = malloc(strlen(param_name) + 1);
+                route->param_names[param_idx] = catzilla_cache_alloc(strlen(param_name) + 1);
                 if (!route->param_names[param_idx]) {
                     // Cleanup on error
                     for (int j = 0; j < param_idx; j++) {
-                        free(route->param_names[j]);
+                        catzilla_cache_free(route->param_names[j]);
                     }
-                    free(route->param_names);
-                    free(route);
+                    catzilla_cache_free(route->param_names);
+                    catzilla_cache_free(route);
                     return 0;
                 }
                 strcpy(route->param_names[param_idx], param_name);
@@ -330,18 +331,18 @@ uint32_t catzilla_router_add_route(catzilla_router_t* router,
         // Cleanup on error
         if (route->param_names) {
             for (int i = 0; i < route->param_count; i++) {
-                free(route->param_names[i]);
+                catzilla_cache_free(route->param_names[i]);
             }
-            free(route->param_names);
+            catzilla_cache_free(route->param_names);
         }
-        free(route);
+        catzilla_cache_free(route);
         return 0;
     }
 
     // Add to routes array
     if (router->route_count >= router->route_capacity) {
         int new_capacity = router->route_capacity * 2;
-        catzilla_route_t** new_routes = realloc(router->routes, sizeof(catzilla_route_t*) * new_capacity);
+        catzilla_route_t** new_routes = catzilla_cache_realloc(router->routes, sizeof(catzilla_route_t*) * new_capacity);
         if (!new_routes) {
             LOG_ROUTER_ERROR("Failed to expand routes array");
             return route->id; // Route was added to trie, just can't track it
@@ -393,14 +394,14 @@ static int catzilla_router_add_to_trie(catzilla_router_t* router, catzilla_route
                 if (current->child_count >= current->child_capacity) {
                     int new_capacity = current->child_capacity * 2;
 
-                    catzilla_route_node_t** new_children = realloc(current->children,
+                    catzilla_route_node_t** new_children = catzilla_cache_realloc(current->children,
                                                                   sizeof(catzilla_route_node_t*) * new_capacity);
-                    char** new_segments = realloc(current->child_segments,
+                    char** new_segments = catzilla_cache_realloc(current->child_segments,
                                                  sizeof(char*) * new_capacity);
 
                     if (!new_children || !new_segments) {
-                        free(new_children);
-                        free(new_segments);
+                        catzilla_cache_free(new_children);
+                        catzilla_cache_free(new_segments);
                         catzilla_router_free_node(router, child);
                         return -1;
                     }
@@ -412,7 +413,7 @@ static int catzilla_router_add_to_trie(catzilla_router_t* router, catzilla_route
 
                 // Add child
                 current->children[current->child_count] = child;
-                current->child_segments[current->child_count] = malloc(strlen(segments[i]) + 1);
+                current->child_segments[current->child_count] = catzilla_cache_alloc(strlen(segments[i]) + 1);
                 if (!current->child_segments[current->child_count]) {
                     catzilla_router_free_node(router, child);
                     return -1;
@@ -444,14 +445,14 @@ static int catzilla_router_add_to_trie(catzilla_router_t* router, catzilla_route
     if (current->handler_count >= current->handler_capacity) {
         int new_capacity = current->handler_capacity * 2;
 
-        catzilla_route_t** new_handlers = realloc(current->handlers,
+        catzilla_route_t** new_handlers = catzilla_cache_realloc(current->handlers,
                                                  sizeof(catzilla_route_t*) * new_capacity);
-        char** new_methods = realloc(current->methods,
+        char** new_methods = catzilla_cache_realloc(current->methods,
                                     sizeof(char*) * new_capacity);
 
         if (!new_handlers || !new_methods) {
-            free(new_handlers);
-            free(new_methods);
+            catzilla_cache_free(new_handlers);
+            catzilla_cache_free(new_methods);
             return -1;
         }
 
@@ -462,7 +463,7 @@ static int catzilla_router_add_to_trie(catzilla_router_t* router, catzilla_route
 
     // Add new handler
     current->handlers[current->handler_count] = route;
-    current->methods[current->handler_count] = malloc(strlen(route->method) + 1);
+    current->methods[current->handler_count] = catzilla_cache_alloc(strlen(route->method) + 1);
     if (!current->methods[current->handler_count]) {
         return -1;
     }
@@ -650,11 +651,11 @@ int catzilla_router_remove_route(catzilla_router_t* router, uint32_t route_id) {
             // Free route memory
             if (route->param_names) {
                 for (int j = 0; j < route->param_count; j++) {
-                    free(route->param_names[j]);
+                    catzilla_cache_free(route->param_names[j]);
                 }
-                free(route->param_names);
+                catzilla_cache_free(route->param_names);
             }
-            free(route);
+            catzilla_cache_free(route);
 
             // Note: We don't remove from trie for performance reasons
             // The trie will still contain the route but it won't be found

@@ -1,6 +1,38 @@
 cmake_minimum_required(VERSION 3.15)
 project(catzilla VERSION 0.1.0 LANGUAGES C CXX)
 
+# jemalloc configuration
+option(USE_JEMALLOC "Enable jemalloc memory allocator" ON)
+set(JEMALLOC_PREFIX "je_" CACHE STRING "jemalloc prefix")
+
+if(USE_JEMALLOC)
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(JEMALLOC jemalloc)
+    endif()
+
+    if(NOT JEMALLOC_FOUND)
+        find_path(JEMALLOC_INCLUDE_DIR jemalloc/jemalloc.h)
+        find_library(JEMALLOC_LIBRARY NAMES jemalloc)
+
+        if(JEMALLOC_INCLUDE_DIR AND JEMALLOC_LIBRARY)
+            set(JEMALLOC_FOUND TRUE)
+            set(JEMALLOC_INCLUDE_DIRS ${JEMALLOC_INCLUDE_DIR})
+            set(JEMALLOC_LIBRARIES ${JEMALLOC_LIBRARY})
+        endif()
+    endif()
+
+    if(JEMALLOC_FOUND)
+        message(STATUS "✅ jemalloc found: ${JEMALLOC_LIBRARIES}")
+        add_compile_definitions(CATZILLA_USE_JEMALLOC=1)
+    else()
+        message(WARNING "⚠️  jemalloc not found, falling back to standard malloc")
+        set(USE_JEMALLOC OFF)
+    endif()
+else()
+    message(STATUS "⚠️  jemalloc disabled by user")
+endif()
+
 # Windows-specific configuration for professional Python library handling
 if(WIN32)
     # Professional Windows Python library detection and configuration
@@ -408,7 +440,7 @@ FetchContent_Declare(yyjson
 FetchContent_MakeAvailable(yyjson)
 
 # Core static library
-add_library(catzilla_core STATIC src/core/server.c src/core/router.c)
+add_library(catzilla_core STATIC src/core/server.c src/core/router.c src/core/memory.c)
 target_include_directories(catzilla_core PUBLIC
   src/core
   ${llhttp_SOURCE_DIR}/include
@@ -416,6 +448,14 @@ target_include_directories(catzilla_core PUBLIC
   ${Python3_INCLUDE_DIRS}
   ${yyjson_SOURCE_DIR}/src
 )
+
+# Link jemalloc if available
+if(USE_JEMALLOC AND JEMALLOC_FOUND)
+    target_include_directories(catzilla_core PUBLIC ${JEMALLOC_INCLUDE_DIRS})
+    target_link_libraries(catzilla_core PRIVATE ${JEMALLOC_LIBRARIES})
+    message(STATUS "✅ Linking catzilla_core with jemalloc")
+endif()
+
 target_link_libraries(catzilla_core PRIVATE uv_a llhttp_static yyjson)
 
 # Windows-specific linking
@@ -432,6 +472,13 @@ target_include_directories(_catzilla PRIVATE
   ${Python3_INCLUDE_DIRS}
   ${yyjson_SOURCE_DIR}/src
 )
+
+# Link jemalloc for Python extension if available
+if(USE_JEMALLOC AND JEMALLOC_FOUND)
+    target_include_directories(_catzilla PRIVATE ${JEMALLOC_INCLUDE_DIRS})
+    target_link_libraries(_catzilla PRIVATE ${JEMALLOC_LIBRARIES})
+    message(STATUS "✅ Linking Python extension with jemalloc")
+endif()
 
 target_link_libraries(_catzilla PRIVATE
   catzilla_core

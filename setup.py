@@ -14,12 +14,22 @@ class CMakeBuild(build_ext):
         build_dir = os.path.abspath(self.build_temp)
         os.makedirs(build_dir, exist_ok=True)
 
+        # Check for jemalloc environment variable
+        use_jemalloc = os.getenv('CATZILLA_USE_JEMALLOC', '1') == '1'
+
         # 1) Configure
         configure_cmd = [
             'cmake', '-S', '.', '-B', build_dir,
             f'-DPython3_EXECUTABLE={sys.executable}',
-            f'-DCMAKE_OSX_DEPLOYMENT_TARGET={os.getenv("MACOSX_DEPLOYMENT_TARGET","10.15")}'
+            f'-DCMAKE_OSX_DEPLOYMENT_TARGET={os.getenv("MACOSX_DEPLOYMENT_TARGET","10.15")}',
+            f'-DUSE_JEMALLOC={"ON" if use_jemalloc else "OFF"}'
         ]
+
+        if use_jemalloc:
+            print("🚀 Building Catzilla with jemalloc support...")
+        else:
+            print("⚠️  Building Catzilla without jemalloc (fallback to standard malloc)")
+
         subprocess.check_call(configure_cmd)
 
         # 2) Build

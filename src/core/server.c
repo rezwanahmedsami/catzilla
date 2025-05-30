@@ -2,6 +2,7 @@
 #include "router.h"
 #include "logging.h"
 #include "windows_compat.h"
+#include "memory.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -57,7 +58,7 @@ static int on_message_begin(llhttp_t* parser) {
     client_context_t* context = (client_context_t*)parser->data;
     context->url[0] = '\0';
     context->method[0] = '\0';
-    free(context->body);
+    catzilla_request_free(context->body);
     context->body = NULL;
     context->body_length = 0;
     context->body_size = 0;
@@ -159,12 +160,12 @@ static int on_body(llhttp_t* parser, const char* at, size_t length) {
     client_context_t* context = (client_context_t*)parser->data;
     if (context->body == NULL) {
         context->body_size = length > 1024 ? length : 1024;
-        context->body = malloc(context->body_size + 1);
+        context->body = catzilla_request_alloc(context->body_size + 1);
         if (!context->body) return -1;
         context->body_length = 0;
     } else if (context->body_length + length > context->body_size) {
         size_t new_size = context->body_size * 2;
-        char* new_body = realloc(context->body, new_size + 1);
+        char* new_body = catzilla_request_realloc(context->body, new_size + 1);
         if (!new_body) return -1;
         context->body = new_body;
         context->body_size = new_size;
@@ -245,7 +246,7 @@ PyObject* handle_request_in_server(PyObject* callback,
     }
 
     // Create a request structure
-    catzilla_request_t* request = malloc(sizeof(catzilla_request_t));
+    catzilla_request_t* request = catzilla_request_alloc(sizeof(catzilla_request_t));
     if (!request) {
         PyErr_NoMemory();
         return NULL;
@@ -315,8 +316,8 @@ PyObject* handle_request_in_server(PyObject* callback,
     PyObject* request_capsule = PyCapsule_New(request, "catzilla.request", NULL);
     if (!request_capsule) {
         if (request->json_doc) yyjson_doc_free(request->json_doc);
-        free(request->body);
-        free(request);
+        catzilla_request_free(request->body);
+        catzilla_request_free(request);
         return NULL;
     }
 
@@ -325,8 +326,8 @@ PyObject* handle_request_in_server(PyObject* callback,
     if (!args) {
         Py_DECREF(request_capsule);
         if (request->json_doc) yyjson_doc_free(request->json_doc);
-        free(request->body);
-        free(request);
+        catzilla_request_free(request->body);
+        catzilla_request_free(request);
         return NULL;
     }
 
@@ -335,8 +336,8 @@ PyObject* handle_request_in_server(PyObject* callback,
     Py_DECREF(args);
     Py_DECREF(request_capsule);
     if (request->json_doc) yyjson_doc_free(request->json_doc);
-    free(request->body);
-    free(request);
+    catzilla_request_free(request->body);
+    catzilla_request_free(request);
 
     if (!result) {
         PyErr_Print();
@@ -444,13 +445,13 @@ int catzilla_parse_form(catzilla_request_t* request) {
             value++;
 
             // URL decode key and value
-            char* decoded_key = malloc(strlen(key) + 1);
-            char* decoded_value = malloc(strlen(value) + 1);
+            char* decoded_key = catzilla_request_alloc(strlen(key) + 1);
+            char* decoded_value = catzilla_request_alloc(strlen(value) + 1);
 
             if (!decoded_key || !decoded_value) {
-                free(decoded_key);
-                free(decoded_value);
-                free(body);
+                catzilla_request_free(decoded_key);
+                catzilla_request_free(decoded_value);
+                catzilla_request_free(body);
                 LOG_HTTP_DEBUG("Form parse error: memory allocation failed");
                 request->is_form_parsed = true;  // Mark as parsed even if failed
                 return -1;
@@ -467,14 +468,14 @@ int catzilla_parse_form(catzilla_request_t* request) {
                 request->form_values[request->form_field_count] = decoded_value;
                 request->form_field_count++;
             } else {
-                free(decoded_key);
-                free(decoded_value);
+                catzilla_request_free(decoded_key);
+                catzilla_request_free(decoded_value);
             break;
             }
         }
     }
 
-    free(body);
+    catzilla_request_free(body);
     LOG_HTTP_DEBUG("Form parsed successfully with %d fields", request->form_field_count);
     request->is_form_parsed = true;
     return 0;
@@ -721,7 +722,7 @@ static void send_response_with_connection(uv_stream_t* client,
                                         const char* body,
                                         size_t body_len,
                                         bool keep_alive) {
-    write_req_t* req = malloc(sizeof(*req));
+    write_req_t* req = catzilla_response_alloc(sizeof(*req));
     if (!req) return;
 
     // Store keep_alive info in the request for after_write callback
@@ -749,8 +750,8 @@ static void send_response_with_connection(uv_stream_t* client,
     size_t separator_len = 2; // "\r\n" to separate headers from body
     size_t total_header_len = status_line_len + headers_len + connection_header_len + separator_len;
 
-    char* response = malloc(total_header_len + body_len);
-    if (!response) { free(req); return; }
+    char* response = catzilla_response_alloc(total_header_len + body_len);
+    if (!response) { catzilla_response_free(req); return; }
 
     // Build the response
     int offset = 0;
@@ -799,7 +800,7 @@ static void on_connection(uv_stream_t* server, int status) {
     LOG_SERVER_DEBUG("New connection received");
     catzilla_server_t* srv = server->data;
 
-    client_context_t* ctx = malloc(sizeof(*ctx));
+    client_context_t* ctx = catzilla_cache_alloc(sizeof(*ctx));
     if (!ctx) return;
 
     // Initialize all fields to zero/NULL
@@ -819,7 +820,7 @@ static void on_connection(uv_stream_t* server, int status) {
     LOG_SERVER_DEBUG("Initialized client context with content_type=%d", (int)ctx->content_type);
 
     if (uv_tcp_init(srv->loop, &ctx->client) != 0) {
-        free(ctx);
+        catzilla_cache_free(ctx);
         return;
     }
     ctx->client.data = ctx;
@@ -834,7 +835,7 @@ static void on_connection(uv_stream_t* server, int status) {
 }
 
 static void alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
-    buf->base = malloc(suggested_size);
+    buf->base = catzilla_request_alloc(suggested_size);
     buf->len  = buf->base ? suggested_size : 0;
 }
 
@@ -850,15 +851,15 @@ static void on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf) {
     } else if (nread < 0 && nread != UV_EOF) {
         LOG_SERVER_ERROR("Read error: %s", uv_strerror(nread));
     }
-    free(buf->base);
+    catzilla_request_free(buf->base);
     if (nread < 0) uv_close((uv_handle_t*)client, on_close);
 }
 
 static void on_close(uv_handle_t* handle) {
     client_context_t* ctx = handle->data;
     if (ctx) {
-    free(ctx->body);
-    free(ctx);
+    catzilla_request_free(ctx->body);
+    catzilla_cache_free(ctx);
     }
 }
 
@@ -877,8 +878,8 @@ static void after_write(uv_write_t* req, int status) {
         // The client context and parser will handle subsequent requests
     }
 
-    free(wr->buf.base);
-    free(wr);
+    catzilla_response_free(wr->buf.base);
+    catzilla_response_free(wr);
 }
 
 static int on_message_complete(llhttp_t* parser) {
@@ -986,11 +987,11 @@ static int on_message_complete(llhttp_t* parser) {
                     strlen(response_body), match.allowed_methods, connection_header);
 
             // Send headers and body
-            write_req_t* write_req = malloc(sizeof(write_req_t));
+            write_req_t* write_req = catzilla_response_alloc(sizeof(write_req_t));
             if (write_req) {
                 write_req->keep_alive = context->keep_alive;  // Set keep_alive flag
                 size_t total_length = strlen(headers) + strlen(response_body);
-                char* response = malloc(total_length + 1);
+                char* response = catzilla_response_alloc(total_length + 1);
                 if (response) {
                     strcpy(response, headers);
                     strcat(response, response_body);
@@ -999,7 +1000,7 @@ static int on_message_complete(llhttp_t* parser) {
                     uv_write((uv_write_t*)write_req, (uv_stream_t*)&context->client,
                             &write_req->buf, 1, after_write);
                 } else {
-                    free(write_req);
+                    catzilla_response_free(write_req);
                     send_response_with_connection((uv_stream_t*)&context->client, 500, "text/plain",
                                          "500 Internal Server Error", strlen("500 Internal Server Error"), context->keep_alive);
                 }
@@ -1071,13 +1072,13 @@ int parse_query_params(catzilla_request_t* request, const char* query_string) {
             value++;
 
             // URL decode key and value
-            char* decoded_key = malloc(strlen(key) + 1);
-            char* decoded_value = malloc(strlen(value) + 1);
+            char* decoded_key = catzilla_request_alloc(strlen(key) + 1);
+            char* decoded_value = catzilla_request_alloc(strlen(value) + 1);
 
             if (!decoded_key || !decoded_value) {
-                free(decoded_key);
-                free(decoded_value);
-                free(query);
+                catzilla_request_free(decoded_key);
+                catzilla_request_free(decoded_value);
+                catzilla_request_free(query);
                 return -1;
             }
 
@@ -1092,14 +1093,14 @@ int parse_query_params(catzilla_request_t* request, const char* query_string) {
                 request->query_param_count++;
                 request->has_query_params = true;
             } else {
-                free(decoded_key);
-                free(decoded_value);
+                catzilla_request_free(decoded_key);
+                catzilla_request_free(decoded_value);
                 break;
             }
         }
     }
 
-    free(query);
+    catzilla_request_free(query);
     LOG_HTTP_DEBUG("Query parsing complete with %d parameters", request->query_param_count);
     return 0;
 }
