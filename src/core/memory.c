@@ -7,6 +7,35 @@
 
 #ifdef CATZILLA_USE_JEMALLOC
 #include <jemalloc/jemalloc.h>
+
+// Cross-platform jemalloc compatibility layer
+// Handle different naming conventions across platforms:
+// - macOS/Homebrew: direct function names (mallocx, dallocx, etc.)
+// - Linux RPM systems: prefixed functions (je_mallocx, je_dallocx, etc.)
+// - Windows: potentially different conventions in the future
+
+#ifdef JEMALLOC_USES_PREFIX
+    // Use je_ prefixed functions (typical for RPM-based Linux distributions)
+    #define JEMALLOC_MALLOCX    je_mallocx
+    #define JEMALLOC_DALLOCX    je_dallocx
+    #define JEMALLOC_RALLOCX    je_rallocx
+    #define JEMALLOC_MALLCTL    je_mallctl
+    #define JEMALLOC_MALLOC     je_malloc
+    #define JEMALLOC_CALLOC     je_calloc
+    #define JEMALLOC_REALLOC    je_realloc
+    #define JEMALLOC_FREE       je_free
+#else
+    // Use direct function names (typical for Homebrew on macOS, some Linux builds)
+    #define JEMALLOC_MALLOCX    mallocx
+    #define JEMALLOC_DALLOCX    dallocx
+    #define JEMALLOC_RALLOCX    rallocx
+    #define JEMALLOC_MALLCTL    mallctl
+    #define JEMALLOC_MALLOC     malloc
+    #define JEMALLOC_CALLOC     calloc
+    #define JEMALLOC_REALLOC    realloc
+    #define JEMALLOC_FREE       free
+#endif
+
 #endif
 
 // Global memory statistics
@@ -19,7 +48,7 @@ static bool g_profiling_enabled = false;
 // jemalloc-specific implementation
 
 void* catzilla_malloc(size_t size) {
-    void* ptr = malloc(size);
+    void* ptr = JEMALLOC_MALLOC(size);
     if (ptr && g_profiling_enabled) {
         __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
     }
@@ -27,7 +56,7 @@ void* catzilla_malloc(size_t size) {
 }
 
 void* catzilla_calloc(size_t count, size_t size) {
-    void* ptr = calloc(count, size);
+    void* ptr = JEMALLOC_CALLOC(count, size);
     if (ptr && g_profiling_enabled) {
         __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
     }
@@ -35,7 +64,7 @@ void* catzilla_calloc(size_t count, size_t size) {
 }
 
 void* catzilla_realloc(void* ptr, size_t size) {
-    void* new_ptr = realloc(ptr, size);
+    void* new_ptr = JEMALLOC_REALLOC(ptr, size);
     if (new_ptr && !ptr && g_profiling_enabled) {
         __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
     }
@@ -44,7 +73,7 @@ void* catzilla_realloc(void* ptr, size_t size) {
 
 void catzilla_free(void* ptr) {
     if (ptr) {
-        free(ptr);
+        JEMALLOC_FREE(ptr);
         if (g_profiling_enabled) {
             __sync_fetch_and_add(&g_memory_stats.deallocation_count, 1);
         }
@@ -52,7 +81,7 @@ void catzilla_free(void* ptr) {
 }
 
 void* catzilla_request_alloc(size_t size) {
-    void* ptr = mallocx(size, MALLOCX_ARENA(g_memory_stats.request_arena));
+    void* ptr = JEMALLOC_MALLOCX(size, MALLOCX_ARENA(g_memory_stats.request_arena));
     if (ptr && g_profiling_enabled) {
         __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
         __sync_fetch_and_add(&g_memory_stats.request_arena_usage, size);
@@ -61,7 +90,7 @@ void* catzilla_request_alloc(size_t size) {
 }
 
 void* catzilla_response_alloc(size_t size) {
-    void* ptr = mallocx(size, MALLOCX_ARENA(g_memory_stats.response_arena));
+    void* ptr = JEMALLOC_MALLOCX(size, MALLOCX_ARENA(g_memory_stats.response_arena));
     if (ptr && g_profiling_enabled) {
         __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
         __sync_fetch_and_add(&g_memory_stats.response_arena_usage, size);
@@ -70,7 +99,7 @@ void* catzilla_response_alloc(size_t size) {
 }
 
 void* catzilla_cache_alloc(size_t size) {
-    void* ptr = mallocx(size, MALLOCX_ARENA(g_memory_stats.cache_arena));
+    void* ptr = JEMALLOC_MALLOCX(size, MALLOCX_ARENA(g_memory_stats.cache_arena));
     if (ptr && g_profiling_enabled) {
         __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
         __sync_fetch_and_add(&g_memory_stats.cache_arena_usage, size);
@@ -79,7 +108,7 @@ void* catzilla_cache_alloc(size_t size) {
 }
 
 void* catzilla_static_alloc(size_t size) {
-    void* ptr = mallocx(size, MALLOCX_ARENA(g_memory_stats.static_arena));
+    void* ptr = JEMALLOC_MALLOCX(size, MALLOCX_ARENA(g_memory_stats.static_arena));
     if (ptr && g_profiling_enabled) {
         __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
         __sync_fetch_and_add(&g_memory_stats.static_arena_usage, size);
@@ -88,7 +117,7 @@ void* catzilla_static_alloc(size_t size) {
 }
 
 void* catzilla_task_alloc(size_t size) {
-    void* ptr = mallocx(size, MALLOCX_ARENA(g_memory_stats.task_arena));
+    void* ptr = JEMALLOC_MALLOCX(size, MALLOCX_ARENA(g_memory_stats.task_arena));
     if (ptr && g_profiling_enabled) {
         __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
         __sync_fetch_and_add(&g_memory_stats.task_arena_usage, size);
@@ -98,7 +127,7 @@ void* catzilla_task_alloc(size_t size) {
 
 void catzilla_request_free(void* ptr) {
     if (ptr) {
-        dallocx(ptr, MALLOCX_ARENA(g_memory_stats.request_arena));
+        JEMALLOC_DALLOCX(ptr, MALLOCX_ARENA(g_memory_stats.request_arena));
         if (g_profiling_enabled) {
             __sync_fetch_and_add(&g_memory_stats.deallocation_count, 1);
         }
@@ -107,7 +136,7 @@ void catzilla_request_free(void* ptr) {
 
 void catzilla_response_free(void* ptr) {
     if (ptr) {
-        dallocx(ptr, MALLOCX_ARENA(g_memory_stats.response_arena));
+        JEMALLOC_DALLOCX(ptr, MALLOCX_ARENA(g_memory_stats.response_arena));
         if (g_profiling_enabled) {
             __sync_fetch_and_add(&g_memory_stats.deallocation_count, 1);
         }
@@ -116,7 +145,7 @@ void catzilla_response_free(void* ptr) {
 
 void catzilla_cache_free(void* ptr) {
     if (ptr) {
-        dallocx(ptr, MALLOCX_ARENA(g_memory_stats.cache_arena));
+        JEMALLOC_DALLOCX(ptr, MALLOCX_ARENA(g_memory_stats.cache_arena));
         if (g_profiling_enabled) {
             __sync_fetch_and_add(&g_memory_stats.deallocation_count, 1);
         }
@@ -125,7 +154,7 @@ void catzilla_cache_free(void* ptr) {
 
 void catzilla_static_free(void* ptr) {
     if (ptr) {
-        dallocx(ptr, MALLOCX_ARENA(g_memory_stats.static_arena));
+        JEMALLOC_DALLOCX(ptr, MALLOCX_ARENA(g_memory_stats.static_arena));
         if (g_profiling_enabled) {
             __sync_fetch_and_add(&g_memory_stats.deallocation_count, 1);
         }
@@ -134,7 +163,7 @@ void catzilla_static_free(void* ptr) {
 
 void catzilla_task_free(void* ptr) {
     if (ptr) {
-        dallocx(ptr, MALLOCX_ARENA(g_memory_stats.task_arena));
+        JEMALLOC_DALLOCX(ptr, MALLOCX_ARENA(g_memory_stats.task_arena));
         if (g_profiling_enabled) {
             __sync_fetch_and_add(&g_memory_stats.deallocation_count, 1);
         }
@@ -143,7 +172,7 @@ void catzilla_task_free(void* ptr) {
 
 // Typed reallocation functions for optimal arena management
 void* catzilla_request_realloc(void* ptr, size_t size) {
-    void* new_ptr = rallocx(ptr, size, MALLOCX_ARENA(g_memory_stats.request_arena));
+    void* new_ptr = JEMALLOC_RALLOCX(ptr, size, MALLOCX_ARENA(g_memory_stats.request_arena));
     if (new_ptr && g_profiling_enabled) {
         __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
         __sync_fetch_and_add(&g_memory_stats.request_arena_usage, size);
@@ -152,7 +181,7 @@ void* catzilla_request_realloc(void* ptr, size_t size) {
 }
 
 void* catzilla_response_realloc(void* ptr, size_t size) {
-    void* new_ptr = rallocx(ptr, size, MALLOCX_ARENA(g_memory_stats.response_arena));
+    void* new_ptr = JEMALLOC_RALLOCX(ptr, size, MALLOCX_ARENA(g_memory_stats.response_arena));
     if (new_ptr && g_profiling_enabled) {
         __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
         __sync_fetch_and_add(&g_memory_stats.response_arena_usage, size);
@@ -161,7 +190,7 @@ void* catzilla_response_realloc(void* ptr, size_t size) {
 }
 
 void* catzilla_cache_realloc(void* ptr, size_t size) {
-    void* new_ptr = rallocx(ptr, size, MALLOCX_ARENA(g_memory_stats.cache_arena));
+    void* new_ptr = JEMALLOC_RALLOCX(ptr, size, MALLOCX_ARENA(g_memory_stats.cache_arena));
     if (new_ptr && g_profiling_enabled) {
         __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
         __sync_fetch_and_add(&g_memory_stats.cache_arena_usage, size);
@@ -170,7 +199,7 @@ void* catzilla_cache_realloc(void* ptr, size_t size) {
 }
 
 void* catzilla_static_realloc(void* ptr, size_t size) {
-    void* new_ptr = rallocx(ptr, size, MALLOCX_ARENA(g_memory_stats.static_arena));
+    void* new_ptr = JEMALLOC_RALLOCX(ptr, size, MALLOCX_ARENA(g_memory_stats.static_arena));
     if (new_ptr && g_profiling_enabled) {
         __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
         __sync_fetch_and_add(&g_memory_stats.static_arena_usage, size);
@@ -179,7 +208,7 @@ void* catzilla_static_realloc(void* ptr, size_t size) {
 }
 
 void* catzilla_task_realloc(void* ptr, size_t size) {
-    void* new_ptr = rallocx(ptr, size, MALLOCX_ARENA(g_memory_stats.task_arena));
+    void* new_ptr = JEMALLOC_RALLOCX(ptr, size, MALLOCX_ARENA(g_memory_stats.task_arena));
     if (new_ptr && g_profiling_enabled) {
         __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
         __sync_fetch_and_add(&g_memory_stats.task_arena_usage, size);
@@ -200,7 +229,7 @@ int catzilla_memory_init(void) {
         "muzzy_decay_ms:30000,"    // Balance between memory usage and performance
         "narenas:8";               // Limit number of arenas
 
-    if (mallctl("config.malloc_conf", NULL, NULL, (void*)&config, strlen(config)) != 0) {
+    if (JEMALLOC_MALLCTL("config.malloc_conf", NULL, NULL, (void*)&config, strlen(config)) != 0) {
         fprintf(stderr, "Warning: Failed to configure jemalloc optimally\n");
     }
 
@@ -208,31 +237,31 @@ int catzilla_memory_init(void) {
     size_t sz = sizeof(unsigned);
 
     // Request arena - optimized for short-lived allocations
-    if (mallctl("arenas.create", &g_memory_stats.request_arena, &sz, NULL, 0) != 0) {
+    if (JEMALLOC_MALLCTL("arenas.create", &g_memory_stats.request_arena, &sz, NULL, 0) != 0) {
         fprintf(stderr, "Error: Failed to create request arena\n");
         return -1;
     }
 
     // Response arena - optimized for medium-lived allocations
-    if (mallctl("arenas.create", &g_memory_stats.response_arena, &sz, NULL, 0) != 0) {
+    if (JEMALLOC_MALLCTL("arenas.create", &g_memory_stats.response_arena, &sz, NULL, 0) != 0) {
         fprintf(stderr, "Error: Failed to create response arena\n");
         return -1;
     }
 
     // Cache arena - optimized for long-lived allocations
-    if (mallctl("arenas.create", &g_memory_stats.cache_arena, &sz, NULL, 0) != 0) {
+    if (JEMALLOC_MALLCTL("arenas.create", &g_memory_stats.cache_arena, &sz, NULL, 0) != 0) {
         fprintf(stderr, "Error: Failed to create cache arena\n");
         return -1;
     }
 
     // Static arena - optimized for static file caching
-    if (mallctl("arenas.create", &g_memory_stats.static_arena, &sz, NULL, 0) != 0) {
+    if (JEMALLOC_MALLCTL("arenas.create", &g_memory_stats.static_arena, &sz, NULL, 0) != 0) {
         fprintf(stderr, "Error: Failed to create static arena\n");
         return -1;
     }
 
     // Task arena - optimized for background task data
-    if (mallctl("arenas.create", &g_memory_stats.task_arena, &sz, NULL, 0) != 0) {
+    if (JEMALLOC_MALLCTL("arenas.create", &g_memory_stats.task_arena, &sz, NULL, 0) != 0) {
         fprintf(stderr, "Error: Failed to create task arena\n");
         return -1;
     }
@@ -251,16 +280,16 @@ void catzilla_memory_get_stats(catzilla_memory_stats_t* stats) {
     size_t sz = sizeof(size_t);
 
     // Get jemalloc statistics
-    if (mallctl("stats.allocated", &stats->allocated, &sz, NULL, 0) != 0) {
+    if (JEMALLOC_MALLCTL("stats.allocated", &stats->allocated, &sz, NULL, 0) != 0) {
         stats->allocated = 0;
     }
-    if (mallctl("stats.active", &stats->active, &sz, NULL, 0) != 0) {
+    if (JEMALLOC_MALLCTL("stats.active", &stats->active, &sz, NULL, 0) != 0) {
         stats->active = 0;
     }
-    if (mallctl("stats.metadata", &stats->metadata, &sz, NULL, 0) != 0) {
+    if (JEMALLOC_MALLCTL("stats.metadata", &stats->metadata, &sz, NULL, 0) != 0) {
         stats->metadata = 0;
     }
-    if (mallctl("stats.resident", &stats->resident, &sz, NULL, 0) != 0) {
+    if (JEMALLOC_MALLCTL("stats.resident", &stats->resident, &sz, NULL, 0) != 0) {
         stats->resident = 0;
     }
 

@@ -1,11 +1,18 @@
 cmake_minimum_required(VERSION 3.15)
 project(catzilla VERSION 0.1.0 LANGUAGES C CXX)
 
-# jemalloc configuration
+# Enhanced cross-platform jemalloc configuration
 option(USE_JEMALLOC "Enable jemalloc memory allocator" ON)
 set(JEMALLOC_PREFIX "je_" CACHE STRING "jemalloc prefix")
 
 if(USE_JEMALLOC)
+    # Include our custom jemalloc detection module
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+    include(DetectJemallocPrefix)
+
+    # Platform-specific detection first
+    detect_platform_specific_jemalloc_config()
+
     find_package(PkgConfig QUIET)
     if(PkgConfig_FOUND)
         pkg_check_modules(JEMALLOC jemalloc)
@@ -24,9 +31,33 @@ if(USE_JEMALLOC)
 
     if(JEMALLOC_FOUND)
         message(STATUS "✅ jemalloc found: ${JEMALLOC_LIBRARIES}")
+        message(STATUS "   Include dirs: ${JEMALLOC_INCLUDE_DIRS}")
+
+        # Auto-detect jemalloc function naming convention
+        detect_jemalloc_prefix("${JEMALLOC_INCLUDE_DIRS}" "${JEMALLOC_LIBRARIES}")
+
+        # Set appropriate preprocessor definitions
         add_compile_definitions(CATZILLA_USE_JEMALLOC=1)
+
+        if(JEMALLOC_USES_PREFIX)
+            add_compile_definitions(JEMALLOC_USES_PREFIX=1)
+            message(STATUS "🔧 Using je_ prefixed jemalloc functions")
+        else()
+            message(STATUS "🔧 Using direct jemalloc function names")
+        endif()
+
+        # Set include directories and libraries for linking
+        include_directories(${JEMALLOC_INCLUDE_DIRS})
+        link_libraries(${JEMALLOC_LIBRARIES})
+
     else()
         message(WARNING "⚠️  jemalloc not found, falling back to standard malloc")
+        message(STATUS "   To install jemalloc:")
+        message(STATUS "   macOS:    brew install jemalloc")
+        message(STATUS "   Ubuntu:   sudo apt-get install libjemalloc-dev")
+        message(STATUS "   RHEL/CentOS/AlmaLinux: sudo yum install jemalloc-devel")
+        message(STATUS "   Fedora:   sudo dnf install jemalloc-devel")
+        message(STATUS "   Windows:  vcpkg install jemalloc")
         set(USE_JEMALLOC OFF)
     endif()
 else()
