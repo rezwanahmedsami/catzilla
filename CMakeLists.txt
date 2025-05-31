@@ -735,6 +735,33 @@ if(NOT WHEEL_BUILD_MODE)
         target_link_libraries(test_validation_engine PRIVATE ws2_32 iphlpapi userenv)
         set_windows_python_library(test_validation_engine)
     endif()
+
+    # Add test_memory executable
+    add_executable(test_memory
+      tests/c/test_memory.c
+      deps/unity/src/unity.c
+    )
+
+    target_include_directories(test_memory PRIVATE
+      src/core
+      deps/unity/src
+      ${Python3_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(test_memory PRIVATE
+      catzilla_core
+    )
+
+    # Link Python libraries for tests (needed for symbols in catzilla_core)
+    if(Python3_LIBRARIES)
+        target_link_libraries(test_memory PRIVATE ${Python3_LIBRARIES})
+    endif()
+
+    # Windows-specific linking
+    if(WIN32)
+        target_link_libraries(test_memory PRIVATE ws2_32 iphlpapi userenv)
+        set_windows_python_library(test_memory)
+    endif()
 endif()
 
 # Install rules (unused by pip, but here for completeness)

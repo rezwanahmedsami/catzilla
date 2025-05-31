@@ -171,8 +171,15 @@ class AutoValidationSpec:
     def _inspect_function_signature(self):
         """Inspect function signature and pre-compile validation specs (one-time cost)"""
         try:
-            signature = inspect.signature(self.handler)
-            type_hints = get_type_hints(self.handler)
+            # Use a more defensive approach to avoid memory issues with jemalloc
+            import gc
+
+            gc.disable()  # Temporarily disable GC during signature inspection
+            try:
+                signature = inspect.signature(self.handler)
+                type_hints = get_type_hints(self.handler)
+            finally:
+                gc.enable()  # Re-enable GC
 
             for param_name, param in signature.parameters.items():
                 # Skip 'request' parameter

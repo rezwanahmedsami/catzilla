@@ -48,7 +48,8 @@ static bool g_profiling_enabled = false;
 // jemalloc-specific implementation
 
 void* catzilla_malloc(size_t size) {
-    void* ptr = JEMALLOC_MALLOC(size);
+    // Use jemalloc's mallocx with a specific arena to avoid interfering with Python's allocator
+    void* ptr = JEMALLOC_MALLOCX(size, MALLOCX_ARENA(g_memory_stats.cache_arena));
     if (ptr && g_profiling_enabled) {
         __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
     }
@@ -56,7 +57,9 @@ void* catzilla_malloc(size_t size) {
 }
 
 void* catzilla_calloc(size_t count, size_t size) {
-    void* ptr = JEMALLOC_CALLOC(count, size);
+    // Use arena-specific allocation instead of system calloc
+    size_t total_size = count * size;
+    void* ptr = JEMALLOC_MALLOCX(total_size, MALLOCX_ARENA(g_memory_stats.cache_arena) | MALLOCX_ZERO);
     if (ptr && g_profiling_enabled) {
         __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
     }
@@ -216,54 +219,65 @@ void* catzilla_task_realloc(void* ptr, size_t size) {
     return new_ptr;
 }
 
+// Global arena tracking - arenas persist for process lifetime
+static bool g_arenas_created = false;
+
 int catzilla_memory_init(void) {
     if (g_memory_initialized) {
         return 0; // Already initialized
     }
 
-    // Configure jemalloc for optimal web server performance
-    const char* config =
-        "background_thread:true,"
-        "metadata_thp:auto,"
-        "dirty_decay_ms:10000,"    // Aggressive cleanup for web workloads
-        "muzzy_decay_ms:30000,"    // Balance between memory usage and performance
-        "narenas:8";               // Limit number of arenas
+    // Note: jemalloc configuration should ideally be done via environment variable:
+    // export MALLOC_CONF="background_thread:true,metadata_thp:auto,dirty_decay_ms:10000,muzzy_decay_ms:30000"
+    // The config.malloc_conf mallctl is read-only at runtime
 
-    if (JEMALLOC_MALLCTL("config.malloc_conf", NULL, NULL, (void*)&config, strlen(config)) != 0) {
-        fprintf(stderr, "Warning: Failed to configure jemalloc optimally\n");
+    // Try to set some runtime options that are configurable
+    bool background_thread = true;
+    if (JEMALLOC_MALLCTL("background_thread", NULL, NULL, &background_thread, sizeof(background_thread)) != 0) {
+        // This is not critical, continue
     }
 
-    // Create specialized arenas for different allocation patterns
-    size_t sz = sizeof(unsigned);
-
-    // Request arena - optimized for short-lived allocations
-    if (JEMALLOC_MALLCTL("arenas.create", &g_memory_stats.request_arena, &sz, NULL, 0) != 0) {
-        fprintf(stderr, "Error: Failed to create request arena\n");
-        return -1;
+    // Set dirty decay for runtime optimization
+    ssize_t dirty_decay_ms = 10000;  // 10 seconds
+    if (JEMALLOC_MALLCTL("arenas.dirty_decay_ms", NULL, NULL, &dirty_decay_ms, sizeof(dirty_decay_ms)) != 0) {
+        // This is not critical for functionality
     }
 
-    // Response arena - optimized for medium-lived allocations
-    if (JEMALLOC_MALLCTL("arenas.create", &g_memory_stats.response_arena, &sz, NULL, 0) != 0) {
-        fprintf(stderr, "Error: Failed to create response arena\n");
-        return -1;
-    }
+    // Create specialized arenas only once per process (many jemalloc versions don't support arena destruction)
+    if (!g_arenas_created) {
+        size_t sz = sizeof(unsigned);
 
-    // Cache arena - optimized for long-lived allocations
-    if (JEMALLOC_MALLCTL("arenas.create", &g_memory_stats.cache_arena, &sz, NULL, 0) != 0) {
-        fprintf(stderr, "Error: Failed to create cache arena\n");
-        return -1;
-    }
+        // Request arena - optimized for short-lived allocations
+        if (JEMALLOC_MALLCTL("arenas.create", &g_memory_stats.request_arena, &sz, NULL, 0) != 0) {
+            fprintf(stderr, "Error: Failed to create request arena\n");
+            return -1;
+        }
 
-    // Static arena - optimized for static file caching
-    if (JEMALLOC_MALLCTL("arenas.create", &g_memory_stats.static_arena, &sz, NULL, 0) != 0) {
-        fprintf(stderr, "Error: Failed to create static arena\n");
-        return -1;
-    }
+        // Response arena - optimized for medium-lived allocations
+        if (JEMALLOC_MALLCTL("arenas.create", &g_memory_stats.response_arena, &sz, NULL, 0) != 0) {
+            fprintf(stderr, "Error: Failed to create response arena\n");
+            return -1;
+        }
 
-    // Task arena - optimized for background task data
-    if (JEMALLOC_MALLCTL("arenas.create", &g_memory_stats.task_arena, &sz, NULL, 0) != 0) {
-        fprintf(stderr, "Error: Failed to create task arena\n");
-        return -1;
+        // Cache arena - optimized for long-lived allocations
+        if (JEMALLOC_MALLCTL("arenas.create", &g_memory_stats.cache_arena, &sz, NULL, 0) != 0) {
+            fprintf(stderr, "Error: Failed to create cache arena\n");
+            return -1;
+        }
+
+        // Static arena - optimized for static file caching
+        if (JEMALLOC_MALLCTL("arenas.create", &g_memory_stats.static_arena, &sz, NULL, 0) != 0) {
+            fprintf(stderr, "Error: Failed to create static arena\n");
+            return -1;
+        }
+
+        // Task arena - optimized for background task data
+        if (JEMALLOC_MALLCTL("arenas.create", &g_memory_stats.task_arena, &sz, NULL, 0) != 0) {
+            fprintf(stderr, "Error: Failed to create task arena\n");
+            return -1;
+        }
+
+        g_arenas_created = true;
     }
 
     g_memory_initialized = true;
@@ -458,8 +472,19 @@ bool catzilla_memory_has_jemalloc(void) {
 
 // Common implementations
 void catzilla_memory_cleanup(void) {
+    if (!g_memory_initialized) {
+        return; // Nothing to cleanup
+    }
+
+    // Note: Many jemalloc versions don't support arena destruction
+    // Arenas will persist for the lifetime of the process, which is acceptable
+    // for most applications. The memory will be freed when the process exits.
+
     g_memory_initialized = false;
     g_profiling_enabled = false;
+
+    // Reset counters but keep arena IDs for potential reuse
+    catzilla_memory_reset_stats();
 }
 
 int catzilla_memory_enable_profiling(void) {
