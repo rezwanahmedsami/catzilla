@@ -337,27 +337,27 @@ void catzilla_memory_optimize(void) {
 
     // Purge request arena
     snprintf(arena_cmd, sizeof(arena_cmd), "arena.%u.purge", g_memory_stats.request_arena);
-    mallctl(arena_cmd, NULL, NULL, NULL, 0);
+    JEMALLOC_MALLCTL(arena_cmd, NULL, NULL, NULL, 0);
 
     // Purge response arena
     snprintf(arena_cmd, sizeof(arena_cmd), "arena.%u.purge", g_memory_stats.response_arena);
-    mallctl(arena_cmd, NULL, NULL, NULL, 0);
+    JEMALLOC_MALLCTL(arena_cmd, NULL, NULL, NULL, 0);
 
     // Purge cache arena (less aggressive)
     snprintf(arena_cmd, sizeof(arena_cmd), "arena.%u.decay", g_memory_stats.cache_arena);
-    mallctl(arena_cmd, NULL, NULL, NULL, 0);
+    JEMALLOC_MALLCTL(arena_cmd, NULL, NULL, NULL, 0);
 
     // Purge static arena (least aggressive)
     snprintf(arena_cmd, sizeof(arena_cmd), "arena.%u.decay", g_memory_stats.static_arena);
-    mallctl(arena_cmd, NULL, NULL, NULL, 0);
+    JEMALLOC_MALLCTL(arena_cmd, NULL, NULL, NULL, 0);
 
     // Purge task arena
     snprintf(arena_cmd, sizeof(arena_cmd), "arena.%u.purge", g_memory_stats.task_arena);
-    mallctl(arena_cmd, NULL, NULL, NULL, 0);
+    JEMALLOC_MALLCTL(arena_cmd, NULL, NULL, NULL, 0);
 
     // Global decay
-    mallctl("arenas.dirty_decay", NULL, NULL, NULL, 0);
-    mallctl("arenas.muzzy_decay", NULL, NULL, NULL, 0);
+    JEMALLOC_MALLCTL("arenas.dirty_decay", NULL, NULL, NULL, 0);
+    JEMALLOC_MALLCTL("arenas.muzzy_decay", NULL, NULL, NULL, 0);
 }
 
 bool catzilla_memory_has_jemalloc(void) {
