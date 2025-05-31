@@ -440,7 +440,7 @@ FetchContent_Declare(yyjson
 FetchContent_MakeAvailable(yyjson)
 
 # Core static library
-add_library(catzilla_core STATIC src/core/server.c src/core/router.c src/core/memory.c)
+add_library(catzilla_core STATIC src/core/server.c src/core/router.c src/core/memory.c src/core/validation.c)
 target_include_directories(catzilla_core PUBLIC
   src/core
   ${llhttp_SOURCE_DIR}/include

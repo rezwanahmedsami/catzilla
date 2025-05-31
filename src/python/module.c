@@ -3,10 +3,12 @@
 #include "server.h"           // Provides catzilla_server_t, catzilla_server_init, etc.
 #include "router.h"           // Provides catzilla_router_t, catzilla_router_match, etc.
 #include "memory.h"           // Provides memory system functions
+#include "validation.h"       // Provides ultra-fast validation engine
 #include "windows_compat.h"   // Windows compatibility
 #include <uv.h>               // For uv_stream_t
 #include <stdio.h>
 #include <string.h>
+#include <math.h>             // For HUGE_VAL
 #include <yyjson.h>
 
 // Structure to hold Python callback and routing table
@@ -23,13 +25,31 @@ typedef struct {
     catzilla_router_t py_router;  // Python-accessible C router
 } CatzillaServerObject;
 
+// Python Validator object
+typedef struct {
+    PyObject_HEAD
+    validator_t *validator;
+} CatzillaValidatorObject;
+
+// Python Model object
+typedef struct {
+    PyObject_HEAD
+    model_spec_t *model;
+    validation_context_t *context;
+} CatzillaModelObject;
+
+// Forward declarations for type objects
+static PyTypeObject CatzillaValidatorType;
+static PyTypeObject CatzillaModelType;
+static PyTypeObject CatzillaServerType;
+
 // Deallocate
 static void CatzillaServer_dealloc(CatzillaServerObject *self)
 {
     if (self->route_data) {
         Py_XDECREF(self->route_data->callback);
         Py_XDECREF(self->route_data->routes);
-        free(self->route_data);
+        catzilla_cache_free(self->route_data);
     }
     catzilla_router_cleanup(&self->py_router);
     catzilla_server_cleanup(&self->server);
@@ -56,8 +76,8 @@ static int CatzillaServer_init(CatzillaServerObject *self, PyObject *args, PyObj
         Py_Initialize();
     }
 
-    // Allocate routing data
-    self->route_data = malloc(sizeof(PyRouteData));
+    // Allocate routing data using cache arena (persists across requests)
+    self->route_data = catzilla_cache_alloc(sizeof(PyRouteData));
     if (!self->route_data) {
         PyErr_NoMemory();
         return -1;
@@ -96,7 +116,7 @@ static PyObject* CatzillaServer_listen(CatzillaServerObject *self, PyObject *arg
     if (!PyArg_ParseTuple(args, "i|s", &port, &host))
         return NULL;
 
-    printf("[DEBUG] Listening on %s:%d\n", host, port);
+
     int rc = catzilla_server_listen(&self->server, host, port);
     if (rc != 0) {
         PyErr_Format(PyExc_RuntimeError, "Listen error: %s", uv_strerror(rc));
@@ -291,6 +311,494 @@ static PyObject* yyjson_to_python(yyjson_val* val) {
             PyErr_SetString(PyExc_ValueError, "Unknown JSON type");
             return NULL;
     }
+}
+
+// ============================================================================
+// ULTRA-FAST VALIDATION ENGINE - PYTHON INTEGRATION
+// ============================================================================
+
+// Convert Python object to JSON object for C validation
+static json_object_t* python_to_json_object(PyObject* obj) {
+    if (!obj || obj == Py_None) {
+        json_object_t* json_obj = catzilla_request_alloc(sizeof(json_object_t));
+        if (!json_obj) return NULL;
+        json_obj->type = JSON_NULL;
+        return json_obj;
+    }
+
+    json_object_t* json_obj = catzilla_request_alloc(sizeof(json_object_t));
+    if (!json_obj) return NULL;
+
+    if (PyBool_Check(obj)) {
+        json_obj->type = JSON_BOOL;
+        json_obj->bool_val = (obj == Py_True) ? 1 : 0;
+    }
+    else if (PyLong_Check(obj)) {
+        json_obj->type = JSON_INT;
+        json_obj->int_val = PyLong_AsLong(obj);
+    }
+    else if (PyFloat_Check(obj)) {
+        json_obj->type = JSON_FLOAT;
+        json_obj->float_val = PyFloat_AsDouble(obj);
+    }
+    else if (PyUnicode_Check(obj)) {
+        json_obj->type = JSON_STRING;
+        const char* str = PyUnicode_AsUTF8(obj);
+        // Use request arena for temporary string storage
+        size_t len = strlen(str) + 1;
+        json_obj->string_val = catzilla_request_alloc(len);
+        if (json_obj->string_val) {
+            strcpy(json_obj->string_val, str);
+        }
+    }
+    else if (PyList_Check(obj)) {
+        json_obj->type = JSON_ARRAY;
+        Py_ssize_t size = PyList_Size(obj);
+        json_obj->array_val.count = size;
+        json_obj->array_val.items = catzilla_request_alloc(sizeof(json_object_t*) * size);
+
+        for (Py_ssize_t i = 0; i < size; i++) {
+            PyObject* item = PyList_GetItem(obj, i);
+            json_obj->array_val.items[i] = python_to_json_object(item);
+        }
+    }
+    else if (PyDict_Check(obj)) {
+        json_obj->type = JSON_OBJECT;
+        PyObject* keys = PyDict_Keys(obj);
+        Py_ssize_t size = PyList_Size(keys);
+
+        json_obj->object_val.count = size;
+        json_obj->object_val.keys = catzilla_request_alloc(sizeof(char*) * size);
+        json_obj->object_val.values = catzilla_request_alloc(sizeof(json_object_t*) * size);
+
+        for (Py_ssize_t i = 0; i < size; i++) {
+            PyObject* key = PyList_GetItem(keys, i);
+            PyObject* value = PyDict_GetItem(obj, key);
+
+            const char* key_str = PyUnicode_AsUTF8(key);
+            size_t key_len = strlen(key_str) + 1;
+            json_obj->object_val.keys[i] = catzilla_request_alloc(key_len);
+            if (json_obj->object_val.keys[i]) {
+                strcpy(json_obj->object_val.keys[i], key_str);
+            }
+            json_obj->object_val.values[i] = python_to_json_object(value);
+        }
+        Py_DECREF(keys);
+    }
+    else {
+        catzilla_request_free(json_obj);
+        return NULL;
+    }
+
+    return json_obj;
+}
+
+// Convert JSON object back to Python object
+static PyObject* json_object_to_python(json_object_t* obj) {
+    if (!obj) {
+        Py_RETURN_NONE;
+    }
+
+    switch (obj->type) {
+        case JSON_NULL:
+            Py_RETURN_NONE;
+        case JSON_BOOL:
+            return PyBool_FromLong(obj->bool_val);
+        case JSON_INT:
+            return PyLong_FromLong(obj->int_val);
+        case JSON_FLOAT:
+            return PyFloat_FromDouble(obj->float_val);
+        case JSON_STRING:
+            return PyUnicode_FromString(obj->string_val);
+        case JSON_ARRAY: {
+            PyObject* list = PyList_New(obj->array_val.count);
+            for (int i = 0; i < obj->array_val.count; i++) {
+                PyObject* item = json_object_to_python(obj->array_val.items[i]);
+                PyList_SetItem(list, i, item);
+            }
+            return list;
+        }
+        case JSON_OBJECT: {
+            PyObject* dict = PyDict_New();
+            for (int i = 0; i < obj->object_val.count; i++) {
+                PyObject* key = PyUnicode_FromString(obj->object_val.keys[i]);
+                PyObject* value = json_object_to_python(obj->object_val.values[i]);
+                PyDict_SetItem(dict, key, value);
+                Py_DECREF(key);
+                Py_DECREF(value);
+            }
+            return dict;
+        }
+    }
+    Py_RETURN_NONE;
+}
+
+// ============================================================================
+// VALIDATOR OBJECT IMPLEMENTATION
+// ============================================================================
+
+// Validator object deallocation
+static void CatzillaValidator_dealloc(CatzillaValidatorObject *self) {
+    if (self->validator) {
+        catzilla_free_validator(self->validator);
+    }
+    Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+// Validator object new
+static PyObject* CatzillaValidator_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+    CatzillaValidatorObject *self = (CatzillaValidatorObject*)type->tp_alloc(type, 0);
+    if (self) {
+        self->validator = NULL;
+    }
+    return (PyObject*)self;
+}
+
+// Create integer validator: IntValidator(min=None, max=None)
+static PyObject* create_int_validator(PyObject *self, PyObject *args, PyObject *kwargs) {
+    static char *kwlist[] = {"min", "max", NULL};
+    PyObject *min_obj = NULL, *max_obj = NULL;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OO", kwlist, &min_obj, &max_obj)) {
+        return NULL;
+    }
+
+    long min_val = LONG_MIN, max_val = LONG_MAX;
+    int has_min = 0, has_max = 0;
+
+    if (min_obj && min_obj != Py_None) {
+        min_val = PyLong_AsLong(min_obj);
+        has_min = 1;
+    }
+    if (max_obj && max_obj != Py_None) {
+        max_val = PyLong_AsLong(max_obj);
+        has_max = 1;
+    }
+
+    CatzillaValidatorObject *validator_obj = (CatzillaValidatorObject*)CatzillaValidator_new(&CatzillaValidatorType, NULL, NULL);
+    if (!validator_obj) return NULL;
+
+    validator_obj->validator = catzilla_create_int_validator(min_val, max_val, has_min, has_max);
+    if (!validator_obj->validator) {
+        Py_DECREF(validator_obj);
+        PyErr_SetString(PyExc_RuntimeError, "Failed to create integer validator");
+        return NULL;
+    }
+
+    return (PyObject*)validator_obj;
+}
+
+// Create string validator: StringValidator(min_len=None, max_len=None, pattern=None)
+static PyObject* create_string_validator(PyObject *self, PyObject *args, PyObject *kwargs) {
+    static char *kwlist[] = {"min_len", "max_len", "pattern", NULL};
+    PyObject *min_len_obj = NULL, *max_len_obj = NULL, *pattern_obj = NULL;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OOO", kwlist, &min_len_obj, &max_len_obj, &pattern_obj)) {
+        return NULL;
+    }
+
+    int min_len = -1, max_len = -1;
+    const char *pattern = NULL;
+
+    if (min_len_obj && min_len_obj != Py_None) {
+        min_len = PyLong_AsLong(min_len_obj);
+    }
+    if (max_len_obj && max_len_obj != Py_None) {
+        max_len = PyLong_AsLong(max_len_obj);
+    }
+    if (pattern_obj && pattern_obj != Py_None) {
+        pattern = PyUnicode_AsUTF8(pattern_obj);
+    }
+
+    CatzillaValidatorObject *validator_obj = (CatzillaValidatorObject*)CatzillaValidator_new(&CatzillaValidatorType, NULL, NULL);
+    if (!validator_obj) return NULL;
+
+    validator_obj->validator = catzilla_create_string_validator(min_len, max_len, pattern);
+    if (!validator_obj->validator) {
+        Py_DECREF(validator_obj);
+        PyErr_SetString(PyExc_RuntimeError, "Failed to create string validator");
+        return NULL;
+    }
+
+    return (PyObject*)validator_obj;
+}
+
+// Create float validator: FloatValidator(min=None, max=None)
+static PyObject* create_float_validator(PyObject *self, PyObject *args, PyObject *kwargs) {
+    static char *kwlist[] = {"min", "max", NULL};
+    PyObject *min_obj = NULL, *max_obj = NULL;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OO", kwlist, &min_obj, &max_obj)) {
+        return NULL;
+    }
+
+    double min_val = -HUGE_VAL, max_val = HUGE_VAL;
+    int has_min = 0, has_max = 0;
+
+    if (min_obj && min_obj != Py_None) {
+        min_val = PyFloat_AsDouble(min_obj);
+        has_min = 1;
+    }
+    if (max_obj && max_obj != Py_None) {
+        max_val = PyFloat_AsDouble(max_obj);
+        has_max = 1;
+    }
+
+    CatzillaValidatorObject *validator_obj = (CatzillaValidatorObject*)CatzillaValidator_new(&CatzillaValidatorType, NULL, NULL);
+    if (!validator_obj) return NULL;
+
+    validator_obj->validator = catzilla_create_float_validator(min_val, max_val, has_min, has_max);
+    if (!validator_obj->validator) {
+        Py_DECREF(validator_obj);
+        PyErr_SetString(PyExc_RuntimeError, "Failed to create float validator");
+        return NULL;
+    }
+
+    return (PyObject*)validator_obj;
+}
+
+// Validate method for validator: validator.validate(value)
+static PyObject* CatzillaValidator_validate(CatzillaValidatorObject *self, PyObject *args) {
+    PyObject *value;
+    if (!PyArg_ParseTuple(args, "O", &value)) {
+        return NULL;
+    }
+
+    // Convert Python value to JSON object
+    json_object_t *json_value = python_to_json_object(value);
+    if (!json_value) {
+        PyErr_SetString(PyExc_ValueError, "Failed to convert Python value to JSON");
+        return NULL;
+    }
+
+    // Create validation context
+    validation_context_t *ctx = catzilla_create_validation_context();
+    if (!ctx) {
+        catzilla_free_json_object(json_value);
+        PyErr_SetString(PyExc_RuntimeError, "Failed to create validation context");
+        return NULL;
+    }
+
+    // Perform validation
+    validation_result_t result = catzilla_validate_value(self->validator, json_value, ctx);
+
+    // Clean up
+    catzilla_free_json_object(json_value);
+
+    if (result == VALIDATION_SUCCESS) {
+        catzilla_free_validation_context(ctx);
+        Py_RETURN_TRUE;
+    } else {
+        // Get error message
+        char *error_msg = catzilla_get_validation_errors(ctx);
+        PyObject *error = PyUnicode_FromString(error_msg ? error_msg : "Validation failed");
+        catzilla_free_validation_context(ctx);
+
+        PyErr_SetObject(PyExc_ValueError, error);
+        Py_DECREF(error);
+        return NULL;
+    }
+}
+
+// ============================================================================
+// MODEL OBJECT IMPLEMENTATION
+// ============================================================================
+
+// Model object deallocation
+static void CatzillaModel_dealloc(CatzillaModelObject *self) {
+    if (self->model) {
+        catzilla_free_model_spec(self->model);
+    }
+    if (self->context) {
+        catzilla_free_validation_context(self->context);
+    }
+    Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+// Model object new
+static PyObject* CatzillaModel_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+    CatzillaModelObject *self = (CatzillaModelObject*)type->tp_alloc(type, 0);
+    if (self) {
+        self->model = NULL;
+        self->context = NULL;
+    }
+    return (PyObject*)self;
+}
+
+// Create model: Model(name, fields_dict)
+static PyObject* create_model(PyObject *self, PyObject *args, PyObject *kwargs) {
+    static char *kwlist[] = {"name", "fields", NULL};
+    const char *name;
+    PyObject *fields_dict;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "sO", kwlist, &name, &fields_dict)) {
+        return NULL;
+    }
+
+    if (!PyDict_Check(fields_dict)) {
+        PyErr_SetString(PyExc_TypeError, "fields must be a dictionary");
+        return NULL;
+    }
+
+    Py_ssize_t field_count = PyDict_Size(fields_dict);
+
+    CatzillaModelObject *model_obj = (CatzillaModelObject*)CatzillaModel_new(&CatzillaModelType, NULL, NULL);
+    if (!model_obj) return NULL;
+
+    // Create model specification
+    model_obj->model = catzilla_create_model_spec(name, field_count);
+    if (!model_obj->model) {
+        Py_DECREF(model_obj);
+        PyErr_SetString(PyExc_RuntimeError, "Failed to create model specification");
+        return NULL;
+    }
+
+    // Create validation context
+    model_obj->context = catzilla_create_validation_context();
+    if (!model_obj->context) {
+        Py_DECREF(model_obj);
+        PyErr_SetString(PyExc_RuntimeError, "Failed to create validation context");
+        return NULL;
+    }
+
+    // Add fields to model
+    PyObject *keys = PyDict_Keys(fields_dict);
+    for (Py_ssize_t i = 0; i < field_count; i++) {
+        PyObject *field_name = PyList_GetItem(keys, i);
+        PyObject *field_spec = PyDict_GetItem(fields_dict, field_name);
+
+        const char *field_name_str = PyUnicode_AsUTF8(field_name);
+
+        // Field spec is now a tuple: (validator, required)
+        if (!PyTuple_Check(field_spec) || PyTuple_Size(field_spec) != 2) {
+            Py_DECREF(keys);
+            Py_DECREF(model_obj);
+            PyErr_SetString(PyExc_TypeError, "Field specification must be a tuple (validator, required)");
+            return NULL;
+        }
+
+        PyObject *validator_obj_py = PyTuple_GetItem(field_spec, 0);
+        PyObject *required_obj = PyTuple_GetItem(field_spec, 1);
+
+        if (!PyObject_IsInstance(validator_obj_py, (PyObject*)&CatzillaValidatorType)) {
+            Py_DECREF(keys);
+            Py_DECREF(model_obj);
+            PyErr_SetString(PyExc_TypeError, "First element of field specification must be a validator");
+            return NULL;
+        }
+
+        if (!PyBool_Check(required_obj)) {
+            Py_DECREF(keys);
+            Py_DECREF(model_obj);
+            PyErr_SetString(PyExc_TypeError, "Second element of field specification must be a boolean");
+            return NULL;
+        }
+
+        CatzillaValidatorObject *validator_obj = (CatzillaValidatorObject*)validator_obj_py;
+        int required = (required_obj == Py_True) ? 1 : 0;
+
+        int result = catzilla_add_field_spec(model_obj->model, field_name_str, validator_obj->validator, required, NULL);
+
+        if (result < 0) {
+            Py_DECREF(keys);
+            Py_DECREF(model_obj);
+            PyErr_SetString(PyExc_RuntimeError, "Failed to add field to model");
+            return NULL;
+        }
+    }
+    Py_DECREF(keys);
+
+    // Compile model for optimal performance
+    if (catzilla_compile_model_spec(model_obj->model) != 0) {
+        Py_DECREF(model_obj);
+        PyErr_SetString(PyExc_RuntimeError, "Failed to compile model specification");
+        return NULL;
+    }
+
+    return (PyObject*)model_obj;
+}
+
+// Validate method for model: model.validate(data)
+static PyObject* CatzillaModel_validate(CatzillaModelObject *self, PyObject *args) {
+    // printf("[DEBUG] CatzillaModel_validate: Starting validation call\n");
+    // fflush(stdout);
+
+    PyObject *data;
+    if (!PyArg_ParseTuple(args, "O", &data)) {
+        // printf("[DEBUG] CatzillaModel_validate: Failed to parse arguments\n");
+        // fflush(stdout);
+        return NULL;
+    }
+
+    // printf("[DEBUG] CatzillaModel_validate: Arguments parsed successfully\n");
+    // fflush(stdout);
+
+    // Convert Python data to JSON object
+    json_object_t *json_data = python_to_json_object(data);
+    if (!json_data) {
+        PyErr_SetString(PyExc_ValueError, "Failed to convert Python data to JSON");
+        return NULL;
+    }
+
+    // Clear previous validation errors
+    catzilla_clear_validation_errors(self->context);
+
+    // Prepare for validation
+    json_object_t *validated_data = NULL;
+    validation_result_t result;
+
+    // Perform model validation with careful error handling
+    Py_BEGIN_ALLOW_THREADS
+    result = catzilla_validate_model(self->model, json_data, &validated_data, self->context);
+    Py_END_ALLOW_THREADS
+
+    // Clean up input data immediately
+    catzilla_free_json_object(json_data);
+
+    if (result == VALIDATION_SUCCESS && validated_data != NULL) {
+        // Success case - we have valid data
+        PyObject *py_validated = json_object_to_python(validated_data);
+        catzilla_free_json_object(validated_data);
+        return py_validated;
+    } else {
+        // Error case - get error messages
+        char *error_msg = catzilla_get_validation_errors(self->context);
+        PyObject *error = PyUnicode_FromString(error_msg ? error_msg : "Model validation failed");
+
+        // Set Python exception
+        PyErr_SetObject(PyExc_ValueError, error);
+        Py_DECREF(error);
+
+        // Double check validated_data is cleaned up
+        if (validated_data != NULL) {
+            catzilla_free_json_object(validated_data);
+            validated_data = NULL;
+        }
+        return NULL;
+    }
+}
+
+// Get validation statistics
+static PyObject* get_validation_stats(PyObject *self, PyObject *args) {
+    validation_stats_t *stats = catzilla_get_validation_stats();
+    if (!stats) {
+        Py_RETURN_NONE;
+    }
+
+    PyObject *stats_dict = PyDict_New();
+    PyDict_SetItemString(stats_dict, "validations_performed", PyLong_FromUnsignedLong(stats->validations_performed));
+    PyDict_SetItemString(stats_dict, "total_time_ns", PyLong_FromUnsignedLong(stats->total_time_ns));
+    PyDict_SetItemString(stats_dict, "memory_used_bytes", PyLong_FromUnsignedLong(stats->memory_used_bytes));
+    PyDict_SetItemString(stats_dict, "cache_hits", PyLong_FromUnsignedLong(stats->cache_hits));
+    PyDict_SetItemString(stats_dict, "cache_misses", PyLong_FromUnsignedLong(stats->cache_misses));
+
+    return stats_dict;
+}
+
+// Reset validation statistics
+static PyObject* reset_validation_stats(PyObject *self, PyObject *args) {
+    catzilla_reset_validation_stats();
+    Py_RETURN_NONE;
 }
 
 // Parse JSON from request
@@ -560,6 +1068,44 @@ static PyObject* init_memory_system(PyObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
+// ============================================================================
+// VALIDATION ENGINE TYPE DEFINITIONS
+// ============================================================================
+
+// Validator methods
+static PyMethodDef CatzillaValidator_methods[] = {
+    {"validate", (PyCFunction)CatzillaValidator_validate, METH_VARARGS, "Validate a value"},
+    {NULL}
+};
+
+static PyTypeObject CatzillaValidatorType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name      = "catzilla._catzilla.Validator",
+    .tp_basicsize = sizeof(CatzillaValidatorObject),
+    .tp_flags     = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .tp_new       = CatzillaValidator_new,
+    .tp_dealloc   = (destructor)CatzillaValidator_dealloc,
+    .tp_methods   = CatzillaValidator_methods,
+    .tp_doc       = "Ultra-fast C-accelerated field validator"
+};
+
+// Model methods
+static PyMethodDef CatzillaModel_methods[] = {
+    {"validate", (PyCFunction)CatzillaModel_validate, METH_VARARGS, "Validate data against model"},
+    {NULL}
+};
+
+static PyTypeObject CatzillaModelType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name      = "catzilla._catzilla.Model",
+    .tp_basicsize = sizeof(CatzillaModelObject),
+    .tp_flags     = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .tp_new       = CatzillaModel_new,
+    .tp_dealloc   = (destructor)CatzillaModel_dealloc,
+    .tp_methods   = CatzillaModel_methods,
+    .tp_doc       = "Ultra-fast C-accelerated model validator"
+};
+
 // Method tables and module definition
 static PyMethodDef CatzillaServer_methods[] = {
     {"listen",    (PyCFunction)CatzillaServer_listen,   METH_VARARGS, "Start listening"},
@@ -594,6 +1140,15 @@ static PyMethodDef module_methods[] = {
     {"has_jemalloc", has_jemalloc, METH_NOARGS, "Check if jemalloc is available"},
     {"get_memory_stats", get_memory_stats, METH_NOARGS, "Get memory statistics"},
     {"init_memory_system", init_memory_system, METH_NOARGS, "Initialize memory system"},
+
+    // Ultra-fast validation engine functions
+    {"create_int_validator", (PyCFunction)create_int_validator, METH_VARARGS | METH_KEYWORDS, "Create integer validator"},
+    {"create_string_validator", (PyCFunction)create_string_validator, METH_VARARGS | METH_KEYWORDS, "Create string validator"},
+    {"create_float_validator", (PyCFunction)create_float_validator, METH_VARARGS | METH_KEYWORDS, "Create float validator"},
+    {"create_model", (PyCFunction)create_model, METH_VARARGS | METH_KEYWORDS, "Create validation model"},
+    {"get_validation_stats", get_validation_stats, METH_NOARGS, "Get validation performance statistics"},
+    {"reset_validation_stats", reset_validation_stats, METH_NOARGS, "Reset validation statistics"},
+
     {NULL}
 };
 
@@ -609,18 +1164,41 @@ static struct PyModuleDef catzilla_module = {
 
 PyMODINIT_FUNC PyInit__catzilla(void)
 {
+    // Initialize validation engine types
+    if (PyType_Ready(&CatzillaValidatorType) < 0)
+        return NULL;
+    if (PyType_Ready(&CatzillaModelType) < 0)
+        return NULL;
     if (PyType_Ready(&CatzillaServerType) < 0)
         return NULL;
 
     PyObject *m = PyModule_Create(&catzilla_module);
     if (!m) return NULL;
 
+    // Add Server type
     Py_INCREF(&CatzillaServerType);
     if (PyModule_AddObject(m, "Server", (PyObject*)&CatzillaServerType) < 0) {
         Py_DECREF(&CatzillaServerType);
         Py_DECREF(m);
         return NULL;
     }
+
+    // Add Validator type
+    Py_INCREF(&CatzillaValidatorType);
+    if (PyModule_AddObject(m, "Validator", (PyObject*)&CatzillaValidatorType) < 0) {
+        Py_DECREF(&CatzillaValidatorType);
+        Py_DECREF(m);
+        return NULL;
+    }
+
+    // Add Model type
+    Py_INCREF(&CatzillaModelType);
+    if (PyModule_AddObject(m, "Model", (PyObject*)&CatzillaModelType) < 0) {
+        Py_DECREF(&CatzillaModelType);
+        Py_DECREF(m);
+        return NULL;
+    }
+
     PyModule_AddStringConstant(m, "VERSION", "0.1.0");
     return m;
 }
