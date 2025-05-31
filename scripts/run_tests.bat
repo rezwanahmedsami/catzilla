@@ -117,7 +117,7 @@ if %errorlevel% neq 0 (
 )
 
 REM List of C test executables to run
-set test_executables=test_router test_advanced_router test_server_integration
+set test_executables=test_router test_advanced_router test_server_integration test_validation_engine
 set all_passed=true
 
 REM Run each C test executable

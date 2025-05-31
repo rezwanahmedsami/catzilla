@@ -579,7 +579,17 @@ validation_result_t catzilla_validate_model(model_spec_t* model, json_object_t* 
 
         // Validate field value
         // printf("[DEBUG] About to validate field %s with validator type %d\n", field->field_name, field->validator->type);
-        validation_result_t field_result = catzilla_validate_value(field->validator, field_value, ctx);
+        validation_result_t field_result = VALIDATION_SUCCESS;
+
+        // Special handling for optional fields with null values
+        if (!field->required && field_value->type == JSON_NULL) {
+            // Optional field with explicit null value is valid
+            field_result = VALIDATION_SUCCESS;
+        } else {
+            // Normal validation
+            field_result = catzilla_validate_value(field->validator, field_value, ctx);
+        }
+
         // printf("[DEBUG] Field %s validation result: %d\n", field->field_name, field_result);
         if (field_result != VALIDATION_SUCCESS) {
             char error_msg[256];
@@ -627,9 +637,15 @@ validation_result_t catzilla_validate_model(model_spec_t* model, json_object_t* 
             }
         }
 
-        // Skip missing optional fields
+        // Handle missing optional fields by using default values
         if (!field_value && !field->required) {
-            continue;
+            // Use field's default value if available
+            if (field->default_value) {
+                field_value = catzilla_copy_json_object((json_object_t*)field->default_value);
+            } else {
+                // Create default value for optional fields (None/NULL)
+                field_value = catzilla_create_json_null();
+            }
         }
 
         // This should not happen since we already validated
@@ -768,8 +784,92 @@ void catzilla_reset_validation_stats(void) {
 }
 
 // ============================================================================
-// JSON UTILITY FUNCTIONS (Basic Implementation)
+// JSON UTILITY FUNCTIONS
 // ============================================================================
+
+json_object_t* catzilla_create_json_object(void) {
+    json_object_t* obj = catzilla_request_alloc(sizeof(json_object_t));
+    if (!obj) return NULL;
+
+    memset(obj, 0, sizeof(json_object_t));
+    obj->type = JSON_OBJECT;
+    obj->object_val.keys = NULL;
+    obj->object_val.values = NULL;
+    obj->object_val.count = 0;
+
+    return obj;
+}
+
+json_object_t* catzilla_create_json_null(void) {
+    json_object_t* obj = catzilla_request_alloc(sizeof(json_object_t));
+    if (!obj) return NULL;
+
+    memset(obj, 0, sizeof(json_object_t));
+    obj->type = JSON_NULL;
+
+    return obj;
+}
+
+json_object_t* catzilla_create_json_string(const char* str) {
+    if (!str) return catzilla_create_json_null();
+
+    json_object_t* obj = catzilla_request_alloc(sizeof(json_object_t));
+    if (!obj) return NULL;
+
+    memset(obj, 0, sizeof(json_object_t));
+    obj->type = JSON_STRING;
+
+    // Allocate and copy the string
+    size_t len = strlen(str);
+    obj->string_val = catzilla_request_alloc(len + 1);
+    if (!obj->string_val) {
+        catzilla_request_free(obj);
+        return NULL;
+    }
+    strcpy(obj->string_val, str);
+
+    return obj;
+}
+
+json_object_t* catzilla_create_json_number(double value) {
+    json_object_t* obj = catzilla_request_alloc(sizeof(json_object_t));
+    if (!obj) return NULL;
+
+    memset(obj, 0, sizeof(json_object_t));
+
+    // Check if the value is an integer
+    if (value == (long)value) {
+        obj->type = JSON_INT;
+        obj->int_val = (long)value;
+    } else {
+        obj->type = JSON_FLOAT;
+        obj->float_val = value;
+    }
+
+    return obj;
+}
+
+json_object_t* catzilla_create_json_int(long value) {
+    json_object_t* obj = catzilla_request_alloc(sizeof(json_object_t));
+    if (!obj) return NULL;
+
+    memset(obj, 0, sizeof(json_object_t));
+    obj->type = JSON_INT;
+    obj->int_val = value;
+
+    return obj;
+}
+
+json_object_t* catzilla_create_json_bool(int value) {
+    json_object_t* obj = catzilla_request_alloc(sizeof(json_object_t));
+    if (!obj) return NULL;
+
+    memset(obj, 0, sizeof(json_object_t));
+    obj->type = JSON_BOOL;
+    obj->bool_val = value ? 1 : 0;
+
+    return obj;
+}
 
 json_object_t* catzilla_copy_json_object(json_object_t* obj) {
     if (!obj) return NULL;
@@ -932,4 +1032,209 @@ void catzilla_free_json_object(json_object_t* obj) {
     }
 
     catzilla_request_free(obj);
+}
+
+// ============================================================================
+// JSON MANIPULATION FUNCTIONS
+// ============================================================================
+
+static int catzilla_json_resize_object(json_object_t* obj, int new_count) {
+    if (obj->type != JSON_OBJECT) return -1;
+
+    // Reallocate keys array - handle NULL case for first allocation
+    char** new_keys;
+    if (obj->object_val.keys == NULL) {
+        new_keys = catzilla_request_alloc(sizeof(char*) * new_count);
+    } else {
+        new_keys = catzilla_request_realloc(obj->object_val.keys, sizeof(char*) * new_count);
+    }
+    if (!new_keys) return -1;
+    obj->object_val.keys = new_keys;
+
+    // Reallocate values array - handle NULL case for first allocation
+    json_object_t** new_values;
+    if (obj->object_val.values == NULL) {
+        new_values = catzilla_request_alloc(sizeof(json_object_t*) * new_count);
+    } else {
+        new_values = catzilla_request_realloc(obj->object_val.values, sizeof(json_object_t*) * new_count);
+    }
+    if (!new_values) return -1;
+    obj->object_val.values = new_values;
+
+    return 0;
+}
+
+static int catzilla_json_find_key(json_object_t* obj, const char* key) {
+    if (obj->type != JSON_OBJECT || !key) return -1;
+
+    for (int i = 0; i < obj->object_val.count; i++) {
+        if (obj->object_val.keys[i] && strcmp(obj->object_val.keys[i], key) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int catzilla_json_add_string(json_object_t* obj, const char* key, const char* value) {
+    if (!obj || !key || obj->type != JSON_OBJECT) return -1;
+
+    // Check if key already exists
+    int existing_index = catzilla_json_find_key(obj, key);
+    if (existing_index >= 0) {
+        // Replace existing value
+        catzilla_free_json_object(obj->object_val.values[existing_index]);
+        obj->object_val.values[existing_index] = catzilla_create_json_string(value);
+        return obj->object_val.values[existing_index] ? 0 : -1;
+    }
+
+    // Add new key-value pair
+    if (catzilla_json_resize_object(obj, obj->object_val.count + 1) != 0) return -1;
+
+    // Allocate and copy key
+    size_t key_len = strlen(key);
+    obj->object_val.keys[obj->object_val.count] = catzilla_request_alloc(key_len + 1);
+    if (!obj->object_val.keys[obj->object_val.count]) return -1;
+    strcpy(obj->object_val.keys[obj->object_val.count], key);
+
+    // Create value
+    obj->object_val.values[obj->object_val.count] = catzilla_create_json_string(value);
+    if (!obj->object_val.values[obj->object_val.count]) {
+        catzilla_request_free(obj->object_val.keys[obj->object_val.count]);
+        return -1;
+    }
+
+    obj->object_val.count++;
+    return 0;
+}
+
+int catzilla_json_add_int(json_object_t* obj, const char* key, long value) {
+    if (!obj || !key || obj->type != JSON_OBJECT) return -1;
+
+    // Check if key already exists
+    int existing_index = catzilla_json_find_key(obj, key);
+    if (existing_index >= 0) {
+        // Replace existing value
+        catzilla_free_json_object(obj->object_val.values[existing_index]);
+        obj->object_val.values[existing_index] = catzilla_create_json_int(value);
+        return obj->object_val.values[existing_index] ? 0 : -1;
+    }
+
+    // Add new key-value pair
+    if (catzilla_json_resize_object(obj, obj->object_val.count + 1) != 0) return -1;
+
+    // Allocate and copy key
+    size_t key_len = strlen(key);
+    obj->object_val.keys[obj->object_val.count] = catzilla_request_alloc(key_len + 1);
+    if (!obj->object_val.keys[obj->object_val.count]) return -1;
+    strcpy(obj->object_val.keys[obj->object_val.count], key);
+
+    // Create value
+    obj->object_val.values[obj->object_val.count] = catzilla_create_json_int(value);
+    if (!obj->object_val.values[obj->object_val.count]) {
+        catzilla_request_free(obj->object_val.keys[obj->object_val.count]);
+        return -1;
+    }
+
+    obj->object_val.count++;
+    return 0;
+}
+
+int catzilla_json_add_bool(json_object_t* obj, const char* key, int value) {
+    if (!obj || !key || obj->type != JSON_OBJECT) return -1;
+
+    // Check if key already exists
+    int existing_index = catzilla_json_find_key(obj, key);
+    if (existing_index >= 0) {
+        // Replace existing value
+        catzilla_free_json_object(obj->object_val.values[existing_index]);
+        obj->object_val.values[existing_index] = catzilla_create_json_bool(value);
+        return obj->object_val.values[existing_index] ? 0 : -1;
+    }
+
+    // Add new key-value pair
+    if (catzilla_json_resize_object(obj, obj->object_val.count + 1) != 0) return -1;
+
+    // Allocate and copy key
+    size_t key_len = strlen(key);
+    obj->object_val.keys[obj->object_val.count] = catzilla_request_alloc(key_len + 1);
+    if (!obj->object_val.keys[obj->object_val.count]) return -1;
+    strcpy(obj->object_val.keys[obj->object_val.count], key);
+
+    // Create value
+    obj->object_val.values[obj->object_val.count] = catzilla_create_json_bool(value);
+    if (!obj->object_val.values[obj->object_val.count]) {
+        catzilla_request_free(obj->object_val.keys[obj->object_val.count]);
+        return -1;
+    }
+
+    obj->object_val.count++;
+    return 0;
+}
+
+int catzilla_json_add_null(json_object_t* obj, const char* key) {
+    if (!obj || !key || obj->type != JSON_OBJECT) return -1;
+
+    // Check if key already exists
+    int existing_index = catzilla_json_find_key(obj, key);
+    if (existing_index >= 0) {
+        // Replace existing value
+        catzilla_free_json_object(obj->object_val.values[existing_index]);
+        obj->object_val.values[existing_index] = catzilla_create_json_null();
+        return obj->object_val.values[existing_index] ? 0 : -1;
+    }
+
+    // Add new key-value pair
+    if (catzilla_json_resize_object(obj, obj->object_val.count + 1) != 0) return -1;
+
+    // Allocate and copy key
+    size_t key_len = strlen(key);
+    obj->object_val.keys[obj->object_val.count] = catzilla_request_alloc(key_len + 1);
+    if (!obj->object_val.keys[obj->object_val.count]) return -1;
+    strcpy(obj->object_val.keys[obj->object_val.count], key);
+
+    // Create value
+    obj->object_val.values[obj->object_val.count] = catzilla_create_json_null();
+    if (!obj->object_val.values[obj->object_val.count]) {
+        catzilla_request_free(obj->object_val.keys[obj->object_val.count]);
+        return -1;
+    }
+
+    obj->object_val.count++;
+    return 0;
+}
+
+char* catzilla_json_get_string(json_object_t* obj, const char* key) {
+    if (!obj || !key || obj->type != JSON_OBJECT) return NULL;
+
+    int index = catzilla_json_find_key(obj, key);
+    if (index < 0) return NULL;
+
+    json_object_t* value = obj->object_val.values[index];
+    if (!value || value->type != JSON_STRING) return NULL;
+
+    return value->string_val;
+}
+
+long catzilla_json_get_int(json_object_t* obj, const char* key) {
+    if (!obj || !key || obj->type != JSON_OBJECT) return 0;
+
+    int index = catzilla_json_find_key(obj, key);
+    if (index < 0) return 0;
+
+    json_object_t* value = obj->object_val.values[index];
+    if (!value || value->type != JSON_INT) return 0;
+
+    return value->int_val;
+}
+
+int catzilla_json_get_bool(json_object_t* obj, const char* key) {
+    if (!obj || !key || obj->type != JSON_OBJECT) return 0;
+
+    int index = catzilla_json_find_key(obj, key);
+    if (index < 0) return 0;
+
+    json_object_t* value = obj->object_val.values[index];
+    if (!value || value->type != JSON_BOOL) return 0;
+
+    return value->bool_val;
 }

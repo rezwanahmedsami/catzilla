@@ -193,14 +193,10 @@ class TypeConverter:
     def convert_type_hint(type_hint, default_value=None, has_default=False):
         """Convert a type hint to a Field object"""
 
-        # Determine if field is optional based on:
-        # 1. Type annotation (Optional[Type] or Union[Type, None])
-        # 2. Presence of explicit default value
+        # Determine if field is optional based on type annotation only
+        # A field is optional if it's explicitly typed as Optional[Type] or Union[Type, None]
+        # Having a default value does NOT make a field optional - it just provides a fallback
         is_optional = False
-
-        # Only set as optional if there's an explicit default value
-        if has_default:
-            is_optional = True
 
         # Handle Union types (e.g., str | None, Union[str, None])
         origin = get_origin(type_hint)
@@ -398,7 +394,10 @@ class BaseModel(metaclass=BaseModelMeta):
             if field_name in data:
                 # TODO: Implement Python validation logic
                 validated[field_name] = data[field_name]
-            elif not field.optional:
+            elif field.optional:
+                # Set optional fields to their default value (usually None)
+                validated[field_name] = field.default
+            else:
                 if field.default is not None:
                     validated[field_name] = field.default
                 else:

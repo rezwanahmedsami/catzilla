@@ -291,6 +291,36 @@ void* catzilla_json_to_dict(json_object_t* json_obj);
 json_object_t* catzilla_copy_json_object(json_object_t* obj);
 
 /**
+ * Create a new empty JSON object
+ */
+json_object_t* catzilla_create_json_object(void);
+
+/**
+ * Create a new JSON null value
+ */
+json_object_t* catzilla_create_json_null(void);
+
+/**
+ * Create a new JSON string value
+ */
+json_object_t* catzilla_create_json_string(const char* str);
+
+/**
+ * Create a new JSON number value
+ */
+json_object_t* catzilla_create_json_number(double value);
+
+/**
+ * Create a new JSON integer value
+ */
+json_object_t* catzilla_create_json_int(long value);
+
+/**
+ * Create a new JSON boolean value
+ */
+json_object_t* catzilla_create_json_bool(int value);
+
+/**
  * Free JSON object and all associated memory
  */
 void catzilla_free_json_object(json_object_t* obj);
@@ -299,6 +329,45 @@ void catzilla_free_json_object(json_object_t* obj);
  * Free JSON object and all associated memory
  */
 void catzilla_free_json_object(json_object_t* obj);
+
+// ============================================================================
+// JSON MANIPULATION FUNCTIONS
+// ============================================================================
+
+/**
+ * Add a string field to a JSON object
+ */
+int catzilla_json_add_string(json_object_t* obj, const char* key, const char* value);
+
+/**
+ * Add an integer field to a JSON object
+ */
+int catzilla_json_add_int(json_object_t* obj, const char* key, long value);
+
+/**
+ * Add a boolean field to a JSON object
+ */
+int catzilla_json_add_bool(json_object_t* obj, const char* key, int value);
+
+/**
+ * Add a null field to a JSON object
+ */
+int catzilla_json_add_null(json_object_t* obj, const char* key);
+
+/**
+ * Get a string value from a JSON object
+ */
+char* catzilla_json_get_string(json_object_t* obj, const char* key);
+
+/**
+ * Get an integer value from a JSON object
+ */
+long catzilla_json_get_int(json_object_t* obj, const char* key);
+
+/**
+ * Get a boolean value from a JSON object
+ */
+int catzilla_json_get_bool(json_object_t* obj, const char* key);
 
 // ============================================================================
 // PERFORMANCE AND MEMORY OPTIMIZATION
