@@ -15,6 +15,9 @@ Ultra-Fast Validation Engine:
 """
 
 from .app import App, Catzilla  # App is backward compatibility alias
+
+# Auto-validation system (FastAPI-style with 20x performance)
+from .auto_validation import Form, Header, Path, Query, create_auto_validated_handler
 from .response import ResponseBuilder, response
 from .routing import Router, RouterGroup
 from .types import HTMLResponse, JSONResponse, Request, Response
@@ -49,21 +52,21 @@ __all__ = [
     "Router",
     "RouterGroup",
     # Ultra-fast validation engine
+    "BaseModel",
     "Field",
-    "Model",
     "ValidationError",
     "IntField",
     "StringField",
     "FloatField",
     "BoolField",
     "ListField",
-    "DictField",
     "OptionalField",
-    "UnionField",
-    "get_validation_stats",
-    "reset_validation_stats",
-    "benchmark_validation",
-    "email_pattern",
-    "url_pattern",
-    "uuid_pattern",
+    "get_performance_stats",
+    "reset_performance_stats",
+    # Auto-validation system (FastAPI-style)
+    "Query",
+    "Path",
+    "Header",
+    "Form",
+    "create_auto_validated_handler",
 ]

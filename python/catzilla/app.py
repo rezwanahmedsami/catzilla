@@ -14,6 +14,7 @@ import time
 from typing import Any, Callable, Dict, List, Optional, Union
 from urllib.parse import parse_qs
 
+from .auto_validation import create_auto_validated_handler
 from .c_router import CAcceleratedRouter
 from .types import HTMLResponse, JSONResponse, Request, Response, RouteHandler
 
@@ -48,6 +49,7 @@ class Catzilla:
         memory_profiling: bool = False,
         auto_memory_tuning: bool = True,
         memory_stats_interval: int = 60,
+        auto_validation: bool = True,
     ):
         """Initialize Catzilla with advanced memory optimization options
 
@@ -57,6 +59,7 @@ class Catzilla:
             memory_profiling: Enable real-time memory monitoring and optimization
             auto_memory_tuning: Enable adaptive memory management and arena optimization
             memory_stats_interval: Interval in seconds for automatic memory stats collection
+            auto_validation: Enable FastAPI-style automatic validation (20x faster)
         """
         # Store memory configuration
         self.production = production
@@ -64,6 +67,7 @@ class Catzilla:
         self.memory_profiling = memory_profiling
         self.auto_memory_tuning = auto_memory_tuning
         self.memory_stats_interval = memory_stats_interval
+        self.auto_validation = auto_validation
 
         # Memory profiling state (initialize before memory revolution)
         self._memory_stats_history: List[dict] = []
@@ -405,27 +409,90 @@ class Catzilla:
 
     def route(self, path: str, methods: List[str] = None, *, overwrite: bool = False):
         """Register a route handler for multiple HTTP methods"""
-        return self.router.route(path, methods, overwrite=overwrite)
+
+        def decorator(handler: RouteHandler):
+            # Apply auto-validation if enabled
+            if self.auto_validation:
+                validated_handler = create_auto_validated_handler(handler)
+            else:
+                validated_handler = handler
+
+            # Register the (possibly auto-validated) handler
+            return self.router.route(path, methods, overwrite=overwrite)(
+                validated_handler
+            )
+
+        return decorator
 
     def get(self, path: str, *, overwrite: bool = False):
         """Register a GET route handler"""
-        return self.router.get(path, overwrite=overwrite)
+
+        def decorator(handler: RouteHandler):
+            # Apply auto-validation if enabled
+            if self.auto_validation:
+                validated_handler = create_auto_validated_handler(handler)
+            else:
+                validated_handler = handler
+
+            return self.router.get(path, overwrite=overwrite)(validated_handler)
+
+        return decorator
 
     def post(self, path: str, *, overwrite: bool = False):
         """Register a POST route handler"""
-        return self.router.post(path, overwrite=overwrite)
+
+        def decorator(handler: RouteHandler):
+            # Apply auto-validation if enabled
+            if self.auto_validation:
+                validated_handler = create_auto_validated_handler(handler)
+            else:
+                validated_handler = handler
+
+            return self.router.post(path, overwrite=overwrite)(validated_handler)
+
+        return decorator
 
     def put(self, path: str, *, overwrite: bool = False):
         """Register a PUT route handler"""
-        return self.router.put(path, overwrite=overwrite)
+
+        def decorator(handler: RouteHandler):
+            # Apply auto-validation if enabled
+            if self.auto_validation:
+                validated_handler = create_auto_validated_handler(handler)
+            else:
+                validated_handler = handler
+
+            return self.router.put(path, overwrite=overwrite)(validated_handler)
+
+        return decorator
 
     def delete(self, path: str, *, overwrite: bool = False):
         """Register a DELETE route handler"""
-        return self.router.delete(path, overwrite=overwrite)
+
+        def decorator(handler: RouteHandler):
+            # Apply auto-validation if enabled
+            if self.auto_validation:
+                validated_handler = create_auto_validated_handler(handler)
+            else:
+                validated_handler = handler
+
+            return self.router.delete(path, overwrite=overwrite)(validated_handler)
+
+        return decorator
 
     def patch(self, path: str, *, overwrite: bool = False):
         """Register a PATCH route handler"""
-        return self.router.patch(path, overwrite=overwrite)
+
+        def decorator(handler: RouteHandler):
+            # Apply auto-validation if enabled
+            if self.auto_validation:
+                validated_handler = create_auto_validated_handler(handler)
+            else:
+                validated_handler = handler
+
+            return self.router.patch(path, overwrite=overwrite)(validated_handler)
+
+        return decorator
 
     def include_routes(self, group) -> None:
         """

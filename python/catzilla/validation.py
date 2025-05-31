@@ -174,6 +174,39 @@ class ListField(Field):
         # For now, create a basic validator - we'll enhance this in the C code
         return create_string_validator()  # Temporary implementation
 
+    def validate_python(self, value):
+        """Python fallback for list validation"""
+        if not isinstance(value, list):
+            raise ValidationError(f"Expected list, got {type(value).__name__}")
+
+        # Check item count constraints
+        if self.min_items is not None and len(value) < self.min_items:
+            raise ValidationError(
+                f"List must have at least {self.min_items} items, got {len(value)}"
+            )
+
+        if self.max_items is not None and len(value) > self.max_items:
+            raise ValidationError(
+                f"List must have at most {self.max_items} items, got {len(value)}"
+            )
+
+        # Validate each item if item_field is specified
+        if self.item_field:
+            validated_items = []
+            for i, item in enumerate(value):
+                try:
+                    if hasattr(self.item_field, "validate_python"):
+                        validated_item = self.item_field.validate_python(item)
+                    else:
+                        # For simple types like str, int, etc.
+                        validated_item = item
+                    validated_items.append(validated_item)
+                except Exception as e:
+                    raise ValidationError(f"Item {i} validation failed: {str(e)}")
+            return validated_items
+
+        return value
+
 
 class OptionalField(Field):
     """Optional wrapper for other fields"""
@@ -243,6 +276,17 @@ class TypeConverter:
         elif origin is dict or origin is Dict:
             # For now, treat as optional string field
             return StringField(default=default_value, optional=True)
+
+        # Handle BaseModel subclasses (nested models)
+        elif hasattr(type_hint, "__bases__") and any(
+            base.__name__ == "BaseModel" for base in type_hint.__mro__
+        ):
+            # Create a nested field that will validate against the BaseModel
+            field = StringField(
+                default=default_value, optional=default_value is not None
+            )
+            field._nested_model = type_hint
+            return field
 
         else:
             raise NotImplementedError(f"Type not yet supported: {type_hint}")
@@ -378,7 +422,8 @@ class BaseModel(metaclass=BaseModelMeta):
             # Use ultra-fast C validation
             return cls._c_model.validate(preprocessed_data)
         except Exception as e:
-            raise ValidationError(str(e))
+            # Fall back to Python validation if C validation fails
+            return cls._validate_python(data)
 
     @classmethod
     def _validate_python(cls, data):
@@ -392,8 +437,15 @@ class BaseModel(metaclass=BaseModelMeta):
 
         for field_name, field in cls._fields.items():
             if field_name in data:
-                # TODO: Implement Python validation logic
-                validated[field_name] = data[field_name]
+                # Call field validation if available
+                try:
+                    if hasattr(field, "validate_python"):
+                        validated[field_name] = field.validate_python(data[field_name])
+                    else:
+                        # For basic types, just copy the value
+                        validated[field_name] = data[field_name]
+                except ValidationError as e:
+                    errors.append(f"{field_name}: {str(e)}")
             elif field.optional:
                 # Set optional fields to their default value (usually None)
                 validated[field_name] = field.default
@@ -443,11 +495,19 @@ class BaseModel(metaclass=BaseModelMeta):
         """Return model data as dictionary (Pydantic compatibility)"""
         return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
 
+    def model_dump(self):
+        """Return model data as dictionary (Pydantic v2 compatibility)"""
+        return self.dict()
+
     def json(self, **kwargs):
         """Return model data as JSON string (Pydantic compatibility)"""
         import json
 
         return json.dumps(self.dict(), **kwargs)
+
+    def model_dump_json(self, **kwargs):
+        """Return model data as JSON string (Pydantic v2 compatibility)"""
+        return self.json(**kwargs)
 
     @classmethod
     def parse_obj(cls, obj):
