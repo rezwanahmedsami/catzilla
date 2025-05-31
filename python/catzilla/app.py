@@ -26,10 +26,56 @@ try:
         init_memory_system,
         send_response,
     )
-except ImportError:
-    raise ImportError(
-        "Failed to import C extension. Make sure Catzilla is properly installed -."
-    )
+except ImportError as e:
+    # Check if this is a jemalloc TLS error
+    if "cannot allocate memory in static TLS block" in str(e):
+        # Provide a helpful error message for jemalloc TLS issues
+        import os
+        import platform
+
+        system = platform.system()
+        error_msg = "\n====== JEMALLOC TLS ALLOCATION ERROR ======\n"
+
+        if system == "Linux":
+            error_msg += (
+                "This error occurs when jemalloc is loaded after other libraries have consumed TLS space.\n\n"
+                "To fix on Ubuntu/Debian:\n"
+                "  export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD\n\n"
+                "To fix on RHEL/CentOS/Fedora:\n"
+                "  export LD_PRELOAD=/usr/lib64/libjemalloc.so.2:$LD_PRELOAD\n\n"
+                "For CI environments, add this line before running tests or applications.\n"
+            )
+        elif system == "Darwin":  # macOS
+            error_msg += (
+                "To fix on macOS:\n"
+                "  # For Intel Macs\n"
+                "  export DYLD_INSERT_LIBRARIES=/usr/local/lib/libjemalloc.dylib:$DYLD_INSERT_LIBRARIES\n\n"
+                "  # For Apple Silicon Macs\n"
+                "  export DYLD_INSERT_LIBRARIES=/opt/homebrew/lib/libjemalloc.dylib:$DYLD_INSERT_LIBRARIES\n\n"
+            )
+        elif system == "Windows":
+            error_msg += (
+                "To fix on Windows:\n"
+                "  1. Install jemalloc via vcpkg:\n"
+                "     vcpkg install jemalloc:x64-windows\n\n"
+                "  2. Set environment variable:\n"
+                "     set CATZILLA_JEMALLOC_PATH=C:\\vcpkg\\installed\\x64-windows\\bin\\jemalloc.dll\n\n"
+                "  3. Or run: scripts\\jemalloc_helper.bat\n\n"
+            )
+        else:
+            error_msg += (
+                "This error requires preloading jemalloc before other libraries.\n"
+                "See our documentation at docs/jemalloc_troubleshooting.md for platform-specific instructions.\n"
+            )
+
+        error_msg += "For detailed help: https://github.com/rezwanahmedsami/catzilla/blob/main/docs/jemalloc_troubleshooting.md"
+        raise ImportError(error_msg) from e
+    else:
+        # General import error
+        raise ImportError(
+            "Failed to import C extension. Make sure Catzilla is properly installed. "
+            f"Error details: {str(e)}"
+        ) from e
 
 
 class Catzilla:

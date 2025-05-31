@@ -155,7 +155,16 @@ jobs:
 
     - name: Setup system dependencies (Windows)
       if: runner.os == 'Windows'
-      run: choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
+      run: |
+        choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
+        # Install vcpkg for jemalloc on Windows
+        git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
+        C:\vcpkg\bootstrap-vcpkg.bat
+        C:\vcpkg\vcpkg.exe install jemalloc:x64-windows
+        # Add vcpkg to PATH for CMake integration
+        echo "CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" >> $GITHUB_ENV
+        # Set jemalloc path for Windows tests
+        echo "CATZILLA_JEMALLOC_PATH=C:/vcpkg/installed/x64-windows/bin/jemalloc.dll" >> $GITHUB_ENV
 
     - name: Install Python dependencies
       run: |
@@ -171,6 +180,19 @@ jobs:
     - name: Build Catzilla (Windows)
       if: runner.os == 'Windows'
       run: scripts\build.bat
+
+    # Verify segfault fixes specifically on Ubuntu
+    - name: Verify segfault fixes
+      if: runner.os == 'Linux'
+      run: |
+        chmod +x scripts/verify_segfault_fix.py
+        export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
+        ./scripts/verify_segfault_fix.py
+
+    # Verify segfault fixes on Windows
+    - name: Verify segfault fixes (Windows)
+      if: runner.os == 'Windows'
+      run: scripts\verify_segfault_fix_windows.bat
 
     - name: Run Python tests
       if: runner.os != 'Windows'

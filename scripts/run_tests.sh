@@ -53,7 +53,18 @@ run_python_tests() {
     # Change to project root directory
     cd "$PROJECT_ROOT" || exit 1
 
+    # Make sure jemalloc is preloaded
+    if [ -z "${LD_PRELOAD:-}" ] && [ -z "${DYLD_INSERT_LIBRARIES:-}" ]; then
+        echo -e "${YELLOW}Warning: No jemalloc preloading detected. Running helper script...${NC}"
+        "$PROJECT_ROOT/scripts/jemalloc_helper.py" --detect
+    fi
+
+    # Set up problem detection
+    echo -e "${YELLOW}Setting up segfault detection...${NC}"
+    export PYTHONFAULTHANDLER=1  # Enable Python fault handler
+
     # Run pytest with distributed execution for process isolation and parallel testing
+    echo -e "${YELLOW}Starting test execution...${NC}"
     if [ "$verbose" = true ]; then
         python -m pytest tests/python/ -n auto --dist worksteal --tb=short -v
     else
@@ -65,6 +76,11 @@ run_python_tests() {
         echo -e "${GREEN}Python tests passed!${NC}"
     else
         echo -e "${RED}Python tests failed!${NC}"
+        # Check if we potentially have segfaults in the problematic tests
+        if grep -q "Segmentation fault" .pytest_testlog 2>/dev/null; then
+            echo -e "${RED}Segmentation faults detected! This is often caused by jemalloc TLS issues.${NC}"
+            echo -e "${YELLOW}See docs/jemalloc_troubleshooting.md for solutions.${NC}"
+        fi
         return 1
     fi
 }

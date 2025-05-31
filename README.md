@@ -464,6 +464,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 - **[API Reference](docs/api-reference.md)** - Complete API documentation
 - **[Routing Guide](docs/routing.md)** - Advanced routing features
 - **[System Compatibility](SYSTEM_COMPATIBILITY.md)** - Platform support and installation guide
+- **[Jemalloc Troubleshooting](docs/jemalloc_troubleshooting.md)** - Resolving jemalloc-related issues
 - **[Examples](examples/)** - Real-world example applications
 - **[Contributing](CONTRIBUTING.md)** - Development guide for contributors
 

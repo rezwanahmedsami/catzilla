@@ -74,8 +74,21 @@ REM Function to run Python tests
 :run_python_tests
 echo [33mRunning Python tests...[0m
 
+REM Configure jemalloc for tests
+call "%SCRIPT_DIR%jemalloc_helper.bat"
+if %errorlevel% neq 0 (
+    echo [33mWarning: jemalloc configuration failed. Tests may be slower or less stable.[0m
+)
+
 REM Set PYTHONPATH to include the python directory
 set PYTHONPATH=%PROJECT_ROOT%\python;%PYTHONPATH%
+
+REM Check for potential segfault-causing tests
+echo [33mChecking for known problematic test patterns...[0m
+findstr /R /C:"test_memory_usage_validation\|test_special_characters_in_static_files\|test_nested_resource_routing" "%PROJECT_ROOT%\tests\python\*.py" >nul 2>&1
+if %errorlevel% == 0 (
+    echo [33mNote: Running tests that previously caused segfaults. These have been fixed.[0m
+)
 
 REM Run pytest with or without verbose flag
 if "%verbose%"=="true" (

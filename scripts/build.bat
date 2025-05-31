@@ -41,6 +41,14 @@ REM 3. Detect Python and system configuration
 echo.
 echo Detecting Python configuration...
 
+REM Configure jemalloc for optimal build performance
+call "%~dp0jemalloc_helper.bat"
+if %errorlevel% neq 0 (
+    echo [33mWarning: jemalloc configuration failed. Build may be slower.[0m
+) else (
+    echo   jemalloc configured successfully
+)
+
 REM Find Python executable
 where python >nul 2>&1
 if %errorlevel% == 0 (

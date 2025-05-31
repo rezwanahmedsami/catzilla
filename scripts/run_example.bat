@@ -88,6 +88,14 @@ if %DEBUG_PY%==1 (
     set CATZILLA_DEBUG=1
 )
 
+REM Configure jemalloc for optimal performance
+call "%SCRIPT_DIR%jemalloc_helper.bat"
+if %errorlevel% neq 0 (
+    echo [33mWarning: jemalloc configuration failed. Example may run slower.[0m
+) else (
+    echo [36mjemalloc configured successfully[0m
+)
+
 REM Set PYTHONPATH to include the python directory
 set PYTHONPATH=%PROJECT_ROOT%\python;%PYTHONPATH%
 
