@@ -55,6 +55,7 @@ jobs:
 
       - name: Build Catzilla (required for documentation)
         run: |
+          export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
           python setup.py build_ext --inplace
 
       - name: Copy logo to docs
@@ -64,6 +65,7 @@ jobs:
 
       - name: Build documentation
         run: |
+          export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
           cd docs
           python build_docs.py build
           # Verify the documentation was built successfully

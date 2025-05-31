@@ -14,6 +14,23 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
+# Detect OS and set up jemalloc preloading if available
+OS_NAME=$(uname -s)
+if [ "$OS_NAME" = "Linux" ]; then
+    if [ -f "/lib/x86_64-linux-gnu/libjemalloc.so.2" ]; then
+        echo -e "${GREEN}Setting up jemalloc preloading on Linux${NC}"
+        export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
+    fi
+elif [ "$OS_NAME" = "Darwin" ]; then
+    if [ -f "/usr/local/lib/libjemalloc.dylib" ]; then
+        echo -e "${GREEN}Setting up jemalloc preloading on macOS${NC}"
+        export DYLD_INSERT_LIBRARIES=/usr/local/lib/libjemalloc.dylib:$DYLD_INSERT_LIBRARIES
+    elif [ -f "/opt/homebrew/lib/libjemalloc.dylib" ]; then
+        echo -e "${GREEN}Setting up jemalloc preloading on Apple Silicon macOS${NC}"
+        export DYLD_INSERT_LIBRARIES=/opt/homebrew/lib/libjemalloc.dylib:$DYLD_INSERT_LIBRARIES
+    fi
+fi
+
 # Function to print usage
 print_usage() {
     echo -e "${YELLOW}Usage: $0 [OPTIONS]${NC}"

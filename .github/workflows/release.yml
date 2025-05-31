@@ -68,6 +68,9 @@ jobs:
       run: |
         chmod +x scripts/build.sh scripts/run_tests.sh
         ./scripts/build.sh
+        if [ "$RUNNER_OS" = "Linux" ]; then
+          export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
+        fi
         ./scripts/run_tests.sh
 
     - name: Build and test Catzilla (Windows)
@@ -78,6 +81,9 @@ jobs:
 
     - name: Validate package functionality
       run: |
+        if [ "$RUNNER_OS" = "Linux" ]; then
+          export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
+        fi
         python -c "
         from catzilla import Catzilla, JSONResponse
         print('Catzilla imported successfully')

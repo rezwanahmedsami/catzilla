@@ -42,6 +42,23 @@ if [ -f "$WHEEL_FILE" ]; then
     echo -e "${BLUE}Installing: $(basename "$WHEEL_FILE")${NC}"
     python3 -m pip install "$WHEEL_FILE" --force-reinstall --no-deps
 
+    # Set up jemalloc preloading
+    OS_NAME=$(uname -s)
+    if [ "$OS_NAME" = "Linux" ]; then
+        if [ -f "/lib/x86_64-linux-gnu/libjemalloc.so.2" ]; then
+            echo -e "${GREEN}Setting up jemalloc preloading on Linux${NC}"
+            export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
+        fi
+    elif [ "$OS_NAME" = "Darwin" ]; then
+        if [ -f "/usr/local/lib/libjemalloc.dylib" ]; then
+            echo -e "${GREEN}Setting up jemalloc preloading on macOS${NC}"
+            export DYLD_INSERT_LIBRARIES=/usr/local/lib/libjemalloc.dylib:$DYLD_INSERT_LIBRARIES
+        elif [ -f "/opt/homebrew/lib/libjemalloc.dylib" ]; then
+            echo -e "${GREEN}Setting up jemalloc preloading on Apple Silicon macOS${NC}"
+            export DYLD_INSERT_LIBRARIES=/opt/homebrew/lib/libjemalloc.dylib:$DYLD_INSERT_LIBRARIES
+        fi
+    fi
+
     # Test import
     echo -e "${YELLOW}Testing wheel functionality...${NC}"
     python3 -c "
