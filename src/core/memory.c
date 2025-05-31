@@ -521,7 +521,7 @@ int catzilla_memory_purge_arena(catzilla_memory_type_t type) {
     }
 
     snprintf(arena_cmd, sizeof(arena_cmd), "arena.%u.purge", arena_id);
-    return mallctl(arena_cmd, NULL, NULL, NULL, 0);
+    return JEMALLOC_MALLCTL(arena_cmd, NULL, NULL, NULL, 0);
 #else
     return 0; // No-op for standard malloc
 #endif
@@ -554,10 +554,10 @@ int catzilla_memory_get_arena_stats(catzilla_memory_type_t type, size_t* allocat
     }
 
     snprintf(arena_cmd, sizeof(arena_cmd), "stats.arenas.%u.allocated", arena_id);
-    mallctl(arena_cmd, allocated, &sz, NULL, 0);
+    JEMALLOC_MALLCTL(arena_cmd, allocated, &sz, NULL, 0);
 
     snprintf(arena_cmd, sizeof(arena_cmd), "stats.arenas.%u.active", arena_id);
-    mallctl(arena_cmd, active, &sz, NULL, 0);
+    JEMALLOC_MALLCTL(arena_cmd, active, &sz, NULL, 0);
 
     return 0;
 #else
