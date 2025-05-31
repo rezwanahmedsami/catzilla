@@ -7,7 +7,7 @@ route conflict detection, 405/415 responses, and performance.
 
 import pytest
 from unittest.mock import Mock
-from catzilla import App, Request, Response, JSONResponse
+from catzilla import Catzilla, Request, Response, JSONResponse, BaseModel, Query, Path
 from catzilla.routing import Router, Route
 
 
@@ -279,8 +279,8 @@ class TestAppIntegration:
     """Test integration with App class"""
 
     def test_app_dynamic_routing(self):
-        """Test that App class supports dynamic routing"""
-        app = App()
+        """Test that Catzilla class supports dynamic routing with Memory Revolution"""
+        app = Catzilla(auto_validation=True, memory_profiling=False)
 
         @app.get("/users/{user_id}")
         def get_user(request):
@@ -301,8 +301,8 @@ class TestAppIntegration:
         assert "/users/{user_id}/posts" in paths
 
     def test_app_route_conflicts_detected(self):
-        """Test that App detects route conflicts"""
-        app = App()
+        """Test that Catzilla detects route conflicts with auto-validation"""
+        app = Catzilla(auto_validation=True)
 
         @app.get("/api/{version}")
         def api_version(request):

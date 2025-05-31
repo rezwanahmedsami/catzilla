@@ -8,7 +8,7 @@ and other HTTP response scenarios with the new routing system.
 import pytest
 import json
 from unittest.mock import Mock, patch
-from catzilla import App, Request, Response, JSONResponse
+from catzilla import Catzilla, Request, Response, JSONResponse, BaseModel, Query, Path, Header, Form
 from catzilla.types import Request as RequestType
 
 
@@ -17,7 +17,7 @@ class TestHTTPResponseCodes:
 
     def test_405_method_not_allowed(self):
         """Test 405 Method Not Allowed responses"""
-        app = App()
+        app = Catzilla(auto_validation=True, memory_profiling=False)
 
         @app.get("/api/data")
         def get_data(request):
@@ -40,7 +40,7 @@ class TestHTTPResponseCodes:
 
     def test_404_not_found(self):
         """Test 404 Not Found responses"""
-        app = App()
+        app = Catzilla(auto_validation=True, memory_profiling=False)
 
         @app.get("/existing")
         def existing_route(request):
@@ -139,7 +139,7 @@ class TestComplexRoutingScenarios:
 
     def test_nested_resource_routing(self):
         """Test deeply nested resource routes"""
-        app = App()
+        app = Catzilla(auto_validation=True, memory_profiling=False)
 
         @app.get("/api/v1/companies/{company_id}/departments/{dept_id}/employees/{emp_id}")
         def get_employee(request):
@@ -167,7 +167,7 @@ class TestComplexRoutingScenarios:
 
     def test_route_precedence(self):
         """Test route precedence and matching order"""
-        app = App()
+        app = Catzilla(auto_validation=True, memory_profiling=False)
 
         @app.get("/api/users/profile")  # Specific route
         def get_profile(request):
@@ -192,7 +192,7 @@ class TestComplexRoutingScenarios:
 
     def test_optional_trailing_slash(self):
         """Test handling of trailing slashes"""
-        app = App()
+        app = Catzilla(auto_validation=True, memory_profiling=False)
 
         @app.get("/api/data")
         def get_data(request):
@@ -208,7 +208,7 @@ class TestComplexRoutingScenarios:
 
     def test_special_characters_in_params(self):
         """Test special characters in path parameters"""
-        app = App()
+        app = Catzilla(auto_validation=True, memory_profiling=False)
 
         @app.get("/files/{filename}")
         def get_file(request):
@@ -225,7 +225,7 @@ class TestComplexRoutingScenarios:
 
     def test_numeric_parameters(self):
         """Test numeric path parameters"""
-        app = App()
+        app = Catzilla(auto_validation=True, memory_profiling=False)
 
         @app.get("/items/{item_id}")
         def get_item(request):
@@ -243,7 +243,7 @@ class TestRouteValidation:
 
     def test_duplicate_route_handling(self):
         """Test handling of duplicate routes"""
-        app = App()
+        app = Catzilla(auto_validation=True, memory_profiling=False)
 
         @app.get("/api/test")
         def handler1(request):
@@ -257,7 +257,7 @@ class TestRouteValidation:
 
     def test_route_with_no_parameters(self):
         """Test static routes without parameters"""
-        app = App()
+        app = Catzilla(auto_validation=True, memory_profiling=False)
 
         @app.get("/static/route")
         def static_handler(request):
@@ -269,7 +269,7 @@ class TestRouteValidation:
 
     def test_root_route(self):
         """Test root route handling"""
-        app = App()
+        app = Catzilla(auto_validation=True, memory_profiling=False)
 
         @app.get("/")
         def root_handler(request):
@@ -281,7 +281,7 @@ class TestRouteValidation:
 
     def test_multiple_http_methods_same_path(self):
         """Test multiple HTTP methods on same path"""
-        app = App()
+        app = Catzilla(auto_validation=True, memory_profiling=False)
 
         @app.get("/api/resource")
         def get_resource(request):
@@ -316,7 +316,7 @@ class TestIntegrationWithC:
 
     def test_route_registration_with_c_backend(self):
         """Test that Python routes are properly registered with C backend"""
-        app = App()
+        app = Catzilla(auto_validation=True, memory_profiling=False)
 
         @app.get("/test")
         def test_handler(request):
@@ -330,7 +330,7 @@ class TestIntegrationWithC:
 
     def test_path_parameter_format_compatibility(self):
         """Test that path parameter format is compatible with C implementation"""
-        app = App()
+        app = Catzilla(auto_validation=True, memory_profiling=False)
 
         @app.get("/users/{user_id}/posts/{post_id}")
         def get_post(request):
@@ -347,7 +347,7 @@ class TestIntegrationWithC:
 
     def test_method_normalization(self):
         """Test HTTP method normalization compatibility"""
-        app = App()
+        app = Catzilla(auto_validation=True, memory_profiling=False)
 
         # Test that methods are normalized consistently
         def handler(request):

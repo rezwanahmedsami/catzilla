@@ -46,7 +46,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential
+          sudo apt-get install -y cmake build-essential libjemalloc-dev libjemalloc2
 
       - name: Install Python dependencies
         run: |

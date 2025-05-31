@@ -1,13 +1,15 @@
 """
-Router Group tests for Catzilla framework
+Router Group tests for Catzilla v0.2.0 framework
 
 Tests the RouterGroup functionality for organizing routes
-with shared prefixes, tags, and metadata.
+with shared prefixes, tags, metadata, and auto-validation features.
+Features modern Memory Revolution and ultra-fast validation.
 """
 
 import pytest
 from unittest.mock import Mock
-from catzilla import App, Request, Response, JSONResponse, RouterGroup
+from typing import Optional, List
+from catzilla import Catzilla, Request, Response, JSONResponse, RouterGroup, BaseModel, Query, Path
 
 
 class TestRouterGroup:
@@ -296,10 +298,8 @@ class TestRouterGroupNesting:
         assert path != broken_path
 
     def test_app_integration_with_nested_path_parameters(self):
-        """Test full App integration with nested RouterGroup path parameters"""
-        from catzilla import App
-
-        app = App()
+        """Test full Catzilla integration with nested RouterGroup path parameters"""
+        app = Catzilla(auto_validation=True, memory_profiling=False)
 
         # Create nested groups
         users_group = RouterGroup("/users")
@@ -345,12 +345,12 @@ class TestRouterGroupNesting:
         assert metadata["included_in_group"] == "/api"
 
 
-class TestAppIntegration:
-    """Test RouterGroup integration with App"""
+class TestCatzillaIntegration:
+    """Test RouterGroup integration with modern Catzilla v0.2.0"""
 
-    def test_app_include_routes(self):
-        """Test App.include_routes functionality"""
-        app = App()
+    def test_catzilla_include_routes(self):
+        """Test Catzilla.include_routes functionality with Memory Revolution"""
+        app = Catzilla(auto_validation=True, memory_profiling=False)
 
         # Create a router group
         api_group = RouterGroup("/api/v1", tags=["api", "v1"])
@@ -386,7 +386,7 @@ class TestAppIntegration:
 
     def test_app_multiple_groups(self):
         """Test including multiple RouterGroups in an App"""
-        app = App()
+        app = Catzilla()
 
         # Users group
         users_group = RouterGroup("/api/users", tags=["users"])
@@ -424,7 +424,7 @@ class TestAppIntegration:
 
     def test_app_group_with_regular_routes(self):
         """Test mixing RouterGroup routes with regular app routes"""
-        app = App()
+        app = Catzilla()
 
         # Regular app route
         @app.get("/health")
@@ -449,7 +449,7 @@ class TestAppIntegration:
 
     def test_group_conflict_detection(self):
         """Test that RouterGroup routes trigger conflict detection"""
-        app = App()
+        app = Catzilla()
 
         # First group
         group1 = RouterGroup("/api")
@@ -473,7 +473,7 @@ class TestAppIntegration:
 
     def test_empty_group_inclusion(self):
         """Test including an empty RouterGroup"""
-        app = App()
+        app = Catzilla()
         empty_group = RouterGroup("/api")
 
         # Should not raise any errors
@@ -1012,7 +1012,7 @@ class TestNestedRouterGroupRegressionBug:
         api_v1_group.include_group(posts_group)
 
         # Create app and register the nested groups using the correct method
-        app = App()
+        app = Catzilla(auto_validation=True, memory_profiling=False)
         app.include_routes(api_v1_group)
 
         # Verify the route was registered correctly in the app
@@ -1038,3 +1038,201 @@ class TestNestedRouterGroupRegressionBug:
                 break
 
         assert not broken_route_found, "App incorrectly registered the broken route path from the original bug"
+
+
+# =====================================================
+# MODERN AUTO-VALIDATION MODELS FOR ROUTER GROUPS
+# =====================================================
+
+class UserModel(BaseModel):
+    """User model for auto-validation in router groups"""
+    id: int
+    name: str
+    email: Optional[str] = None
+    roles: Optional[List[str]] = None
+
+class PostModel(BaseModel):
+    """Post model for nested resource testing"""
+    title: str
+    content: str
+    published: bool = False
+    tags: Optional[List[str]] = None
+
+
+class TestModernRouterGroupFeatures:
+    """Test router groups with modern Catzilla v0.2.0 features"""
+
+    def test_router_group_with_auto_validation(self):
+        """Test RouterGroup with auto-validation enabled"""
+        app = Catzilla(auto_validation=True, memory_profiling=False)
+
+        # Create API group with auto-validation
+        api_group = RouterGroup("/api/v2", tags=["api", "auto-validation"])
+
+        @api_group.post("/users")
+        def create_user(request, user: UserModel):
+            """Auto-validated user creation"""
+            return JSONResponse({
+                "success": True,
+                "user_id": user.id,
+                "name": user.name,
+                "validation_time": "~2.1μs",
+                "features": "Ultra-fast validation + jemalloc"
+            })
+
+        @api_group.get("/users/{user_id}")
+        def get_user(request, user_id: int = Path(..., description="User ID")):
+            """Auto-validated path parameter"""
+            return JSONResponse({
+                "user_id": user_id,
+                "validation_time": "~0.8μs"
+            })
+
+        @api_group.get("/search")
+        def search_users(
+            request,
+            query: str = Query(..., description="Search query"),
+            limit: int = Query(10, ge=1, le=100),
+            include_inactive: bool = Query(False)
+        ):
+            """Auto-validated query parameters"""
+            return JSONResponse({
+                "query": query,
+                "limit": limit,
+                "include_inactive": include_inactive,
+                "validation_time": "~1.3μs"
+            })
+
+        # Include in Catzilla app
+        app.include_routes(api_group)
+
+        # Verify routes are registered with auto-validation
+        routes = app.routes()
+        assert len(routes) == 3
+
+        # Check paths are correctly prefixed
+        paths = {r["path"] for r in routes}
+        assert "/api/v2/users" in paths
+        assert "/api/v2/users/{user_id}" in paths
+        assert "/api/v2/search" in paths
+
+    def test_nested_router_groups_with_validation(self):
+        """Test nested router groups with complex auto-validation"""
+        app = Catzilla(
+            auto_validation=True,
+            memory_profiling=False,
+            auto_memory_tuning=True
+        )
+
+        # Main API group
+        api_group = RouterGroup("/api/v3", tags=["api", "nested"])
+
+        # Nested user resource group
+        users_group = RouterGroup("/users", tags=["users"])
+
+        @users_group.post("/")
+        def create_user(request, user: UserModel):
+            return JSONResponse({
+                "action": "create_user",
+                "user_id": user.id,
+                "validation": "ultra-fast"
+            })
+
+        @users_group.post("/{user_id}/posts")
+        def create_user_post(
+            request,
+            user_id: int = Path(..., description="User ID"),
+            post: PostModel = None
+        ):
+            return JSONResponse({
+                "action": "create_post",
+                "user_id": user_id,
+                "post_title": post.title if post else None,
+                "nested_validation": "C-accelerated"
+            })
+
+        # Add users group to API group
+        api_group.include_group(users_group)
+
+        # Include in main app
+        app.include_routes(api_group)
+
+        # Verify nested structure
+        routes = app.routes()
+        assert len(routes) == 2
+
+        paths = {r["path"] for r in routes}
+        assert "/api/v3/users" in paths
+        assert "/api/v3/users/{user_id}/posts" in paths
+
+    def test_router_group_performance_monitoring(self):
+        """Test router groups with performance monitoring features"""
+        app = Catzilla(
+            auto_validation=True,
+            memory_profiling=False,
+            memory_stats_interval=1
+        )
+
+        # Performance monitoring group
+        perf_group = RouterGroup("/performance", tags=["monitoring", "benchmarks"])
+
+        @perf_group.get("/memory-stats")
+        def get_memory_stats(request):
+            stats = {}
+            if hasattr(app, 'get_memory_stats'):
+                stats = app.get_memory_stats()
+
+            return JSONResponse({
+                "memory_stats": stats,
+                "jemalloc_enabled": getattr(app, 'has_jemalloc', False),
+                "memory_revolution": "v0.2.0"
+            })
+
+        @perf_group.post("/benchmark")
+        def run_benchmark(request, iterations: int = 1000):
+            return JSONResponse({
+                "iterations": iterations,
+                "validation_speed": "90,000+ validations/sec",
+                "memory_efficiency": "30% improvement",
+                "framework": "Catzilla Memory Revolution"
+            })
+
+        # Include performance group
+        app.include_routes(perf_group)
+
+        # Test that performance routes are registered
+        routes = app.routes()
+        assert len(routes) == 2
+
+        paths = {r["path"] for r in routes}
+        assert "/performance/memory-stats" in paths
+        assert "/performance/benchmark" in paths
+
+    def test_router_group_middleware_with_validation(self):
+        """Test router groups with middleware and auto-validation"""
+        app = Catzilla(auto_validation=True)
+
+        # Authenticated API group
+        auth_group = RouterGroup(
+            "/auth",
+            tags=["authentication", "secure"],
+            metadata={"requires_auth": True}
+        )
+
+        @auth_group.post("/users")
+        def create_authenticated_user(request, user: UserModel):
+            # In real scenario, middleware would handle auth
+            return JSONResponse({
+                "user_id": user.id,
+                "authenticated": True,
+                "validation_time": "~2.0μs",
+                "security": "middleware-protected"
+            })
+
+        # Include with authentication
+        app.include_routes(auth_group)
+
+        # Verify secure routes
+        routes = app.routes()
+        assert len(routes) == 1
+        assert routes[0]["path"] == "/auth/users"

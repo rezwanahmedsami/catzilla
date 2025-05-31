@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Catzilla Test Runner Script
+# Uses distributed testing with pytest-xdist for process isolation and parallel execution
+# This prevents cumulative memory effects and segfaults in C extension tests
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -24,16 +28,19 @@ print_usage() {
 # Function to run Python tests
 run_python_tests() {
     local verbose=$1
-    echo -e "${YELLOW}Running Python tests...${NC}"
+    echo -e "${YELLOW}Running Python tests with distributed execution...${NC}"
 
     # Set PYTHONPATH to include the python directory
     export PYTHONPATH="$PROJECT_ROOT/python:$PYTHONPATH"
 
-    # Run pytest with or without verbose flag
+    # Change to project root directory
+    cd "$PROJECT_ROOT" || exit 1
+
+    # Run pytest with distributed execution for process isolation and parallel testing
     if [ "$verbose" = true ]; then
-        python -m pytest "$PROJECT_ROOT/tests/python" -v
+        python -m pytest tests/python/ -n auto --dist worksteal --tb=short -v
     else
-        python -m pytest "$PROJECT_ROOT/tests/python"
+        python -m pytest tests/python/ -n auto --dist worksteal --tb=short
     fi
 
     local result=$?

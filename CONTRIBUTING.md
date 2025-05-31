@@ -783,9 +783,9 @@ The Catzilla framework provides a modern development experience:
 3. **Development Setup**
    ```python
    # Standard development setup
-   from catzilla import App, RouterGroup
+   from catzilla import Catzilla, RouterGroup
 
-   app = App()
+   app = Catzilla(auto_validation=True, memory_profiling=False)
    api = RouterGroup(prefix="/api/v1")
 
    @api.get("/users/{user_id}")
@@ -1051,14 +1051,14 @@ add_test(NAME test_new_feature COMMAND test_new_feature)
 **Template for new Python tests:**
 ```python
 import pytest
-from catzilla import App, RouterGroup
+from catzilla import Catzilla, RouterGroup
 
 class TestNewFeature:
     """Test suite for new feature functionality."""
 
     def setup_method(self):
         """Setup for each test method."""
-        self.app = App()
+        self.app = Catzilla(auto_validation=True, memory_profiling=False)
 
     def test_basic_functionality(self):
         """Test basic feature functionality."""
@@ -1097,7 +1097,7 @@ class TestNewFeature:
 @pytest.fixture
 def sample_app():
     """Fixture providing a sample app for testing."""
-    app = App()
+    app = Catzilla(auto_validation=True, memory_profiling=False)
     api = RouterGroup(prefix="/api/v1")
 
     @api.get("/users/{user_id}")
@@ -2048,8 +2048,8 @@ of routes with shared prefixes and middleware. RouterGroup enables clean
 API design and logical grouping of related endpoints.
 
 Example:
-    >>> from catzilla import App, RouterGroup
-    >>> app = App()
+    >>> from catzilla import Catzilla, RouterGroup
+    >>> app = Catzilla(auto_validation=True, memory_profiling=False)
     >>> api = RouterGroup(prefix="/api/v1")
     >>>
     >>> @api.get("/users/{user_id}")

@@ -5,10 +5,10 @@ Demonstrates the C-accelerated routing system with performance comparison.
 """
 
 import time
-from catzilla import App, Response, JSONResponse, HTMLResponse
+from catzilla import Catzilla, Response, JSONResponse, HTMLResponse
 
 # Force C-accelerated router for this demo
-app = App()
+app = Catzilla(auto_validation=True, memory_profiling=False)
 
 print("=" * 60)
 print("🚀 CATZILLA C ROUTER PERFORMANCE DEMO")

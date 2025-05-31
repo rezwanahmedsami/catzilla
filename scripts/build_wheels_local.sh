@@ -45,9 +45,9 @@ if [ -f "$WHEEL_FILE" ]; then
     # Test import
     echo -e "${YELLOW}Testing wheel functionality...${NC}"
     python3 -c "
-from catzilla import App, JSONResponse
+from catzilla import Catzilla, JSONResponse
 print('✅ Wheel import successful')
-app = App()
+app = Catzilla(auto_validation=True, memory_profiling=False)
 @app.get('/')
 def test(request):
     return JSONResponse({'status': 'ok', 'version': '0.1.0'})

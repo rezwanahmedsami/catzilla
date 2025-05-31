@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+
     paths:
       # Run CI when source code changes
       - 'src/**'
@@ -78,7 +78,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake build-essential
+        sudo apt-get install -y cmake build-essential libjemalloc-dev libjemalloc2
 
     - name: Install Python dependencies
       run: |
@@ -97,8 +97,8 @@ jobs:
     - name: Quick functionality test
       run: |
         python -c "
-        from catzilla import App, JSONResponse
-        app = App()
+        from catzilla import Catzilla, JSONResponse
+        app = Catzilla(auto_validation=True, memory_profiling=False)
         @app.get('/')
         def test(request): return JSONResponse({'status': 'ok'})
         print('Smoke test passed')
@@ -146,11 +146,11 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake build-essential
+        sudo apt-get install -y cmake build-essential libjemalloc-dev libjemalloc2
 
     - name: Setup system dependencies (macOS)
       if: runner.os == 'macOS'
-      run: brew install cmake
+      run: brew install cmake jemalloc
 
     - name: Setup system dependencies (Windows)
       if: runner.os == 'Windows'
@@ -221,7 +221,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake build-essential
+        sudo apt-get install -y cmake build-essential libjemalloc-dev libjemalloc2
 
     - name: Install Python dependencies
       run: |

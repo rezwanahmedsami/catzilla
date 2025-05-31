@@ -14,15 +14,14 @@ import os
 # Add the catzilla package to the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'python'))
 
-from catzilla.app import App
-from catzilla.types import JSONResponse, HTMLResponse
+from catzilla import Catzilla, JSONResponse, HTMLResponse
 
 
 def create_app():
     """Create and configure a Catzilla app with error handling"""
 
     # Create app with production mode (clean JSON errors)
-    app = App(production=True)  # Set to False for debug mode with detailed errors
+    app = Catzilla(production=True, auto_validation=True, memory_profiling=False)  # Set to False for debug mode with detailed errors
 
     # ========================================
     # 1. BASIC ROUTES THAT CAN CAUSE ERRORS

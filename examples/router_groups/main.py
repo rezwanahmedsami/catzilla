@@ -5,9 +5,9 @@ This example demonstrates the RouterGroup functionality
 for organizing routes with shared prefixes and metadata.
 """
 
-from catzilla import App, Response, JSONResponse, HTMLResponse, RouterGroup
+from catzilla import Catzilla, Response, JSONResponse, HTMLResponse, RouterGroup
 
-app = App()
+app = Catzilla(auto_validation=True, memory_profiling=False)
 
 # Home page with RouterGroup demo
 @app.get("/")

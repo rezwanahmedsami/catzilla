@@ -48,11 +48,11 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake build-essential
+        sudo apt-get install -y cmake build-essential libjemalloc-dev libjemalloc2
 
     - name: Install system dependencies (macOS)
       if: runner.os == 'macOS'
-      run: brew install cmake
+      run: brew install cmake jemalloc
 
     - name: Install system dependencies (Windows)
       if: runner.os == 'Windows'
@@ -79,9 +79,9 @@ jobs:
     - name: Validate package functionality
       run: |
         python -c "
-        from catzilla import App, JSONResponse
+        from catzilla import Catzilla, JSONResponse
         print('Catzilla imported successfully')
-        app = App()
+        app = Catzilla(auto_validation=True, memory_profiling=False)
         @app.get('/')
         def test(request): return JSONResponse({'status': 'ok'})
         print('Release validation passed')
@@ -292,9 +292,9 @@ jobs:
           ## Quick Start
 
           ```python
-          from catzilla import App, JSONResponse
+          from catzilla import Catzilla, JSONResponse
 
-          app = App()
+          app = Catzilla(auto_validation=True, memory_profiling=False)
 
           @app.get('/')
           def hello(request):

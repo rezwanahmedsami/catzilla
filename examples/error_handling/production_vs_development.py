@@ -2,11 +2,11 @@
 Example comparing error responses in production vs development mode
 """
 
-from catzilla import App, Request, JSONResponse
+from catzilla import Catzilla, Request, JSONResponse
 
 def create_development_app():
     """Create app in development mode (default)"""
-    app = App(production=False)  # Development mode - shows detailed errors
+    app = Catzilla(production=False, auto_validation=True, memory_profiling=False)  # Development mode - shows detailed errors
 
     @app.get("/crash")
     def crash_handler(request: Request):
@@ -21,7 +21,7 @@ def create_development_app():
 
 def create_production_app():
     """Create app in production mode"""
-    app = App(production=True)  # Production mode - clean JSON errors
+    app = Catzilla(production=True, auto_validation=True, memory_profiling=False)  # Production mode - clean JSON errors
 
     @app.get("/crash")
     def crash_handler(request: Request):

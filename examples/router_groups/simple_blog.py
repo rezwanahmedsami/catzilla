@@ -7,11 +7,11 @@ This example demonstrates basic RouterGroup usage with a simple blog API.
 Run with: python examples/router_groups/simple_blog.py
 """
 
-from catzilla import App, RouterGroup, JSONResponse
+from catzilla import Catzilla, RouterGroup, JSONResponse
 
 
 # Initialize the main application
-app = App()
+app = Catzilla(auto_validation=True, memory_profiling=False)
 
 # Create the main API RouterGroup
 api = RouterGroup(prefix="/api/v1")

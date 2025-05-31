@@ -2,10 +2,10 @@
 Example demonstrating Catzilla's comprehensive error handling features
 """
 
-from catzilla import App, Request, Response, JSONResponse
+from catzilla import Catzilla, Request, Response, JSONResponse
 
 # Create app in production mode for clean JSON errors
-app = App(production=True)
+app = Catzilla(production=True, auto_validation=True, memory_profiling=False)
 
 # Example 1: Custom exception handlers for specific exception types
 @app.set_exception_handler(ValueError)

@@ -1,11 +1,22 @@
 """
 Hello World example using Catzilla's fluent response API.
+Modern Catzilla v0.2.0 with Memory Revolution and auto-validation features.
 """
 
-from catzilla import App
+from catzilla import Catzilla, BaseModel
 from catzilla.response import response
 
-app = App()
+# Modern Catzilla v0.2.0 with Memory Revolution features
+app = Catzilla(
+    auto_validation=True,
+    memory_profiling=False,  # Disable for stable production use
+    jemalloc_enabled=True   # Enable memory optimization
+)
+
+# Auto-validation model for query parameters
+class HelloQuery(BaseModel):
+    name: str = "World"
+    greeting: str = "Hello"
 
 @app.get("/")
 def hello(request):

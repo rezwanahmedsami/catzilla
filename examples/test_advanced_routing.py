@@ -3,10 +3,10 @@
 Test script to verify advanced routing features work correctly
 """
 
-from catzilla import App, JSONResponse
+from catzilla import Catzilla, JSONResponse
 
 def main():
-    app = App()
+    app = Catzilla(auto_validation=True, memory_profiling=False)
 
     # Test basic routes
     @app.get("/")
@@ -37,7 +37,14 @@ def main():
 
     print("=== Registered Routes ===")
     for route in app.routes():
-        print(f"{route['method']:6} {route['path']:30} -> {route['handler_name']}")
+        handler = route["handler"]
+        if hasattr(handler, "__name__"):
+            handler_name = handler.__name__
+        elif hasattr(handler, "__qualname__"):
+            handler_name = handler.__qualname__
+        else:
+            handler_name = str(handler).split()[1] if "function" in str(handler) else "handler"
+        print(f"{route['method']:6} {route['path']:30} -> {handler_name}")
 
     print("\n=== Starting Server ===")
     print("Testing routes with dynamic parameters:")
