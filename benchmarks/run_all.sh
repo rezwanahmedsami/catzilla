@@ -41,6 +41,13 @@ ENDPOINTS=(
     "/user/123/profile:complex_json"
 )
 
+# Additional validation endpoints for frameworks that support them (primarily Catzilla)
+VALIDATION_ENDPOINTS=(
+    "/validate/user:validate_user_model:POST"
+    "/validate/product:validate_product_model:POST"
+    "/search/validate?query=performance&limit=20&offset=0:query_validation:GET"
+)
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -141,12 +148,36 @@ run_benchmark() {
     local server_config=$(get_server_config "$framework")
     local port=${server_config%%:*}
     local url="http://$host:$port$endpoint"
+    local method=${4:-"GET"}  # Default to GET, allow override
+    local post_data=${5:-""}  # Optional POST data
 
     print_status "Benchmarking $framework - $endpoint_name ($endpoint)"
 
     # Warmup run
     print_status "Warming up $framework server..."
-    wrk -t1 -c10 -d"$WARMUP_TIME" "$url" >/dev/null 2>&1 || true
+    if [ "$method" = "POST" ] && ([ -n "$post_data" ] || [[ "$endpoint_name" == *"validate"* ]]); then
+        local warmup_payload
+        if [[ "$endpoint_name" == *"product"* ]]; then
+            warmup_payload='{"name": "High-Performance Widget", "price": 99.99, "category": "electronics", "description": "A widget designed for maximum performance", "in_stock": true, "variants": ["red", "blue", "green"]}'
+        elif [[ "$endpoint_name" == *"user"* ]] || [[ "$endpoint_name" == *"validate"* ]]; then
+            warmup_payload='{"id": 42, "name": "Alice Johnson", "email": "alice@example.com", "age": 28, "is_active": true, "tags": ["developer", "python", "performance"], "metadata": {"team": "backend", "level": "senior"}}'
+        else
+            warmup_payload='{"message": "Hello from benchmark", "timestamp": 1640995200, "data": {"nested": true, "values": [1, 2, 3, 4, 5]}}'
+        fi
+
+        # Create temporary Lua script for POST requests
+        local lua_script="$RESULTS_DIR/temp_post.lua"
+        cat > "$lua_script" << EOF
+wrk.method = "POST"
+wrk.body = '$warmup_payload'
+wrk.headers["Content-Type"] = "application/json"
+EOF
+
+        wrk -t1 -c10 -d"$WARMUP_TIME" -s "$lua_script" "$url" >/dev/null 2>&1 || true
+        rm -f "$lua_script"
+    else
+        wrk -t1 -c10 -d"$WARMUP_TIME" "$url" >/dev/null 2>&1 || true
+    fi
 
     # Main benchmark
     local result_file="$RESULTS_DIR/${framework}_${endpoint_name}.txt"
@@ -155,7 +186,38 @@ run_benchmark() {
     print_status "Running main benchmark..."
 
     # Run wrk and capture output
-    if wrk -t"$THREADS" -c"$CONNECTIONS" -d"$DURATION" --latency "$url" > "$result_file" 2>&1; then
+    local wrk_success=false
+    if [ "$method" = "POST" ] && ([ -n "$post_data" ] || [[ "$endpoint_name" == *"validate"* ]]); then
+        # POST request with JSON body - choose appropriate payload
+        local json_payload
+        if [[ "$endpoint_name" == *"product"* ]]; then
+            json_payload='{"name": "High-Performance Widget", "price": 99.99, "category": "electronics", "description": "A widget designed for maximum performance", "in_stock": true, "variants": ["red", "blue", "green"]}'
+        elif [[ "$endpoint_name" == *"user"* ]] || [[ "$endpoint_name" == *"validate"* ]]; then
+            json_payload='{"id": 42, "name": "Alice Johnson", "email": "alice@example.com", "age": 28, "is_active": true, "tags": ["developer", "python", "performance"], "metadata": {"team": "backend", "level": "senior"}}'
+        else
+            json_payload='{"message": "Hello from benchmark", "timestamp": 1640995200, "data": {"nested": true, "values": [1, 2, 3, 4, 5]}}'
+        fi
+
+        # Create temporary Lua script for POST requests
+        local lua_script="$RESULTS_DIR/temp_${framework}_${endpoint_name}.lua"
+        cat > "$lua_script" << EOF
+wrk.method = "POST"
+wrk.body = '$json_payload'
+wrk.headers["Content-Type"] = "application/json"
+EOF
+
+        if wrk -t"$THREADS" -c"$CONNECTIONS" -d"$DURATION" --latency -s "$lua_script" "$url" > "$result_file" 2>&1; then
+            wrk_success=true
+        fi
+        rm -f "$lua_script"
+    else
+        # GET request
+        if wrk -t"$THREADS" -c"$CONNECTIONS" -d"$DURATION" --latency "$url" > "$result_file" 2>&1; then
+            wrk_success=true
+        fi
+    fi
+
+    if [ "$wrk_success" = true ]; then
         print_success "Benchmark completed for $framework - $endpoint_name"
 
         # Extract key metrics and save as JSON
@@ -170,6 +232,7 @@ run_benchmark() {
   "framework": "$framework",
   "endpoint": "$endpoint",
   "endpoint_name": "$endpoint_name",
+  "method": "$method",
   "duration": "$DURATION",
   "connections": $CONNECTIONS,
   "threads": $THREADS,
@@ -256,6 +319,25 @@ benchmark_framework() {
 
         sleep 2  # Brief pause between endpoints
     done
+
+    # Run validation benchmarks for Catzilla (has auto-validation features)
+    if [ "$framework" = "catzilla" ]; then
+        print_status "Running additional validation benchmarks for Catzilla..."
+
+        for validation_config in "${VALIDATION_ENDPOINTS[@]}"; do
+            local validation_endpoint=${validation_config%%:*}
+            local rest=${validation_config#*:}
+            local validation_name=${rest%%:*}
+            local method=${rest#*:}
+
+            # Run benchmark with appropriate method
+            if ! run_benchmark "$framework" "$validation_endpoint" "$validation_name" "$method" "json"; then
+                all_passed=false
+            fi
+
+            sleep 2  # Brief pause between endpoints
+        done
+    fi
 
     # Stop the server
     if [ -n "$server_pid" ]; then
@@ -402,8 +484,83 @@ EOF
     print_success "Markdown summary saved to: $summary_md"
 }
 
+# Function to show usage
+show_usage() {
+    echo "Usage: $0 [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  --framework FRAMEWORK    Run benchmarks for specific framework only"
+    echo "                          Available: catzilla, fastapi, flask, django"
+    echo "  --duration DURATION     Benchmark duration (default: $DURATION)"
+    echo "  --connections CONNS     Number of connections (default: $CONNECTIONS)"
+    echo "  --threads THREADS       Number of threads (default: $THREADS)"
+    echo "  --help                  Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0                           # Run all frameworks"
+    echo "  $0 --framework fastapi       # Run FastAPI only"
+    echo "  $0 --framework catzilla --duration 30s --connections 200"
+}
+
+# Parse command line arguments
+parse_arguments() {
+    SELECTED_FRAMEWORK=""
+
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --framework)
+                SELECTED_FRAMEWORK="$2"
+                shift 2
+                ;;
+            --duration)
+                DURATION="$2"
+                shift 2
+                ;;
+            --connections)
+                CONNECTIONS="$2"
+                shift 2
+                ;;
+            --threads)
+                THREADS="$2"
+                shift 2
+                ;;
+            --help|-h)
+                show_usage
+                exit 0
+                ;;
+            *)
+                print_error "Unknown option: $1"
+                show_usage
+                exit 1
+                ;;
+        esac
+    done
+
+    # Validate framework if specified
+    if [ -n "$SELECTED_FRAMEWORK" ]; then
+        local valid_frameworks=("catzilla" "fastapi" "flask" "django")
+        local framework_valid=false
+
+        for valid_fw in "${valid_frameworks[@]}"; do
+            if [ "$SELECTED_FRAMEWORK" = "$valid_fw" ]; then
+                framework_valid=true
+                break
+            fi
+        done
+
+        if [ "$framework_valid" = false ]; then
+            print_error "Invalid framework: $SELECTED_FRAMEWORK"
+            print_error "Available frameworks: ${valid_frameworks[*]}"
+            exit 1
+        fi
+    fi
+}
+
 # Main execution
 main() {
+    # Parse command line arguments
+    parse_arguments "$@"
+
     # Activate virtual environment if it exists
     if [ -f "$VENV_PATH/bin/activate" ]; then
         print_status "Activating virtual environment..."
@@ -419,6 +576,13 @@ main() {
     echo "Connections: $CONNECTIONS"
     echo "Threads: $THREADS"
     echo "Results Directory: $RESULTS_DIR"
+
+    # Show selected framework if specified
+    if [ -n "$SELECTED_FRAMEWORK" ]; then
+        echo "Selected Framework: $SELECTED_FRAMEWORK"
+    else
+        echo "Running All Frameworks: catzilla, fastapi, flask, django"
+    fi
     echo ""
 
     # Trap to ensure cleanup on exit
@@ -427,8 +591,13 @@ main() {
     # Clean up any existing servers
     cleanup_servers
 
-    # Run benchmarks for each framework
-    local frameworks_to_test=("catzilla" "fastapi" "flask" "django")
+    # Determine which frameworks to test
+    local frameworks_to_test
+    if [ -n "$SELECTED_FRAMEWORK" ]; then
+        frameworks_to_test=("$SELECTED_FRAMEWORK")
+    else
+        frameworks_to_test=("catzilla" "fastapi" "flask" "django")
+    fi
 
     for framework in "${frameworks_to_test[@]}"; do
         if ! benchmark_framework "$framework"; then

@@ -118,6 +118,51 @@ def get_benchmark_endpoints():
                 "generated_at": time.time()
             },
             "content_type": "application/json"
+        },
+
+        # Auto-validation endpoints for Catzilla
+        "validate_user": {
+            "method": "POST",
+            "path": "/validate/user",
+            "description": "Auto-validation with BaseModel - comprehensive user model",
+            "response_template": lambda validated_data: {
+                "validated": True,
+                "data": validated_data,
+                "validation_time_ms": time.time() * 1000 % 10,  # Mock timing
+                "message": "User validation successful"
+            },
+            "content_type": "application/json"
+        },
+
+        "validate_product": {
+            "method": "POST",
+            "path": "/validate/product",
+            "description": "Auto-validation with constraints - product model with validation rules",
+            "response_template": lambda validated_data: {
+                "validated": True,
+                "product": validated_data,
+                "validation_time_ms": time.time() * 1000 % 5,  # Mock timing
+                "constraints_checked": ["price_positive", "name_length", "category_required"]
+            },
+            "content_type": "application/json"
+        },
+
+        "search_with_validation": {
+            "method": "GET",
+            "path": "/search/validate",
+            "description": "Query parameter auto-validation with constraints",
+            "response_template": lambda query, limit=10, offset=0, sort_by="created_at": {
+                "results": [f"Result {i}" for i in range(int(offset), int(offset) + min(int(limit), 5))],
+                "query": query,
+                "pagination": {
+                    "limit": int(limit),
+                    "offset": int(offset),
+                    "sort_by": sort_by
+                },
+                "validation_applied": True,
+                "total": 100
+            },
+            "content_type": "application/json"
         }
     }
 
@@ -163,6 +208,41 @@ def get_test_requests():
             "method": "GET",
             "url": "/user/123/profile",
             "description": "Complex JSON response"
+        },
+        {
+            "name": "validate_user_model",
+            "method": "POST",
+            "url": "/validate/user",
+            "body": {
+                "id": 42,
+                "name": "Alice Johnson",
+                "email": "alice@example.com",
+                "age": 28,
+                "is_active": True,
+                "tags": ["developer", "python", "performance"],
+                "metadata": {"team": "backend", "level": "senior"}
+            },
+            "description": "Auto-validation with BaseModel"
+        },
+        {
+            "name": "validate_product_model",
+            "method": "POST",
+            "url": "/validate/product",
+            "body": {
+                "name": "High-Performance Widget",
+                "price": 99.99,
+                "category": "electronics",
+                "description": "A widget designed for maximum performance",
+                "in_stock": True,
+                "variants": ["red", "blue", "green"]
+            },
+            "description": "Auto-validation with constraints"
+        },
+        {
+            "name": "query_validation",
+            "method": "GET",
+            "url": "/search/validate?query=performance&limit=20&offset=0&sort_by=relevance",
+            "description": "Query parameter auto-validation"
         }
     ]
 

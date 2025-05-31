@@ -10,7 +10,7 @@ import sys
 import os
 import json
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 # Import shared endpoints
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -19,10 +19,36 @@ from shared_endpoints import get_benchmark_endpoints, DEFAULT_JSON_PAYLOAD
 try:
     from fastapi import FastAPI, Request, HTTPException
     from fastapi.responses import JSONResponse as FastAPIJSONResponse, PlainTextResponse
+    from pydantic import BaseModel
     import uvicorn
 except ImportError:
-    print("❌ FastAPI not installed. Install with: pip install fastapi uvicorn")
+    print("❌ FastAPI not installed. Install with: pip install fastapi uvicorn pydantic")
     sys.exit(1)
+
+
+# =====================================================
+# PYDANTIC MODELS FOR VALIDATION COMPARISON
+# =====================================================
+
+class FastAPIUser(BaseModel):
+    """User model for FastAPI validation comparison"""
+    id: int
+    name: str
+    email: str
+    age: Optional[int] = None
+    is_active: bool = True
+    tags: Optional[List[str]] = None
+    metadata: Optional[Dict[str, str]] = None
+
+
+class FastAPIProduct(BaseModel):
+    """Product model for FastAPI validation comparison"""
+    name: str
+    price: float
+    category: str
+    description: Optional[str] = None
+    in_stock: bool = True
+    variants: Optional[List[str]] = None
 
 
 def create_fastapi_server():
@@ -66,10 +92,45 @@ def create_fastapi_server():
     async def user_profile(user_id: int):
         return endpoints["user_profile"]["response_template"](str(user_id))
 
+    # =====================================================
+    # VALIDATION ENDPOINTS FOR COMPARISON WITH CATZILLA
+    # =====================================================
+
+    # 7. User Model Validation - Test Pydantic validation
+    @app.post("/validate/user")
+    async def validate_user(user: FastAPIUser):
+        validated_data = user.dict()
+        return endpoints["validate_user"]["response_template"](validated_data)
+
+    # 8. Product Model Validation - Test Pydantic validation with constraints
+    @app.post("/validate/product")
+    async def validate_product(product: FastAPIProduct):
+        validated_data = product.dict()
+        return endpoints["validate_product"]["response_template"](validated_data)
+
+    # 9. Query Parameter Validation - Test FastAPI query validation
+    @app.get("/search/validate")
+    async def search_with_validation(
+        query: str,
+        limit: int = 10,
+        offset: int = 0,
+        sort_by: str = "created_at"
+    ):
+        return endpoints["search_with_validation"]["response_template"](
+            query, limit, offset, sort_by
+        )
+
     # Add health check endpoint
     @app.get("/health")
     async def health_check():
-        return {"status": "healthy", "framework": "fastapi"}
+        return {
+            "status": "healthy",
+            "framework": "fastapi",
+            "features": {
+                "pydantic_validation": True,
+                "async_support": True
+            }
+        }
 
     return app
 
@@ -87,6 +148,11 @@ def main():
     app = create_fastapi_server()
 
     print(f"🚀 Starting FastAPI benchmark server on {args.host}:{args.port}")
+    print("📊 FastAPI Features:")
+    print("  🐍 Pydantic validation")
+    print("  ⚡ Async/await support")
+    print("  📈 Production ASGI server")
+    print()
     print("Available endpoints:")
     print("  GET  /              - Hello World")
     print("  GET  /json          - JSON Response")
@@ -94,6 +160,9 @@ def main():
     print("  POST /echo          - JSON Echo")
     print("  GET  /users         - Query Parameters")
     print("  GET  /user/{id}/profile - Complex JSON")
+    print("  POST /validate/user - Pydantic Validation (User Model)")
+    print("  POST /validate/product - Pydantic Validation (Product Model)")
+    print("  GET  /search/validate - Query Parameter Validation")
     print("  GET  /health        - Health Check")
     print()
 
