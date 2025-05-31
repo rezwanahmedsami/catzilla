@@ -28,7 +28,7 @@ try:
     )
 except ImportError:
     raise ImportError(
-        "Failed to import C extension. Make sure Catzilla is properly installed."
+        "Failed to import C extension. Make sure Catzilla is properly installed -."
     )
 
 
