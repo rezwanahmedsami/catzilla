@@ -74,6 +74,7 @@ def home(request):
     <!DOCTYPE html>
     <html>
         <head>
+            <meta charset="UTF-8">
             <title>Catzilla Auto-Validation Demo</title>
             <style>
                 body {
@@ -568,6 +569,7 @@ def interactive_demo(request):
     <!DOCTYPE html>
     <html>
         <head>
+            <meta charset="UTF-8">
             <title>Catzilla Auto-Validation Interactive Demo</title>
             <style>
                 body {
@@ -881,6 +883,7 @@ def api_docs(request):
     <!DOCTYPE html>
     <html>
         <head>
+            <meta charset="UTF-8">
             <title>Catzilla Auto-Validation API Documentation</title>
             <style>
                 body {

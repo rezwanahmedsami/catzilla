@@ -4,13 +4,13 @@
 # --------------------------------------
 
 # --- Web frameworks for comparison ---
-fastapi==0.115.12
-pydantic==2.9.2
-pydantic_core==2.23.4  # Required by FastAPI
-uvicorn==0.34.0
-flask==3.1.1
-django==5.2.1
-gunicorn==21.2.0  # WSGI server for Flask and Django
+fastapi
+pydantic
+pydantic_core  # Required by FastAPI
+uvicorn
+flask
+django
+gunicorn  # WSGI server for Flask and Django
 
 # --- System information collection ---
 psutil==6.1.0  # For collecting system specs (CPU, RAM, etc.)
