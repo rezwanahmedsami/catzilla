@@ -121,8 +121,8 @@ fi
 export PYTHONPATH="$PROJECT_ROOT/python:$PYTHONPATH"
 
 # Set debug environment variables
-export CATZILLA_C_DEBUG=0
-export CATZILLA_DEBUG=0
+unset CATZILLA_C_DEBUG
+unset CATZILLA_DEBUG
 
 if [ $DEBUG_C -eq 1 ]; then
     export CATZILLA_C_DEBUG=1
