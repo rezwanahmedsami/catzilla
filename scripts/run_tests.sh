@@ -33,16 +33,99 @@ fi
 
 # Function to print usage
 print_usage() {
-    echo -e "${YELLOW}Usage: $0 [OPTIONS]${NC}"
-    echo "Options:"
-    echo "  -h, --help     Show this help message"
-    echo "  -a, --all      Run all tests (default)"
-    echo "  -p, --python   Run only Python tests"
-    echo "  -c, --c        Run only C tests"
-    echo "  -v, --verbose  Run tests with verbose output"
+    echo -e "${YELLOW}🧪 Catzilla Test Runner${NC}"
+    echo -e "${YELLOW}=====================${NC}"
+    echo ""
+    echo "Usage: $0 [OPTIONS]"
+    echo ""
+    echo -e "${CYAN}Standard Testing:${NC}"
+    echo "  -h, --help            Show this help message"
+    echo "  -a, --all             Run all tests (default)"
+    echo "  -p, --python          Run only Python tests"
+    echo "  -c, --c               Run only C tests"
+    echo "  -v, --verbose         Run tests with verbose output"
+    echo ""
+    echo -e "${CYAN}🐳 Docker Cross-Platform Testing:${NC}"
+    echo "  --docker [PLATFORM]   Run tests in Docker container"
+    echo "                        PLATFORM: linux, windows, all (default: all)"
+    echo ""
+    echo -e "${CYAN}Docker Examples:${NC}"
+    echo "  $0 --docker           # Test on all platforms"
+    echo "  $0 --docker linux     # Test on Ubuntu Linux"
+    echo "  $0 --docker windows   # Test on Windows Server"
+    echo ""
+    echo -e "${CYAN}Quick Commands:${NC}"
+    echo "  ./scripts/test_docker_quick.sh      # Quick Linux test"
+    echo "  ./scripts/test_docker_full.sh       # Full cross-platform test"
+    echo "  ./scripts/simulate_ci.sh --fast     # Simulate CI pipeline"
+    echo ""
+    echo -e "${CYAN}Docker Management:${NC}"
+    echo "  ./scripts/docker_manager.sh shell linux    # Interactive shell"
+    echo "  ./scripts/docker_manager.sh clean          # Clean containers"
+    echo "  ./scripts/setup_docker_testing.sh          # Setup Docker testing"
+    echo ""
+    echo -e "${GREEN}💡 Pro Tips:${NC}"
+    echo "  - Use '--docker linux' for fastest feedback"
+    echo "  - Run '--docker all' before pushing to GitHub"
+    echo "  - Use Docker for exact CI environment replication"
+    echo "  - Docker saves CI costs by testing locally first"
 }
 
-# Function to run Python tests
+# Function to run Docker tests
+run_docker_tests() {
+    local platform=$1
+
+    echo -e "${YELLOW}🐳 Running tests in Docker containers...${NC}"
+
+    # Ensure we're in the project root
+    cd "$PROJECT_ROOT" || exit 1
+
+    # Check if Docker is available
+    if ! command -v docker &> /dev/null; then
+        echo -e "${RED}❌ Docker is not installed or not in PATH${NC}"
+        echo "Please install Docker to use this feature."
+        return 1
+    fi
+
+    # Check if Docker Compose is available
+    if ! command -v docker-compose &> /dev/null; then
+        echo -e "${RED}❌ Docker Compose is not installed or not in PATH${NC}"
+        echo "Please install Docker Compose to use this feature."
+        return 1
+    fi
+
+    case "$platform" in
+        "linux")
+            echo -e "${GREEN}🐧 Running tests on Linux (Ubuntu 22.04)...${NC}"
+            docker-compose -f docker/docker-compose.yml build catzilla-linux
+            docker-compose -f docker/docker-compose.yml run --rm catzilla-linux
+            ;;
+        "windows")
+            echo -e "${GREEN}🪟 Running tests on Windows (Server 2022)...${NC}"
+            echo -e "${YELLOW}Note: Windows containers require Docker Desktop with Windows containers enabled${NC}"
+            docker-compose -f docker/docker-compose.yml build catzilla-windows
+            docker-compose -f docker/docker-compose.yml run --rm catzilla-windows
+            ;;
+        "all")
+            echo -e "${GREEN}🌍 Running tests on all platforms...${NC}"
+            echo ""
+            echo -e "${GREEN}🐧 Testing Linux...${NC}"
+            docker-compose -f docker/docker-compose.yml build catzilla-linux
+            docker-compose -f docker/docker-compose.yml run --rm catzilla-linux
+
+            echo ""
+            echo -e "${GREEN}🪟 Testing Windows...${NC}"
+            echo -e "${YELLOW}Note: Windows containers require Docker Desktop with Windows containers enabled${NC}"
+            docker-compose -f docker/docker-compose.yml build catzilla-windows
+            docker-compose -f docker/docker-compose.yml run --rm catzilla-windows
+            ;;
+        *)
+            echo -e "${RED}❌ Unknown platform: $platform${NC}"
+            echo "Supported platforms: linux, windows, all"
+            return 1
+            ;;
+    esac
+}
 run_python_tests() {
     local verbose=$1
     echo -e "${YELLOW}Running Python tests with distributed execution...${NC}"
@@ -63,12 +146,23 @@ run_python_tests() {
     echo -e "${YELLOW}Setting up segfault detection...${NC}"
     export PYTHONFAULTHANDLER=1  # Enable Python fault handler
 
+    # Detect the correct Python command
+    PYTHON_CMD="python"
+    if ! command -v python &> /dev/null; then
+        if command -v python3 &> /dev/null; then
+            PYTHON_CMD="python3"
+        else
+            echo -e "${RED}Error: Neither 'python' nor 'python3' command found!${NC}"
+            return 1
+        fi
+    fi
+
     # Run pytest with distributed execution for process isolation and parallel testing
     echo -e "${YELLOW}Starting test execution...${NC}"
     if [ "$verbose" = true ]; then
-        python -m pytest tests/python/ -n auto --dist worksteal --tb=short -v
+        $PYTHON_CMD -m pytest tests/python/ -n auto --dist worksteal --tb=short -v
     else
-        python -m pytest tests/python/ -n auto --dist worksteal --tb=short
+        $PYTHON_CMD -m pytest tests/python/ -n auto --dist worksteal --tb=short
     fi
 
     local result=$?
@@ -139,6 +233,8 @@ run_all=true
 run_python=false
 run_c=false
 verbose=false
+docker_mode=false
+docker_platform="all"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -169,6 +265,16 @@ while [[ $# -gt 0 ]]; do
             verbose=true
             shift
             ;;
+        --docker)
+            docker_mode=true
+            if [[ $# -gt 1 ]] && [[ $2 != -* ]]; then
+                docker_platform="$2"
+                shift 2
+            else
+                docker_platform="all"
+                shift
+            fi
+            ;;
         *)
             echo -e "${RED}Unknown option: $1${NC}"
             print_usage
@@ -176,6 +282,12 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Handle Docker mode first
+if [ "$docker_mode" = true ]; then
+    run_docker_tests "$docker_platform"
+    exit $?
+fi
 
 # Track overall success
 success=true

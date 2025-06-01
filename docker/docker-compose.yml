@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+  # Linux testing environment (Ubuntu 22.04)
+  catzilla-linux:
+    build:
+      context: ..
+      dockerfile: docker/linux/Dockerfile
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    volumes:
+      - ..:/catzilla-host:ro  # Read-only mount for safety
+      - catzilla-linux-build:/catzilla/build  # Separate build volume
+      - catzilla-linux-logs:/catzilla/logs    # Logs volume
+    working_dir: /catzilla
+    environment:
+      - LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2
+      - PYTHONUNBUFFERED=1
+      - FORCE_COLOR=1
+      - CI=true  # Simulate CI environment
+      - PYTEST_CURRENT_TEST=  # Enable pytest progress
+    command: docker/linux/test.sh
+    networks:
+      - catzilla-testing
+    # Resource limits for consistent testing
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+
+  # Windows testing environment (Windows Server 2022)
+  catzilla-windows:
+    build:
+      context: ..
+      dockerfile: docker/windows/Dockerfile
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    volumes:
+      - type: bind
+        source: ..
+        target: C:/catzilla-host
+        read_only: true
+      - catzilla-windows-build:C:/catzilla/build
+      - catzilla-windows-logs:C:/catzilla/logs
+    working_dir: C:/catzilla
+    environment:
+      - CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+      - CATZILLA_JEMALLOC_PATH=C:/vcpkg/installed/x64-windows/bin/jemalloc.dll
+      - CI=true  # Simulate CI environment
+    command: docker/windows/test.bat
+    platform: windows/amd64
+    networks:
+      - catzilla-testing
+    # Resource limits for consistent testing
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
+
+  # Development environment with interactive shell
+  catzilla-dev-linux:
+    build:
+      context: ..
+      dockerfile: docker/linux/Dockerfile
+    volumes:
+      - ..:/catzilla  # Read-write for development
+    working_dir: /catzilla
+    environment:
+      - LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2
+      - PYTHONUNBUFFERED=1
+      - FORCE_COLOR=1
+    command: bash
+    stdin_open: true
+    tty: true
+    networks:
+      - catzilla-testing
+
+  catzilla-dev-windows:
+    build:
+      context: ..
+      dockerfile: docker/windows/Dockerfile
+    volumes:
+      - type: bind
+        source: ..
+        target: C:/catzilla
+    working_dir: C:/catzilla
+    environment:
+      - CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+      - CATZILLA_JEMALLOC_PATH=C:/vcpkg/installed/x64-windows/bin/jemalloc.dll
+    command: cmd
+    stdin_open: true
+    tty: true
+    platform: windows/amd64
+    networks:
+      - catzilla-testing
+
+volumes:
+  catzilla-linux-build:
+    driver: local
+  catzilla-linux-logs:
+    driver: local
+  catzilla-windows-build:
+    driver: local
+  catzilla-windows-logs:
+    driver: local
+
+networks:
+  catzilla-testing:
+    driver: bridge
