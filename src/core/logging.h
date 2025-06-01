@@ -103,4 +103,10 @@ static inline int catzilla_debug_enabled() {
 #define LOG_HTTP_ERROR(fmt, ...)   LOG_ERROR("HTTP", fmt, ##__VA_ARGS__)
 #define LOG_HTTP_WARN(fmt, ...)    LOG_WARN("HTTP", fmt, ##__VA_ARGS__)
 
+// 🚀 REVOLUTIONARY: Validation engine logging macros
+#define LOG_VALIDATION_DEBUG(fmt, ...) LOG_DEBUG("Validation", fmt, ##__VA_ARGS__)
+#define LOG_VALIDATION_INFO(fmt, ...)  LOG_INFO("Validation", fmt, ##__VA_ARGS__)
+#define LOG_VALIDATION_ERROR(fmt, ...) LOG_ERROR("Validation", fmt, ##__VA_ARGS__)
+#define LOG_VALIDATION_WARN(fmt, ...)  LOG_WARN("Validation", fmt, ##__VA_ARGS__)
+
 #endif // CATZILLA_LOGGING_H

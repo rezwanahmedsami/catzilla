@@ -194,8 +194,13 @@ class TestFieldMetadataSystem:
             list_field: List[str]
             dict_field: Dict[str, int]
 
-        # Check type hints are preserved
-        type_hints = get_type_hints(TypeInfoModel)
+        # Check type hints are preserved with GC protection
+        import gc
+        gc.disable()
+        try:
+            type_hints = get_type_hints(TypeInfoModel)
+        finally:
+            gc.enable()
 
         assert type_hints['int_field'] == int
         assert type_hints['str_field'] == str

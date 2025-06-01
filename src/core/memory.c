@@ -378,6 +378,30 @@ bool catzilla_memory_has_jemalloc(void) {
     return true;
 }
 
+// Python-safe allocation functions - NEVER use jemalloc for these
+// These are specifically for objects that may be accessed by Python's garbage collector
+void* catzilla_python_safe_alloc(size_t size) {
+    // Always use standard malloc for Python-accessible objects
+    return malloc(size);
+}
+
+void* catzilla_python_safe_calloc(size_t count, size_t size) {
+    // Always use standard calloc for Python-accessible objects
+    return calloc(count, size);
+}
+
+void* catzilla_python_safe_realloc(void* ptr, size_t size) {
+    // Always use standard realloc for Python-accessible objects
+    return realloc(ptr, size);
+}
+
+void catzilla_python_safe_free(void* ptr) {
+    // Always use standard free for Python-accessible objects
+    if (ptr) {
+        free(ptr);
+    }
+}
+
 #else // Standard malloc fallback
 
 void* catzilla_malloc(size_t size) {
@@ -466,6 +490,25 @@ void catzilla_memory_optimize(void) {
 
 bool catzilla_memory_has_jemalloc(void) {
     return false;
+}
+
+// Python-safe allocation functions - use standard malloc (same as fallback)
+void* catzilla_python_safe_alloc(size_t size) {
+    return malloc(size);
+}
+
+void* catzilla_python_safe_calloc(size_t count, size_t size) {
+    return calloc(count, size);
+}
+
+void* catzilla_python_safe_realloc(void* ptr, size_t size) {
+    return realloc(ptr, size);
+}
+
+void catzilla_python_safe_free(void* ptr) {
+    if (ptr) {
+        free(ptr);
+    }
 }
 
 #endif

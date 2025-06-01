@@ -82,6 +82,12 @@ void catzilla_cache_free(void* ptr);
 void catzilla_static_free(void* ptr);
 void catzilla_task_free(void* ptr);
 
+// Python-safe allocation functions (never use jemalloc for these)
+void* catzilla_python_safe_alloc(size_t size);
+void* catzilla_python_safe_calloc(size_t count, size_t size);
+void* catzilla_python_safe_realloc(void* ptr, size_t size);
+void catzilla_python_safe_free(void* ptr);
+
 // Memory management functions
 int catzilla_memory_init(void);
 void catzilla_memory_cleanup(void);

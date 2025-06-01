@@ -19,6 +19,7 @@ Example usage:
         tags = ListField(StringField(), max_items=10)
 """
 
+import gc
 import inspect
 import sys
 from typing import (
@@ -43,7 +44,9 @@ try:
     from catzilla._catzilla import (
         create_float_validator,
         create_int_validator,
+        create_list_validator,
         create_model,
+        create_optional_validator,
         create_string_validator,
         get_validation_stats,
         reset_validation_stats,
@@ -61,6 +64,12 @@ except ImportError:
         return None
 
     def create_float_validator(**kwargs):
+        return None
+
+    def create_list_validator(**kwargs):
+        return None
+
+    def create_optional_validator(**kwargs):
         return None
 
     def create_model(name, fields):
@@ -171,8 +180,23 @@ class ListField(Field):
         self.max_items = max_items
 
     def _create_c_validator(self):
-        # For now, create a basic validator - we'll enhance this in the C code
-        return create_string_validator()  # Temporary implementation
+        if not _C_VALIDATION_AVAILABLE:
+            # Fall back to string validator when C module not available
+            return create_string_validator()
+
+        # Get the item validator
+        if hasattr(self.item_field, "get_c_validator"):
+            item_validator = self.item_field.get_c_validator()
+        else:
+            # For primitive types, create a basic validator
+            item_validator = create_string_validator()
+
+        # Create a list validator with the item validator
+        return create_list_validator(
+            item_validator=item_validator,
+            min_items=self.min_items,
+            max_items=self.max_items,
+        )
 
     def validate_python(self, value):
         """Python fallback for list validation"""
@@ -226,6 +250,19 @@ class TypeConverter:
     def convert_type_hint(type_hint, default_value=None, has_default=False):
         """Convert a type hint to a Field object"""
 
+        # Protect against GC issues during type processing
+        gc.disable()
+        try:
+            return TypeConverter._convert_type_hint_unsafe(
+                type_hint, default_value, has_default
+            )
+        finally:
+            gc.enable()
+
+    @staticmethod
+    def _convert_type_hint_unsafe(type_hint, default_value=None, has_default=False):
+        """Convert a type hint to a Field object (internal method without GC protection)"""
+
         # Determine if field is optional based on type annotation only
         # A field is optional if it's explicitly typed as Optional[Type] or Union[Type, None]
         # Having a default value does NOT make a field optional - it just provides a fallback
@@ -240,7 +277,7 @@ class TypeConverter:
             if len(args) == 2 and type(None) in args:
                 # Optional type
                 non_none_type = args[0] if args[1] is type(None) else args[1]
-                field = TypeConverter.convert_type_hint(
+                field = TypeConverter._convert_type_hint_unsafe(
                     non_none_type, default_value, has_default
                 )
                 field.optional = True  # Optional fields are always optional
@@ -263,7 +300,7 @@ class TypeConverter:
         elif origin is list or origin is List:
             args = get_args(type_hint)
             if args:
-                item_field = TypeConverter.convert_type_hint(args[0])
+                item_field = TypeConverter._convert_type_hint_unsafe(args[0])
                 return ListField(
                     item_field, default=default_value, optional=is_optional
                 )
@@ -314,9 +351,16 @@ class BaseModelMeta(type):
     def _process_annotations(cls):
         """Convert type annotations to Field objects if not explicitly defined"""
 
-        # Get type hints for this class
+        # Get type hints for this class with garbage collection protection
         try:
-            type_hints = get_type_hints(cls)
+            import gc
+
+            # Temporarily disable GC during type hint resolution to prevent segfaults
+            gc.disable()
+            try:
+                type_hints = get_type_hints(cls)
+            finally:
+                gc.enable()
         except (NameError, AttributeError):
             type_hints = getattr(cls, "__annotations__", {})
 
@@ -395,8 +439,21 @@ class BaseModel(metaclass=BaseModelMeta):
 
     def __init__(self, **data):
         """Initialize model with data (validates automatically)"""
-        validated_data = self.validate(data)
-        self.__dict__.update(validated_data)
+        # 🛡️ GC PROTECTION: Disable garbage collection during model initialization
+        # This prevents segfaults during intensive batch model creation scenarios
+        import gc
+
+        gc_was_enabled = gc.isenabled()
+        if gc_was_enabled:
+            gc.disable()
+
+        try:
+            validated_data = self.validate(data)
+            self.__dict__.update(validated_data)
+        finally:
+            # 🛡️ GC PROTECTION: Re-enable garbage collection if it was enabled before
+            if gc_was_enabled:
+                gc.enable()
 
     @classmethod
     def validate(cls, data):
@@ -416,6 +473,14 @@ class BaseModel(metaclass=BaseModelMeta):
             # Fallback to Python validation if C compilation failed
             return cls._validate_python(data)
 
+        # 🛡️ GC PROTECTION: Disable garbage collection during C/Python validation boundary
+        # This prevents segfaults during intensive batch validation when GC triggers during fallback
+        import gc
+
+        gc_was_enabled = gc.isenabled()
+        if gc_was_enabled:
+            gc.disable()
+
         try:
             # Preprocess data for C validation (convert types as needed)
             preprocessed_data = cls._preprocess_for_c_validation(data)
@@ -424,6 +489,10 @@ class BaseModel(metaclass=BaseModelMeta):
         except Exception as e:
             # Fall back to Python validation if C validation fails
             return cls._validate_python(data)
+        finally:
+            # 🛡️ GC PROTECTION: Re-enable garbage collection if it was enabled before
+            if gc_was_enabled:
+                gc.enable()
 
     @classmethod
     def _validate_python(cls, data):
@@ -432,33 +501,49 @@ class BaseModel(metaclass=BaseModelMeta):
         if not hasattr(cls, "_fields"):
             return data
 
-        validated = {}
-        errors = []
+        # 🛡️ GC PROTECTION: Disable garbage collection during validation to prevent segfaults
+        # This is critical for batch validation scenarios where GC can trigger during field validation
+        import gc
 
-        for field_name, field in cls._fields.items():
-            if field_name in data:
-                # Call field validation if available
-                try:
-                    if hasattr(field, "validate_python"):
-                        validated[field_name] = field.validate_python(data[field_name])
-                    else:
-                        # For basic types, just copy the value
-                        validated[field_name] = data[field_name]
-                except ValidationError as e:
-                    errors.append(f"{field_name}: {str(e)}")
-            elif field.optional:
-                # Set optional fields to their default value (usually None)
-                validated[field_name] = field.default
-            else:
-                if field.default is not None:
+        gc_was_enabled = gc.isenabled()
+        if gc_was_enabled:
+            gc.disable()
+
+        try:
+            validated = {}
+            errors = []
+
+            for field_name, field in cls._fields.items():
+                if field_name in data:
+                    # Call field validation if available
+                    try:
+                        if hasattr(field, "validate_python"):
+                            validated[field_name] = field.validate_python(
+                                data[field_name]
+                            )
+                        else:
+                            # For basic types, just copy the value
+                            validated[field_name] = data[field_name]
+                    except ValidationError as e:
+                        errors.append(f"{field_name}: {str(e)}")
+                elif field.optional:
+                    # Set optional fields to their default value (usually None)
                     validated[field_name] = field.default
                 else:
-                    errors.append(f"Field '{field_name}' is required")
+                    if field.default is not None:
+                        validated[field_name] = field.default
+                    else:
+                        errors.append(f"Field '{field_name}' is required")
 
-        if errors:
-            raise ValidationError("; ".join(errors))
+            if errors:
+                raise ValidationError("; ".join(errors))
 
-        return validated
+            return validated
+
+        finally:
+            # 🛡️ GC PROTECTION: Re-enable garbage collection if it was enabled before
+            if gc_was_enabled:
+                gc.enable()
 
     @classmethod
     def _preprocess_for_c_validation(cls, data):

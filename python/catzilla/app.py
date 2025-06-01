@@ -135,7 +135,16 @@ class Catzilla:
         self._not_found_handler: Optional[Callable] = None
         self._internal_error_handler: Optional[Callable] = None
 
-        self._setup_signal_handlers()
+        # Only set up signal handlers in the main thread to prevent threading issues
+        try:
+            self._setup_signal_handlers()
+        except ValueError as e:
+            if "signal only works in main thread" in str(e):
+                # This is expected when creating Catzilla instances in worker threads
+                # Signal handling is only needed in the main thread anyway
+                pass
+            else:
+                raise
 
     def _init_memory_revolution(self):
         """Initialize the jemalloc memory revolution with advanced options"""

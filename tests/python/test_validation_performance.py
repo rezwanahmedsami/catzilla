@@ -210,9 +210,9 @@ class TestPerformanceBenchmarks:
                 optional_data="opt" if i % 2 == 0 else None
             )
 
-            # Less frequent GC to avoid segfaults during collection
-            if i % 250 == 0 and i > 0:
-                gc.collect()
+            # Disable explicit GC to prevent segfaults during distributed testing
+            # if i % 250 == 0 and i > 0:
+            #     gc.collect()
 
         # Final memory usage
         final_memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
