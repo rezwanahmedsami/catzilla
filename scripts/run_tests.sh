@@ -47,7 +47,13 @@ print_usage() {
     echo ""
     echo -e "${CYAN}🐳 Docker Cross-Platform Testing:${NC}"
     echo "  --docker [PLATFORM]   Run tests in Docker container"
-    echo "                        PLATFORM: linux, windows, all (default: all)"
+    echo "                        PLATFORM: linux, windows, windows-sim, all (default: all)"
+    echo ""
+    echo -e "${YELLOW}Platform Compatibility:${NC}"
+    echo "  • linux: ✅ Supported on macOS, Linux, Windows"
+    echo "  • windows: ⚠️  Requires Docker Desktop with Windows containers"
+    echo "  • windows-sim: ✅ Windows simulation via Wine (Linux container)"
+    echo "  • Use 'linux' or 'windows-sim' for reliable cross-platform testing"
     echo ""
     echo -e "${CYAN}Docker Examples:${NC}"
     echo "  $0 --docker           # Test on all platforms"
@@ -69,6 +75,20 @@ print_usage() {
     echo "  - Run '--docker all' before pushing to GitHub"
     echo "  - Use Docker for exact CI environment replication"
     echo "  - Docker saves CI costs by testing locally first"
+}
+
+# Function to check Docker platform support
+check_docker_platform_support() {
+    local platform=$1
+
+    # Check Docker daemon OS type
+    local docker_os=$(docker system info --format '{{.OSType}}' 2>/dev/null || echo "unknown")
+
+    if [ "$platform" = "windows" ] && [ "$docker_os" != "windows" ]; then
+        return 1
+    fi
+
+    return 0
 }
 
 # Function to run Docker tests
@@ -94,6 +114,17 @@ run_docker_tests() {
         return 1
     fi
 
+    # Check Docker daemon status
+    if ! docker info &> /dev/null; then
+        echo -e "${RED}❌ Docker daemon is not running${NC}"
+        echo "Please start Docker and try again."
+        return 1
+    fi
+
+    # Get current host OS for better error messages
+    local host_os=$(uname -s)
+    local docker_os=$(docker system info --format '{{.OSType}}' 2>/dev/null || echo "unknown")
+
     case "$platform" in
         "linux")
             echo -e "${GREEN}🐧 Running tests on Linux (Ubuntu 22.04)...${NC}"
@@ -101,10 +132,33 @@ run_docker_tests() {
             docker-compose -f docker/docker-compose.yml run --rm catzilla-linux
             ;;
         "windows")
+            if [ "$docker_os" != "windows" ]; then
+                echo -e "${RED}❌ Windows containers are not supported on this Docker installation${NC}"
+                echo -e "${YELLOW}Current Docker OS: $docker_os${NC}"
+                echo -e "${YELLOW}Host OS: $host_os${NC}"
+                echo ""
+                echo -e "${YELLOW}To test Windows containers, you need:${NC}"
+                if [ "$host_os" = "Darwin" ]; then
+                    echo "  • Docker Desktop for Mac with Windows containers enabled"
+                    echo "  • Or use a Windows machine/VM"
+                elif [ "$host_os" = "Linux" ]; then
+                    echo "  • A Windows machine or Windows VM"
+                    echo "  • Docker Desktop for Windows"
+                fi
+                echo ""
+                echo -e "${GREEN}💡 Alternatives:${NC}"
+                echo "   ./scripts/run_tests.sh --docker linux      # Linux containers"
+                echo "   ./scripts/run_tests.sh --docker windows-sim # Wine simulation"
+                return 1
+            fi
             echo -e "${GREEN}🪟 Running tests on Windows (Server 2022)...${NC}"
-            echo -e "${YELLOW}Note: Windows containers require Docker Desktop with Windows containers enabled${NC}"
             docker-compose -f docker/docker-compose.yml build catzilla-windows
             docker-compose -f docker/docker-compose.yml run --rm catzilla-windows
+            ;;
+        "windows-sim")
+            echo -e "${GREEN}🍷 Running tests on Windows Simulation (Wine)...${NC}"
+            docker-compose -f docker/docker-compose.multiplatform.yml build catzilla-windows-sim
+            docker-compose -f docker/docker-compose.multiplatform.yml run --rm catzilla-windows-sim
             ;;
         "all")
             echo -e "${GREEN}🌍 Running tests on all platforms...${NC}"
@@ -114,14 +168,20 @@ run_docker_tests() {
             docker-compose -f docker/docker-compose.yml run --rm catzilla-linux
 
             echo ""
-            echo -e "${GREEN}🪟 Testing Windows...${NC}"
-            echo -e "${YELLOW}Note: Windows containers require Docker Desktop with Windows containers enabled${NC}"
-            docker-compose -f docker/docker-compose.yml build catzilla-windows
-            docker-compose -f docker/docker-compose.yml run --rm catzilla-windows
+            if [ "$docker_os" = "windows" ]; then
+                echo -e "${GREEN}🪟 Testing Windows...${NC}"
+                docker-compose -f docker/docker-compose.yml build catzilla-windows
+                docker-compose -f docker/docker-compose.yml run --rm catzilla-windows
+            else
+                echo -e "${YELLOW}⚠️  Skipping native Windows tests - using Wine simulation instead${NC}"
+                echo -e "${GREEN}🍷 Testing Windows Simulation...${NC}"
+                docker-compose -f docker/docker-compose.multiplatform.yml build catzilla-windows-sim
+                docker-compose -f docker/docker-compose.multiplatform.yml run --rm catzilla-windows-sim
+            fi
             ;;
         *)
             echo -e "${RED}❌ Unknown platform: $platform${NC}"
-            echo "Supported platforms: linux, windows, all"
+            echo "Supported platforms: linux, windows, windows-sim, all"
             return 1
             ;;
     esac
