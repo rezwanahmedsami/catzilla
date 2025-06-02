@@ -3,9 +3,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <regex.h>
 #include <time.h>
 #include <assert.h>
+
+// Platform-specific regex support
+#ifdef _WIN32
+    #include "windows_compat.h"
+#else
+    #include <regex.h>
+#endif
 
 // Global validation statistics
 static validation_stats_t g_validation_stats = {0};

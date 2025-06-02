@@ -4,8 +4,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <regex.h>
 #include "memory.h"
+
+// Platform-specific regex support
+#ifdef _WIN32
+    #include "windows_compat.h"
+#else
+    #include <regex.h>
+#endif
 
 /**
  * Catzilla Ultra-Fast Validation Engine

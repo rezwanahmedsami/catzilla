@@ -108,6 +108,67 @@
         #define SHUT_RDWR SD_BOTH
     #endif
 
+    // ========================================================================
+    // REGEX COMPATIBILITY FOR WINDOWS
+    // ========================================================================
+
+    // Define regex types and constants for Windows compatibility
+    typedef struct {
+        char* pattern;
+        int flags;
+        int compiled;
+    } regex_t;
+
+    // Regex flags (simplified subset of POSIX flags)
+    #define REG_EXTENDED    1
+    #define REG_ICASE       2
+    #define REG_NOSUB       4
+    #define REG_NEWLINE     8
+
+    // Match result structure (not used in current implementation but for completeness)
+    typedef struct {
+        int rm_so;  // start offset
+        int rm_eo;  // end offset
+    } regmatch_t;
+
+    // Regex function declarations
+    int regcomp(regex_t* preg, const char* pattern, int cflags);
+    int regexec(const regex_t* preg, const char* string, size_t nmatch, regmatch_t pmatch[], int eflags);
+    void regfree(regex_t* preg);
+
+    // Simple pattern matching implementation for Windows
+    // This is a basic implementation - for production use, consider integrating
+    // a more robust regex library like PCRE2 or similar
+    static inline int simple_pattern_match(const char* pattern, const char* text) {
+        // Basic wildcard matching - supports '*' and '?' wildcards
+        // This is a minimal implementation for basic pattern validation
+
+        if (!pattern || !text) return 1; // No match for NULL inputs
+
+        const char* p = pattern;
+        const char* t = text;
+        const char* star = NULL;
+        const char* match = NULL;
+
+        while (*t) {
+            if (*p == '*') {
+                star = p++;
+                match = t;
+            } else if (*p == '?' || *p == *t) {
+                p++;
+                t++;
+            } else if (star) {
+                p = star + 1;
+                t = ++match;
+            } else {
+                return 1; // No match
+            }
+        }
+
+        while (*p == '*') p++;
+        return (*p == 0) ? 0 : 1; // 0 = match, 1 = no match
+    }
+
 #else
     // Unix-like systems
     #ifndef PATH_SEPARATOR
