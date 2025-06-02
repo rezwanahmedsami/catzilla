@@ -5,6 +5,15 @@
 #include <assert.h>
 #include <time.h>
 
+// Cross-platform atomic operations
+#ifdef _WIN32
+    #include <windows.h>
+    #define ATOMIC_ADD(ptr, value) InterlockedExchangeAdd((LONG volatile*)(ptr), (LONG)(value))
+#else
+    // GCC/Clang atomic builtins
+    #define ATOMIC_ADD(ptr, value) __sync_fetch_and_add((ptr), (value))
+#endif
+
 #ifdef CATZILLA_USE_JEMALLOC
 #include <jemalloc/jemalloc.h>
 
@@ -51,7 +60,7 @@ void* catzilla_malloc(size_t size) {
     // Use jemalloc's mallocx with a specific arena to avoid interfering with Python's allocator
     void* ptr = JEMALLOC_MALLOCX(size, MALLOCX_ARENA(g_memory_stats.cache_arena));
     if (ptr && g_profiling_enabled) {
-        __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
+        ATOMIC_ADD(&g_memory_stats.allocation_count, 1);
     }
     return ptr;
 }
@@ -61,7 +70,7 @@ void* catzilla_calloc(size_t count, size_t size) {
     size_t total_size = count * size;
     void* ptr = JEMALLOC_MALLOCX(total_size, MALLOCX_ARENA(g_memory_stats.cache_arena) | MALLOCX_ZERO);
     if (ptr && g_profiling_enabled) {
-        __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
+        ATOMIC_ADD(&g_memory_stats.allocation_count, 1);
     }
     return ptr;
 }
@@ -69,7 +78,7 @@ void* catzilla_calloc(size_t count, size_t size) {
 void* catzilla_realloc(void* ptr, size_t size) {
     void* new_ptr = JEMALLOC_REALLOC(ptr, size);
     if (new_ptr && !ptr && g_profiling_enabled) {
-        __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
+        ATOMIC_ADD(&g_memory_stats.allocation_count, 1);
     }
     return new_ptr;
 }
@@ -78,7 +87,7 @@ void catzilla_free(void* ptr) {
     if (ptr) {
         JEMALLOC_FREE(ptr);
         if (g_profiling_enabled) {
-            __sync_fetch_and_add(&g_memory_stats.deallocation_count, 1);
+            ATOMIC_ADD(&g_memory_stats.deallocation_count, 1);
         }
     }
 }
@@ -86,8 +95,8 @@ void catzilla_free(void* ptr) {
 void* catzilla_request_alloc(size_t size) {
     void* ptr = JEMALLOC_MALLOCX(size, MALLOCX_ARENA(g_memory_stats.request_arena));
     if (ptr && g_profiling_enabled) {
-        __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
-        __sync_fetch_and_add(&g_memory_stats.request_arena_usage, size);
+        ATOMIC_ADD(&g_memory_stats.allocation_count, 1);
+        ATOMIC_ADD(&g_memory_stats.request_arena_usage, size);
     }
     return ptr;
 }
@@ -95,8 +104,8 @@ void* catzilla_request_alloc(size_t size) {
 void* catzilla_response_alloc(size_t size) {
     void* ptr = JEMALLOC_MALLOCX(size, MALLOCX_ARENA(g_memory_stats.response_arena));
     if (ptr && g_profiling_enabled) {
-        __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
-        __sync_fetch_and_add(&g_memory_stats.response_arena_usage, size);
+        ATOMIC_ADD(&g_memory_stats.allocation_count, 1);
+        ATOMIC_ADD(&g_memory_stats.response_arena_usage, size);
     }
     return ptr;
 }
@@ -104,8 +113,8 @@ void* catzilla_response_alloc(size_t size) {
 void* catzilla_cache_alloc(size_t size) {
     void* ptr = JEMALLOC_MALLOCX(size, MALLOCX_ARENA(g_memory_stats.cache_arena));
     if (ptr && g_profiling_enabled) {
-        __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
-        __sync_fetch_and_add(&g_memory_stats.cache_arena_usage, size);
+        ATOMIC_ADD(&g_memory_stats.allocation_count, 1);
+        ATOMIC_ADD(&g_memory_stats.cache_arena_usage, size);
     }
     return ptr;
 }
@@ -113,8 +122,8 @@ void* catzilla_cache_alloc(size_t size) {
 void* catzilla_static_alloc(size_t size) {
     void* ptr = JEMALLOC_MALLOCX(size, MALLOCX_ARENA(g_memory_stats.static_arena));
     if (ptr && g_profiling_enabled) {
-        __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
-        __sync_fetch_and_add(&g_memory_stats.static_arena_usage, size);
+        ATOMIC_ADD(&g_memory_stats.allocation_count, 1);
+        ATOMIC_ADD(&g_memory_stats.static_arena_usage, size);
     }
     return ptr;
 }
@@ -122,8 +131,8 @@ void* catzilla_static_alloc(size_t size) {
 void* catzilla_task_alloc(size_t size) {
     void* ptr = JEMALLOC_MALLOCX(size, MALLOCX_ARENA(g_memory_stats.task_arena));
     if (ptr && g_profiling_enabled) {
-        __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
-        __sync_fetch_and_add(&g_memory_stats.task_arena_usage, size);
+        ATOMIC_ADD(&g_memory_stats.allocation_count, 1);
+        ATOMIC_ADD(&g_memory_stats.task_arena_usage, size);
     }
     return ptr;
 }
@@ -132,7 +141,7 @@ void catzilla_request_free(void* ptr) {
     if (ptr) {
         JEMALLOC_DALLOCX(ptr, MALLOCX_ARENA(g_memory_stats.request_arena));
         if (g_profiling_enabled) {
-            __sync_fetch_and_add(&g_memory_stats.deallocation_count, 1);
+            ATOMIC_ADD(&g_memory_stats.deallocation_count, 1);
         }
     }
 }
@@ -141,7 +150,7 @@ void catzilla_response_free(void* ptr) {
     if (ptr) {
         JEMALLOC_DALLOCX(ptr, MALLOCX_ARENA(g_memory_stats.response_arena));
         if (g_profiling_enabled) {
-            __sync_fetch_and_add(&g_memory_stats.deallocation_count, 1);
+            ATOMIC_ADD(&g_memory_stats.deallocation_count, 1);
         }
     }
 }
@@ -150,7 +159,7 @@ void catzilla_cache_free(void* ptr) {
     if (ptr) {
         JEMALLOC_DALLOCX(ptr, MALLOCX_ARENA(g_memory_stats.cache_arena));
         if (g_profiling_enabled) {
-            __sync_fetch_and_add(&g_memory_stats.deallocation_count, 1);
+            ATOMIC_ADD(&g_memory_stats.deallocation_count, 1);
         }
     }
 }
@@ -159,7 +168,7 @@ void catzilla_static_free(void* ptr) {
     if (ptr) {
         JEMALLOC_DALLOCX(ptr, MALLOCX_ARENA(g_memory_stats.static_arena));
         if (g_profiling_enabled) {
-            __sync_fetch_and_add(&g_memory_stats.deallocation_count, 1);
+            ATOMIC_ADD(&g_memory_stats.deallocation_count, 1);
         }
     }
 }
@@ -168,7 +177,7 @@ void catzilla_task_free(void* ptr) {
     if (ptr) {
         JEMALLOC_DALLOCX(ptr, MALLOCX_ARENA(g_memory_stats.task_arena));
         if (g_profiling_enabled) {
-            __sync_fetch_and_add(&g_memory_stats.deallocation_count, 1);
+            ATOMIC_ADD(&g_memory_stats.deallocation_count, 1);
         }
     }
 }
@@ -177,8 +186,8 @@ void catzilla_task_free(void* ptr) {
 void* catzilla_request_realloc(void* ptr, size_t size) {
     void* new_ptr = JEMALLOC_RALLOCX(ptr, size, MALLOCX_ARENA(g_memory_stats.request_arena));
     if (new_ptr && g_profiling_enabled) {
-        __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
-        __sync_fetch_and_add(&g_memory_stats.request_arena_usage, size);
+        ATOMIC_ADD(&g_memory_stats.allocation_count, 1);
+        ATOMIC_ADD(&g_memory_stats.request_arena_usage, size);
     }
     return new_ptr;
 }
@@ -186,8 +195,8 @@ void* catzilla_request_realloc(void* ptr, size_t size) {
 void* catzilla_response_realloc(void* ptr, size_t size) {
     void* new_ptr = JEMALLOC_RALLOCX(ptr, size, MALLOCX_ARENA(g_memory_stats.response_arena));
     if (new_ptr && g_profiling_enabled) {
-        __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
-        __sync_fetch_and_add(&g_memory_stats.response_arena_usage, size);
+        ATOMIC_ADD(&g_memory_stats.allocation_count, 1);
+        ATOMIC_ADD(&g_memory_stats.response_arena_usage, size);
     }
     return new_ptr;
 }
@@ -195,8 +204,8 @@ void* catzilla_response_realloc(void* ptr, size_t size) {
 void* catzilla_cache_realloc(void* ptr, size_t size) {
     void* new_ptr = JEMALLOC_RALLOCX(ptr, size, MALLOCX_ARENA(g_memory_stats.cache_arena));
     if (new_ptr && g_profiling_enabled) {
-        __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
-        __sync_fetch_and_add(&g_memory_stats.cache_arena_usage, size);
+        ATOMIC_ADD(&g_memory_stats.allocation_count, 1);
+        ATOMIC_ADD(&g_memory_stats.cache_arena_usage, size);
     }
     return new_ptr;
 }
@@ -204,8 +213,8 @@ void* catzilla_cache_realloc(void* ptr, size_t size) {
 void* catzilla_static_realloc(void* ptr, size_t size) {
     void* new_ptr = JEMALLOC_RALLOCX(ptr, size, MALLOCX_ARENA(g_memory_stats.static_arena));
     if (new_ptr && g_profiling_enabled) {
-        __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
-        __sync_fetch_and_add(&g_memory_stats.static_arena_usage, size);
+        ATOMIC_ADD(&g_memory_stats.allocation_count, 1);
+        ATOMIC_ADD(&g_memory_stats.static_arena_usage, size);
     }
     return new_ptr;
 }
@@ -213,8 +222,8 @@ void* catzilla_static_realloc(void* ptr, size_t size) {
 void* catzilla_task_realloc(void* ptr, size_t size) {
     void* new_ptr = JEMALLOC_RALLOCX(ptr, size, MALLOCX_ARENA(g_memory_stats.task_arena));
     if (new_ptr && g_profiling_enabled) {
-        __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
-        __sync_fetch_and_add(&g_memory_stats.task_arena_usage, size);
+        ATOMIC_ADD(&g_memory_stats.allocation_count, 1);
+        ATOMIC_ADD(&g_memory_stats.task_arena_usage, size);
     }
     return new_ptr;
 }
@@ -407,7 +416,7 @@ void catzilla_python_safe_free(void* ptr) {
 void* catzilla_malloc(size_t size) {
     void* ptr = malloc(size);
     if (ptr && g_profiling_enabled) {
-        __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
+        ATOMIC_ADD(&g_memory_stats.allocation_count, 1);
     }
     return ptr;
 }
@@ -415,7 +424,7 @@ void* catzilla_malloc(size_t size) {
 void* catzilla_calloc(size_t count, size_t size) {
     void* ptr = calloc(count, size);
     if (ptr && g_profiling_enabled) {
-        __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
+        ATOMIC_ADD(&g_memory_stats.allocation_count, 1);
     }
     return ptr;
 }
@@ -423,7 +432,7 @@ void* catzilla_calloc(size_t count, size_t size) {
 void* catzilla_realloc(void* ptr, size_t size) {
     void* new_ptr = realloc(ptr, size);
     if (new_ptr && !ptr && g_profiling_enabled) {
-        __sync_fetch_and_add(&g_memory_stats.allocation_count, 1);
+        ATOMIC_ADD(&g_memory_stats.allocation_count, 1);
     }
     return new_ptr;
 }
@@ -432,7 +441,7 @@ void catzilla_free(void* ptr) {
     if (ptr) {
         free(ptr);
         if (g_profiling_enabled) {
-            __sync_fetch_and_add(&g_memory_stats.deallocation_count, 1);
+            ATOMIC_ADD(&g_memory_stats.deallocation_count, 1);
         }
     }
 }

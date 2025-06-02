@@ -1,7 +1,13 @@
 #include "unity.h"
 #include "memory.h"
 #include <stdlib.h>
-#include <unistd.h>
+#ifdef _WIN32
+    #include <process.h>
+    #include <windows.h>
+    #define sleep(x) Sleep((x) * 1000)
+#else
+    #include <unistd.h>
+#endif
 
 void setUp(void) {
     // Clean up any existing state

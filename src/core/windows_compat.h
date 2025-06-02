@@ -2,7 +2,9 @@
 #define CATZILLA_WINDOWS_COMPAT_H
 
 #ifdef _WIN32
-    #define WIN32_LEAN_AND_MEAN
+    #ifndef WIN32_LEAN_AND_MEAN
+        #define WIN32_LEAN_AND_MEAN
+    #endif
     #include <windows.h>
     #include <winsock2.h>
     #include <ws2tcpip.h>
