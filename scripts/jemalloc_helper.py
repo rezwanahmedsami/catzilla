@@ -24,6 +24,31 @@ import sys
 from pathlib import Path
 from typing import Optional, List, Tuple
 
+# Import platform compatibility utilities
+try:
+    from platform_compat import safe_print, is_windows
+except ImportError:
+    # Define a simple fallback if module isn't available
+    def is_windows():
+        return platform.system() == "Windows"
+
+    def safe_print(text):
+        """Print text safely on any platform."""
+        if is_windows():
+            # Remove or replace emoji in Windows
+            emoji_map = {
+                "🚀": ">>", "⚠️": "!!", "✅": "OK", "❌": "XX",
+                "🔍": ">>", "🧪": "[]", "🐛": "##"
+            }
+            for emoji, alt in emoji_map.items():
+                text = text.replace(emoji, alt)
+
+        try:
+            print(text)
+        except UnicodeEncodeError:
+            # Fallback for severe encoding issues
+            print(text.encode('ascii', 'replace').decode())
+
 
 def find_jemalloc_library() -> Optional[str]:
     """Find jemalloc library path for the current platform."""
@@ -56,48 +81,53 @@ def find_jemalloc_library() -> Optional[str]:
     return None
 
 
+def platform_emoji(emoji, alt_text):
+    """Return emoji character or text alternative based on platform support."""
+    return alt_text if is_windows() else emoji
+
+
 def setup_environment(jemalloc_path: str) -> None:
     """Set up the environment variables for jemalloc preloading."""
     system = platform.system()
 
     if system == "Linux":
         os.environ["LD_PRELOAD"] = f"{jemalloc_path}:{os.environ.get('LD_PRELOAD', '')}"
-        print(f"✅ Configured LD_PRELOAD={jemalloc_path}")
+        safe_print(f"{platform_emoji('✅', '+')} Configured LD_PRELOAD={jemalloc_path}")
 
     elif system == "Darwin":  # macOS
         os.environ["DYLD_INSERT_LIBRARIES"] = f"{jemalloc_path}:{os.environ.get('DYLD_INSERT_LIBRARIES', '')}"
-        print(f"✅ Configured DYLD_INSERT_LIBRARIES={jemalloc_path}")
+        safe_print(f"{platform_emoji('✅', '+')} Configured DYLD_INSERT_LIBRARIES={jemalloc_path}")
 
 
 def detect_jemalloc() -> bool:
     """Detect jemalloc and print configuration information."""
-    print("🔍 Detecting jemalloc...")
+    safe_print(f"{platform_emoji('🔍', '*')} Detecting jemalloc...")
     jemalloc_path = find_jemalloc_library()
 
     if jemalloc_path:
-        print(f"✅ Found jemalloc at: {jemalloc_path}")
+        safe_print(f"{platform_emoji('✅', '+')} Found jemalloc at: {jemalloc_path}")
         system = platform.system()
 
-        print("\n📋 Configuration Instructions:")
+        safe_print(f"\n{platform_emoji('📋', '#')} Configuration Instructions:")
         if system == "Linux":
-            print(f"  export LD_PRELOAD={jemalloc_path}:$LD_PRELOAD")
+            safe_print(f"  export LD_PRELOAD={jemalloc_path}:$LD_PRELOAD")
         elif system == "Darwin":  # macOS
-            print(f"  export DYLD_INSERT_LIBRARIES={jemalloc_path}:$DYLD_INSERT_LIBRARIES")
+            safe_print(f"  export DYLD_INSERT_LIBRARIES={jemalloc_path}:$DYLD_INSERT_LIBRARIES")
 
         return True
     else:
-        print("❌ Jemalloc not found on this system")
-        print("\n📋 Installation Instructions:")
+        safe_print(f"{platform_emoji('❌', 'x')} Jemalloc not found on this system")
+        safe_print(f"\n{platform_emoji('📋', '#')} Installation Instructions:")
 
         system = platform.system()
         if system == "Linux":
-            print("  # Ubuntu/Debian:")
-            print("  sudo apt-get update && sudo apt-get install -y libjemalloc-dev libjemalloc2")
-            print("\n  # RHEL/CentOS/Fedora:")
-            print("  sudo yum install -y jemalloc-devel")
+            safe_print("  # Ubuntu/Debian:")
+            safe_print("  sudo apt-get update && sudo apt-get install -y libjemalloc-dev libjemalloc2")
+            safe_print("\n  # RHEL/CentOS/Fedora:")
+            safe_print("  sudo yum install -y jemalloc-devel")
         elif system == "Darwin":  # macOS
-            print("  # Using Homebrew:")
-            print("  brew install jemalloc")
+            safe_print("  # Using Homebrew:")
+            safe_print("  brew install jemalloc")
 
         return False
 
@@ -107,12 +137,12 @@ def launch_script(script_path: str, script_args: List[str]) -> int:
     jemalloc_path = find_jemalloc_library()
 
     if not jemalloc_path:
-        print("❌ Jemalloc library not found. Cannot preload.")
+        safe_print(f"{platform_emoji('❌', 'x')} Jemalloc library not found. Cannot preload.")
         return 1
 
     setup_environment(jemalloc_path)
 
-    print(f"🚀 Launching: {script_path} with jemalloc preloaded")
+    safe_print(f"{platform_emoji('🚀', '>>')} Launching: {script_path} with jemalloc preloaded")
 
     # Execute the script as a Python module
     cmd = [sys.executable, script_path] + script_args

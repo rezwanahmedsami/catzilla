@@ -29,6 +29,13 @@
 - Provides clear instructions for vcpkg installation and configuration
 - Points users to helper script and documentation
 
+### 6. **Fixed Unicode/Emoji Encoding Issues**
+- Added `scripts/platform_compat.py` with Windows-compatible output functions
+- Implemented `safe_print()` function to replace emoji with text alternatives on Windows
+- Created `test_windows_emoji.py` and `test_windows_emoji.bat` to verify compatibility
+- Updated all build scripts and helpers to use platform-safe output
+- Fixed UnicodeEncodeError in Windows CI due to emoji that can't display in CP1252 encoding
+
 ## 🎯 Key Windows Features
 
 ### Automated jemalloc Configuration

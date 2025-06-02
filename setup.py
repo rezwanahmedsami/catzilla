@@ -2,8 +2,16 @@
 import os
 import sys
 import subprocess
+import platform
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
+
+# Helper for platform-specific output
+def is_windows():
+    return platform.system() == "Windows"
+
+def platform_emoji(emoji, alt_text):
+    return alt_text if is_windows() else emoji
 
 class CMakeBuild(build_ext):
     def run(self):
@@ -26,9 +34,9 @@ class CMakeBuild(build_ext):
         ]
 
         if use_jemalloc:
-            print("🚀 Building Catzilla with jemalloc support...")
+            print(f"{platform_emoji('🚀', '>>')} Building Catzilla with jemalloc support...")
         else:
-            print("⚠️  Building Catzilla without jemalloc (fallback to standard malloc)")
+            print(f"{platform_emoji('⚠️', '!!')} Building Catzilla without jemalloc (fallback to standard malloc)")
 
         subprocess.check_call(configure_cmd)
 

@@ -13,14 +13,32 @@ Run this script to verify:
 - Memory Revolution features are operational
 """
 
+import os
 import sys
 import time
 import traceback
 from typing import Optional, List
 
+# Import platform compatibility utilities
+try:
+    from scripts.platform_compat import safe_print
+except ImportError:
+    # Try to add scripts to the path
+    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+    try:
+        from scripts.platform_compat import safe_print
+    except ImportError:
+        # Fallback if we can't import
+        def safe_print(text):
+            try:
+                print(text)
+            except UnicodeEncodeError:
+                # Remove emojis for Windows
+                print(text.encode('ascii', 'replace').decode())
+
 def test_basic_catzilla_functionality():
     """Test basic Catzilla functionality that was causing segfaults"""
-    print("🧪 Testing basic Catzilla functionality...")
+    safe_print("🧪 Testing basic Catzilla functionality...")
 
     try:
         from catzilla import Catzilla, BaseModel, JSONResponse
@@ -28,8 +46,8 @@ def test_basic_catzilla_functionality():
         # This was the core issue - using App() instead of Catzilla()
         app = Catzilla(auto_validation=True, memory_profiling=False)
 
-        print("✅ Catzilla class instantiated successfully")
-        print(f"✅ jemalloc enabled: {getattr(app, 'has_jemalloc', 'Unknown')}")
+        safe_print("✅ Catzilla class instantiated successfully")
+        safe_print(f"✅ jemalloc enabled: {getattr(app, 'has_jemalloc', 'Unknown')}")
 
         # Test route registration
         @app.get("/test")
@@ -38,12 +56,12 @@ def test_basic_catzilla_functionality():
 
         routes = app.router.routes()
         assert len(routes) == 1
-        print("✅ Route registration working")
+        safe_print("✅ Route registration working")
 
         return True
 
     except Exception as e:
-        print(f"❌ Basic functionality test failed: {e}")
+        safe_print(f"❌ Basic functionality test failed: {e}")
         traceback.print_exc()
         return False
 

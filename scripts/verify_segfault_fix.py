@@ -11,11 +11,19 @@ import subprocess
 import sys
 import platform
 
+# Import platform compatibility utilities
+try:
+    from scripts.platform_compat import safe_print
+except ImportError:
+    # For direct script execution
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from scripts.platform_compat import safe_print
+
 def print_header(text):
     """Print a section header."""
-    print("\n" + "=" * 60)
-    print(text)
-    print("=" * 60)
+    safe_print("\n" + "=" * 60)
+    safe_print(text)
+    safe_print("=" * 60)
 
 def detect_jemalloc_preloading():
     """Detect if jemalloc is properly preloaded."""
@@ -39,9 +47,9 @@ def main():
 
     # Check for proper jemalloc preloading
     if not detect_jemalloc_preloading():
-        print("⚠️  WARNING: Jemalloc is not properly preloaded!")
-        print("The tests may still fail with segmentation faults.")
-        print("See docs/jemalloc_troubleshooting.md for proper configuration.")
+        safe_print("⚠️  WARNING: Jemalloc is not properly preloaded!")
+        safe_print("The tests may still fail with segmentation faults.")
+        safe_print("See docs/jemalloc_troubleshooting.md for proper configuration.")
 
         # Try to find and use the helper script
         helper_script = os.path.join(

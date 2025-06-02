@@ -203,6 +203,10 @@ jobs:
       if: runner.os == 'Windows'
       run: scripts\verify_segfault_fix_windows.bat
 
+    - name: Test Windows emoji compatibility
+      if: runner.os == 'Windows'
+      run: scripts\test_windows_emoji.bat
+
     - name: Run Python tests
       if: runner.os != 'Windows'
       run: |
@@ -228,6 +232,10 @@ jobs:
     - name: Run C tests (Windows)
       if: runner.os == 'Windows'
       run: scripts\run_tests.bat --c
+
+    - name: Test Windows emoji compatibility
+      if: runner.os == 'Windows'
+      run: scripts\test_windows_emoji.bat
 
     - name: Upload test results
       uses: actions/upload-artifact@v4
