@@ -86,7 +86,7 @@ echo Tests failed: %RED%%tests_failed%/%total_tests%%RESET%
 echo.
 
 if %tests_failed% == 0 (
-    echo %GREEN%🎉 SUCCESS: All segfault-prone tests are now working correctly!%RESET%
+    echo %GREEN%SUCCESS: All segfault-prone tests are now working correctly!%RESET%
     echo %GREEN%The fixes have successfully resolved the CI/CD segmentation fault issues.%RESET%
     echo.
     echo %BLUE%Improvements made:%RESET%
@@ -110,3 +110,6 @@ if %tests_failed% == 0 (
     echo.
     exit /b 1
 )
+
+REM Ensure we have a clean exit
+exit /b %ERRORLEVEL%
