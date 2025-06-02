@@ -43,7 +43,7 @@ echo.
 REM Test 1: Memory usage validation test
 echo %CYAN%Test 1: Memory Usage Validation Test%RESET%
 echo %YELLOW%  Running test_memory_usage_during_validation...%RESET%
-python -m pytest "%PROJECT_ROOT%\tests\python\test_validation_performance.py::TestValidationPerformance::test_memory_usage_during_validation" -v --tb=short
+python -m pytest "%PROJECT_ROOT%\tests\python\test_validation_performance.py::TestPerformanceBenchmarks::test_memory_usage_during_validation" -v --tb=short
 if %errorlevel% == 0 (
     echo %GREEN%  ✓ PASSED - Memory usage test completed without segfault%RESET%
     set /a tests_passed+=1

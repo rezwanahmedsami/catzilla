@@ -42,7 +42,7 @@ Updated verify_segfault_fix_windows.bat to use correct test paths:
 
 ```batch
 REM Test 1: Memory usage validation test
-python -m pytest "%PROJECT_ROOT%\tests\python\test_validation_performance.py::TestValidationPerformance::test_memory_usage_during_validation"
+python -m pytest "%PROJECT_ROOT%\tests\python\test_validation_performance.py::TestPerformanceBenchmarks::test_memory_usage_during_validation"
 
 REM Test 2: Special characters in parameters test
 python -m pytest "%PROJECT_ROOT%\tests\python\test_http_responses.py::TestComplexRoutingScenarios::test_special_characters_in_params"
