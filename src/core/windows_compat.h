@@ -10,9 +10,62 @@
     #include <malloc.h>
     #include <io.h>
     #include <direct.h>
+    #include <time.h>
 
     // Ensure Windows socket initialization
     #pragma comment(lib, "ws2_32.lib")
+
+    // ========================================================================
+    // TIME COMPATIBILITY FOR WINDOWS
+    // ========================================================================
+
+    // Define clock types for Windows compatibility
+    #ifndef CLOCK_MONOTONIC
+        #define CLOCK_MONOTONIC 1
+    #endif
+
+    // Define timespec structure if not available
+    #ifndef _TIMESPEC_DEFINED
+        #define _TIMESPEC_DEFINED
+        struct timespec {
+            time_t tv_sec;   // seconds
+            long tv_nsec;    // nanoseconds
+        };
+    #endif
+
+    // Windows implementation of clock_gettime
+    static inline int clock_gettime(int clk_id, struct timespec *tp) {
+        if (!tp) return -1;
+
+        if (clk_id == CLOCK_MONOTONIC) {
+            static LARGE_INTEGER frequency = {0};
+            LARGE_INTEGER counter;
+
+            // Initialize frequency once
+            if (frequency.QuadPart == 0) {
+                if (!QueryPerformanceFrequency(&frequency)) {
+                    return -1;
+                }
+            }
+
+            // Get the current counter value
+            if (!QueryPerformanceCounter(&counter)) {
+                return -1;
+            }
+
+            // Convert to seconds and nanoseconds
+            tp->tv_sec = (time_t)(counter.QuadPart / frequency.QuadPart);
+            tp->tv_nsec = (long)(((counter.QuadPart % frequency.QuadPart) * 1000000000LL) / frequency.QuadPart);
+
+            return 0;
+        }
+
+        // For other clock types, fall back to regular time
+        time_t t = time(NULL);
+        tp->tv_sec = t;
+        tp->tv_nsec = 0;
+        return 0;
+    }
 
     // Function to initialize Windows networking (call once at startup)
     static inline int catzilla_init_windows_networking(void) {

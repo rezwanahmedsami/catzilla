@@ -46,9 +46,9 @@ if(USE_JEMALLOC)
             message(STATUS "🔧 Using direct jemalloc function names")
         endif()
 
-        # Set include directories and libraries for linking
+        # Set include directories for global use
         include_directories(${JEMALLOC_INCLUDE_DIRS})
-        link_libraries(${JEMALLOC_LIBRARIES})
+        # Note: jemalloc libraries are linked per-target to avoid conflicts
 
     else()
         message(WARNING "⚠️  jemalloc not found, falling back to standard malloc")
