@@ -25,7 +25,10 @@
     #endif
 
     // Define timespec structure if not available
-    #ifndef _TIMESPEC_DEFINED
+    // Modern Windows SDK (Visual Studio 2015+ / Windows 10 SDK) includes timespec in time.h
+    // We rely on the SDK to provide this structure
+    #if !defined(_TIMESPEC_DEFINED) && !defined(__timespec_defined) && defined(_MSC_VER) && _MSC_VER < 1900
+        // Only for very old Visual Studio versions (pre-2015)
         #define _TIMESPEC_DEFINED
         struct timespec {
             time_t tv_sec;   // seconds
