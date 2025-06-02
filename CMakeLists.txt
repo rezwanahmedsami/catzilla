@@ -13,12 +13,35 @@ if(USE_JEMALLOC)
     # Platform-specific detection first
     detect_platform_specific_jemalloc_config()
 
-    find_package(PkgConfig QUIET)
-    if(PkgConfig_FOUND)
-        pkg_check_modules(JEMALLOC jemalloc)
-        if(JEMALLOC_FOUND)
-            # pkg-config sets JEMALLOC_LDFLAGS which includes both -L and -l flags
-            message(STATUS "pkg-config jemalloc LDFLAGS: ${JEMALLOC_LDFLAGS}")
+    # Special handling for Windows with vcpkg
+    if(WIN32 AND DEFINED ENV{CMAKE_TOOLCHAIN_FILE})
+        # Use vcpkg's toolchain file
+        message(STATUS "Using vcpkg toolchain file: $ENV{CMAKE_TOOLCHAIN_FILE}")
+        set(CMAKE_TOOLCHAIN_FILE "$ENV{CMAKE_TOOLCHAIN_FILE}")
+
+        # Check for explicit jemalloc path in environment
+        if(DEFINED ENV{CATZILLA_JEMALLOC_PATH})
+            message(STATUS "Using jemalloc from: $ENV{CATZILLA_JEMALLOC_PATH}")
+            get_filename_component(JEMALLOC_DIR "$ENV{CATZILLA_JEMALLOC_PATH}" DIRECTORY)
+            get_filename_component(VCPKG_INSTALLED_DIR "${JEMALLOC_DIR}" DIRECTORY)
+
+            # Set include and lib dirs
+            set(JEMALLOC_INCLUDE_DIRS "${VCPKG_INSTALLED_DIR}/include")
+            set(JEMALLOC_LIBRARY "$ENV{CATZILLA_JEMALLOC_PATH}")
+            set(JEMALLOC_LIBRARIES "${JEMALLOC_LIBRARY}")
+            set(JEMALLOC_FOUND TRUE)
+        endif()
+    endif()
+
+    # If not found via vcpkg, try standard methods
+    if(NOT JEMALLOC_FOUND)
+        find_package(PkgConfig QUIET)
+        if(PkgConfig_FOUND)
+            pkg_check_modules(JEMALLOC jemalloc)
+            if(JEMALLOC_FOUND)
+                # pkg-config sets JEMALLOC_LDFLAGS which includes both -L and -l flags
+                message(STATUS "pkg-config jemalloc LDFLAGS: ${JEMALLOC_LDFLAGS}")
+            endif()
         endif()
     endif()
 

@@ -42,8 +42,8 @@ echo.
 
 REM Test 1: Memory usage validation test
 echo %CYAN%Test 1: Memory Usage Validation Test%RESET%
-echo %YELLOW%  Running test_memory_usage_validation...%RESET%
-python -m pytest "%PROJECT_ROOT%\tests\python\test_validation_performance.py::test_memory_usage_validation" -v --tb=short
+echo %YELLOW%  Running test_memory_usage_during_validation...%RESET%
+python -m pytest "%PROJECT_ROOT%\tests\python\test_validation_performance.py::TestValidationPerformance::test_memory_usage_during_validation" -v --tb=short
 if %errorlevel% == 0 (
     echo %GREEN%  ✓ PASSED - Memory usage test completed without segfault%RESET%
     set /a tests_passed+=1
@@ -53,10 +53,10 @@ if %errorlevel% == 0 (
 )
 echo.
 
-REM Test 2: Special characters in static files test
-echo %CYAN%Test 2: Special Characters in Static Files Test%RESET%
-echo %YELLOW%  Running test_special_characters_in_static_files...%RESET%
-python -m pytest "%PROJECT_ROOT%\tests\python\test_http_responses.py::test_special_characters_in_static_files" -v --tb=short
+REM Test 2: Special characters in parameters test
+echo %CYAN%Test 2: Special Characters in Parameters Test%RESET%
+echo %YELLOW%  Running test_special_characters_in_params...%RESET%
+python -m pytest "%PROJECT_ROOT%\tests\python\test_http_responses.py::TestComplexRoutingScenarios::test_special_characters_in_params" -v --tb=short
 if %errorlevel% == 0 (
     echo %GREEN%  ✓ PASSED - Special characters test completed without segfault%RESET%
     set /a tests_passed+=1
@@ -69,7 +69,7 @@ echo.
 REM Test 3: Nested resource routing test
 echo %CYAN%Test 3: Nested Resource Routing Test%RESET%
 echo %YELLOW%  Running test_nested_resource_routing...%RESET%
-python -m pytest "%PROJECT_ROOT%\tests\python\test_http_responses.py::test_nested_resource_routing" -v --tb=short
+python -m pytest "%PROJECT_ROOT%\tests\python\test_http_responses.py::TestComplexRoutingScenarios::test_nested_resource_routing" -v --tb=short
 if %errorlevel% == 0 (
     echo %GREEN%  ✓ PASSED - Nested routing test completed without segfault%RESET%
     set /a tests_passed+=1

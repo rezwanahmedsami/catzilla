@@ -18,7 +18,20 @@ import sys
 import os
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from typing import Optional, List, Dict
-import resource
+
+# resource module for memory monitoring (not available on Windows)
+if sys.platform != "win32":
+    import resource
+else:
+    # Dummy implementation for Windows
+    class DummyResource:
+        def getrusage(self, who):
+            return type('obj', (object,), {'ru_maxrss': 0})
+
+        def RUSAGE_SELF(self):
+            return 0
+
+    resource = DummyResource()
 
 # Import Catzilla validation components
 try:
@@ -199,6 +212,7 @@ class TestPerformanceBenchmarks:
             optional_data: Optional[str] = None
 
         # Get initial memory usage
+        # On Windows, this will always be 0 due to our dummy implementation
         initial_memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
         # Reduced iterations and simplified model to avoid segfaults in CI
@@ -219,6 +233,11 @@ class TestPerformanceBenchmarks:
         memory_increase = final_memory - initial_memory
 
         print(f"Memory usage increase: {memory_increase} KB")
+
+        # Skip actual memory validation on Windows
+        if sys.platform == "win32":
+            print("Memory tracking not supported on Windows - skipping validation")
+            return
 
         # Use a more relaxed threshold since we're focusing on stability not performance
         max_acceptable_increase = 200 * 1024  # 200MB in KB, increased from 100MB
