@@ -153,6 +153,15 @@ jobs:
       if: runner.os == 'macOS'
       run: brew install cmake jemalloc
 
+    - name: Verify jemalloc installation (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        echo "🔍 Verifying jemalloc installation on macOS..."
+        brew list jemalloc || echo "jemalloc not found via brew list"
+        find /opt/homebrew /usr/local -name "*jemalloc*" 2>/dev/null | head -10 || echo "No jemalloc files found"
+        pkg-config --exists jemalloc && echo "✅ jemalloc found via pkg-config" || echo "❌ jemalloc not found via pkg-config"
+        pkg-config --cflags --libs jemalloc || echo "Failed to get jemalloc flags"
+
     - name: Setup system dependencies (Windows)
       if: runner.os == 'Windows'
       run: |

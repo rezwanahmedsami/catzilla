@@ -18,14 +18,55 @@ if(USE_JEMALLOC)
         pkg_check_modules(JEMALLOC jemalloc)
     endif()
 
-    if(NOT JEMALLOC_FOUND)
-        find_path(JEMALLOC_INCLUDE_DIR jemalloc/jemalloc.h)
-        find_library(JEMALLOC_LIBRARY NAMES jemalloc)
+    # Enhanced jemalloc detection for macOS Homebrew and other platforms
+    if(NOT JEMALLOC_FOUND OR NOT JEMALLOC_LIBRARIES)
+        # First try to find the header
+        find_path(JEMALLOC_INCLUDE_DIR jemalloc/jemalloc.h
+            HINTS
+                /opt/homebrew/include      # Homebrew ARM64 macOS
+                /usr/local/include         # Homebrew Intel macOS
+                /usr/include               # Linux
+        )
+
+        # Then find the library with explicit paths for better macOS support
+        find_library(JEMALLOC_LIBRARY NAMES jemalloc
+            HINTS
+                /opt/homebrew/lib          # Homebrew ARM64 macOS
+                /usr/local/lib             # Homebrew Intel macOS, Linux
+                /usr/lib                   # Linux
+                /usr/lib/x86_64-linux-gnu  # Ubuntu/Debian
+        )
 
         if(JEMALLOC_INCLUDE_DIR AND JEMALLOC_LIBRARY)
             set(JEMALLOC_FOUND TRUE)
             set(JEMALLOC_INCLUDE_DIRS ${JEMALLOC_INCLUDE_DIR})
             set(JEMALLOC_LIBRARIES ${JEMALLOC_LIBRARY})
+            message(STATUS "📦 jemalloc found via manual detection")
+        endif()
+    endif()
+
+    # If pkg-config found jemalloc but didn't provide full library paths, enhance them
+    if(JEMALLOC_FOUND AND JEMALLOC_LIBRARIES)
+        # Check if JEMALLOC_LIBRARIES contains only library names (not full paths)
+        list(GET JEMALLOC_LIBRARIES 0 FIRST_LIB)
+        if(NOT IS_ABSOLUTE "${FIRST_LIB}")
+            message(STATUS "🔧 Converting jemalloc library names to full paths...")
+            set(JEMALLOC_FULL_LIBRARIES "")
+            foreach(lib ${JEMALLOC_LIBRARIES})
+                find_library(${lib}_FULL_PATH NAMES ${lib}
+                    HINTS
+                        /opt/homebrew/lib          # Homebrew ARM64 macOS
+                        /usr/local/lib             # Homebrew Intel macOS, Linux
+                        /usr/lib                   # Linux
+                        /usr/lib/x86_64-linux-gnu  # Ubuntu/Debian
+                )
+                if(${lib}_FULL_PATH)
+                    list(APPEND JEMALLOC_FULL_LIBRARIES ${${lib}_FULL_PATH})
+                else()
+                    list(APPEND JEMALLOC_FULL_LIBRARIES ${lib})
+                endif()
+            endforeach()
+            set(JEMALLOC_LIBRARIES ${JEMALLOC_FULL_LIBRARIES})
         endif()
     endif()
 
@@ -46,9 +87,9 @@ if(USE_JEMALLOC)
             message(STATUS "🔧 Using direct jemalloc function names")
         endif()
 
-        # Set include directories and libraries for linking
+        # Set include directories for jemalloc (global is OK for includes)
         include_directories(${JEMALLOC_INCLUDE_DIRS})
-        link_libraries(${JEMALLOC_LIBRARIES})
+        # Note: jemalloc will be linked to specific targets that need it, not globally
 
     else()
         message(WARNING "⚠️  jemalloc not found, falling back to standard malloc")
