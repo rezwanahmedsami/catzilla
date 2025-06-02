@@ -483,7 +483,27 @@ target_include_directories(catzilla_core PUBLIC
 # Link jemalloc if available
 if(USE_JEMALLOC AND JEMALLOC_FOUND)
     target_include_directories(catzilla_core PUBLIC ${JEMALLOC_INCLUDE_DIRS})
-    target_link_libraries(catzilla_core PRIVATE ${JEMALLOC_LIBRARIES})
+
+    # Use LDFLAGS for proper library path on macOS/Linux, fallback to LIBRARIES
+    if(JEMALLOC_LDFLAGS)
+        # Parse LDFLAGS to extract library directories and libraries
+        string(REPLACE ";" " " JEMALLOC_LDFLAGS_STR "${JEMALLOC_LDFLAGS}")
+        separate_arguments(JEMALLOC_LDFLAGS_LIST UNIX_COMMAND "${JEMALLOC_LDFLAGS_STR}")
+
+        foreach(flag ${JEMALLOC_LDFLAGS_LIST})
+            if(flag MATCHES "^-L(.+)")
+                target_link_directories(catzilla_core PRIVATE ${CMAKE_MATCH_1})
+            elseif(flag MATCHES "^-l(.+)")
+                target_link_libraries(catzilla_core PRIVATE ${CMAKE_MATCH_1})
+            endif()
+        endforeach()
+    elseif(JEMALLOC_LIBRARY_DIRS AND JEMALLOC_LIBRARIES)
+        target_link_directories(catzilla_core PRIVATE ${JEMALLOC_LIBRARY_DIRS})
+        target_link_libraries(catzilla_core PRIVATE ${JEMALLOC_LIBRARIES})
+    else()
+        target_link_libraries(catzilla_core PRIVATE ${JEMALLOC_LIBRARIES})
+    endif()
+
     message(STATUS "✅ Linking catzilla_core with jemalloc")
 endif()
 
@@ -507,7 +527,27 @@ target_include_directories(_catzilla PRIVATE
 # Link jemalloc for Python extension if available
 if(USE_JEMALLOC AND JEMALLOC_FOUND)
     target_include_directories(_catzilla PRIVATE ${JEMALLOC_INCLUDE_DIRS})
-    target_link_libraries(_catzilla PRIVATE ${JEMALLOC_LIBRARIES})
+
+    # Use LDFLAGS for proper library path on macOS/Linux, fallback to LIBRARIES
+    if(JEMALLOC_LDFLAGS)
+        # Parse LDFLAGS to extract library directories and libraries
+        string(REPLACE ";" " " JEMALLOC_LDFLAGS_STR "${JEMALLOC_LDFLAGS}")
+        separate_arguments(JEMALLOC_LDFLAGS_LIST UNIX_COMMAND "${JEMALLOC_LDFLAGS_STR}")
+
+        foreach(flag ${JEMALLOC_LDFLAGS_LIST})
+            if(flag MATCHES "^-L(.+)")
+                target_link_directories(_catzilla PRIVATE ${CMAKE_MATCH_1})
+            elseif(flag MATCHES "^-l(.+)")
+                target_link_libraries(_catzilla PRIVATE ${CMAKE_MATCH_1})
+            endif()
+        endforeach()
+    elseif(JEMALLOC_LIBRARY_DIRS AND JEMALLOC_LIBRARIES)
+        target_link_directories(_catzilla PRIVATE ${JEMALLOC_LIBRARY_DIRS})
+        target_link_libraries(_catzilla PRIVATE ${JEMALLOC_LIBRARIES})
+    else()
+        target_link_libraries(_catzilla PRIVATE ${JEMALLOC_LIBRARIES})
+    endif()
+
     message(STATUS "✅ Linking Python extension with jemalloc")
 endif()
 
