@@ -66,6 +66,24 @@ if %errorlevel% neq 0 (
     echo [32mjemalloc directory already in PATH[0m
 )
 
+REM Set environment variables for CMake to find jemalloc
+set "CATZILLA_JEMALLOC_PATH=%JEMALLOC_PATH%"
+set "JEMALLOC_INCLUDE_DIR=%JEMALLOC_DIR%\..\include"
+set "JEMALLOC_LIBRARY=%JEMALLOC_DIR%\..\lib\jemalloc.lib"
+
+REM Verify lib file exists
+if exist "%JEMALLOC_LIBRARY%" (
+    echo [32mFound jemalloc library at %JEMALLOC_LIBRARY%[0m
+) else (
+    echo [33mWarning: jemalloc library file not found at %JEMALLOC_LIBRARY%[0m
+    echo [33mCMake may fail to detect jemalloc properly[0m
+)
+
+echo [32mJemalloc environment variables set:[0m
+echo [32m  CATZILLA_JEMALLOC_PATH=%CATZILLA_JEMALLOC_PATH%[0m
+echo [32m  JEMALLOC_INCLUDE_DIR=%JEMALLOC_INCLUDE_DIR%[0m
+echo [32m  JEMALLOC_LIBRARY=%JEMALLOC_LIBRARY%[0m
+
 echo [32mJemalloc configuration complete![0m
 exit /b 0
 

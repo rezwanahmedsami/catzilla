@@ -14,22 +14,59 @@ if(USE_JEMALLOC)
     detect_platform_specific_jemalloc_config()
 
     # Special handling for Windows with vcpkg
-    if(WIN32 AND DEFINED ENV{CMAKE_TOOLCHAIN_FILE})
-        # Use vcpkg's toolchain file
-        message(STATUS "Using vcpkg toolchain file: $ENV{CMAKE_TOOLCHAIN_FILE}")
-        set(CMAKE_TOOLCHAIN_FILE "$ENV{CMAKE_TOOLCHAIN_FILE}")
+    if(WIN32)
+        if(DEFINED ENV{CMAKE_TOOLCHAIN_FILE})
+            # Use vcpkg's toolchain file
+            message(STATUS "Using vcpkg toolchain file: $ENV{CMAKE_TOOLCHAIN_FILE}")
+            set(CMAKE_TOOLCHAIN_FILE "$ENV{CMAKE_TOOLCHAIN_FILE}")
+        endif()
 
-        # Check for explicit jemalloc path in environment
+        # Check for explicit jemalloc paths in environment variables
         if(DEFINED ENV{CATZILLA_JEMALLOC_PATH})
-            message(STATUS "Using jemalloc from: $ENV{CATZILLA_JEMALLOC_PATH}")
+            message(STATUS "📌 Using jemalloc DLL from: $ENV{CATZILLA_JEMALLOC_PATH}")
             get_filename_component(JEMALLOC_DIR "$ENV{CATZILLA_JEMALLOC_PATH}" DIRECTORY)
             get_filename_component(VCPKG_INSTALLED_DIR "${JEMALLOC_DIR}" DIRECTORY)
 
             # Set include and lib dirs
             set(JEMALLOC_INCLUDE_DIRS "${VCPKG_INSTALLED_DIR}/include")
-            set(JEMALLOC_LIBRARY "$ENV{CATZILLA_JEMALLOC_PATH}")
+
+            # Find the .lib file for linking
+            string(REPLACE "bin/jemalloc.dll" "lib/jemalloc.lib" JEMALLOC_LIB_PATH "$ENV{CATZILLA_JEMALLOC_PATH}")
+            message(STATUS "📌 Looking for jemalloc lib at: ${JEMALLOC_LIB_PATH}")
+
+            if(EXISTS "${JEMALLOC_LIB_PATH}")
+                set(JEMALLOC_LIBRARY "${JEMALLOC_LIB_PATH}")
+                set(JEMALLOC_LIBRARIES "${JEMALLOC_LIBRARY}")
+                set(JEMALLOC_FOUND TRUE)
+                message(STATUS "📌 Found jemalloc lib: ${JEMALLOC_LIBRARY}")
+            else()
+                message(WARNING "⚠️  jemalloc DLL found but LIB file missing at ${JEMALLOC_LIB_PATH}")
+                message(STATUS "   Will try alternative detection methods")
+            endif()
+        endif()
+
+        # Check for explicit JEMALLOC_LIBRARY and JEMALLOC_INCLUDE_DIR environment variables
+        if(NOT JEMALLOC_FOUND AND DEFINED ENV{JEMALLOC_LIBRARY} AND DEFINED ENV{JEMALLOC_INCLUDE_DIR})
+            message(STATUS "📌 Using explicit jemalloc env variables")
+            message(STATUS "   JEMALLOC_LIBRARY: $ENV{JEMALLOC_LIBRARY}")
+            message(STATUS "   JEMALLOC_INCLUDE_DIR: $ENV{JEMALLOC_INCLUDE_DIR}")
+
+            set(JEMALLOC_LIBRARY "$ENV{JEMALLOC_LIBRARY}")
+            set(JEMALLOC_INCLUDE_DIRS "$ENV{JEMALLOC_INCLUDE_DIR}")
             set(JEMALLOC_LIBRARIES "${JEMALLOC_LIBRARY}")
             set(JEMALLOC_FOUND TRUE)
+        endif()
+
+        # Check common vcpkg paths as a fallback
+        if(NOT JEMALLOC_FOUND)
+            message(STATUS "📌 Checking common vcpkg paths for jemalloc")
+            if(EXISTS "C:/vcpkg/installed/x64-windows/lib/jemalloc.lib")
+                message(STATUS "📌 Found jemalloc in standard vcpkg location")
+                set(JEMALLOC_LIBRARY "C:/vcpkg/installed/x64-windows/lib/jemalloc.lib")
+                set(JEMALLOC_INCLUDE_DIRS "C:/vcpkg/installed/x64-windows/include")
+                set(JEMALLOC_LIBRARIES "${JEMALLOC_LIBRARY}")
+                set(JEMALLOC_FOUND TRUE)
+            endif()
         endif()
     endif()
 

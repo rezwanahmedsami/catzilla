@@ -58,7 +58,16 @@ for /f "tokens=* delims= " %%a in ("!cores!") do set cores=%%a
 if "!cores!"=="" set cores=2
 
 REM Configure with CMake
-cmake .. -DCMAKE_BUILD_TYPE=Debug -DPython3_EXECUTABLE="%PYTHON_EXE%"
+echo %GREEN%Passing jemalloc environment variables to CMake...%NC%
+if defined JEMALLOC_LIBRARY (
+    echo %GREEN%Using jemalloc from: %JEMALLOC_LIBRARY%%NC%
+    cmake .. -DCMAKE_BUILD_TYPE=Debug -DPython3_EXECUTABLE="%PYTHON_EXE%" ^
+        -DJEMALLOC_LIBRARY="%JEMALLOC_LIBRARY%" ^
+        -DJEMALLOC_INCLUDE_DIR="%JEMALLOC_INCLUDE_DIR%"
+) else (
+    cmake .. -DCMAKE_BUILD_TYPE=Debug -DPython3_EXECUTABLE="%PYTHON_EXE%"
+)
+
 if %errorlevel% neq 0 (
     echo %RED%CMake configuration failed!%NC%
     exit /b 1

@@ -172,8 +172,14 @@ jobs:
         C:\vcpkg\vcpkg.exe install jemalloc:x64-windows
         # Add vcpkg to PATH for CMake integration
         echo "CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" >> $GITHUB_ENV
-        # Set jemalloc path for Windows tests
+        # Set jemalloc paths for Windows tests
         echo "CATZILLA_JEMALLOC_PATH=C:/vcpkg/installed/x64-windows/bin/jemalloc.dll" >> $GITHUB_ENV
+        echo "JEMALLOC_LIBRARY=C:/vcpkg/installed/x64-windows/lib/jemalloc.lib" >> $GITHUB_ENV
+        echo "JEMALLOC_INCLUDE_DIR=C:/vcpkg/installed/x64-windows/include" >> $GITHUB_ENV
+        # Verify jemalloc files exist
+        dir "C:\vcpkg\installed\x64-windows\bin\jemalloc.dll"
+        dir "C:\vcpkg\installed\x64-windows\lib\jemalloc.lib"
+        dir "C:\vcpkg\installed\x64-windows\include\jemalloc"
 
     - name: Install Python dependencies
       run: |
