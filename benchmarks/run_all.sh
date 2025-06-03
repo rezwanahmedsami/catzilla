@@ -276,6 +276,25 @@ start_server() {
 
     # Start the server in background
     cd "$BENCHMARK_DIR/.."  # Run from project root
+    
+    # For Catzilla, we need to preload jemalloc to avoid TLS allocation issues
+    if [ "$framework" = "catzilla" ]; then
+        # Check for jemalloc library location and set LD_PRELOAD
+        local jemalloc_lib=""
+        if [ -f "/lib/x86_64-linux-gnu/libjemalloc.so.2" ]; then
+            jemalloc_lib="/lib/x86_64-linux-gnu/libjemalloc.so.2"
+        elif [ -f "/usr/lib64/libjemalloc.so.2" ]; then
+            jemalloc_lib="/usr/lib64/libjemalloc.so.2"
+        elif [ -f "/usr/lib/x86_64-linux-gnu/libjemalloc.so.2" ]; then
+            jemalloc_lib="/usr/lib/x86_64-linux-gnu/libjemalloc.so.2"
+        fi
+        
+        if [ -n "$jemalloc_lib" ]; then
+            print_status "Preloading jemalloc: $jemalloc_lib"
+            export LD_PRELOAD="$jemalloc_lib:$LD_PRELOAD"
+        fi
+    fi
+    
     eval "$command" > "$RESULTS_DIR/${framework}_server.log" 2>&1 &
     local server_pid=$!
 
