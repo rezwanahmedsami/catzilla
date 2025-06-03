@@ -21,14 +21,20 @@ endif
 install-jemalloc:
 	@echo "🔍 Checking for jemalloc..."
 	@if [ "$(USE_JEMALLOC)" = "1" ]; then \
-		if ! pkg-config --exists jemalloc 2>/dev/null && ! ldconfig -p 2>/dev/null | grep -q libjemalloc; then \
-			echo "📦 Installing jemalloc $(JEMALLOC_VERSION)..."; \
+		if ! pkg-config --exists jemalloc 2>/dev/null; then \
+			echo "📦 Installing jemalloc development package..."; \
 			if command -v brew >/dev/null 2>&1; then \
 				echo "🍺 Using Homebrew to install jemalloc..."; \
 				brew install jemalloc; \
 			elif command -v apt-get >/dev/null 2>&1; then \
-				echo "📦 Using apt to install jemalloc..."; \
+				echo "📦 Using apt to install jemalloc-dev..."; \
 				sudo apt-get update && sudo apt-get install -y libjemalloc-dev; \
+			elif command -v yum >/dev/null 2>&1; then \
+				echo "📦 Using yum to install jemalloc-devel..."; \
+				sudo yum install -y jemalloc-devel; \
+			elif command -v dnf >/dev/null 2>&1; then \
+				echo "📦 Using dnf to install jemalloc-devel..."; \
+				sudo dnf install -y jemalloc-devel; \
 			else \
 				echo "🔨 Building jemalloc from source..."; \
 				curl -L https://github.com/jemalloc/jemalloc/releases/download/$(JEMALLOC_VERSION)/jemalloc-$(JEMALLOC_VERSION).tar.bz2 | tar xj; \
@@ -38,7 +44,7 @@ install-jemalloc:
 				cd .. && rm -rf jemalloc-$(JEMALLOC_VERSION); \
 			fi; \
 		else \
-			echo "✅ jemalloc already installed"; \
+			echo "✅ jemalloc development package already installed"; \
 		fi; \
 	else \
 		echo "⚠️  jemalloc disabled (USE_JEMALLOC=0)"; \
