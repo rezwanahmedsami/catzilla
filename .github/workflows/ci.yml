@@ -151,7 +151,7 @@ jobs:
 
     - name: Setup system dependencies (macOS)
       if: runner.os == 'macOS'
-      run: brew install cmake jemalloc
+      run: brew install cmake jemalloc autoconf automake libtool
 
     - name: Verify jemalloc installation (macOS)
       if: runner.os == 'macOS'
