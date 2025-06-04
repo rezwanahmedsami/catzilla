@@ -3,7 +3,7 @@
 
 # Testing framework
 pytest>=8.0
-pytest-xdist>=3.0.0  # Distributed testing for process isolation and parallel execution
+pytest-xdist
 
 # Code quality tools
 pre-commit

@@ -16,6 +16,9 @@ Ultra-Fast Validation Engine:
 
 from .app import Catzilla
 
+# Backward compatibility alias
+App = Catzilla
+
 # Auto-validation system (FastAPI-style with 20x performance)
 from .auto_validation import Form, Header, Path, Query, create_auto_validated_handler
 from .response import ResponseBuilder, response
