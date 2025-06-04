@@ -1036,25 +1036,48 @@ static PyObject* has_jemalloc(PyObject *self, PyObject *args)
     return PyBool_FromLong(catzilla_memory_has_jemalloc());
 }
 
-// Get memory statistics
-static PyObject* get_memory_stats(PyObject *self, PyObject *args)
+// Check if jemalloc is available at runtime
+static PyObject* jemalloc_available(PyObject *self, PyObject *args)
 {
-    catzilla_memory_stats_t stats;
-    catzilla_memory_get_stats(&stats);
+    return PyBool_FromLong(catzilla_memory_jemalloc_available());
+}
 
-    PyObject *dict = PyDict_New();
-    if (!dict) return NULL;
+// Get current allocator type
+static PyObject* get_current_allocator(PyObject *self, PyObject *args)
+{
+    catzilla_allocator_type_t allocator = catzilla_memory_get_current_allocator();
+    const char* allocator_name = (allocator == CATZILLA_ALLOCATOR_JEMALLOC) ? "jemalloc" : "malloc";
+    return PyUnicode_FromString(allocator_name);
+}
 
-    PyDict_SetItemString(dict, "allocated", PyLong_FromSize_t(stats.allocated));
-    PyDict_SetItemString(dict, "active", PyLong_FromSize_t(stats.active));
-    PyDict_SetItemString(dict, "metadata", PyLong_FromSize_t(stats.metadata));
-    PyDict_SetItemString(dict, "peak_allocated", PyLong_FromSize_t(stats.peak_allocated));
-    PyDict_SetItemString(dict, "allocation_count", PyLong_FromUnsignedLongLong(stats.allocation_count));
-    PyDict_SetItemString(dict, "deallocation_count", PyLong_FromUnsignedLongLong(stats.deallocation_count));
-    PyDict_SetItemString(dict, "memory_efficiency_score", PyFloat_FromDouble(stats.memory_efficiency_score));
-    PyDict_SetItemString(dict, "fragmentation_ratio", PyFloat_FromDouble(stats.fragmentation_ratio));
-
-    return dict;
+// Set allocator type before initialization
+static PyObject* set_allocator(PyObject *self, PyObject *args)
+{
+    const char* allocator_name;
+    if (!PyArg_ParseTuple(args, "s", &allocator_name)) {
+        return NULL;
+    }
+    
+    catzilla_allocator_type_t allocator;
+    if (strcmp(allocator_name, "jemalloc") == 0) {
+        allocator = CATZILLA_ALLOCATOR_JEMALLOC;
+    } else if (strcmp(allocator_name, "malloc") == 0) {
+        allocator = CATZILLA_ALLOCATOR_MALLOC;
+    } else {
+        PyErr_SetString(PyExc_ValueError, "Invalid allocator type. Use 'jemalloc' or 'malloc'");
+        return NULL;
+    }
+    
+    int result = catzilla_memory_set_allocator(allocator);
+    if (result == -1) {
+        PyErr_SetString(PyExc_RuntimeError, "Cannot change allocator after memory system initialization");
+        return NULL;
+    } else if (result == -2) {
+        PyErr_SetString(PyExc_RuntimeError, "jemalloc not available in this build");
+        return NULL;
+    }
+    
+    Py_RETURN_NONE;
 }
 
 // Initialize memory system
@@ -1066,6 +1089,56 @@ static PyObject* init_memory_system(PyObject *self, PyObject *args)
         return NULL;
     }
     Py_RETURN_NONE;
+}
+
+// Initialize memory system with specific allocator
+static PyObject* init_memory_with_allocator(PyObject *self, PyObject *args)
+{
+    const char* allocator_name;
+    if (!PyArg_ParseTuple(args, "s", &allocator_name)) {
+        return NULL;
+    }
+    
+    catzilla_allocator_type_t allocator;
+    if (strcmp(allocator_name, "jemalloc") == 0) {
+        allocator = CATZILLA_ALLOCATOR_JEMALLOC;
+    } else if (strcmp(allocator_name, "malloc") == 0) {
+        allocator = CATZILLA_ALLOCATOR_MALLOC;
+    } else {
+        PyErr_SetString(PyExc_ValueError, "Invalid allocator type. Use 'jemalloc' or 'malloc'");
+        return NULL;
+    }
+    
+    int result = catzilla_memory_init_with_allocator(allocator);
+    if (result != 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to initialize memory system with specified allocator");
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
+
+// Get memory statistics
+static PyObject* get_memory_stats(PyObject *self, PyObject *args)
+{
+    catzilla_memory_stats_t stats;
+    catzilla_memory_get_stats(&stats);
+    
+    return Py_BuildValue("{s:K,s:K,s:K,s:K,s:d,s:K,s:K,s:d,s:K,s:K,s:K,s:K,s:K,s:K}",
+        "allocated", (unsigned long long)stats.allocated,
+        "active", (unsigned long long)stats.active,
+        "metadata", (unsigned long long)stats.metadata,
+        "resident", (unsigned long long)stats.resident,
+        "fragmentation_ratio", stats.fragmentation_ratio,
+        "allocation_count", (unsigned long long)stats.allocation_count,
+        "deallocation_count", (unsigned long long)stats.deallocation_count,
+        "memory_efficiency_score", stats.memory_efficiency_score,
+        "peak_allocated", (unsigned long long)stats.peak_allocated,
+        "request_arena_usage", (unsigned long long)stats.request_arena_usage,
+        "response_arena_usage", (unsigned long long)stats.response_arena_usage,
+        "cache_arena_usage", (unsigned long long)stats.cache_arena_usage,
+        "static_arena_usage", (unsigned long long)stats.static_arena_usage,
+        "task_arena_usage", (unsigned long long)stats.task_arena_usage
+    );
 }
 
 // ============================================================================
@@ -1138,8 +1211,12 @@ static PyMethodDef module_methods[] = {
     {"router_match", router_match, METH_VARARGS, "Match route using C router"},
     {"router_add_route", router_add_route, METH_VARARGS, "Add route to C router"},
     {"has_jemalloc", has_jemalloc, METH_NOARGS, "Check if jemalloc is available"},
+    {"jemalloc_available", jemalloc_available, METH_NOARGS, "Check if jemalloc is available at runtime"},
+    {"get_current_allocator", get_current_allocator, METH_NOARGS, "Get current allocator type"},
+    {"set_allocator", set_allocator, METH_VARARGS, "Set allocator type before initialization"},
     {"get_memory_stats", get_memory_stats, METH_NOARGS, "Get memory statistics"},
     {"init_memory_system", init_memory_system, METH_NOARGS, "Initialize memory system"},
+    {"init_memory_with_allocator", init_memory_with_allocator, METH_VARARGS, "Initialize memory system with specific allocator"},
 
     // Ultra-fast validation engine functions
     {"create_int_validator", (PyCFunction)create_int_validator, METH_VARARGS | METH_KEYWORDS, "Create integer validator"},

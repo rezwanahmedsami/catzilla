@@ -5,7 +5,18 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#ifdef CATZILLA_USE_JEMALLOC
+// ============================================================================
+// 🚀 CATZILLA MEMORY SYSTEM - CONDITIONAL JEMALLOC SUPPORT
+// ============================================================================
+
+// Memory allocator backend selection
+typedef enum {
+    CATZILLA_ALLOCATOR_MALLOC,   // Standard malloc/free
+    CATZILLA_ALLOCATOR_JEMALLOC  // jemalloc (if available)
+} catzilla_allocator_type_t;
+
+// Include jemalloc headers if available
+#ifdef CATZILLA_HAS_JEMALLOC
 #include <jemalloc/jemalloc.h>
 #endif
 
@@ -90,10 +101,16 @@ void catzilla_python_safe_free(void* ptr);
 
 // Memory management functions
 int catzilla_memory_init(void);
+int catzilla_memory_init_with_allocator(catzilla_allocator_type_t allocator);
 void catzilla_memory_cleanup(void);
 void catzilla_memory_get_stats(catzilla_memory_stats_t* stats);
 void catzilla_memory_optimize(void);
 bool catzilla_memory_has_jemalloc(void);
+catzilla_allocator_type_t catzilla_memory_get_current_allocator(void);
+
+// Conditional jemalloc runtime support
+bool catzilla_memory_jemalloc_available(void);
+int catzilla_memory_set_allocator(catzilla_allocator_type_t allocator);
 
 // Memory profiling and optimization
 int catzilla_memory_enable_profiling(void);

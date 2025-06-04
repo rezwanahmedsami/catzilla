@@ -14,7 +14,7 @@ Ultra-Fast Validation Engine:
 - 🎯 Minimal memory footprint
 """
 
-from .app import App, Catzilla  # App is backward compatibility alias
+from .app import Catzilla
 
 # Auto-validation system (FastAPI-style with 20x performance)
 from .auto_validation import Form, Header, Path, Query, create_auto_validated_handler

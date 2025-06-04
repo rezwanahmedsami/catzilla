@@ -9,30 +9,38 @@ NC='\033[0m' # No Color
 
 echo -e "${YELLOW}🔨 Starting Catzilla development build...${NC}"
 
-# 1. Clean previous builds
-echo -e "\n${GREEN}Cleaning previous builds...${NC}"
+# 1. Build jemalloc if needed
+echo -e "\n${GREEN}Step 1: Building jemalloc (if needed)...${NC}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+"${SCRIPT_DIR}/build_jemalloc.sh"
+if [ $? -ne 0 ]; then
+    echo -e "${YELLOW}⚠️  Warning: jemalloc build failed, continuing with system malloc${NC}"
+fi
+
+# 2. Clean previous builds
+echo -e "\n${GREEN}Step 2: Cleaning previous builds...${NC}"
 rm -rf build/ dist/ *.egg-info/
 find . -name "*.so" -delete
 find . -name "*.pyc" -delete
 find . -name "__pycache__" -type d -exec rm -rf {} +
 
-# 2. Create build directory
-echo -e "\n${GREEN}Creating build directory...${NC}"
+# 3. Create build directory
+echo -e "\n${GREEN}Step 3: Creating build directory...${NC}"
 mkdir -p build
 cd build
 
-# 3. Configure with CMake
-echo -e "\n${GREEN}Configuring with CMake...${NC}"
+# 4. Configure with CMake
+echo -e "\n${GREEN}Step 4: Configuring with CMake...${NC}"
 cmake .. \
     -DCMAKE_BUILD_TYPE=Debug \
     -DPython3_EXECUTABLE=$(which python3)
 
-# 4. Build
-echo -e "\n${GREEN}Building...${NC}"
+# 5. Build
+echo -e "\n${GREEN}Step 5: Building...${NC}"
 cmake --build . -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
 
-# 5. Copy the built extension to the right place
-echo -e "\n${GREEN}Installing...${NC}"
+# 6. Copy the built extension to the right place
+echo -e "\n${GREEN}Step 6: Installing...${NC}"
 cd ..
 
 # Uninstall any existing version

@@ -18,6 +18,7 @@ import time
 
 # 🚀 Catzilla with Auto-Validation enabled (FastAPI-style with 20x performance!)
 app = Catzilla(
+    use_jemalloc=True,
     auto_validation=True,        # Enable automatic validation
     memory_profiling=True,      # Performance monitoring
     auto_memory_tuning=True     # Adaptive memory management

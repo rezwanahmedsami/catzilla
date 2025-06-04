@@ -25,6 +25,11 @@ try:
         has_jemalloc,
         init_memory_system,
         send_response,
+        # New runtime allocator functions
+        jemalloc_available,
+        get_current_allocator,
+        set_allocator,
+        init_memory_with_allocator,
     )
 except ImportError as e:
     # Check if this is a jemalloc TLS error
@@ -88,6 +93,38 @@ class Catzilla:
     - 📈 Gets faster over time
     """
 
+    @staticmethod
+    def jemalloc_available() -> bool:
+        """Check if jemalloc is available in the current build and environment
+
+        Returns:
+            True if jemalloc is available and can be used, False otherwise
+
+        Note:
+            This is a static method that can be called before creating a Catzilla instance
+            to check jemalloc availability. Useful for conditional initialization logic.
+        """
+        try:
+            return jemalloc_available()
+        except (ImportError, NameError):
+            # C extension not available or function not found
+            return False
+
+    @staticmethod
+    def get_available_allocators() -> list:
+        """Get list of available memory allocators
+
+        Returns:
+            List of allocator names that are available in this build
+        """
+        allocators = ["malloc"]  # malloc is always available
+        try:
+            if jemalloc_available():
+                allocators.append("jemalloc")
+        except (ImportError, NameError):
+            pass
+        return allocators
+
     def __init__(
         self,
         production: bool = False,
@@ -101,11 +138,19 @@ class Catzilla:
 
         Args:
             production: If True, return clean JSON error responses without stack traces
-            use_jemalloc: Enable jemalloc memory allocator (30% less memory usage)
+            use_jemalloc: Enable jemalloc memory allocator (30% less memory usage).
+                         Uses runtime detection - automatically falls back to malloc if jemalloc
+                         is not available in the current build or environment.
             memory_profiling: Enable real-time memory monitoring and optimization
             auto_memory_tuning: Enable adaptive memory management and arena optimization
             memory_stats_interval: Interval in seconds for automatic memory stats collection
             auto_validation: Enable FastAPI-style automatic validation (20x faster)
+
+        Note:
+            The `use_jemalloc` parameter now uses conditional runtime support. If jemalloc
+            is not available in the build (static linking disabled) or environment,
+            Catzilla will automatically fall back to the standard malloc allocator
+            without error, ensuring maximum compatibility across different deployments.
         """
         # Store memory configuration
         self.production = production
@@ -149,43 +194,68 @@ class Catzilla:
     def _init_memory_revolution(self):
         """Initialize the jemalloc memory revolution with advanced options"""
         try:
-            # Check if jemalloc is available and user wants to use it
-            jemalloc_available = has_jemalloc()
+            # Check if jemalloc is available at runtime (from conditional compilation)
+            jemalloc_runtime_available = jemalloc_available()
 
-            if self.use_jemalloc and jemalloc_available:
-                # Initialize memory system
-                init_memory_system()
-                self.has_jemalloc = True
-                self._memory_optimization_active = True
+            if self.use_jemalloc and jemalloc_runtime_available:
+                # Set allocator to jemalloc before initialization
+                try:
+                    set_allocator("jemalloc")
+                    # Initialize memory system with jemalloc
+                    init_memory_system()
+                    self.has_jemalloc = True
+                    self._memory_optimization_active = True
 
-                if self.memory_profiling:
-                    print(
-                        "🚀 Catzilla: Memory Revolution FULL activated (jemalloc + profiling + tuning)"
-                    )
-                else:
-                    print("🚀 Catzilla: Memory Revolution activated (jemalloc)")
+                    if self.memory_profiling:
+                        print(
+                            "🚀 Catzilla: Memory Revolution FULL activated (jemalloc + profiling + tuning)"
+                        )
+                    else:
+                        print("🚀 Catzilla: Memory Revolution activated (jemalloc)")
 
-                # Start memory profiling if enabled
-                if self.memory_profiling:
-                    self._start_memory_profiling()
+                    # Start memory profiling if enabled
+                    if self.memory_profiling:
+                        self._start_memory_profiling()
 
-            elif self.use_jemalloc and not jemalloc_available:
+                except RuntimeError as e:
+                    print(f"⚠️  Catzilla: Failed to initialize with jemalloc: {e}")
+                    print("⚠️  Catzilla: Falling back to standard memory system")
+                    self.has_jemalloc = False
+                    self.use_jemalloc = False
+                    # Fallback to malloc
+                    set_allocator("malloc")
+                    init_memory_system()
+
+            elif self.use_jemalloc and not jemalloc_runtime_available:
                 print(
                     "⚠️  Catzilla: jemalloc requested but not available - falling back to standard memory"
                 )
                 self.has_jemalloc = False
                 self.use_jemalloc = False  # Disable since not available
+                # Use standard malloc
+                set_allocator("malloc")
+                init_memory_system()
 
             else:
                 print(
                     "⚡ Catzilla: Running with standard memory system (jemalloc disabled)"
                 )
                 self.has_jemalloc = False
+                # Use standard malloc
+                set_allocator("malloc")
+                init_memory_system()
 
         except Exception as e:
             print(f"⚠️  Catzilla: Memory system initialization warning: {e}")
             self.has_jemalloc = False
             self.use_jemalloc = False
+            # Emergency fallback
+            try:
+                set_allocator("malloc")
+                init_memory_system()
+            except:
+                print("⚠️  Catzilla: Emergency fallback to uninitialized memory system")
+                pass
 
     def get_memory_stats(self) -> dict:
         """Get comprehensive memory statistics
@@ -193,15 +263,35 @@ class Catzilla:
         Returns:
             Dictionary with memory statistics including efficiency metrics
         """
-        if not self.has_jemalloc:
-            return {
-                "jemalloc_enabled": False,
-                "message": "jemalloc not available - using standard memory system",
+        try:
+            # Get current allocator information
+            current_allocator = get_current_allocator()
+            jemalloc_runtime_available = jemalloc_available()
+
+            # Base stats always include allocator information
+            base_stats = {
+                "allocator": current_allocator,
+                "jemalloc_available": jemalloc_runtime_available,
+                "jemalloc_requested": self.use_jemalloc,
+                "jemalloc_enabled": self.has_jemalloc,
             }
 
-        try:
+            if not self.has_jemalloc:
+                base_stats.update(
+                    {
+                        "message": f"Using {current_allocator} memory system",
+                        "jemalloc_reason": "disabled by user"
+                        if not self.use_jemalloc
+                        else "not available at runtime",
+                    }
+                )
+                return base_stats
+
+            # Get detailed memory stats from C extension
             stats = get_memory_stats()
-            stats["jemalloc_enabled"] = True
+            stats.update(base_stats)
+
+            # Add computed metrics
             stats["allocated_mb"] = stats.get("allocated", 0) / (1024 * 1024)
             stats["active_mb"] = stats.get("active", 0) / (1024 * 1024)
             stats["fragmentation_percent"] = (
@@ -232,9 +322,13 @@ class Catzilla:
                 stats["profiling_enabled"] = False
 
             return stats
+
         except Exception as e:
             return {
-                "jemalloc_enabled": True,
+                "allocator": "unknown",
+                "jemalloc_available": False,
+                "jemalloc_requested": self.use_jemalloc,
+                "jemalloc_enabled": False,
                 "error": str(e),
                 "message": "Failed to retrieve memory statistics",
             }
@@ -250,8 +344,7 @@ class Catzilla:
                     current_time = time.time()
                     if (
                         current_time - self._last_memory_check
-                        >= self.memory_stats_interval
-                    ):
+                    ) >= self.memory_stats_interval:
                         stats = self.get_memory_stats()
                         if stats.get("jemalloc_enabled"):
                             stats["timestamp"] = current_time
@@ -704,6 +797,33 @@ class Catzilla:
                 headers={"X-Error-Detail": str(exception)},
             )
 
+    def get_allocator_info(self) -> dict:
+        """Get detailed allocator information and capabilities
 
-# Backward compatibility alias
-App = Catzilla
+        Returns:
+            Dictionary with allocator information and runtime capabilities
+        """
+        try:
+            return {
+                "current_allocator": get_current_allocator(),
+                "jemalloc_available": jemalloc_available(),
+                "jemalloc_requested": self.use_jemalloc,
+                "jemalloc_enabled": self.has_jemalloc,
+                "memory_profiling": self.memory_profiling,
+                "auto_memory_tuning": self.auto_memory_tuning,
+                "memory_stats_interval": self.memory_stats_interval,
+                "can_switch_allocator": False,  # Cannot switch after initialization
+                "build_supports_jemalloc": jemalloc_available(),
+                "status": "initialized"
+                if self.has_jemalloc or not self.use_jemalloc
+                else "fallback",
+            }
+        except Exception as e:
+            return {
+                "current_allocator": "unknown",
+                "jemalloc_available": False,
+                "jemalloc_requested": self.use_jemalloc,
+                "jemalloc_enabled": False,
+                "error": str(e),
+                "status": "error",
+            }

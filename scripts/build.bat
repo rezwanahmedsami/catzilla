@@ -10,17 +10,25 @@ set NC=[0m
 
 echo %YELLOW%🔨 Starting Catzilla development build...%NC%
 
-REM 1. Clean previous builds
+REM 1. Build jemalloc if needed
 echo.
-echo %GREEN%Cleaning previous builds...%NC%
-if exist build rmdir /s /q build
-if exist dist rmdir /s /q dist
-for /d %%d in (*.egg-info) do rmdir /s /q "%%d"
-for /r . %%f in (*.pyd) do del "%%f" 2>nul
-for /r . %%f in (*.pyc) do del "%%f" 2>nul
-for /d /r . %%d in (__pycache__) do rmdir /s /q "%%d" 2>nul
+echo %GREEN%Step 1: Building jemalloc (if needed)...%NC%
+call "%~dp0build_jemalloc.bat"
+if %errorlevel% neq 0 (
+    echo %YELLOW%⚠️  Warning: jemalloc build failed, continuing with system malloc%NC%
+)
 
-REM 2. Create build directory
+REM 2. Clean previous builds
+echo.
+REM 3. Create build directory
+echo.
+echo %GREEN%Step 3: Creating build directory...%NC%
+mkdir build
+cd build
+
+REM 4. Configure with CMake
+echo.
+echo %GREEN%Step 4: Configuring with CMake...%NC%
 echo.
 echo %GREEN%Creating build directory...%NC%
 mkdir build
