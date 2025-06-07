@@ -57,8 +57,44 @@ if(CATZILLA_USE_JEMALLOC)
         message(STATUS "📋 jemalloc pre-built library not found, trying system installation")
         message(STATUS "💡 Tip: Run './scripts/build_jemalloc.sh' to build jemalloc static library")
 
-        find_path(JEMALLOC_INCLUDE_DIR jemalloc/jemalloc.h)
-        find_library(JEMALLOC_LIBRARY NAMES jemalloc)
+        # Platform-specific jemalloc detection
+        if(WIN32)
+            # Windows: Look for vcpkg or custom installation
+            find_path(JEMALLOC_INCLUDE_DIR
+                NAMES jemalloc/jemalloc.h
+                PATHS
+                    ${CMAKE_PREFIX_PATH}/include
+                    $ENV{VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/include
+                    $ENV{PROGRAMFILES}/jemalloc/include
+                    C:/vcpkg/installed/${VCPKG_TARGET_TRIPLET}/include
+            )
+            find_library(JEMALLOC_LIBRARY
+                NAMES jemalloc
+                PATHS
+                    ${CMAKE_PREFIX_PATH}/lib
+                    $ENV{VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/lib
+                    $ENV{PROGRAMFILES}/jemalloc/lib
+                    C:/vcpkg/installed/${VCPKG_TARGET_TRIPLET}/lib
+            )
+        else()
+            # Unix-like systems (Linux, macOS)
+            find_path(JEMALLOC_INCLUDE_DIR
+                NAMES jemalloc/jemalloc.h
+                PATHS
+                    /usr/include
+                    /usr/local/include
+                    /opt/homebrew/include
+                    /opt/local/include
+            )
+            find_library(JEMALLOC_LIBRARY
+                NAMES jemalloc
+                PATHS
+                    /usr/lib
+                    /usr/local/lib
+                    /opt/homebrew/lib
+                    /opt/local/lib
+            )
+        endif()
 
         if(JEMALLOC_INCLUDE_DIR AND JEMALLOC_LIBRARY)
             set(JEMALLOC_FOUND TRUE)
@@ -69,10 +105,26 @@ if(CATZILLA_USE_JEMALLOC)
             message(STATUS "✅ jemalloc system library found")
             message(STATUS "   Library: ${JEMALLOC_LIBRARY}")
             message(STATUS "   Headers: ${JEMALLOC_INCLUDE_DIRS}")
+
+            # On Windows, we might need additional libraries
+            if(WIN32)
+                # Check if we need to link additional Windows libraries for jemalloc
+                set(JEMALLOC_ADDITIONAL_LIBS "")
+                message(STATUS "   Platform: Windows - checking for additional dependencies")
+            endif()
         else()
             set(JEMALLOC_FOUND FALSE)
             set(CATZILLA_HAS_JEMALLOC FALSE)
             message(WARNING "⚠️  jemalloc not available - using standard malloc only")
+            if(WIN32)
+                message(STATUS "💡 Windows: Try installing jemalloc via vcpkg: vcpkg install jemalloc")
+            elseif(APPLE)
+                message(STATUS "💡 macOS: Try installing jemalloc via Homebrew: brew install jemalloc")
+            else()
+                message(STATUS "💡 Linux: Try installing jemalloc via package manager:")
+                message(STATUS "   Ubuntu/Debian: sudo apt-get install libjemalloc-dev")
+                message(STATUS "   RHEL/CentOS/AlmaLinux: sudo yum install jemalloc-devel")
+            endif()
         endif()
     endif()
 
@@ -545,27 +597,25 @@ if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC)
     target_compile_definitions(catzilla_core PRIVATE CATZILLA_USE_JEMALLOC=1)
     target_compile_definitions(catzilla_core PRIVATE CATZILLA_HAS_JEMALLOC=1)
 
-    # Use LDFLAGS for proper library path on macOS/Linux, fallback to LIBRARIES
-    if(JEMALLOC_LDFLAGS)
-        # Parse LDFLAGS to extract library directories and libraries
-        string(REPLACE ";" " " JEMALLOC_LDFLAGS_STR "${JEMALLOC_LDFLAGS}")
-        separate_arguments(JEMALLOC_LDFLAGS_LIST UNIX_COMMAND "${JEMALLOC_LDFLAGS_STR}")
+    # Link jemalloc library directly - works across all platforms
+    if(JEMALLOC_LIBRARIES)
+        target_link_libraries(catzilla_core PRIVATE ${JEMALLOC_LIBRARIES})
 
-        foreach(flag ${JEMALLOC_LDFLAGS_LIST})
-            if(flag MATCHES "^-L(.+)")
-                target_link_directories(catzilla_core PRIVATE ${CMAKE_MATCH_1})
-            elseif(flag MATCHES "^-l(.+)")
-                target_link_libraries(catzilla_core PRIVATE ${CMAKE_MATCH_1})
-            endif()
-        endforeach()
-    elseif(JEMALLOC_LIBRARY_DIRS AND JEMALLOC_LIBRARIES)
-        target_link_directories(catzilla_core PRIVATE ${JEMALLOC_LIBRARY_DIRS})
-        target_link_libraries(catzilla_core PRIVATE ${JEMALLOC_LIBRARIES})
-    elseif(JEMALLOC_LIBRARIES)
-        target_link_libraries(catzilla_core PRIVATE ${JEMALLOC_LIBRARIES})
+        # Windows-specific additional libraries if needed
+        if(WIN32 AND JEMALLOC_ADDITIONAL_LIBS)
+            target_link_libraries(catzilla_core PRIVATE ${JEMALLOC_ADDITIONAL_LIBS})
+        endif()
+
+        message(STATUS "✅ Linking catzilla_core with jemalloc: ${JEMALLOC_LIBRARIES}")
+    else()
+        # Fallback: if no library found, disable jemalloc
+        message(WARNING "⚠️  jemalloc headers found but library not available - disabling jemalloc")
+        target_compile_definitions(catzilla_core PRIVATE CATZILLA_USE_JEMALLOC=0)
+        target_compile_definitions(catzilla_core PRIVATE CATZILLA_HAS_JEMALLOC=0)
+        set(CATZILLA_HAS_JEMALLOC FALSE)
     endif()
-
-    message(STATUS "✅ Linking catzilla_core with jemalloc")
+else()
+    message(STATUS "🔧 jemalloc support: DISABLED")
 endif()
 
 target_link_libraries(catzilla_core PRIVATE uv_a llhttp_static yyjson)
@@ -593,31 +643,31 @@ if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC)
     target_compile_definitions(_catzilla PRIVATE CATZILLA_USE_JEMALLOC=1)
     target_compile_definitions(_catzilla PRIVATE CATZILLA_HAS_JEMALLOC=1)
 
-    # Use LDFLAGS for proper library path on macOS/Linux, fallback to LIBRARIES_PIC for shared library
-    if(JEMALLOC_LDFLAGS)
-        # Parse LDFLAGS to extract library directories and libraries
-        string(REPLACE ";" " " JEMALLOC_LDFLAGS_STR "${JEMALLOC_LDFLAGS}")
-        separate_arguments(JEMALLOC_LDFLAGS_LIST UNIX_COMMAND "${JEMALLOC_LDFLAGS_STR}")
+    # Link jemalloc library directly - prefer PIC version for shared library
+    if(JEMALLOC_LIBRARIES_PIC)
+        target_link_libraries(_catzilla PRIVATE ${JEMALLOC_LIBRARIES_PIC})
 
-        foreach(flag ${JEMALLOC_LDFLAGS_LIST})
-            if(flag MATCHES "^-L(.+)")
-                target_link_directories(_catzilla PRIVATE ${CMAKE_MATCH_1})
-            elseif(flag MATCHES "^-l(.+)")
-                target_link_libraries(_catzilla PRIVATE ${CMAKE_MATCH_1})
-            endif()
-        endforeach()
-    elseif(JEMALLOC_LIBRARY_DIRS AND JEMALLOC_LIBRARIES_PIC)
-        target_link_directories(_catzilla PRIVATE ${JEMALLOC_LIBRARY_DIRS})
-        target_link_libraries(_catzilla PRIVATE ${JEMALLOC_LIBRARIES_PIC})
-    elseif(JEMALLOC_LIBRARIES_PIC)
-        target_link_libraries(_catzilla PRIVATE ${JEMALLOC_LIBRARIES_PIC})
+        # Windows-specific additional libraries if needed
+        if(WIN32 AND JEMALLOC_ADDITIONAL_LIBS)
+            target_link_libraries(_catzilla PRIVATE ${JEMALLOC_ADDITIONAL_LIBS})
+        endif()
+
+        message(STATUS "✅ Linking Python extension with jemalloc PIC library: ${JEMALLOC_LIBRARIES_PIC}")
     elseif(JEMALLOC_LIBRARIES)
-        # Fallback to non-PIC version if PIC version not available
         target_link_libraries(_catzilla PRIVATE ${JEMALLOC_LIBRARIES})
-        message(WARNING "Using non-PIC jemalloc for shared library _catzilla (may cause issues)")
-    endif()
 
-    message(STATUS "✅ Linking Python extension with jemalloc (PIC version)")
+        # Windows-specific additional libraries if needed
+        if(WIN32 AND JEMALLOC_ADDITIONAL_LIBS)
+            target_link_libraries(_catzilla PRIVATE ${JEMALLOC_ADDITIONAL_LIBS})
+        endif()
+
+        message(STATUS "✅ Linking Python extension with jemalloc library: ${JEMALLOC_LIBRARIES}")
+    else()
+        # Fallback: if no library found, disable jemalloc for Python extension
+        message(WARNING "⚠️  jemalloc headers found but library not available - disabling jemalloc for Python extension")
+        target_compile_definitions(_catzilla PRIVATE CATZILLA_USE_JEMALLOC=0)
+        target_compile_definitions(_catzilla PRIVATE CATZILLA_HAS_JEMALLOC=0)
+    endif()
 endif()
 
 target_link_libraries(_catzilla PRIVATE
@@ -736,251 +786,58 @@ endif()
 if(NOT WHEEL_BUILD_MODE)
     message(STATUS "Building test executables")
 
-    # Test framework
-    # Add test_router executable
-    add_executable(test_router
-      tests/c/test_router.c
-      deps/unity/src/unity.c
-    )
+    # Helper function to link jemalloc to test targets
+    function(link_jemalloc_to_test target_name)
+        if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC AND JEMALLOC_LIBRARIES)
+            target_link_libraries(${target_name} PRIVATE ${JEMALLOC_LIBRARIES})
 
-    target_include_directories(test_router PRIVATE
-      src/core
-      deps/unity/src
-      ${Python3_INCLUDE_DIRS}
-    )
+            # Windows-specific additional libraries if needed
+            if(WIN32 AND JEMALLOC_ADDITIONAL_LIBS)
+                target_link_libraries(${target_name} PRIVATE ${JEMALLOC_ADDITIONAL_LIBS})
+            endif()
 
-    target_link_libraries(test_router PRIVATE
-      catzilla_core
-    )
-
-    # Link jemalloc for tests if available (needed since catzilla_core uses it)
-    if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC)
-        if(JEMALLOC_LDFLAGS)
-            # Parse LDFLAGS to extract library directories and libraries
-            string(REPLACE ";" " " JEMALLOC_LDFLAGS_STR "${JEMALLOC_LDFLAGS}")
-            separate_arguments(JEMALLOC_LDFLAGS_LIST UNIX_COMMAND "${JEMALLOC_LDFLAGS_STR}")
-
-            foreach(flag ${JEMALLOC_LDFLAGS_LIST})
-                if(flag MATCHES "^-L(.+)")
-                    target_link_directories(test_router PRIVATE ${CMAKE_MATCH_1})
-                elseif(flag MATCHES "^-l(.+)")
-                    target_link_libraries(test_router PRIVATE ${CMAKE_MATCH_1})
-                endif()
-            endforeach()
-        elseif(JEMALLOC_LIBRARY_DIRS AND JEMALLOC_LIBRARIES)
-            target_link_directories(test_router PRIVATE ${JEMALLOC_LIBRARY_DIRS})
-            target_link_libraries(test_router PRIVATE ${JEMALLOC_LIBRARIES})
-        elseif(JEMALLOC_LIBRARIES)
-            target_link_libraries(test_router PRIVATE ${JEMALLOC_LIBRARIES})
+            message(STATUS "✅ Linking test ${target_name} with jemalloc: ${JEMALLOC_LIBRARIES}")
         endif()
-    endif()
+    endfunction()
 
-    # Link Python libraries for tests (needed for symbols in catzilla_core)
-    if(Python3_LIBRARIES)
-        target_link_libraries(test_router PRIVATE ${Python3_LIBRARIES})
-    endif()
+    # Helper function to configure test executable
+    function(configure_test_executable target_name source_file)
+        add_executable(${target_name}
+            ${source_file}
+            deps/unity/src/unity.c
+        )
 
-    # Windows-specific linking for tests
-    if(WIN32)
-        target_link_libraries(test_router PRIVATE ws2_32 iphlpapi userenv)
-        set_windows_python_library(test_router)
-    endif()
+        target_include_directories(${target_name} PRIVATE
+            src/core
+            deps/unity/src
+            ${Python3_INCLUDE_DIRS}
+        )
 
-    # Add test_advanced_router executable
-    add_executable(test_advanced_router
-      tests/c/test_advanced_router.c
-      deps/unity/src/unity.c
-    )
+        target_link_libraries(${target_name} PRIVATE
+            catzilla_core
+        )
 
-    target_include_directories(test_advanced_router PRIVATE
-      src/core
-      deps/unity/src
-      ${Python3_INCLUDE_DIRS}
-    )
+        # Link jemalloc if available
+        link_jemalloc_to_test(${target_name})
 
-    target_link_libraries(test_advanced_router PRIVATE
-      catzilla_core
-    )
-
-    # Link jemalloc for tests if available (needed since catzilla_core uses it)
-    if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC)
-        if(JEMALLOC_LDFLAGS)
-            # Parse LDFLAGS to extract library directories and libraries
-            string(REPLACE ";" " " JEMALLOC_LDFLAGS_STR "${JEMALLOC_LDFLAGS}")
-            separate_arguments(JEMALLOC_LDFLAGS_LIST UNIX_COMMAND "${JEMALLOC_LDFLAGS_STR}")
-
-            foreach(flag ${JEMALLOC_LDFLAGS_LIST})
-                if(flag MATCHES "^-L(.+)")
-                    target_link_directories(test_advanced_router PRIVATE ${CMAKE_MATCH_1})
-                elseif(flag MATCHES "^-l(.+)")
-                    target_link_libraries(test_advanced_router PRIVATE ${CMAKE_MATCH_1})
-                endif()
-            endforeach()
-        elseif(JEMALLOC_LIBRARY_DIRS AND JEMALLOC_LIBRARIES)
-            target_link_directories(test_advanced_router PRIVATE ${JEMALLOC_LIBRARY_DIRS})
-            target_link_libraries(test_advanced_router PRIVATE ${JEMALLOC_LIBRARIES})
-        elseif(JEMALLOC_LIBRARIES)
-            target_link_libraries(test_advanced_router PRIVATE ${JEMALLOC_LIBRARIES})
+        # Link Python libraries for tests (needed for symbols in catzilla_core)
+        if(Python3_LIBRARIES)
+            target_link_libraries(${target_name} PRIVATE ${Python3_LIBRARIES})
         endif()
-    endif()
 
-    # Link Python libraries for tests (needed for symbols in catzilla_core)
-    if(Python3_LIBRARIES)
-        target_link_libraries(test_advanced_router PRIVATE ${Python3_LIBRARIES})
-    endif()
-
-    # Windows-specific linking
-    if(WIN32)
-        target_link_libraries(test_advanced_router PRIVATE ws2_32 iphlpapi userenv)
-        set_windows_python_library(test_advanced_router)
-    endif()
-
-    # Add test_server_integration executable
-    add_executable(test_server_integration
-      tests/c/test_server_integration.c
-      deps/unity/src/unity.c
-    )
-
-    target_include_directories(test_server_integration PRIVATE
-      src/core
-      deps/unity/src
-      ${Python3_INCLUDE_DIRS}
-    )
-
-    target_link_libraries(test_server_integration PRIVATE
-      catzilla_core
-    )
-
-    # Link jemalloc for tests if available (needed since catzilla_core uses it)
-    if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC)
-        if(JEMALLOC_LDFLAGS)
-            # Parse LDFLAGS to extract library directories and libraries
-            string(REPLACE ";" " " JEMALLOC_LDFLAGS_STR "${JEMALLOC_LDFLAGS}")
-            separate_arguments(JEMALLOC_LDFLAGS_LIST UNIX_COMMAND "${JEMALLOC_LDFLAGS_STR}")
-
-            foreach(flag ${JEMALLOC_LDFLAGS_LIST})
-                if(flag MATCHES "^-L(.+)")
-                    target_link_directories(test_server_integration PRIVATE ${CMAKE_MATCH_1})
-                elseif(flag MATCHES "^-l(.+)")
-                    target_link_libraries(test_server_integration PRIVATE ${CMAKE_MATCH_1})
-                endif()
-            endforeach()
-        elseif(JEMALLOC_LIBRARY_DIRS AND JEMALLOC_LIBRARIES)
-            target_link_directories(test_server_integration PRIVATE ${JEMALLOC_LIBRARY_DIRS})
-            target_link_libraries(test_server_integration PRIVATE ${JEMALLOC_LIBRARIES})
-        elseif(JEMALLOC_LIBRARIES)
-            target_link_libraries(test_server_integration PRIVATE ${JEMALLOC_LIBRARIES})
+        # Windows-specific linking
+        if(WIN32)
+            target_link_libraries(${target_name} PRIVATE ws2_32 iphlpapi userenv)
+            set_windows_python_library(${target_name})
         endif()
-    endif()
+    endfunction()
 
-    # Link Python libraries for tests (needed for symbols in catzilla_core)
-    if(Python3_LIBRARIES)
-        target_link_libraries(test_server_integration PRIVATE ${Python3_LIBRARIES})
-    endif()
-
-    # Windows-specific linking
-    if(WIN32)
-        target_link_libraries(test_server_integration PRIVATE ws2_32 iphlpapi userenv)
-        set_windows_python_library(test_server_integration)
-    endif()
-
-    # Add test_validation_engine executable
-    add_executable(test_validation_engine
-      tests/c/test_validation_engine.c
-      deps/unity/src/unity.c
-    )
-
-    target_include_directories(test_validation_engine PRIVATE
-      src/core
-      deps/unity/src
-      ${Python3_INCLUDE_DIRS}
-    )
-
-    target_link_libraries(test_validation_engine PRIVATE
-      catzilla_core
-    )
-
-    # Link jemalloc for tests if available (needed since catzilla_core uses it)
-    if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC)
-        if(JEMALLOC_LDFLAGS)
-            # Parse LDFLAGS to extract library directories and libraries
-            string(REPLACE ";" " " JEMALLOC_LDFLAGS_STR "${JEMALLOC_LDFLAGS}")
-            separate_arguments(JEMALLOC_LDFLAGS_LIST UNIX_COMMAND "${JEMALLOC_LDFLAGS_STR}")
-
-            foreach(flag ${JEMALLOC_LDFLAGS_LIST})
-                if(flag MATCHES "^-L(.+)")
-                    target_link_directories(test_validation_engine PRIVATE ${CMAKE_MATCH_1})
-                elseif(flag MATCHES "^-l(.+)")
-                    target_link_libraries(test_validation_engine PRIVATE ${CMAKE_MATCH_1})
-                endif()
-            endforeach()
-        elseif(JEMALLOC_LIBRARY_DIRS AND JEMALLOC_LIBRARIES)
-            target_link_directories(test_validation_engine PRIVATE ${JEMALLOC_LIBRARY_DIRS})
-            target_link_libraries(test_validation_engine PRIVATE ${JEMALLOC_LIBRARIES})
-        elseif(JEMALLOC_LIBRARIES)
-            target_link_libraries(test_validation_engine PRIVATE ${JEMALLOC_LIBRARIES})
-        endif()
-    endif()
-
-    # Link Python libraries for tests (needed for symbols in catzilla_core)
-    if(Python3_LIBRARIES)
-        target_link_libraries(test_validation_engine PRIVATE ${Python3_LIBRARIES})
-    endif()
-
-    # Windows-specific linking
-    if(WIN32)
-        target_link_libraries(test_validation_engine PRIVATE ws2_32 iphlpapi userenv)
-        set_windows_python_library(test_validation_engine)
-    endif()
-
-    # Add test_memory executable
-    add_executable(test_memory
-      tests/c/test_memory.c
-      deps/unity/src/unity.c
-    )
-
-    target_include_directories(test_memory PRIVATE
-      src/core
-      deps/unity/src
-      ${Python3_INCLUDE_DIRS}
-    )
-
-    target_link_libraries(test_memory PRIVATE
-      catzilla_core
-    )
-
-    # Link jemalloc for tests if available (needed since catzilla_core uses it)
-    if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC)
-        if(JEMALLOC_LDFLAGS)
-            # Parse LDFLAGS to extract library directories and libraries
-            string(REPLACE ";" " " JEMALLOC_LDFLAGS_STR "${JEMALLOC_LDFLAGS}")
-            separate_arguments(JEMALLOC_LDFLAGS_LIST UNIX_COMMAND "${JEMALLOC_LDFLAGS_STR}")
-
-            foreach(flag ${JEMALLOC_LDFLAGS_LIST})
-                if(flag MATCHES "^-L(.+)")
-                    target_link_directories(test_memory PRIVATE ${CMAKE_MATCH_1})
-                elseif(flag MATCHES "^-l(.+)")
-                    target_link_libraries(test_memory PRIVATE ${CMAKE_MATCH_1})
-                endif()
-            endforeach()
-        elseif(JEMALLOC_LIBRARY_DIRS AND JEMALLOC_LIBRARIES)
-            target_link_directories(test_memory PRIVATE ${JEMALLOC_LIBRARY_DIRS})
-            target_link_libraries(test_memory PRIVATE ${JEMALLOC_LIBRARIES})
-        elseif(JEMALLOC_LIBRARIES)
-            target_link_libraries(test_memory PRIVATE ${JEMALLOC_LIBRARIES})
-        endif()
-    endif()
-
-    # Link Python libraries for tests (needed for symbols in catzilla_core)
-    if(Python3_LIBRARIES)
-        target_link_libraries(test_memory PRIVATE ${Python3_LIBRARIES})
-    endif()
-
-    # Windows-specific linking
-    if(WIN32)
-        target_link_libraries(test_memory PRIVATE ws2_32 iphlpapi userenv)
-        set_windows_python_library(test_memory)
-    endif()
+    # Configure all test executables
+    configure_test_executable(test_router tests/c/test_router.c)
+    configure_test_executable(test_advanced_router tests/c/test_advanced_router.c)
+    configure_test_executable(test_server_integration tests/c/test_server_integration.c)
+    configure_test_executable(test_validation_engine tests/c/test_validation_engine.c)
+    configure_test_executable(test_memory tests/c/test_memory.c)
 endif()
 
 # Install rules (unused by pip, but here for completeness)
