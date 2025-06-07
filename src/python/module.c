@@ -1,6 +1,7 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include "server.h"           // Provides catzilla_server_t, catzilla_server_init, etc.
+#include "logging.h"
 #include "router.h"           // Provides catzilla_router_t, catzilla_router_match, etc.
 #include "memory.h"           // Provides memory system functions
 #include "validation.h"       // Provides ultra-fast validation engine
@@ -918,6 +919,7 @@ static PyObject* get_content_type(PyObject* self, PyObject* args) {
     }
 
     const char* content_type = catzilla_get_content_type_str(request);
+    LOG_HTTP_DEBUG("get_content_type_str: passed, moved to unicode conversion");
     return PyUnicode_FromString(content_type);
 }
 
@@ -1057,7 +1059,7 @@ static PyObject* set_allocator(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s", &allocator_name)) {
         return NULL;
     }
-    
+
     catzilla_allocator_type_t allocator;
     if (strcmp(allocator_name, "jemalloc") == 0) {
         allocator = CATZILLA_ALLOCATOR_JEMALLOC;
@@ -1067,7 +1069,7 @@ static PyObject* set_allocator(PyObject *self, PyObject *args)
         PyErr_SetString(PyExc_ValueError, "Invalid allocator type. Use 'jemalloc' or 'malloc'");
         return NULL;
     }
-    
+
     int result = catzilla_memory_set_allocator(allocator);
     if (result == -1) {
         PyErr_SetString(PyExc_RuntimeError, "Cannot change allocator after memory system initialization");
@@ -1076,7 +1078,7 @@ static PyObject* set_allocator(PyObject *self, PyObject *args)
         PyErr_SetString(PyExc_RuntimeError, "jemalloc not available in this build");
         return NULL;
     }
-    
+
     Py_RETURN_NONE;
 }
 
@@ -1098,7 +1100,7 @@ static PyObject* init_memory_with_allocator(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s", &allocator_name)) {
         return NULL;
     }
-    
+
     catzilla_allocator_type_t allocator;
     if (strcmp(allocator_name, "jemalloc") == 0) {
         allocator = CATZILLA_ALLOCATOR_JEMALLOC;
@@ -1108,7 +1110,7 @@ static PyObject* init_memory_with_allocator(PyObject *self, PyObject *args)
         PyErr_SetString(PyExc_ValueError, "Invalid allocator type. Use 'jemalloc' or 'malloc'");
         return NULL;
     }
-    
+
     int result = catzilla_memory_init_with_allocator(allocator);
     if (result != 0) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to initialize memory system with specified allocator");
@@ -1122,7 +1124,7 @@ static PyObject* get_memory_stats(PyObject *self, PyObject *args)
 {
     catzilla_memory_stats_t stats;
     catzilla_memory_get_stats(&stats);
-    
+
     return Py_BuildValue("{s:K,s:K,s:K,s:K,s:d,s:K,s:K,s:d,s:K,s:K,s:K,s:K,s:K,s:K}",
         "allocated", (unsigned long long)stats.allocated,
         "active", (unsigned long long)stats.active,

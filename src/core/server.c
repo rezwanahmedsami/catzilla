@@ -42,6 +42,7 @@ static void after_write(uv_write_t* req, int status);
 static void signal_handler(uv_signal_t* handle, int signum);
 static int on_message_complete(llhttp_t* parser);
 static void send_response_with_connection(uv_stream_t* client, int status_code, const char* headers, const char* body, size_t body_len, bool keep_alive);
+static void request_capsule_destructor(PyObject* capsule);
 int parse_query_params(catzilla_request_t* request, const char* query_string);
 void url_decode(const char* src, char* dst);
 
@@ -233,6 +234,16 @@ void catzilla_python_route_handler(uv_stream_t* client) {
     catzilla_send_response(client, 500, "text/plain", body, strlen(body));
 }
 
+// Capsule destructor for proper request memory management
+static void request_capsule_destructor(PyObject* capsule) {
+    catzilla_request_t* request = PyCapsule_GetPointer(capsule, "catzilla.request");
+    if (request) {
+        if (request->json_doc) yyjson_doc_free(request->json_doc);
+        catzilla_request_free(request->body);
+        catzilla_request_free(request);
+    }
+}
+
 // Python callback helper
 PyObject* handle_request_in_server(PyObject* callback,
     PyObject* client_capsule,
@@ -263,11 +274,20 @@ PyObject* handle_request_in_server(PyObject* callback,
     const char* query = strchr(path, '?');
     if (query) {
         query++; // Skip the '?' character
+        LOG_HTTP_DEBUG("About to call parse_query_params with query: %s", query);
         if (parse_query_params(request, query) == 0) {
             LOG_HTTP_DEBUG("Successfully parsed query parameters");
+            LOG_HTTP_DEBUG("Request now has %d query params", request->query_param_count);
+            for (int i = 0; i < request->query_param_count; i++) {
+                LOG_HTTP_DEBUG("  Param %d: %s=%s (ptrs: %p/%p)", i,
+                    request->query_params[i], request->query_values[i],
+                    request->query_params[i], request->query_values[i]);
+            }
+            LOG_HTTP_DEBUG("Query parameter parsing completed successfully");
         } else {
             LOG_HTTP_DEBUG("Failed to parse query parameters");
         }
+        LOG_HTTP_DEBUG("After query parameter section, continuing...");
     }
 
     if (body) {
@@ -312,8 +332,8 @@ PyObject* handle_request_in_server(PyObject* callback,
         request->content_type = CONTENT_TYPE_NONE;
     }
 
-    // Create request capsule
-    PyObject* request_capsule = PyCapsule_New(request, "catzilla.request", NULL);
+    // Create request capsule with destructor
+    PyObject* request_capsule = PyCapsule_New(request, "catzilla.request", request_capsule_destructor);
     if (!request_capsule) {
         if (request->json_doc) yyjson_doc_free(request->json_doc);
         catzilla_request_free(request->body);
@@ -324,20 +344,16 @@ PyObject* handle_request_in_server(PyObject* callback,
     // Build arguments tuple: (client_capsule, method, path, body, request_capsule)
     PyObject* args = Py_BuildValue("(OsssO)", client_capsule, method, path, body ? body : "", request_capsule);
     if (!args) {
-        Py_DECREF(request_capsule);
-        if (request->json_doc) yyjson_doc_free(request->json_doc);
-        catzilla_request_free(request->body);
-        catzilla_request_free(request);
+        Py_DECREF(request_capsule);  // This will call the destructor to free request memory
         return NULL;
     }
 
     // Call the Python function
     PyObject* result = PyObject_CallObject(callback, args);
     Py_DECREF(args);
-    Py_DECREF(request_capsule);
-    if (request->json_doc) yyjson_doc_free(request->json_doc);
-    catzilla_request_free(request->body);
-    catzilla_request_free(request);
+    // DO NOT DECREF request_capsule here - let Python manage the capsule lifecycle
+    // The Request object will hold a reference to the capsule and the destructor
+    // will be called when the Request object is garbage collected
 
     if (!result) {
         PyErr_Print();
@@ -524,8 +540,8 @@ const char* catzilla_get_content_type_str(catzilla_request_t* request) {
             return "application/x-www-form-urlencoded";
         case CONTENT_TYPE_NONE:
         default:
-            LOG_HTTP_DEBUG("get_content_type_str: returning empty string");
-            return "";
+            LOG_HTTP_DEBUG("get_content_type_str: returning text/plain");
+            return "text/plain";
     }
 }
 
@@ -1056,14 +1072,18 @@ int parse_query_params(catzilla_request_t* request, const char* query_string) {
 
     LOG_HTTP_DEBUG("Parsing query string: %s", query_string);
 
-    // Create a copy we can modify
-    char* query = strdup(query_string);
+    // Create a copy we can modify using Catzilla memory allocator
+    size_t query_len = strlen(query_string) + 1;
+    char* query = catzilla_request_alloc(query_len);
     if (!query) return -1;
+    memcpy(query, query_string, query_len);
 
     char* token;
     char* rest = query;
+    char* saveptr;
 
-    while ((token = strtok_r(rest, "&", &rest))) {
+    token = strtok_r(rest, "&", &saveptr);
+    while (token) {
         char* key = token;
         char* value = strchr(token, '=');
 
@@ -1086,22 +1106,38 @@ int parse_query_params(catzilla_request_t* request, const char* query_string) {
             url_decode(value, decoded_value);
 
             LOG_HTTP_DEBUG("Query param: %s = %s", decoded_key, decoded_value);
+            LOG_HTTP_DEBUG("Memory allocated - key at %p, value at %p", decoded_key, decoded_value);
 
             if (request->query_param_count < CATZILLA_MAX_QUERY_PARAMS) {
                 request->query_params[request->query_param_count] = decoded_key;
                 request->query_values[request->query_param_count] = decoded_value;
                 request->query_param_count++;
                 request->has_query_params = true;
+                LOG_HTTP_DEBUG("Stored query param %d: %s=%s at %p/%p",
+                    request->query_param_count - 1, decoded_key, decoded_value, decoded_key, decoded_value);
             } else {
                 catzilla_request_free(decoded_key);
                 catzilla_request_free(decoded_value);
+                LOG_HTTP_DEBUG("Max query params reached, freed extra params");
                 break;
             }
+        } else {
+            LOG_HTTP_DEBUG("Query param without value: %s", key);
         }
+        LOG_HTTP_DEBUG("End of loop iteration, continuing...");
+        LOG_HTTP_DEBUG("About to call strtok_r(NULL, \"&\", &saveptr), saveptr=%p", saveptr);
+
+        // Get next token
+        token = strtok_r(NULL, "&", &saveptr);
+        LOG_HTTP_DEBUG("strtok_r returned token=%p", token);
     }
 
+    LOG_HTTP_DEBUG("Exited while loop successfully");
+
     catzilla_request_free(query);
+    LOG_HTTP_DEBUG("Freed query string copy");
     LOG_HTTP_DEBUG("Query parsing complete with %d parameters", request->query_param_count);
+    LOG_HTTP_DEBUG("parse_query_params function returning 0 (success)");
     return 0;
 }
 

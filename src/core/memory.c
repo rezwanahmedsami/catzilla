@@ -21,28 +21,19 @@
 
 // Conditional jemalloc inclusion
 #ifdef CATZILLA_HAS_JEMALLOC
+#define JEMALLOC_MANGLE
 #include <jemalloc/jemalloc.h>
 
 // Cross-platform jemalloc compatibility layer
-#ifdef JEMALLOC_USES_PREFIX
-    #define JEMALLOC_MALLOCX    je_mallocx
-    #define JEMALLOC_DALLOCX    je_dallocx
-    #define JEMALLOC_RALLOCX    je_rallocx
-    #define JEMALLOC_MALLCTL    je_mallctl
-    #define JEMALLOC_MALLOC     je_malloc
-    #define JEMALLOC_CALLOC     je_calloc
-    #define JEMALLOC_REALLOC    je_realloc
-    #define JEMALLOC_FREE       je_free
-#else
-    #define JEMALLOC_MALLOCX    mallocx
-    #define JEMALLOC_DALLOCX    dallocx
-    #define JEMALLOC_RALLOCX    rallocx
-    #define JEMALLOC_MALLCTL    mallctl
-    #define JEMALLOC_MALLOC     malloc
-    #define JEMALLOC_CALLOC     calloc
-    #define JEMALLOC_REALLOC    realloc
-    #define JEMALLOC_FREE       free
-#endif
+// On macOS, jemalloc uses je_ prefixed functions
+#define JEMALLOC_MALLOCX    je_mallocx
+#define JEMALLOC_DALLOCX    je_dallocx
+#define JEMALLOC_RALLOCX    je_rallocx
+#define JEMALLOC_MALLCTL    je_mallctl
+#define JEMALLOC_MALLOC     je_malloc
+#define JEMALLOC_CALLOC     je_calloc
+#define JEMALLOC_REALLOC    je_realloc
+#define JEMALLOC_FREE       je_free
 #endif
 
 // Global memory state
@@ -72,12 +63,12 @@ int catzilla_memory_set_allocator(catzilla_allocator_type_t allocator) {
         // Cannot change allocator after initialization
         return -1;
     }
-    
+
     if (allocator == CATZILLA_ALLOCATOR_JEMALLOC && !catzilla_memory_jemalloc_available()) {
         // jemalloc requested but not available
         return -2;
     }
-    
+
     g_current_allocator = allocator;
     return 0;
 }
@@ -143,7 +134,7 @@ void* catzilla_realloc(void* ptr, size_t size) {
 
 void catzilla_free(void* ptr) {
     if (!ptr) return;
-    
+
 #ifdef CATZILLA_HAS_JEMALLOC
     if (g_current_allocator == CATZILLA_ALLOCATOR_JEMALLOC) {
         JEMALLOC_FREE(ptr);
@@ -240,7 +231,7 @@ void* catzilla_task_alloc(size_t size) {
 
 void catzilla_request_free(void* ptr) {
     if (!ptr) return;
-    
+
 #ifdef CATZILLA_HAS_JEMALLOC
     if (g_current_allocator == CATZILLA_ALLOCATOR_JEMALLOC) {
         JEMALLOC_DALLOCX(ptr, MALLOCX_ARENA(g_memory_stats.request_arena));
@@ -255,7 +246,7 @@ void catzilla_request_free(void* ptr) {
 
 void catzilla_response_free(void* ptr) {
     if (!ptr) return;
-    
+
 #ifdef CATZILLA_HAS_JEMALLOC
     if (g_current_allocator == CATZILLA_ALLOCATOR_JEMALLOC) {
         JEMALLOC_DALLOCX(ptr, MALLOCX_ARENA(g_memory_stats.response_arena));
@@ -270,7 +261,7 @@ void catzilla_response_free(void* ptr) {
 
 void catzilla_cache_free(void* ptr) {
     if (!ptr) return;
-    
+
 #ifdef CATZILLA_HAS_JEMALLOC
     if (g_current_allocator == CATZILLA_ALLOCATOR_JEMALLOC) {
         JEMALLOC_DALLOCX(ptr, MALLOCX_ARENA(g_memory_stats.cache_arena));
@@ -285,7 +276,7 @@ void catzilla_cache_free(void* ptr) {
 
 void catzilla_static_free(void* ptr) {
     if (!ptr) return;
-    
+
 #ifdef CATZILLA_HAS_JEMALLOC
     if (g_current_allocator == CATZILLA_ALLOCATOR_JEMALLOC) {
         JEMALLOC_DALLOCX(ptr, MALLOCX_ARENA(g_memory_stats.static_arena));
@@ -300,7 +291,7 @@ void catzilla_static_free(void* ptr) {
 
 void catzilla_task_free(void* ptr) {
     if (!ptr) return;
-    
+
 #ifdef CATZILLA_HAS_JEMALLOC
     if (g_current_allocator == CATZILLA_ALLOCATOR_JEMALLOC) {
         JEMALLOC_DALLOCX(ptr, MALLOCX_ARENA(g_memory_stats.task_arena));
@@ -410,6 +401,11 @@ int catzilla_memory_init_with_allocator(catzilla_allocator_type_t allocator) {
 int catzilla_memory_init(void) {
     if (g_memory_initialized) {
         return 0; // Already initialized
+    }
+
+    // Auto-detect and use jemalloc if available and no allocator explicitly set
+    if (g_current_allocator == CATZILLA_ALLOCATOR_MALLOC && catzilla_memory_jemalloc_available()) {
+        g_current_allocator = CATZILLA_ALLOCATOR_JEMALLOC;
     }
 
 #ifdef CATZILLA_HAS_JEMALLOC
@@ -762,7 +758,7 @@ void catzilla_memory_dump_stats(void) {
 
     printf("\n=== Catzilla Memory Statistics ===\n");
     printf("jemalloc available: %s\n", catzilla_memory_has_jemalloc() ? "YES" : "NO");
-    printf("Current allocator: %s\n", 
+    printf("Current allocator: %s\n",
            g_current_allocator == CATZILLA_ALLOCATOR_JEMALLOC ? "jemalloc" : "malloc");
     printf("Allocated: %.2f MB\n", stats.allocated / (1024.0 * 1024.0));
     printf("Active: %.2f MB\n", stats.active / (1024.0 * 1024.0));

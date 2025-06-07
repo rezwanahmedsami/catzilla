@@ -16,23 +16,23 @@ set_property(CACHE CATZILLA_MEMORY_BACKEND PROPERTY STRINGS "auto" "jemalloc" "m
 
 if(CATZILLA_USE_JEMALLOC)
     message(STATUS "🚀 Catzilla: Configuring jemalloc integration for ultra-fast web framework")
-    
+
     # Primary approach: Look for pre-built jemalloc static library
     if(EXISTS "${CMAKE_SOURCE_DIR}/deps/jemalloc/lib/libjemalloc.a")
         message(STATUS "📦 Using pre-built jemalloc static library (deps/jemalloc)")
-        
+
         # Define both PIC and non-PIC library paths
         set(JEMALLOC_LIBRARY_STATIC "${CMAKE_SOURCE_DIR}/deps/jemalloc/lib/libjemalloc.a")
         set(JEMALLOC_LIBRARY_PIC "${CMAKE_SOURCE_DIR}/deps/jemalloc/lib/libjemalloc_pic.a")
         set(JEMALLOC_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/deps/jemalloc/include")
-        
+
         # Verify the library files exist and headers exist
         if(EXISTS "${JEMALLOC_LIBRARY_STATIC}" AND EXISTS "${JEMALLOC_INCLUDE_DIR}")
             set(JEMALLOC_FOUND TRUE)
             set(JEMALLOC_LIBRARIES "${JEMALLOC_LIBRARY_STATIC}")
             set(JEMALLOC_INCLUDE_DIRS "${JEMALLOC_INCLUDE_DIR}")
             set(CATZILLA_HAS_JEMALLOC TRUE)
-            
+
             # Check if PIC library exists
             if(EXISTS "${JEMALLOC_LIBRARY_PIC}")
                 set(JEMALLOC_LIBRARIES_PIC "${JEMALLOC_LIBRARY_PIC}")
@@ -51,21 +51,21 @@ if(CATZILLA_USE_JEMALLOC)
             set(JEMALLOC_FOUND FALSE)
             set(CATZILLA_HAS_JEMALLOC FALSE)
         endif()
-        
+
     else()
         # Fallback to system jemalloc
         message(STATUS "📋 jemalloc pre-built library not found, trying system installation")
         message(STATUS "💡 Tip: Run './scripts/build_jemalloc.sh' to build jemalloc static library")
-        
+
         find_path(JEMALLOC_INCLUDE_DIR jemalloc/jemalloc.h)
         find_library(JEMALLOC_LIBRARY NAMES jemalloc)
-        
+
         if(JEMALLOC_INCLUDE_DIR AND JEMALLOC_LIBRARY)
             set(JEMALLOC_FOUND TRUE)
             set(JEMALLOC_INCLUDE_DIRS ${JEMALLOC_INCLUDE_DIR})
             set(JEMALLOC_LIBRARIES ${JEMALLOC_LIBRARY})
             set(CATZILLA_HAS_JEMALLOC TRUE)
-            
+
             message(STATUS "✅ jemalloc system library found")
             message(STATUS "   Library: ${JEMALLOC_LIBRARY}")
             message(STATUS "   Headers: ${JEMALLOC_INCLUDE_DIRS}")
@@ -79,7 +79,7 @@ if(CATZILLA_USE_JEMALLOC)
     # ============================================================================
     # FINALIZE JEMALLOC CONFIGURATION
     # ============================================================================
-    
+
     if(CATZILLA_HAS_JEMALLOC)
         message(STATUS "✅ jemalloc integration configured successfully!")
         message(STATUS "   Target: ${JEMALLOC_LIBRARIES}")
@@ -105,7 +105,7 @@ if(CATZILLA_USE_JEMALLOC)
         message(STATUS "      Ubuntu:   sudo apt-get install libjemalloc-dev")
         message(STATUS "      RHEL/CentOS/AlmaLinux: sudo yum install jemalloc-devel")
         message(STATUS "      Windows:  vcpkg install jemalloc")
-        
+
         set(CATZILLA_USE_JEMALLOC OFF)
         set(CATZILLA_HAS_JEMALLOC FALSE)
     endif()
@@ -196,6 +196,12 @@ else()
     # GCC/Clang compiler flags (Unix-like systems)
     add_compile_options(-g -O0)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
+
+    # Enhanced debugging without AddressSanitizer (macOS issues)
+    if(CMAKE_BUILD_TYPE STREQUAL "DEBUG" OR CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DCATZILLA_MEMORY_DEBUG=1")
+        message(STATUS "Enhanced memory debugging enabled")
+    endif()
 endif()
 
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "")
@@ -535,6 +541,10 @@ target_include_directories(catzilla_core PUBLIC
 if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC)
     target_include_directories(catzilla_core PUBLIC ${JEMALLOC_INCLUDE_DIRS})
 
+    # Set target-specific compile definitions for jemalloc support
+    target_compile_definitions(catzilla_core PRIVATE CATZILLA_USE_JEMALLOC=1)
+    target_compile_definitions(catzilla_core PRIVATE CATZILLA_HAS_JEMALLOC=1)
+
     # Use LDFLAGS for proper library path on macOS/Linux, fallback to LIBRARIES
     if(JEMALLOC_LDFLAGS)
         # Parse LDFLAGS to extract library directories and libraries
@@ -578,6 +588,10 @@ target_include_directories(_catzilla PRIVATE
 # Link jemalloc for Python extension if available (use PIC version for shared library)
 if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC)
     target_include_directories(_catzilla PRIVATE ${JEMALLOC_INCLUDE_DIRS})
+
+    # Set target-specific compile definitions for jemalloc support
+    target_compile_definitions(_catzilla PRIVATE CATZILLA_USE_JEMALLOC=1)
+    target_compile_definitions(_catzilla PRIVATE CATZILLA_HAS_JEMALLOC=1)
 
     # Use LDFLAGS for proper library path on macOS/Linux, fallback to LIBRARIES_PIC for shared library
     if(JEMALLOC_LDFLAGS)
