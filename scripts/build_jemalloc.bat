@@ -96,7 +96,6 @@ if %errorlevel% neq 0 (
     echo Tip: For autotools approach, install MSYS2 and run: pacman -S make
     goto :msbuild_approach
 )
-)
 echo Found make:
 bash -c "make --version" | head -1
 
