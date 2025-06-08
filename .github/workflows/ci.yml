@@ -156,6 +156,11 @@ jobs:
       if: runner.os == 'Windows'
       run: |
         choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
+        choco install msys2 --params="/NoPath"
+        # Install autotools through MSYS2 for jemalloc build
+        C:\tools\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm autoconf automake make"
+        # Add MSYS2 tools to PATH for jemalloc build
+        echo "C:\tools\msys64\usr\bin" >> $GITHUB_PATH
         # Note: jemalloc will be built by our build scripts from the git submodule
         # This ensures consistency with our custom build configuration
 
