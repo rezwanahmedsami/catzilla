@@ -134,7 +134,7 @@ if %errorlevel% neq 0 (
     REM Try to build the test
     echo.
     echo Building test_jemalloc...
-    cmake --build .
+    cmake --build . --config Release
 
     if %errorlevel% neq 0 (
         echo ✗ Build failed
@@ -143,10 +143,10 @@ if %errorlevel% neq 0 (
         echo ✓ Build succeeded
 
         REM Try to run the test
-        if exist "Debug\test_jemalloc.exe" (
+        if exist "Release\test_jemalloc.exe" (
             echo.
             echo Running test_jemalloc.exe...
-            Debug\test_jemalloc.exe
+            Release\test_jemalloc.exe
 
             if %errorlevel% neq 0 (
                 echo ✗ Test run failed

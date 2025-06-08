@@ -74,7 +74,7 @@ if %errorlevel% neq 0 (
 REM Build
 echo.
 echo Step 5: Building...
-cmake --build . -j%cores%
+cmake --build . --config Release -j%cores%
 
 if %errorlevel% neq 0 (
     echo Build failed!

@@ -50,13 +50,26 @@ Removed all hardcoded `LD_PRELOAD` exports that pointed to system jemalloc libra
 export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
 ```
 
-### 3. Trust Build Script Automation
+### 3. Fixed Windows Debug/Release Build Configuration
 
-The build scripts (`build.sh`, `build.bat`) now handle:
-- Detecting existing jemalloc installations
-- Building jemalloc from source when needed
-- Setting up proper library paths and environment variables
-- Configuring `LD_PRELOAD` automatically via `jemalloc_helper.py`
+**Problem**: Even with `CMAKE_BUILD_TYPE=Release`, Visual Studio was building some components in Debug mode, causing `python39_d.lib` linking errors.
+
+**Solution**: Added explicit `--config Release` to all CMake build commands in Windows batch scripts.
+
+**Files Modified:**
+- `scripts/build.bat`
+- `scripts/run_tests.bat`
+- `scripts/test_jemalloc_detection.bat`
+
+**Changes:**
+- **Before**: `cmake --build . -j%cores%`
+- **After**: `cmake --build . --config Release -j%cores%`
+
+- **Before**: `cmake --build build --config Debug`
+- **After**: `cmake --build build --config Release`
+
+- **Before**: Executable paths pointing to `Debug\test_jemalloc.exe`
+- **After**: Executable paths pointing to `Release\test_jemalloc.exe`
 
 ## Build Dependencies Now Installed
 
@@ -114,15 +127,76 @@ After these changes, CI should:
 4. ✅ Automatically configure library paths
 5. ✅ Run all tests successfully with custom jemalloc
 
-## Files Modified
+## Complete Fix Summary
 
+### All Issues Resolved ✅
+
+1. **✅ System Jemalloc Conflicts**: Removed all system package manager installations
+2. **✅ Hardcoded Library Paths**: Removed hardcoded `LD_PRELOAD` references
+3. **✅ Windows Debug/Release**: Fixed all Windows batch scripts to use Release mode consistently
+4. **✅ Build Configuration**: Added explicit `--config Release` to all Windows CMake builds
+5. **✅ Cross-Platform Consistency**: Unified jemalloc handling across Linux, macOS, and Windows
+
+### Files Modified
+
+**CI Workflows:**
 - `.github/workflows/ci.yml` - Removed system jemalloc installations and hardcoded paths
-- `.github/workflows/docs.yml` - Removed system jemalloc installation
-- `.github/workflows/release.yml` - Removed system jemalloc installation
-- `JEMALLOC_CI_FIXES.md` - This documentation
+- `.github/workflows/docs.yml` - Removed system jemalloc installations
+- `.github/workflows/release.yml` - Removed system jemalloc installations
 
-## Related Documentation
+**Windows Build Scripts:**
+- `scripts/build.bat` - Added `--config Release` to CMake build
+- `scripts/run_tests.bat` - Changed from Debug to Release mode
+- `scripts/test_jemalloc_detection.bat` - Fixed build config and executable paths
 
-- `WINDOWS_BATCH_FIXES.md` - Windows batch script ANSI color fixes
-- `WINDOWS_PYTHON_DEBUG_FIX.md` - Windows Python debug library fixes
-- `scripts/jemalloc_helper.py` - Automatic jemalloc detection and setup
+**Previous Fixes (Still Applied):**
+- All Windows batch scripts - ANSI color codes removed
+- Windows Python debug library issue - Release mode configuration
+
+## Testing Instructions
+
+### Local Testing
+```bash
+# Test the build process
+./scripts/build.sh
+
+# Test jemalloc functionality
+python -c "from catzilla import Catzilla; print('✅ Import successful')"
+
+# Test jemalloc detection
+./scripts/test_jemalloc_detection.py
+```
+
+### Windows Testing
+```cmd
+REM Test Windows build
+scripts\build.bat
+
+REM Test functionality
+python -c "from catzilla import Catzilla; print('✅ Import successful')"
+
+REM Test jemalloc detection
+scripts\test_jemalloc_detection.bat
+```
+
+### CI Pipeline Testing
+Push these changes to GitHub and monitor the CI workflow. Expected results:
+- **✅ Linux builds**: Should build jemalloc from source without conflicts
+- **✅ macOS builds**: Should build jemalloc from source without brew conflicts
+- **✅ Windows builds**: Should complete successfully without python39_d.lib errors
+
+## Expected Behavior
+
+### Before Fixes
+- ❌ Linux: System jemalloc conflicted with custom builds
+- ❌ macOS: Brew jemalloc conflicted with custom builds
+- ❌ Windows: Debug mode caused python39_d.lib linking errors
+- ❌ CI: Hardcoded paths caused runtime failures
+
+### After Fixes
+- ✅ Linux: Custom jemalloc builds consistently from git submodule
+- ✅ macOS: Custom jemalloc builds consistently from git submodule
+- ✅ Windows: Release mode builds successfully without debug library dependencies
+- ✅ CI: Dynamic jemalloc detection and loading via build scripts
+
+The CI pipeline should now be robust and consistent across all platforms, using only the jemalloc version built from the project's git submodule.

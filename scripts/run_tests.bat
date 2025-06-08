@@ -243,7 +243,7 @@ if %errorlevel% neq 0 (
 )
 
 echo %YELLOW%Building C components...%NC%
-cmake --build build --config Debug
+cmake --build build --config Release
 if %errorlevel% neq 0 (
     echo %RED%Build failed!%NC%
     set c_success=false
