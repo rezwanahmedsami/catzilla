@@ -5,6 +5,14 @@ setlocal enabledelayedexpansion
 echo 🧠 jemalloc Build Script
 echo ========================
 
+REM Debug: Show environment info
+echo 🔍 Environment Info:
+echo    Script Dir: %~dp0
+echo    Current Dir: %CD%
+echo    Visual Studio:
+where msbuild 2>nul || echo "MSBuild not found"
+msbuild /version 2>nul || echo "MSBuild version check failed"
+
 REM Get script directory and project root
 set SCRIPT_DIR=%~dp0
 set PROJECT_ROOT=%SCRIPT_DIR%..
@@ -17,6 +25,8 @@ if not exist "%JEMALLOC_SOURCE_DIR%" (
     echo 💡 Tip: Initialize git submodules: git submodule update --init --recursive
     exit /b 1
 )
+
+echo 🔍 jemalloc source directory exists: %JEMALLOC_SOURCE_DIR%
 
 REM Check if jemalloc static library already exists
 if exist "%JEMALLOC_LIB_FILE%" (
@@ -54,23 +64,43 @@ REM Use Visual Studio project files for Windows build
 echo.
 echo 🔨 Building jemalloc with Visual Studio...
 
-REM Try building with MSBuild
-if exist "msvc\jemalloc_vc2017.sln" (
-    echo Building with Visual Studio 2017+ solution...
-    msbuild "msvc\jemalloc_vc2017.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal
-    if %errorlevel% equ 0 (
+REM Try building with MSBuild - prefer newer versions first
+set BUILD_SUCCESS=0
+
+REM Try VS 2022 first
+if exist "msvc\jemalloc_vc2022.sln" (
+    echo Building with Visual Studio 2022 solution...
+    msbuild "msvc\jemalloc_vc2022.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal /nologo
+    if %errorlevel% equ 0 set BUILD_SUCCESS=1
+)
+
+REM Try VS 2019 if 2022 failed
+if %BUILD_SUCCESS% equ 0 if exist "msvc\jemalloc_vc2019.sln" (
+    echo Building with Visual Studio 2019 solution...
+    msbuild "msvc\jemalloc_vc2019.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal /nologo
+    if %errorlevel% equ 0 set BUILD_SUCCESS=1
+)
+
+REM Try VS 2017 if others failed
+if %BUILD_SUCCESS% equ 0 if exist "msvc\jemalloc_vc2017.sln" (
+    echo Building with Visual Studio 2017 solution...
+    msbuild "msvc\jemalloc_vc2017.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal /nologo
+    if %errorlevel% equ 0 set BUILD_SUCCESS=1
+)
+
+if %BUILD_SUCCESS% equ 1 (
         REM Copy the built library to expected location
         if not exist "lib" mkdir lib
 
-        REM Look for various possible output names
-        if exist "msvc\x64\Release\jemalloc-vc141-Release.lib" (
+        REM Look for various possible output names (VS 2017-2022 variations)
+        if exist "msvc\x64\Release\jemalloc-vc143-Release.lib" (
+            copy "msvc\x64\Release\jemalloc-vc143-Release.lib" "lib\jemalloc.lib" >nul 2>&1
+        ) else if exist "msvc\x64\Release\jemalloc-vc142-Release.lib" (
+            copy "msvc\x64\Release\jemalloc-vc142-Release.lib" "lib\jemalloc.lib" >nul 2>&1
+        ) else if exist "msvc\x64\Release\jemalloc-vc141-Release.lib" (
             copy "msvc\x64\Release\jemalloc-vc141-Release.lib" "lib\jemalloc.lib" >nul 2>&1
         ) else if exist "msvc\x64\Release\jemalloc.lib" (
             copy "msvc\x64\Release\jemalloc.lib" "lib\jemalloc.lib" >nul 2>&1
-        ) else if exist "msvc\x64\Release\jemalloc-vc142-Release.lib" (
-            copy "msvc\x64\Release\jemalloc-vc142-Release.lib" "lib\jemalloc.lib" >nul 2>&1
-        ) else if exist "msvc\x64\Release\jemalloc-vc143-Release.lib" (
-            copy "msvc\x64\Release\jemalloc-vc143-Release.lib" "lib\jemalloc.lib" >nul 2>&1
         )
 
         if exist "lib\jemalloc.lib" (
@@ -87,11 +117,15 @@ if exist "msvc\jemalloc_vc2017.sln" (
             exit /b 1
         )
     ) else (
-        echo ❌ Error: MSBuild failed with error level %errorlevel%
+        echo ❌ Error: MSBuild failed for all Visual Studio versions
+        echo 🔍 Available solution files:
+        dir "msvc\*.sln" 2>nul
+        echo 🔍 MSBuild version:
+        msbuild /version 2>nul || echo "MSBuild version detection failed"
         exit /b 1
     )
 ) else (
-    echo ❌ Error: Visual Studio solution file not found: msvc\jemalloc_vc2017.sln
+    echo ❌ Error: No Visual Studio solution files found
     echo 🔍 Available files in msvc directory:
     dir "msvc" 2>nul
     exit /b 1

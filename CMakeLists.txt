@@ -18,7 +18,26 @@ if(CATZILLA_USE_JEMALLOC)
     message(STATUS "🚀 Catzilla: Configuring jemalloc integration for ultra-fast web framework")
 
     # Primary approach: Look for pre-built jemalloc static library
-    if(EXISTS "${CMAKE_SOURCE_DIR}/deps/jemalloc/lib/libjemalloc.a")
+    set(JEMALLOC_PREBUILT_FOUND FALSE)
+
+    # Windows-specific paths
+    if(WIN32)
+        if(EXISTS "${CMAKE_SOURCE_DIR}/deps/jemalloc/lib/jemalloc.lib")
+            message(STATUS "📦 Using pre-built jemalloc static library (deps/jemalloc) - Windows")
+            set(JEMALLOC_LIBRARY_STATIC "${CMAKE_SOURCE_DIR}/deps/jemalloc/lib/jemalloc.lib")
+            set(JEMALLOC_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/deps/jemalloc/include")
+            set(JEMALLOC_PREBUILT_FOUND TRUE)
+        endif()
+    # Unix-specific paths
+    elseif(EXISTS "${CMAKE_SOURCE_DIR}/deps/jemalloc/lib/libjemalloc.a")
+        message(STATUS "📦 Using pre-built jemalloc static library (deps/jemalloc) - Unix")
+        set(JEMALLOC_LIBRARY_STATIC "${CMAKE_SOURCE_DIR}/deps/jemalloc/lib/libjemalloc.a")
+        set(JEMALLOC_LIBRARY_PIC "${CMAKE_SOURCE_DIR}/deps/jemalloc/lib/libjemalloc_pic.a")
+        set(JEMALLOC_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/deps/jemalloc/include")
+        set(JEMALLOC_PREBUILT_FOUND TRUE)
+    endif()
+
+    if(JEMALLOC_PREBUILT_FOUND)
         message(STATUS "📦 Using pre-built jemalloc static library (deps/jemalloc)")
 
         # Define both PIC and non-PIC library paths
@@ -33,18 +52,20 @@ if(CATZILLA_USE_JEMALLOC)
             set(JEMALLOC_INCLUDE_DIRS "${JEMALLOC_INCLUDE_DIR}")
             set(CATZILLA_HAS_JEMALLOC TRUE)
 
-            # Check if PIC library exists
-            if(EXISTS "${JEMALLOC_LIBRARY_PIC}")
+            # Check if PIC library exists (Unix only)
+            if(NOT WIN32 AND EXISTS "${JEMALLOC_LIBRARY_PIC}")
                 set(JEMALLOC_LIBRARIES_PIC "${JEMALLOC_LIBRARY_PIC}")
                 message(STATUS "✅ jemalloc configured with both static and PIC libraries")
                 message(STATUS "   Static Library: ${JEMALLOC_LIBRARY_STATIC}")
                 message(STATUS "   PIC Library: ${JEMALLOC_LIBRARY_PIC}")
                 message(STATUS "   Headers: ${JEMALLOC_INCLUDE_DIRS}")
             else()
-                message(STATUS "✅ jemalloc configured with static library only")
+                message(STATUS "✅ jemalloc configured with static library")
                 message(STATUS "   Static Library: ${JEMALLOC_LIBRARY_STATIC}")
                 message(STATUS "   Headers: ${JEMALLOC_INCLUDE_DIRS}")
-                message(STATUS "   Note: PIC library not found, shared libraries will use non-PIC version")
+                if(NOT WIN32)
+                    message(STATUS "   Note: PIC library not found, shared libraries will use non-PIC version")
+                endif()
             endif()
         else()
             message(WARNING "⚠️  jemalloc library file missing, falling back to system search")

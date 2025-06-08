@@ -12,8 +12,12 @@ REM Build jemalloc if needed
 echo.
 echo Step 1: Building jemalloc (if needed)...
 call "%~dp0build_jemalloc.bat"
-if %errorlevel% neq 0 (
-    echo ⚠️  Warning: jemalloc build failed, continuing with system malloc
+set JEMALLOC_BUILD_RESULT=%errorlevel%
+if %JEMALLOC_BUILD_RESULT% neq 0 (
+    echo ⚠️  Warning: jemalloc build failed with exit code %JEMALLOC_BUILD_RESULT%
+    echo ⚠️  Continuing with system malloc - performance may be reduced
+) else (
+    echo ✅ jemalloc build completed successfully
 )
 
 REM Clean previous builds
