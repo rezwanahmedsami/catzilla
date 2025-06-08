@@ -28,14 +28,53 @@ if not exist "%JEMALLOC_SOURCE_DIR%" (
 
 echo 🔍 jemalloc source directory exists: %JEMALLOC_SOURCE_DIR%
 
-REM Check if jemalloc static library already exists
+REM Debug: Check current state
+echo 🔍 Checking for existing jemalloc library...
+echo    Expected location: %JEMALLOC_LIB_FILE%
 if exist "%JEMALLOC_LIB_FILE%" (
-    echo ✅ jemalloc static library already exists: %JEMALLOC_LIB_FILE%
-    echo 📊 Library info:
+    echo ✅ Library file exists
     dir "%JEMALLOC_LIB_FILE%"
-    echo 🚀 Skipping jemalloc build (already built)
-    exit /b 0
+) else (
+    echo ❌ Library file does not exist
 )
+
+REM Force rebuild for debugging - comment out the existing file check
+echo 🔧 Force rebuilding jemalloc for debugging...
+echo 🧹 Cleaning any existing library files...
+if exist "%JEMALLOC_LIB_FILE%" (
+    echo Removing existing library: %JEMALLOC_LIB_FILE%
+    del /q "%JEMALLOC_LIB_FILE%" 2>nul
+)
+
+REM REM Check if jemalloc static library already exists and is valid
+REM if exist "%JEMALLOC_LIB_FILE%" (
+REM     echo 🔍 Found existing jemalloc library: %JEMALLOC_LIB_FILE%
+REM     echo 📊 Library info:
+REM     dir "%JEMALLOC_LIB_FILE%"
+REM
+REM     REM Check if the file is actually a valid library (not empty)
+REM     for %%F in ("%JEMALLOC_LIB_FILE%") do set SIZE=%%~zF
+REM     if !SIZE! gtr 1000 (
+REM         echo ✅ jemalloc static library exists (!SIZE! bytes)
+REM         echo 🔍 Verifying CMake can find the library...
+REM
+REM         REM Test if CMake can find the library by doing a quick existence check
+REM         REM Using the same path that CMake will use
+REM         set CMAKE_LIB_PATH=%PROJECT_ROOT%\deps\jemalloc\lib\jemalloc.lib
+REM         if exist "%CMAKE_LIB_PATH%" (
+REM             echo ✅ Library accessible to CMake at: %CMAKE_LIB_PATH%
+REM             echo 🚀 Skipping jemalloc build (already built)
+REM             exit /b 0
+REM         ) else (
+REM             echo ❌ Library not accessible to CMake - path mismatch
+REM             echo Expected: %CMAKE_LIB_PATH%
+REM             echo Actual: %JEMALLOC_LIB_FILE%
+REM         )
+REM     ) else (
+REM         echo ⚠️  Existing library file is too small (!SIZE! bytes) - rebuilding
+REM         del /q "%JEMALLOC_LIB_FILE%" 2>nul
+REM     )
+REM )
 
 echo 🔨 Building jemalloc static library...
 echo Source: %JEMALLOC_SOURCE_DIR%
