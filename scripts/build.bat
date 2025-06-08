@@ -60,7 +60,7 @@ if "!cores!"=="" set cores=2
 REM Configure with CMake
 echo.
 echo Step 4: Configuring with CMake...
-cmake .. -DCMAKE_BUILD_TYPE=Debug -DPython3_EXECUTABLE="%PYTHON_EXE%"
+cmake .. -DCMAKE_BUILD_TYPE=Release -DPython3_EXECUTABLE="%PYTHON_EXE%"
 
 if %errorlevel% neq 0 (
     echo CMake configuration failed!

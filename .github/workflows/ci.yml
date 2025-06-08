@@ -78,7 +78,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake build-essential libjemalloc-dev libjemalloc2
+        sudo apt-get install -y cmake build-essential
 
     - name: Install Python dependencies
       run: |
@@ -96,7 +96,6 @@ jobs:
 
     - name: Quick functionality test
       run: |
-        export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
         python -c "
         from catzilla import Catzilla, JSONResponse
         app = Catzilla(auto_validation=True, memory_profiling=False)
@@ -147,39 +146,18 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake build-essential libjemalloc-dev libjemalloc2
+        sudo apt-get install -y cmake build-essential
 
     - name: Setup system dependencies (macOS)
       if: runner.os == 'macOS'
-      run: brew install cmake jemalloc autoconf automake libtool
-
-    - name: Verify jemalloc installation (macOS)
-      if: runner.os == 'macOS'
-      run: |
-        echo "🔍 Verifying jemalloc installation on macOS..."
-        brew list jemalloc || echo "jemalloc not found via brew list"
-        find /opt/homebrew /usr/local -name "*jemalloc*" 2>/dev/null | head -10 || echo "No jemalloc files found"
-        pkg-config --exists jemalloc && echo "✅ jemalloc found via pkg-config" || echo "❌ jemalloc not found via pkg-config"
-        pkg-config --cflags --libs jemalloc || echo "Failed to get jemalloc flags"
+      run: brew install cmake autoconf automake libtool
 
     - name: Setup system dependencies (Windows)
       if: runner.os == 'Windows'
       run: |
         choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
-        # Install vcpkg for jemalloc on Windows
-        git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
-        C:\vcpkg\bootstrap-vcpkg.bat
-        C:\vcpkg\vcpkg.exe install jemalloc:x64-windows
-        # Add vcpkg to PATH for CMake integration
-        echo "CMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" >> $GITHUB_ENV
-        # Set jemalloc paths for Windows tests
-        echo "CATZILLA_JEMALLOC_PATH=C:/vcpkg/installed/x64-windows/bin/jemalloc.dll" >> $GITHUB_ENV
-        echo "JEMALLOC_LIBRARY=C:/vcpkg/installed/x64-windows/lib/jemalloc.lib" >> $GITHUB_ENV
-        echo "JEMALLOC_INCLUDE_DIR=C:/vcpkg/installed/x64-windows/include" >> $GITHUB_ENV
-        # Verify jemalloc files exist
-        dir "C:\vcpkg\installed\x64-windows\bin\jemalloc.dll"
-        dir "C:\vcpkg\installed\x64-windows\lib\jemalloc.lib"
-        dir "C:\vcpkg\installed\x64-windows\include\jemalloc"
+        # Note: jemalloc will be built by our build scripts from the git submodule
+        # This ensures consistency with our custom build configuration
 
     - name: Install Python dependencies
       run: |
@@ -201,7 +179,6 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         chmod +x scripts/verify_segfault_fix.py
-        export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
         ./scripts/verify_segfault_fix.py
 
     # Verify segfault fixes on Windows
@@ -227,9 +204,6 @@ jobs:
       if: runner.os != 'Windows'
       run: |
         chmod +x scripts/run_tests.sh
-        if [ "$RUNNER_OS" = "Linux" ]; then
-          export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
-        fi
         ./scripts/run_tests.sh --python
 
     - name: Run Python tests (Windows)
@@ -240,9 +214,6 @@ jobs:
       if: runner.os != 'Windows'
       run: |
         chmod +x scripts/run_tests.sh
-        if [ "$RUNNER_OS" = "Linux" ]; then
-          export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
-        fi
         ./scripts/run_tests.sh --c
 
     - name: Run C tests (Windows)
@@ -279,7 +250,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake build-essential libjemalloc-dev libjemalloc2
+        sudo apt-get install -y cmake build-essential
 
     - name: Install Python dependencies
       run: |
@@ -293,7 +264,7 @@ jobs:
 
     - name: Set up jemalloc preload
       run: |
-        export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
+        echo "jemalloc will be automatically loaded by the build scripts"
 
     - name: Security scan with bandit
       run: bandit -r python/ -f json -o bandit-report.json || true

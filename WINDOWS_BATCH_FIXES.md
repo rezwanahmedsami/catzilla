@@ -46,17 +46,37 @@ set NC=
 echo Success!
 ```
 
-### 2. Simplified Output Messages
+### 2. Fixed Python Debug Library Issue
+**Problem:** Windows builds were failing with `LINK : fatal error LNK1104: cannot open file 'python39_d.lib'`
+
+**Root Cause:** Debug builds require Python debug libraries (`python39_d.lib`) which are not available in GitHub Actions Python installations.
+
+**Solution:** Changed build configuration from Debug to Release mode:
+```bat
+REM Before (Debug - causes linking errors)
+cmake .. -DCMAKE_BUILD_TYPE=Debug -DPython3_EXECUTABLE="%PYTHON_EXE%"
+
+REM After (Release - works with standard Python installations)
+cmake .. -DCMAKE_BUILD_TYPE=Release -DPython3_EXECUTABLE="%PYTHON_EXE%"
+```
+
+**Benefits of Release Mode:**
+- ✅ Compatible with standard Python installations (no debug libraries required)
+- ✅ Faster compilation and runtime performance
+- ✅ Optimized code suitable for production and CI environments
+- ✅ Consistent behavior across different Python installation types
+
+### 3. Simplified Output Messages
 - Removed color formatting from all echo statements
 - Kept emojis and meaningful symbols (✅, ❌, ⚠️) for visual distinction
 - Maintained clear messaging without color dependencies
 
-### 3. Enhanced Error Handling
+### 4. Enhanced Error Handling
 - Improved error messages with actionable tips
 - Added compatibility checks for required tools
 - Better fallback mechanisms
 
-### 4. Script Structure Alignment
+### 5. Script Structure Alignment
 Made Windows batch scripts functionally equivalent to their Unix shell counterparts:
 
 **build.bat** now matches **build.sh**:
@@ -102,7 +122,13 @@ scripts\run_tests.bat
 
 ## GitHub Actions Integration
 
-These fixes specifically target the GitHub Actions Windows runner environment where ANSI codes were causing script failures. The scripts should now:
+These fixes specifically target the GitHub Actions Windows runner environment where:
+
+1. **ANSI codes were causing script failures** - Resolved by removing color formatting
+2. **Python debug libraries were missing** - Resolved by switching to Release build mode
+3. **Scripts needed cross-platform consistency** - Resolved by aligning functionality
+
+The scripts should now:
 
 1. Execute without terminal-specific formatting errors
 2. Provide clear output without color dependencies

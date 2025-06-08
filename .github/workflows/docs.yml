@@ -46,7 +46,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential libjemalloc-dev libjemalloc2
+          sudo apt-get install -y cmake build-essential
 
       - name: Install Python dependencies
         run: |
@@ -55,7 +55,6 @@ jobs:
 
       - name: Build Catzilla (required for documentation)
         run: |
-          export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
           python setup.py build_ext --inplace
 
       - name: Copy logo to docs
