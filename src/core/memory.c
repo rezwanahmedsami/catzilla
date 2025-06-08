@@ -24,16 +24,37 @@
 #define JEMALLOC_MANGLE
 #include <jemalloc/jemalloc.h>
 
-// Cross-platform jemalloc compatibility layer
-// On macOS, jemalloc uses je_ prefixed functions
-#define JEMALLOC_MALLOCX    je_mallocx
-#define JEMALLOC_DALLOCX    je_dallocx
-#define JEMALLOC_RALLOCX    je_rallocx
-#define JEMALLOC_MALLCTL    je_mallctl
-#define JEMALLOC_MALLOC     je_malloc
-#define JEMALLOC_CALLOC     je_calloc
-#define JEMALLOC_REALLOC    je_realloc
-#define JEMALLOC_FREE       je_free
+// Cross-platform jemalloc compatibility layer with dynamic prefix detection
+#ifndef CATZILLA_JEMALLOC_PREFIX
+    #define CATZILLA_JEMALLOC_PREFIX ""  // Default to no prefix if not defined
+#endif
+
+// Helper macro to concatenate prefix with function name
+#define JEMALLOC_CONCAT(prefix, name) prefix##name
+#define JEMALLOC_FUNC(prefix, name) JEMALLOC_CONCAT(prefix, name)
+
+// Conditional function mapping based on detected prefix
+#if CATZILLA_JEMALLOC_USES_PREFIX == 1
+    // Use je_ prefixed functions (typical on RPM-based Linux)
+    #define JEMALLOC_MALLOCX    je_mallocx
+    #define JEMALLOC_DALLOCX    je_dallocx
+    #define JEMALLOC_RALLOCX    je_rallocx
+    #define JEMALLOC_MALLCTL    je_mallctl
+    #define JEMALLOC_MALLOC     je_malloc
+    #define JEMALLOC_CALLOC     je_calloc
+    #define JEMALLOC_REALLOC    je_realloc
+    #define JEMALLOC_FREE       je_free
+#else
+    // Use direct function names (typical on macOS Homebrew and some Linux builds)
+    #define JEMALLOC_MALLOCX    mallocx
+    #define JEMALLOC_DALLOCX    dallocx
+    #define JEMALLOC_RALLOCX    rallocx
+    #define JEMALLOC_MALLCTL    mallctl
+    #define JEMALLOC_MALLOC     malloc
+    #define JEMALLOC_CALLOC     calloc
+    #define JEMALLOC_REALLOC    realloc
+    #define JEMALLOC_FREE       free
+#endif
 #endif
 
 // Global memory state

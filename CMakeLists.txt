@@ -97,20 +97,46 @@ if(CATZILLA_USE_JEMALLOC)
         endif()
 
         if(JEMALLOC_INCLUDE_DIR AND JEMALLOC_LIBRARY)
-            set(JEMALLOC_FOUND TRUE)
-            set(JEMALLOC_INCLUDE_DIRS ${JEMALLOC_INCLUDE_DIR})
-            set(JEMALLOC_LIBRARIES ${JEMALLOC_LIBRARY})
-            set(CATZILLA_HAS_JEMALLOC TRUE)
+            # Verify that the library file actually exists
+            if(EXISTS "${JEMALLOC_LIBRARY}")
+                # Try to compile a simple test to verify jemalloc is working
+                include(CheckCSourceCompiles)
+                set(CMAKE_REQUIRED_INCLUDES ${JEMALLOC_INCLUDE_DIR})
+                set(CMAKE_REQUIRED_LIBRARIES ${JEMALLOC_LIBRARY})
 
-            message(STATUS "✅ jemalloc system library found")
-            message(STATUS "   Library: ${JEMALLOC_LIBRARY}")
-            message(STATUS "   Headers: ${JEMALLOC_INCLUDE_DIRS}")
+                check_c_source_compiles("
+                    #include <jemalloc/jemalloc.h>
+                    int main() {
+                        void* ptr = je_malloc(100);
+                        if (ptr) je_free(ptr);
+                        return 0;
+                    }" JEMALLOC_LINK_TEST)
 
-            # On Windows, we might need additional libraries
-            if(WIN32)
-                # Check if we need to link additional Windows libraries for jemalloc
-                set(JEMALLOC_ADDITIONAL_LIBS "")
-                message(STATUS "   Platform: Windows - checking for additional dependencies")
+                if(JEMALLOC_LINK_TEST)
+                    set(JEMALLOC_FOUND TRUE)
+                    set(JEMALLOC_INCLUDE_DIRS ${JEMALLOC_INCLUDE_DIR})
+                    set(JEMALLOC_LIBRARIES ${JEMALLOC_LIBRARY})
+                    set(CATZILLA_HAS_JEMALLOC TRUE)
+
+                    message(STATUS "✅ jemalloc system library found and verified")
+                    message(STATUS "   Library: ${JEMALLOC_LIBRARY}")
+                    message(STATUS "   Headers: ${JEMALLOC_INCLUDE_DIRS}")
+
+                    # On Windows, we might need additional libraries
+                    if(WIN32)
+                        # Check if we need to link additional Windows libraries for jemalloc
+                        set(JEMALLOC_ADDITIONAL_LIBS "")
+                        message(STATUS "   Platform: Windows - checking for additional dependencies")
+                    endif()
+                else()
+                    set(JEMALLOC_FOUND FALSE)
+                    set(CATZILLA_HAS_JEMALLOC FALSE)
+                    message(WARNING "⚠️  jemalloc found but linking test failed - disabling jemalloc")
+                endif()
+            else()
+                set(JEMALLOC_FOUND FALSE)
+                set(CATZILLA_HAS_JEMALLOC FALSE)
+                message(WARNING "⚠️  jemalloc library file not found: ${JEMALLOC_LIBRARY}")
             endif()
         else()
             set(JEMALLOC_FOUND FALSE)
@@ -125,6 +151,29 @@ if(CATZILLA_USE_JEMALLOC)
                 message(STATUS "   Ubuntu/Debian: sudo apt-get install libjemalloc-dev")
                 message(STATUS "   RHEL/CentOS/AlmaLinux: sudo yum install jemalloc-devel")
             endif()
+        endif()
+    endif()
+
+    # ============================================================================
+    # JEMALLOC PREFIX DETECTION (Cross-platform compatibility)
+    # ============================================================================
+
+    if(CATZILLA_HAS_JEMALLOC)
+        # Include the prefix detection module
+        include(${CMAKE_SOURCE_DIR}/cmake/DetectJemallocPrefix.cmake)
+
+        # Detect jemalloc function naming convention
+        detect_jemalloc_prefix("${JEMALLOC_INCLUDE_DIRS}" "${JEMALLOC_LIBRARIES}")
+
+        # Set the appropriate preprocessor definitions based on detection results
+        if(JEMALLOC_USES_PREFIX)
+            message(STATUS "🔧 jemalloc: Using je_ prefixed functions")
+            add_compile_definitions(CATZILLA_JEMALLOC_PREFIX="je_")
+            add_compile_definitions(CATZILLA_JEMALLOC_USES_PREFIX=1)
+        else()
+            message(STATUS "🔧 jemalloc: Using direct function names")
+            add_compile_definitions(CATZILLA_JEMALLOC_PREFIX="")
+            add_compile_definitions(CATZILLA_JEMALLOC_USES_PREFIX=0)
         endif()
     endif()
 
@@ -597,16 +646,25 @@ if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC)
     target_compile_definitions(catzilla_core PRIVATE CATZILLA_USE_JEMALLOC=1)
     target_compile_definitions(catzilla_core PRIVATE CATZILLA_HAS_JEMALLOC=1)
 
-    # Link jemalloc library directly - works across all platforms
+    # Validate jemalloc library before linking
     if(JEMALLOC_LIBRARIES)
-        target_link_libraries(catzilla_core PRIVATE ${JEMALLOC_LIBRARIES})
+        # Double-check that the library file actually exists
+        if(EXISTS "${JEMALLOC_LIBRARIES}")
+            target_link_libraries(catzilla_core PRIVATE ${JEMALLOC_LIBRARIES})
 
-        # Windows-specific additional libraries if needed
-        if(WIN32 AND JEMALLOC_ADDITIONAL_LIBS)
-            target_link_libraries(catzilla_core PRIVATE ${JEMALLOC_ADDITIONAL_LIBS})
+            # Windows-specific additional libraries if needed
+            if(WIN32 AND JEMALLOC_ADDITIONAL_LIBS)
+                target_link_libraries(catzilla_core PRIVATE ${JEMALLOC_ADDITIONAL_LIBS})
+            endif()
+
+            message(STATUS "✅ Linking catzilla_core with jemalloc: ${JEMALLOC_LIBRARIES}")
+        else()
+            # Library path doesn't exist - disable jemalloc
+            message(WARNING "⚠️  jemalloc library path invalid: ${JEMALLOC_LIBRARIES} - disabling jemalloc")
+            target_compile_definitions(catzilla_core PRIVATE CATZILLA_USE_JEMALLOC=0)
+            target_compile_definitions(catzilla_core PRIVATE CATZILLA_HAS_JEMALLOC=0)
+            set(CATZILLA_HAS_JEMALLOC FALSE)
         endif()
-
-        message(STATUS "✅ Linking catzilla_core with jemalloc: ${JEMALLOC_LIBRARIES}")
     else()
         # Fallback: if no library found, disable jemalloc
         message(WARNING "⚠️  jemalloc headers found but library not available - disabling jemalloc")
@@ -643,8 +701,8 @@ if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC)
     target_compile_definitions(_catzilla PRIVATE CATZILLA_USE_JEMALLOC=1)
     target_compile_definitions(_catzilla PRIVATE CATZILLA_HAS_JEMALLOC=1)
 
-    # Link jemalloc library directly - prefer PIC version for shared library
-    if(JEMALLOC_LIBRARIES_PIC)
+    # Validate and link jemalloc library - prefer PIC version for shared library
+    if(JEMALLOC_LIBRARIES_PIC AND EXISTS "${JEMALLOC_LIBRARIES_PIC}")
         target_link_libraries(_catzilla PRIVATE ${JEMALLOC_LIBRARIES_PIC})
 
         # Windows-specific additional libraries if needed
@@ -653,7 +711,7 @@ if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC)
         endif()
 
         message(STATUS "✅ Linking Python extension with jemalloc PIC library: ${JEMALLOC_LIBRARIES_PIC}")
-    elseif(JEMALLOC_LIBRARIES)
+    elseif(JEMALLOC_LIBRARIES AND EXISTS "${JEMALLOC_LIBRARIES}")
         target_link_libraries(_catzilla PRIVATE ${JEMALLOC_LIBRARIES})
 
         # Windows-specific additional libraries if needed
@@ -664,7 +722,7 @@ if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC)
         message(STATUS "✅ Linking Python extension with jemalloc library: ${JEMALLOC_LIBRARIES}")
     else()
         # Fallback: if no library found, disable jemalloc for Python extension
-        message(WARNING "⚠️  jemalloc headers found but library not available - disabling jemalloc for Python extension")
+        message(WARNING "⚠️  jemalloc library not accessible for Python extension - disabling jemalloc")
         target_compile_definitions(_catzilla PRIVATE CATZILLA_USE_JEMALLOC=0)
         target_compile_definitions(_catzilla PRIVATE CATZILLA_HAS_JEMALLOC=0)
     endif()
@@ -788,8 +846,13 @@ if(NOT WHEEL_BUILD_MODE)
 
     # Helper function to link jemalloc to test targets
     function(link_jemalloc_to_test target_name)
-        if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC AND JEMALLOC_LIBRARIES)
-            target_link_libraries(${target_name} PRIVATE ${JEMALLOC_LIBRARIES})
+        if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC AND JEMALLOC_LIBRARIES AND EXISTS "${JEMALLOC_LIBRARIES}")
+            # On Linux, ensure jemalloc comes before catzilla_core to resolve symbols
+            if(UNIX AND NOT APPLE)
+                target_link_libraries(${target_name} PRIVATE "-Wl,--start-group" ${JEMALLOC_LIBRARIES} "-Wl,--end-group")
+            else()
+                target_link_libraries(${target_name} PRIVATE ${JEMALLOC_LIBRARIES})
+            endif()
 
             # Windows-specific additional libraries if needed
             if(WIN32 AND JEMALLOC_ADDITIONAL_LIBS)
@@ -813,12 +876,23 @@ if(NOT WHEEL_BUILD_MODE)
             ${Python3_INCLUDE_DIRS}
         )
 
-        target_link_libraries(${target_name} PRIVATE
-            catzilla_core
-        )
+        # Link core library and jemalloc together on Linux for proper symbol resolution
+        if(UNIX AND NOT APPLE AND CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC AND JEMALLOC_LIBRARIES AND EXISTS "${JEMALLOC_LIBRARIES}")
+            # On Linux, group catzilla_core and jemalloc together to resolve circular dependencies
+            target_link_libraries(${target_name} PRIVATE
+                "-Wl,--start-group"
+                catzilla_core
+                ${JEMALLOC_LIBRARIES}
+                "-Wl,--end-group"
+            )
+            message(STATUS "✅ Linking test ${target_name} with grouped catzilla_core + jemalloc")
+        else()
+            # Standard linking for non-Linux or when jemalloc is not available
+            target_link_libraries(${target_name} PRIVATE catzilla_core)
 
-        # Link jemalloc if available
-        link_jemalloc_to_test(${target_name})
+            # Link jemalloc separately if available
+            link_jemalloc_to_test(${target_name})
+        endif()
 
         # Link Python libraries for tests (needed for symbols in catzilla_core)
         if(Python3_LIBRARIES)
