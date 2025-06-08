@@ -2,47 +2,47 @@
 REM Windows script to test jemalloc detection and integration
 setlocal enabledelayedexpansion
 
-echo [32m====================================[0m
-echo [32m    CATZILLA JEMALLOC TEST SCRIPT   [0m
-echo [32m====================================[0m
+echo ====================================
+echo     CATZILLA JEMALLOC TEST SCRIPT
+echo ====================================
 
 REM 1. Configure jemalloc
 echo.
-echo [33m1. Configuring jemalloc environment[0m
+echo 1. Configuring jemalloc environment
 call "%~dp0jemalloc_helper.bat"
 
 if %errorlevel% neq 0 (
-    echo [31mJemalloc configuration failed! This test will likely fail.[0m
+    echo Jemalloc configuration failed! This test will likely fail.
 ) else (
-    echo [32mJemalloc configuration completed successfully.[0m
+    echo Jemalloc configuration completed successfully.
 )
 
 REM 2. Display environment variables
 echo.
-echo [33m2. Jemalloc environment variables:[0m
+echo 2. Jemalloc environment variables:
 echo   CATZILLA_JEMALLOC_PATH: %CATZILLA_JEMALLOC_PATH%
 echo   JEMALLOC_INCLUDE_DIR: %JEMALLOC_INCLUDE_DIR%
 echo   JEMALLOC_LIBRARY: %JEMALLOC_LIBRARY%
 
 REM 3. Check if files exist
 echo.
-echo [33m3. Checking if jemalloc files exist:[0m
+echo 3. Checking if jemalloc files exist:
 
 if exist "%CATZILLA_JEMALLOC_PATH%" (
-    echo [32m✓ DLL found: %CATZILLA_JEMALLOC_PATH%[0m
+    echo ✓ DLL found: %CATZILLA_JEMALLOC_PATH%
 ) else (
-    echo [31m✗ DLL not found: %CATZILLA_JEMALLOC_PATH%[0m
+    echo ✗ DLL not found: %CATZILLA_JEMALLOC_PATH%
 )
 
 if exist "%JEMALLOC_LIBRARY%" (
-    echo [32m✓ LIB found: %JEMALLOC_LIBRARY%[0m
+    echo ✓ LIB found: %JEMALLOC_LIBRARY%
 ) else (
-    echo [31m✗ LIB not found: %JEMALLOC_LIBRARY%[0m
+    echo ✗ LIB not found: %JEMALLOC_LIBRARY%
 )
 
 REM 4. Create a temporary directory for CMake test
 echo.
-echo [33m4. Testing CMake jemalloc detection[0m
+echo 4. Testing CMake jemalloc detection
 set TEST_DIR=%TEMP%\catzilla_jemalloc_test
 if exist "%TEST_DIR%" rmdir /s /q "%TEST_DIR%"
 mkdir "%TEST_DIR%"
@@ -119,17 +119,17 @@ cmake . 2>&1
 
 REM Check outcome
 echo.
-echo [33m5. Test results:[0m
+echo 5. Test results:
 if %errorlevel% neq 0 (
-    echo [31m✗ CMake configuration failed[0m
+    echo ✗ CMake configuration failed
     echo.
-    echo [33mThis indicates jemalloc was not properly detected.[0m
-    echo [33mCheck the paths and environment variables shown above.[0m
+    echo This indicates jemalloc was not properly detected.
+    echo Check the paths and environment variables shown above.
     echo.
-    echo [33mFor more information, please read:[0m
-    echo [33m  docs/windows_jemalloc_fix.md[0m
+    echo For more information, please read:
+    echo   docs/windows_jemalloc_fix.md
 ) else (
-    echo [32m✓ CMake configuration succeeded[0m
+    echo ✓ CMake configuration succeeded
 
     REM Try to build the test
     echo.
@@ -137,10 +137,10 @@ if %errorlevel% neq 0 (
     cmake --build .
 
     if %errorlevel% neq 0 (
-        echo [31m✗ Build failed[0m
-        echo [33mThis indicates issues with jemalloc integration.[0m
+        echo ✗ Build failed
+        echo This indicates issues with jemalloc integration.
     else (
-        echo [32m✓ Build succeeded[0m
+        echo ✓ Build succeeded
 
         REM Try to run the test
         if exist "Debug\test_jemalloc.exe" (
@@ -149,12 +149,12 @@ if %errorlevel% neq 0 (
             Debug\test_jemalloc.exe
 
             if %errorlevel% neq 0 (
-                echo [31m✗ Test run failed[0m
+                echo ✗ Test run failed
             else (
-                echo [32m✓ Test run succeeded[0m
-                echo [32m===================================[0m
-                echo [32m  JEMALLOC TEST PASSED COMPLETELY  [0m
-                echo [32m===================================[0m
+                echo ✓ Test run succeeded
+                echo ===================================
+                echo   JEMALLOC TEST PASSED COMPLETELY
+                echo ===================================
             )
         ) else if exist "test_jemalloc.exe" (
             echo.
@@ -162,15 +162,15 @@ if %errorlevel% neq 0 (
             test_jemalloc.exe
 
             if %errorlevel% neq 0 (
-                echo [31m✗ Test run failed[0m
+                echo ✗ Test run failed
             else (
-                echo [32m✓ Test run succeeded[0m
-                echo [32m===================================[0m
-                echo [32m  JEMALLOC TEST PASSED COMPLETELY  [0m
-                echo [32m===================================[0m
+                echo ✓ Test run succeeded
+                echo ===================================
+                echo   JEMALLOC TEST PASSED COMPLETELY
+                echo ===================================
             )
         ) else (
-            echo [31m✗ Could not find test executable[0m
+            echo ✗ Could not find test executable
         )
     )
 )
@@ -182,4 +182,4 @@ echo Cleaning up temporary files...
 rmdir /s /q "%TEST_DIR%"
 
 echo.
-echo [32mTest script completed.[0m
+echo Test script completed.

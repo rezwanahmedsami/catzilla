@@ -2,47 +2,39 @@
 REM Windows batch script for Catzilla development build
 setlocal enabledelayedexpansion
 
-REM Colors for output
-set GREEN=[32m
-set YELLOW=[33m
-set RED=[31m
-set NC=[0m
+echo 🔨 Starting Catzilla development build...
 
-echo %YELLOW%🔨 Starting Catzilla development build...%NC%
+REM Get script directory and project root
+set SCRIPT_DIR=%~dp0
+set PROJECT_ROOT=%SCRIPT_DIR%..
 
-REM 1. Build jemalloc if needed
+REM Build jemalloc if needed
 echo.
-echo %GREEN%Step 1: Building jemalloc (if needed)...%NC%
+echo Step 1: Building jemalloc (if needed)...
 call "%~dp0build_jemalloc.bat"
 if %errorlevel% neq 0 (
-    echo %YELLOW%⚠️  Warning: jemalloc build failed, continuing with system malloc%NC%
+    echo ⚠️  Warning: jemalloc build failed, continuing with system malloc
 )
 
-REM 2. Clean previous builds
+REM Clean previous builds
 echo.
-REM 3. Create build directory
-echo.
-echo %GREEN%Step 3: Creating build directory...%NC%
-mkdir build
-cd build
-
-REM 4. Configure with CMake
-echo.
-echo %GREEN%Step 4: Configuring with CMake...%NC%
-echo.
-echo %GREEN%Creating build directory...%NC%
-mkdir build
-cd build
-
-REM 3. Configure jemalloc for optimal build performance
-echo.
-echo %GREEN%Configuring with CMake...%NC%
-
-REM Configure jemalloc for optimal build performance
-call "%~dp0jemalloc_helper.bat"
-if %errorlevel% neq 0 (
-    echo %YELLOW%Warning: jemalloc configuration failed. Build may be slower.%NC%
+echo Step 2: Cleaning previous builds...
+if exist "build" rmdir /s /q "build"
+if exist "dist" rmdir /s /q "dist"
+for /d %%d in (*.egg-info) do (
+    if exist "%%d" rmdir /s /q "%%d"
 )
+del /q /s *.pyd >nul 2>&1
+del /q /s *.pyc >nul 2>&1
+for /d /r . %%d in (__pycache__) do (
+    if exist "%%d" rmdir /s /q "%%d"
+)
+
+REM Create build directory
+echo.
+echo Step 3: Creating build directory...
+mkdir build
+cd build
 
 REM Find Python executable
 where python >nul 2>&1
@@ -53,7 +45,7 @@ if %errorlevel% == 0 (
     if %errorlevel% == 0 (
         for /f "tokens=*" %%i in ('where python3') do set PYTHON_EXE=%%i
     ) else (
-        echo %RED%Error: Python not found in PATH%NC%
+        echo Error: Python not found in PATH
         echo Tip: Install Python from python.org
         exit /b 1
     )
@@ -66,42 +58,9 @@ for /f "tokens=* delims= " %%a in ("!cores!") do set cores=%%a
 if "!cores!"=="" set cores=2
 
 REM Configure with CMake
-echo %GREEN%Passing jemalloc environment variables to CMake...%NC%
-if defined JEMALLOC_LIBRARY (
-    echo %GREEN%Using jemalloc from: %JEMALLOC_LIBRARY%%NC%
-    cmake .. -DCMAKE_BUILD_TYPE=Debug -DPython3_EXECUTABLE="%PYTHON_EXE%" ^
-        -DJEMALLOC_LIBRARY="%JEMALLOC_LIBRARY%" ^
-        -DJEMALLOC_INCLUDE_DIR="%JEMALLOC_INCLUDE_DIR%"
-) else (
-    cmake .. -DCMAKE_BUILD_TYPE=Debug -DPython3_EXECUTABLE="%PYTHON_EXE%"
-)
-
-if %errorlevel% neq 0 (
-    echo %RED%CMake configuration failed!%NC%
-    exit /b 1
-)
-
-REM 4. Build
 echo.
-echo %GREEN%Building...%NC%
-cmake --build . -j%cores%
-if %errorlevel% neq 0 (
-    echo %RED%Build failed!%NC%
-    exit /b 1
-)
-set ACTUAL_BUILD_TYPE=RelWithDebInfo
-goto :continue_build
-
-:set_explicit
-set ACTUAL_BUILD_TYPE=%BUILD_TYPE%
-goto :continue_build
-
-:continue_build
-echo   Final build type: %ACTUAL_BUILD_TYPE%
-echo   DEBUG: BUILD_TYPE="%BUILD_TYPE%", ACTUAL_BUILD_TYPE="%ACTUAL_BUILD_TYPE%"
-
-REM Run CMake configuration only once
-cmake .. -DCMAKE_BUILD_TYPE=%ACTUAL_BUILD_TYPE% -DPython3_EXECUTABLE="!PYTHON_EXE!"
+echo Step 4: Configuring with CMake...
+cmake .. -DCMAKE_BUILD_TYPE=Debug -DPython3_EXECUTABLE="%PYTHON_EXE%"
 
 if %errorlevel% neq 0 (
     echo CMake configuration failed!
@@ -112,14 +71,10 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-REM 5. Build with appropriate configuration
+REM Build
 echo.
-echo Building Catzilla...
-echo   DEBUG: About to build with config "%ACTUAL_BUILD_TYPE%" and !cores! cores
-
-REM Use the determined build type for building
-echo   Running: cmake --build . --config %ACTUAL_BUILD_TYPE% --parallel !cores!
-cmake --build . --config %ACTUAL_BUILD_TYPE% --parallel !cores!
+echo Step 5: Building...
+cmake --build . -j%cores%
 
 if %errorlevel% neq 0 (
     echo Build failed!
@@ -130,9 +85,9 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-REM 5. Copy the built extension to the right place
+REM Install in development mode
 echo.
-echo %GREEN%Installing...%NC%
+echo Step 6: Installing...
 cd ..
 
 REM Uninstall any existing version
@@ -141,23 +96,10 @@ python -m pip uninstall -y catzilla 2>nul
 REM Install in development mode
 python -m pip install -e .
 if %errorlevel% neq 0 (
-    echo %RED%Installation failed!%NC%
+    echo Installation failed!
     exit /b 1
 )
 
 echo.
-echo %GREEN%✅ Build complete!%NC%
-echo %YELLOW%You can now run examples with: scripts\run_example.bat examples\hello_world\main.py%NC%
-exit /b 0
-echo Examples:
-echo   build.bat                    # Auto-detect optimal configuration
-echo   build.bat Release           # Build optimized release version
-echo   build.bat Debug             # Build with full debugging
-echo   build.bat RelWithDebInfo    # Build optimized with debug symbols
-echo.
-echo Tips:
-echo   - Use 'auto' for best compatibility across different Python installations (uses Release)
-echo   - Use 'RelWithDebInfo' for development on Windows (debugging without Python debug libs)
-echo   - Use 'Release' for production builds or benchmarking
-echo   - Debug mode also uses Release since Python debug libraries are rarely available
-goto :eof
+echo ✅ Build complete!
+echo You can now run examples with: scripts\run_example.bat examples\hello_world\main.py

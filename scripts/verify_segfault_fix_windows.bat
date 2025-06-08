@@ -7,15 +7,15 @@ REM Script directory and project root
 set SCRIPT_DIR=%~dp0
 set PROJECT_ROOT=%SCRIPT_DIR%..
 
-REM Colors for output (basic support)
-set GREEN=[32m
-set RED=[31m
-set YELLOW=[33m
-set BLUE=[34m
-set CYAN=[36m
-set RESET=[0m
+REM Colors for output (disabled for compatibility)
+set GREEN=
+set RED=
+set YELLOW=
+set BLUE=
+set CYAN=
+set RESET=
 
-echo %CYAN%=== Catzilla Segfault Fix Verification (Windows) ===%RESET%
+echo === Catzilla Segfault Fix Verification (Windows) ===
 echo.
 
 REM Configure jemalloc before running tests

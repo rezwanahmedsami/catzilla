@@ -4,12 +4,12 @@ REM Uses distributed testing with pytest-xdist for process isolation and paralle
 REM This prevents cumulative memory effects and segfaults in C extension tests
 setlocal enabledelayedexpansion
 
-REM Colors for output
-set RED=[31m
-set GREEN=[32m
-set YELLOW=[33m
-set CYAN=[36m
-set NC=[0m
+REM Colors for output (disabled for CI compatibility)
+set RED=
+set GREEN=
+set YELLOW=
+set CYAN=
+set NC=
 
 REM Script directory and project root
 set SCRIPT_DIR=%~dp0
@@ -214,7 +214,7 @@ if %errorlevel% == 0 (
     echo %GREEN%Python tests passed!%NC%
     set python_success=true
 ) else (
-    echo [31mPython tests failed![0m
+    echo Python tests failed!
     set python_success=false
 )
 goto :eof
@@ -329,10 +329,10 @@ if "%run_all%"=="true" (
 
 REM Exit with appropriate status
 if "%success%"=="true" (
-    echo [32mAll requested tests passed![0m
+    echo All requested tests passed!
     exit /b 0
 ) else (
-    echo [31mSome tests failed![0m
+    echo Some tests failed!
     exit /b 1
 )
 
