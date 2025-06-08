@@ -51,14 +51,59 @@ if exist "msvc\x64\Release" rmdir /s /q "msvc\x64\Release"
 if exist "msvc\x64\Debug" rmdir /s /q "msvc\x64\Debug"
 if exist "lib\jemalloc.lib" del /q "lib\jemalloc.lib"
 
-REM Check for Visual Studio tools (simplified check)
+REM Check for Visual Studio tools (comprehensive check)
+echo.
+echo 🔍 Environment Info:
+echo    Script Dir: %SCRIPT_DIR%
+echo    Current Dir: %CD%
+echo    Visual Studio:
+
 where msbuild >nul 2>&1
-if %errorlevel% neq 0 (
-    echo ❌ Error: MSBuild not found - Visual Studio tools required
-    echo 💡 Tip: Install Visual Studio Build Tools or Visual Studio Community
-    echo 💡 Or run from Visual Studio Developer Command Prompt
-    exit /b 1
+if %errorlevel% equ 0 (
+    echo "✅ MSBuild found in PATH"
+    msbuild /version 2>nul | findstr /C:"Microsoft" || echo "MSBuild version check failed"
+) else (
+    echo "❌ MSBuild not found in PATH"
+
+    REM Try to find MSBuild in common Visual Studio locations
+    set MSBUILD_FOUND=0
+
+    REM VS 2022 Enterprise
+    if exist "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" (
+        set MSBUILD_PATH=C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe
+        set MSBUILD_FOUND=1
+    )
+
+    REM VS 2022 Professional
+    if %MSBUILD_FOUND% equ 0 if exist "C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe" (
+        set MSBUILD_PATH=C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe
+        set MSBUILD_FOUND=1
+    )
+
+    REM VS 2022 Community
+    if %MSBUILD_FOUND% equ 0 if exist "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" (
+        set MSBUILD_PATH=C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe
+        set MSBUILD_FOUND=1
+    )
+
+    REM VS 2019 Enterprise
+    if %MSBUILD_FOUND% equ 0 if exist "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin\MSBuild.exe" (
+        set MSBUILD_PATH=C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin\MSBuild.exe
+        set MSBUILD_FOUND=1
+    )
+
+    if %MSBUILD_FOUND% equ 1 (
+        echo "✅ MSBuild found at: %MSBUILD_PATH%"
+        set PATH=%MSBUILD_PATH%;%PATH%
+    ) else (
+        echo "❌ MSBuild not found in standard locations"
+        echo "💡 Tip: Install Visual Studio Build Tools or Visual Studio Community"
+        echo "💡 Or run from Visual Studio Developer Command Prompt"
+        exit /b 1
+    )
 )
+
+echo 🔍 jemalloc source directory exists: %JEMALLOC_SOURCE_DIR%
 
 REM Use Visual Studio project files for Windows build
 echo.

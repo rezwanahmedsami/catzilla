@@ -159,6 +159,10 @@ jobs:
         # Note: jemalloc will be built by our build scripts from the git submodule
         # This ensures consistency with our custom build configuration
 
+    - name: Setup Visual Studio MSBuild (Windows)
+      if: runner.os == 'Windows'
+      uses: microsoft/setup-msbuild@v2
+
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip setuptools wheel

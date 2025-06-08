@@ -2,11 +2,13 @@
 
 ## Problem Summary
 
-The GitHub Actions CI workflow was failing due to conflicts between system-installed jemalloc packages and custom jemalloc build scripts. This created multiple issues:
+The GitHub Actions CI workflow was failing due to multiple issues:
 
 1. **Build Script Conflicts**: CI was installing jemalloc via package managers (`apt-get`, `brew`) while build scripts expected to compile jemalloc from source
 2. **Hardcoded Library Paths**: CI used hardcoded `LD_PRELOAD` paths that pointed to system jemalloc libraries
 3. **Inconsistent Environments**: Different build environments (system vs. custom builds) caused unpredictable behavior
+4. **Windows MSBuild Missing**: GitHub Actions Windows runners don't have MSBuild in PATH by default
+5. **Windows Library Detection**: CMake was only looking for Unix-style `.a` files, not Windows `.lib` files
 
 ## Root Cause Analysis
 
@@ -24,6 +26,12 @@ CI workflows used hardcoded paths like:
 ```bash
 export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
 ```
+
+### Windows MSBuild Availability
+Windows CI builds require MSBuild to compile solutions, but it was not available in the PATH by default on GitHub Actions runners.
+
+### Windows Jemalloc Detection
+CMakeLists.txt was only checking for Unix-style `libjemalloc.a` files, causing Windows builds to fallback to system malloc even when jemalloc was successfully built.
 
 ## Solution Implementation
 
@@ -50,26 +58,38 @@ Removed all hardcoded `LD_PRELOAD` exports that pointed to system jemalloc libra
 export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
 ```
 
-### 3. Fixed Windows Debug/Release Build Configuration
+### 3. Added Windows MSBuild Setup
 
-**Problem**: Even with `CMAKE_BUILD_TYPE=Release`, Visual Studio was building some components in Debug mode, causing `python39_d.lib` linking errors.
+**Problem**: Windows CI builds were failing because MSBuild was not available in the PATH.
 
-**Solution**: Added explicit `--config Release` to all CMake build commands in Windows batch scripts.
+**Solution**: Added MSBuild setup action to CI workflow:
+```yaml
+- name: Setup Visual Studio MSBuild (Windows)
+  if: runner.os == 'Windows'
+  uses: microsoft/setup-msbuild@v2
+```
 
-**Files Modified:**
-- `scripts/build.bat`
-- `scripts/run_tests.bat`
-- `scripts/test_jemalloc_detection.bat`
+**Enhanced Script**: Improved `build_jemalloc.bat` to search for MSBuild in standard Visual Studio installation locations.
 
-**Changes:**
-- **Before**: `cmake --build . -j%cores%`
-- **After**: `cmake --build . --config Release -j%cores%`
+### 4. Fixed Windows Jemalloc Detection
 
-- **Before**: `cmake --build build --config Debug`
-- **After**: `cmake --build build --config Release`
+**Problem**: CMakeLists.txt was only looking for Unix-style `libjemalloc.a` files, causing Windows builds to fall back to system malloc even when jemalloc was successfully built.
 
-- **Before**: Executable paths pointing to `Debug\test_jemalloc.exe`
-- **After**: Executable paths pointing to `Release\test_jemalloc.exe`
+**Solution**: Added Windows-specific library detection:
+```cmake
+# Windows-specific paths
+if(WIN32)
+    if(EXISTS "${CMAKE_SOURCE_DIR}/deps/jemalloc/lib/jemalloc.lib")
+        message(STATUS "📦 Using pre-built jemalloc static library (deps/jemalloc) - Windows")
+        set(JEMALLOC_LIBRARY_STATIC "${CMAKE_SOURCE_DIR}/deps/jemalloc/lib/jemalloc.lib")
+        set(JEMALLOC_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/deps/jemalloc/include")
+        set(JEMALLOC_PREBUILT_FOUND TRUE)
+    endif()
+# Unix-specific paths
+elseif(EXISTS "${CMAKE_SOURCE_DIR}/deps/jemalloc/lib/libjemalloc.a")
+    # ... existing Unix detection ...
+endif()
+```
 
 ## Build Dependencies Now Installed
 
@@ -136,6 +156,8 @@ After these changes, CI should:
 3. **✅ Windows Debug/Release**: Fixed all Windows batch scripts to use Release mode consistently
 4. **✅ Build Configuration**: Added explicit `--config Release` to all Windows CMake builds
 5. **✅ Cross-Platform Consistency**: Unified jemalloc handling across Linux, macOS, and Windows
+6. **✅ Windows MSBuild Setup**: Added MSBuild setup for Windows CI
+7. **✅ Windows Jemalloc Detection**: Fixed jemalloc detection for Windows builds
 
 ### Files Modified
 
@@ -148,6 +170,9 @@ After these changes, CI should:
 - `scripts/build.bat` - Added `--config Release` to CMake build
 - `scripts/run_tests.bat` - Changed from Debug to Release mode
 - `scripts/test_jemalloc_detection.bat` - Fixed build config and executable paths
+
+**CMake Configuration:**
+- `CMakeLists.txt` - Added Windows library detection and MSBuild configuration
 
 **Previous Fixes (Still Applied):**
 - All Windows batch scripts - ANSI color codes removed
