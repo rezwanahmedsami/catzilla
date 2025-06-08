@@ -104,7 +104,6 @@ where cl >nul 2>&1
 if %errorlevel% equ 0 (
     echo Found Visual Studio compiler (cl.exe):
     cl 2>&1 | head -1
-    set CC=cl
 ) else (
     echo Warning: Visual Studio compiler (cl.exe) not found in PATH
     echo Trying to find and setup Visual Studio environment...
@@ -126,7 +125,6 @@ if %errorlevel% equ 0 (
     where cl >nul 2>&1
     if %errorlevel% equ 0 (
         echo Visual Studio environment setup successful
-        set CC=cl
     ) else (
         echo Error: Could not setup Visual Studio environment
         exit /b 1
@@ -136,7 +134,9 @@ if %errorlevel% equ 0 (
 echo.
 echo Step 1: Generating configuration files...
 REM Use bash to run autogen.sh which generates the configure script and header files
-bash -c "CC=%CC% ./autogen.sh"
+REM Set CC environment variable for the bash session
+set "CC=cl"
+bash -c "export CC=cl && ./autogen.sh"
 if %errorlevel% neq 0 (
     echo Error: autogen.sh failed
     echo This step generates configure script and header files required for Windows build
@@ -145,7 +145,7 @@ if %errorlevel% neq 0 (
 
 echo Step 2: Running configure script...
 REM Configure jemalloc for Windows static library build
-bash -c "CC=%CC% ./configure --enable-static --disable-shared --with-malloc-conf=background_thread:true"
+bash -c "export CC=cl && ./configure --enable-static --disable-shared --with-malloc-conf=background_thread:true"
 if %errorlevel% neq 0 (
     echo Error: configure failed
     echo This step configures jemalloc build settings
