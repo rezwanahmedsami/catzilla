@@ -73,10 +73,8 @@ echo Checking build environment...
 REM Check for bash (required for autogen.sh)
 where bash >nul 2>&1
 if %errorlevel% neq 0 (
-    echo Error: bash not found. jemalloc Windows build requires bash.
-    echo Please install Git for Windows or MSYS2 to get bash.
-    echo Make sure bash is in your PATH.
-    exit /b 1
+    echo Warning: bash not found. Trying MSBuild approach instead.
+    goto :msbuild_approach
 )
 echo Found bash:
 bash --version | head -1
@@ -84,10 +82,9 @@ bash --version | head -1
 REM Check for autoconf (required for configuration)
 bash -c "which autoconf" >nul 2>&1
 if %errorlevel% neq 0 (
-    echo Error: autoconf not found. jemalloc Windows build requires autoconf.
-    echo Please install MSYS2 and run: pacman -S autoconf autogen
-    echo Or use Git for Windows with autoconf installed.
-    exit /b 1
+    echo Warning: autoconf not found. Trying MSBuild approach instead.
+    echo Tip: For autotools approach, install MSYS2 and run: pacman -S autoconf automake
+    goto :msbuild_approach
 )
 echo Found autoconf:
 bash -c "autoconf --version" | head -1
@@ -95,10 +92,10 @@ bash -c "autoconf --version" | head -1
 REM Check for make (required for building)
 bash -c "which make" >nul 2>&1
 if %errorlevel% neq 0 (
-    echo Error: make not found. jemalloc Windows build requires make.
-    echo Please install MSYS2 and run: pacman -S make
-    echo Or use Git for Windows with make installed.
-    exit /b 1
+    echo Warning: make not found. Trying MSBuild approach instead.
+    echo Tip: For autotools approach, install MSYS2 and run: pacman -S make
+    goto :msbuild_approach
+)
 )
 echo Found make:
 bash -c "make --version" | head -1
@@ -195,6 +192,72 @@ if %errorlevel% neq 0 (
     :vs_build_success
     echo Visual Studio build completed successfully
 )
+
+goto :install_library
+
+REM ==========================================
+REM MSBuild-only approach (when autotools unavailable)
+REM ==========================================
+:msbuild_approach
+echo.
+echo Using MSBuild approach (autotools not available)...
+
+REM Check for Visual Studio tools
+where msbuild >nul 2>&1
+if %errorlevel% neq 0 (
+    echo Error: MSBuild not found. Please install Visual Studio Build Tools.
+    echo Or ensure you're running from a Visual Studio Developer Command Prompt.
+    exit /b 1
+)
+echo Found MSBuild:
+msbuild /version 2>nul | findstr /C:"Microsoft" || echo "MSBuild version check failed"
+
+REM Check if Visual Studio solution files exist
+if not exist "msvc\jemalloc_vc2022.sln" (
+    if not exist "msvc\jemalloc_vc2019.sln" (
+        if not exist "msvc\jemalloc_vc2017.sln" (
+            echo Error: No Visual Studio solution files found in msvc directory
+            echo Available files:
+            dir "msvc" 2>nul
+            exit /b 1
+        )
+    )
+)
+
+echo Building jemalloc with Visual Studio solutions...
+
+REM Try building with MSBuild - prefer newer versions first
+set BUILD_SUCCESS=0
+if exist "msvc\jemalloc_vc2022.sln" (
+    echo Building with Visual Studio 2022 solution...
+    msbuild "msvc\jemalloc_vc2022.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal /nologo
+    if !errorlevel! equ 0 set BUILD_SUCCESS=1
+)
+if !BUILD_SUCCESS! equ 0 (
+    if exist "msvc\jemalloc_vc2019.sln" (
+        echo Building with Visual Studio 2019 solution...
+        msbuild "msvc\jemalloc_vc2019.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal /nologo
+        if !errorlevel! equ 0 set BUILD_SUCCESS=1
+    )
+)
+if !BUILD_SUCCESS! equ 0 (
+    if exist "msvc\jemalloc_vc2017.sln" (
+        echo Building with Visual Studio 2017 solution...
+        msbuild "msvc\jemalloc_vc2017.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal /nologo
+        if !errorlevel! equ 0 set BUILD_SUCCESS=1
+    )
+)
+
+if !BUILD_SUCCESS! equ 0 (
+    echo Error: MSBuild failed for all Visual Studio versions
+    echo Available solution files:
+    dir "msvc\*.sln" 2>nul
+    exit /b 1
+)
+
+echo MSBuild completed successfully
+
+:install_library
 
 echo Step 4: Installing library to expected location...
 

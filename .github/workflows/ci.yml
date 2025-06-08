@@ -157,12 +157,22 @@ jobs:
       run: |
         choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
         choco install msys2 --params="/NoPath"
+      shell: cmd
+
+    - name: Setup MSYS2 autotools (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        # Initialize MSYS2 and update package database
+        C:\tools\msys64\usr\bin\bash.exe -lc "pacman -Syu --noconfirm"
         # Install autotools through MSYS2 for jemalloc build
-        C:\tools\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm autoconf automake make"
+        C:\tools\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm autoconf automake make pkg-config"
         # Add MSYS2 tools to PATH for jemalloc build
-        echo "C:\tools\msys64\usr\bin" >> $GITHUB_PATH
-        # Note: jemalloc will be built by our build scripts from the git submodule
-        # This ensures consistency with our custom build configuration
+        echo "C:\tools\msys64\usr\bin" >> $env:GITHUB_PATH
+        echo "C:\tools\msys64\mingw64\bin" >> $env:GITHUB_PATH
+        # Verify autotools installation
+        C:\tools\msys64\usr\bin\bash.exe -lc "which autoconf && autoconf --version"
+        C:\tools\msys64\usr\bin\bash.exe -lc "which make && make --version"
+      shell: powershell
 
     - name: Setup Visual Studio MSBuild (Windows)
       if: runner.os == 'Windows'
