@@ -64,7 +64,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
       with:
-        submodules: true
+        submodules: recursive
 
     - name: Setup Python
       uses: actions/setup-python@v5
@@ -134,7 +134,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
       with:
-        submodules: true
+        submodules: recursive
 
     - name: Setup Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
@@ -258,7 +258,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
       with:
-        submodules: true
+        submodules: recursive
 
     - name: Setup Python
       uses: actions/setup-python@v5

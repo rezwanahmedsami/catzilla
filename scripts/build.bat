@@ -11,13 +11,28 @@ set PROJECT_ROOT=%SCRIPT_DIR%..
 REM Build jemalloc if needed
 echo.
 echo Step 1: Building jemalloc (if needed)...
-call "%~dp0build_jemalloc.bat"
-set JEMALLOC_BUILD_RESULT=%errorlevel%
-if %JEMALLOC_BUILD_RESULT% neq 0 (
-    echo ⚠️  Warning: jemalloc build failed with exit code %JEMALLOC_BUILD_RESULT%
+
+REM Check if jemalloc source directory exists
+if not exist "%PROJECT_ROOT%\deps\jemalloc" (
+    echo ⚠️  Warning: jemalloc source directory not found
+    echo ⚠️  Tip: Initialize git submodules: git submodule update --init --recursive
     echo ⚠️  Continuing with system malloc - performance may be reduced
+    set JEMALLOC_BUILD_RESULT=1
 ) else (
-    echo ✅ jemalloc build completed successfully
+    REM Navigate to jemalloc directory and run build script
+    cd /d "%PROJECT_ROOT%\deps\jemalloc"
+    call "%SCRIPT_DIR%build_jemalloc.bat"
+    set JEMALLOC_BUILD_RESULT=!errorlevel!
+
+    REM Return to project root
+    cd /d "%PROJECT_ROOT%"
+
+    if !JEMALLOC_BUILD_RESULT! neq 0 (
+        echo ⚠️  Warning: jemalloc build failed with exit code !JEMALLOC_BUILD_RESULT!
+        echo ⚠️  Continuing with system malloc - performance may be reduced
+    ) else (
+        echo ✅ jemalloc build completed successfully
+    )
 )
 
 REM Clean previous builds
