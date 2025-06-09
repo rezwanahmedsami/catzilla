@@ -108,25 +108,35 @@ if %errorlevel% equ 0 (
     echo Warning: Visual Studio compiler (cl.exe) not found in PATH
     echo Trying to find and setup Visual Studio environment...
 
-    REM Try to find Visual Studio
+    REM Try to find Visual Studio - simplified approach
+    set "VCVARSALL_FOUND="
+
     if exist "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" (
-        call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
-    ) else if exist "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat" (
-        call "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat" x64
-    ) else if exist "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" (
-        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-    ) else if exist "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" (
-        call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
-    ) else (
-        echo Error: Visual Studio not found. Please install Visual Studio Build Tools.
-        exit /b 1
+        set "VCVARSALL_FOUND=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat"
+    )
+    if exist "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat" (
+        set "VCVARSALL_FOUND=C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat"
+    )
+    if exist "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" (
+        set "VCVARSALL_FOUND=C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
+    )
+    if exist "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" (
+        set "VCVARSALL_FOUND=C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat"
     )
 
-    where cl >nul 2>&1
-    if %errorlevel% equ 0 (
-        echo Visual Studio environment setup successful
+    if defined VCVARSALL_FOUND (
+        echo Found Visual Studio at: %VCVARSALL_FOUND%
+        call "%VCVARSALL_FOUND%" x64
+
+        where cl >nul 2>&1
+        if %errorlevel% equ 0 (
+            echo Visual Studio environment setup successful
+        ) else (
+            echo Error: Could not setup Visual Studio environment
+            exit /b 1
+        )
     ) else (
-        echo Error: Could not setup Visual Studio environment
+        echo Error: Visual Studio not found. Please install Visual Studio Build Tools.
         exit /b 1
     )
 )
