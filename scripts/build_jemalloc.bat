@@ -27,31 +27,11 @@ if exist "include\jemalloc\jemalloc.h" del /q "include\jemalloc\jemalloc.h"
 echo.
 echo Checking build environment...
 
-REM Check for bash
-where bash >nul 2>&1
-if %errorlevel% neq 0 (
-    echo Warning: bash not found. Trying MSBuild approach instead.
-    goto :msbuild_approach
-)
-echo Found bash
+REM For Windows CI, prefer MSBuild approach to avoid MSYS2 environment conflicts
+REM The autotools approach in MSYS2 detects the system as "x86_64-pc-msys" which is unsupported
+echo Windows detected - using Visual Studio MSBuild approach for better compatibility
 
-REM Check for autoconf
-bash -c "which autoconf" >nul 2>&1
-if %errorlevel% neq 0 (
-    echo Warning: autoconf not found. Trying MSBuild approach instead.
-    goto :msbuild_approach
-)
-echo Found autoconf
-
-REM Check for make
-bash -c "which make" >nul 2>&1
-if %errorlevel% neq 0 (
-    echo Warning: make not found. Trying MSBuild approach instead.
-    goto :msbuild_approach
-)
-echo Found make
-
-REM Check for Visual Studio tools
+REM Check for Visual Studio tools first
 where cl >nul 2>&1
 if %errorlevel% equ 0 (
     echo Found Visual Studio compiler
@@ -61,42 +41,8 @@ if %errorlevel% equ 0 (
     if !errorlevel! neq 0 exit /b 1
 )
 
-echo.
-echo Step 1: Generating configuration files...
-bash -c "export CC=cl && ./autogen.sh"
-if %errorlevel% neq 0 (
-    echo Error: autogen.sh failed
-    exit /b 1
-)
-
-echo Step 2: Running configure script...
-bash -c "export CC=cl && ./configure --enable-static --disable-shared --with-malloc-conf=background_thread:true"
-if %errorlevel% neq 0 (
-    echo Error: configure failed
-    exit /b 1
-)
-
-echo Step 3: Building jemalloc with make...
-bash -c "make clean && make -j%NUMBER_OF_PROCESSORS%"
-if %errorlevel% neq 0 (
-    echo Error: make build failed, trying Visual Studio...
-    goto :try_vs_build
-)
-
-goto :install_library
-
-:try_vs_build
-echo Trying Visual Studio build...
-if exist "msvc\jemalloc_vc2022.sln" (
-    msbuild "msvc\jemalloc_vc2022.sln" /p:Configuration=Release /p:Platform=x64 /m /nologo
-    if !errorlevel! equ 0 goto :install_library
-)
-if exist "msvc\jemalloc_vc2019.sln" (
-    msbuild "msvc\jemalloc_vc2019.sln" /p:Configuration=Release /p:Platform=x64 /m /nologo
-    if !errorlevel! equ 0 goto :install_library
-)
-echo Error: All build methods failed
-exit /b 1
+REM Go straight to MSBuild approach for Windows
+goto :msbuild_approach
 
 :msbuild_approach
 echo Using MSBuild approach...
@@ -108,15 +54,42 @@ if %errorlevel% neq 0 (
 
 set BUILD_SUCCESS=0
 if exist "msvc\jemalloc_vc2022.sln" (
-    echo Building with VS2022...
-    msbuild "msvc\jemalloc_vc2022.sln" /p:Configuration=Release /p:Platform=x64 /m /nologo
-    if !errorlevel! equ 0 set BUILD_SUCCESS=1
+    echo Building with VS2022 solution: msvc\jemalloc_vc2022.sln
+    echo MSBuild command: msbuild "msvc\jemalloc_vc2022.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal
+    msbuild "msvc\jemalloc_vc2022.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal
+    if !errorlevel! equ 0 (
+        echo VS2022 build succeeded
+        set BUILD_SUCCESS=1
+    ) else (
+        echo VS2022 build failed with exit code !errorlevel!
+    )
 )
+
 if !BUILD_SUCCESS! equ 0 (
     if exist "msvc\jemalloc_vc2019.sln" (
-        echo Building with VS2019...
-        msbuild "msvc\jemalloc_vc2019.sln" /p:Configuration=Release /p:Platform=x64 /m /nologo
-        if !errorlevel! equ 0 set BUILD_SUCCESS=1
+        echo Building with VS2019 solution: msvc\jemalloc_vc2019.sln
+        echo MSBuild command: msbuild "msvc\jemalloc_vc2019.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal
+        msbuild "msvc\jemalloc_vc2019.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal
+        if !errorlevel! equ 0 (
+            echo VS2019 build succeeded
+            set BUILD_SUCCESS=1
+        ) else (
+            echo VS2019 build failed with exit code !errorlevel!
+        )
+    )
+)
+
+if !BUILD_SUCCESS! equ 0 (
+    if exist "msvc\jemalloc_vc2017.sln" (
+        echo Building with VS2017 solution: msvc\jemalloc_vc2017.sln
+        echo MSBuild command: msbuild "msvc\jemalloc_vc2017.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal
+        msbuild "msvc\jemalloc_vc2017.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal
+        if !errorlevel! equ 0 (
+            echo VS2017 build succeeded
+            set BUILD_SUCCESS=1
+        ) else (
+            echo VS2017 build failed with exit code !errorlevel!
+        )
     )
 )
 if !BUILD_SUCCESS! equ 0 (
@@ -131,7 +104,10 @@ if not exist "lib" mkdir lib
 
 set LIBRARY_FOUND=0
 
-REM Check make outputs
+echo Searching for built jemalloc library...
+echo Current directory: %CD%
+
+REM Check make outputs first (though we're not using make on Windows now)
 if exist "lib\libjemalloc.a" (
     echo Found make library: lib\libjemalloc.a
     copy "lib\libjemalloc.a" "lib\jemalloc.lib" >nul 2>&1
@@ -146,8 +122,36 @@ if !LIBRARY_FOUND! equ 0 (
     )
 )
 
-REM Check Visual Studio outputs
+REM Check Visual Studio outputs - look in project-specific directories
 if !LIBRARY_FOUND! equ 0 (
+    REM Check VC2022 output
+    if exist "msvc\projects\vc2022\jemalloc\x64\Release\jemalloc.lib" (
+        echo Found VS2022 library: msvc\projects\vc2022\jemalloc\x64\Release\jemalloc.lib
+        copy "msvc\projects\vc2022\jemalloc\x64\Release\jemalloc.lib" "lib\jemalloc.lib" >nul 2>&1
+        if !errorlevel! equ 0 set LIBRARY_FOUND=1
+    )
+)
+
+if !LIBRARY_FOUND! equ 0 (
+    REM Check VC2019 output
+    if exist "msvc\projects\vc2019\jemalloc\x64\Release\jemalloc.lib" (
+        echo Found VS2019 library: msvc\projects\vc2019\jemalloc\x64\Release\jemalloc.lib
+        copy "msvc\projects\vc2019\jemalloc\x64\Release\jemalloc.lib" "lib\jemalloc.lib" >nul 2>&1
+        if !errorlevel! equ 0 set LIBRARY_FOUND=1
+    )
+)
+
+if !LIBRARY_FOUND! equ 0 (
+    REM Check VC2017 output
+    if exist "msvc\projects\vc2017\jemalloc\x64\Release\jemalloc.lib" (
+        echo Found VS2017 library: msvc\projects\vc2017\jemalloc\x64\Release\jemalloc.lib
+        copy "msvc\projects\vc2017\jemalloc\x64\Release\jemalloc.lib" "lib\jemalloc.lib" >nul 2>&1
+        if !errorlevel! equ 0 set LIBRARY_FOUND=1
+    )
+)
+
+if !LIBRARY_FOUND! equ 0 (
+    REM Check alternative output locations
     for %%f in ("msvc\x64\Release\jemalloc*.lib") do (
         if exist "%%f" (
             echo Found VS library: %%f
@@ -178,7 +182,47 @@ if !LIBRARY_FOUND! equ 1 (
         exit /b 1
     )
 ) else (
-    echo Error: Could not find built library
+    echo Error: Could not find built jemalloc library in any expected location
+    echo.
+    echo Debugging: Searching all possible output locations...
+    echo Make-style outputs:
+    if exist "lib\libjemalloc.*" (
+        dir "lib\libjemalloc.*"
+    ) else (
+        echo   No files found in lib\libjemalloc.*
+    )
+    if exist ".libs\libjemalloc.*" (
+        dir ".libs\libjemalloc.*"
+    ) else (
+        echo   No files found in .libs\libjemalloc.*
+    )
+    echo.
+    echo Visual Studio outputs:
+    echo Checking msvc\projects\vc2022\jemalloc\x64\Release\:
+    if exist "msvc\projects\vc2022\jemalloc\x64\Release\" (
+        dir "msvc\projects\vc2022\jemalloc\x64\Release\*.*"
+    ) else (
+        echo   Directory does not exist
+    )
+    echo Checking msvc\projects\vc2019\jemalloc\x64\Release\:
+    if exist "msvc\projects\vc2019\jemalloc\x64\Release\" (
+        dir "msvc\projects\vc2019\jemalloc\x64\Release\*.*"
+    ) else (
+        echo   Directory does not exist
+    )
+    echo Checking msvc\x64\Release\:
+    if exist "msvc\x64\Release\" (
+        dir "msvc\x64\Release\*.*"
+    ) else (
+        echo   Directory does not exist
+    )
+    echo.
+    echo Available msvc directory structure:
+    if exist "msvc\" (
+        dir "msvc\" /s
+    ) else (
+        echo   msvc directory does not exist
+    )
     exit /b 1
 )
 
