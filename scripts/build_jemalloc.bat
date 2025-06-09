@@ -1,63 +1,21 @@
 @echo off
-REM Windows batch script for building jemalloc static library
 setlocal enabledelayedexpansion
 
-echo Building jemalloc static library
-echo =================================
+REM Windows jemalloc build script
+REM This script builds jemalloc as a static library for Windows using autotools + make or Visual Studio
 
-REM Get script directory and project root
-set SCRIPT_DIR=%~dp0
-set PROJECT_ROOT=%SCRIPT_DIR%..
-set JEMALLOC_SOURCE_DIR=%PROJECT_ROOT%\deps\jemalloc
-set JEMALLOC_LIB_FILE=%JEMALLOC_SOURCE_DIR%\lib\jemalloc.lib
+echo Building jemalloc for Windows...
 
-REM Check if jemalloc source directory exists
-if not exist "%JEMALLOC_SOURCE_DIR%" (
-    echo Error: jemalloc source directory not found: %JEMALLOC_SOURCE_DIR%
-    echo Tip: Initialize git submodules: git submodule update --init --recursive
+REM Check if we're in the correct directory
+if not exist "Makefile.in" (
+    echo Error: This script must be run from the jemalloc source directory
+    echo Expected to find Makefile.in in the current directory
     exit /b 1
 )
 
-echo jemalloc source directory exists: %JEMALLOC_SOURCE_DIR%
+set "CURRENT_DIR=%CD%"
+echo Current directory: %CURRENT_DIR%
 
-REM Check if jemalloc static library already exists and is valid
-if exist "%JEMALLOC_LIB_FILE%" (
-    echo Found existing jemalloc library: %JEMALLOC_LIB_FILE%
-    echo Library info:
-    dir "%JEMALLOC_LIB_FILE%"
-
-    REM Check if the file is actually a valid library (not empty)
-    for %%F in ("%JEMALLOC_LIB_FILE%") do set SIZE=%%~zF
-    if !SIZE! gtr 1000 (
-        echo jemalloc static library exists (!SIZE! bytes)
-        echo Verifying CMake can find the library...
-
-        REM Test if CMake can find the library by doing a quick existence check
-        REM Using the same path that CMake will use
-        set CMAKE_LIB_PATH=%PROJECT_ROOT%\deps\jemalloc\lib\jemalloc.lib
-        if exist "%CMAKE_LIB_PATH%" (
-            echo Library accessible to CMake at: %CMAKE_LIB_PATH%
-            echo Skipping jemalloc build (already built)
-            exit /b 0
-        ) else (
-            echo Library not accessible to CMake - path mismatch
-            echo Expected: %CMAKE_LIB_PATH%
-            echo Actual: %JEMALLOC_LIB_FILE%
-        )
-    ) else (
-        echo Existing library file is too small (!SIZE! bytes) - rebuilding
-        del /q "%JEMALLOC_LIB_FILE%" 2>nul
-    )
-)
-
-echo Building jemalloc static library...
-echo Source: %JEMALLOC_SOURCE_DIR%
-echo Target: %JEMALLOC_LIB_FILE%
-
-REM Navigate to jemalloc source directory
-cd /d "%JEMALLOC_SOURCE_DIR%"
-
-REM Clean any previous build artifacts
 echo.
 echo Cleaning previous build artifacts...
 if exist "msvc\x64\Release" rmdir /s /q "msvc\x64\Release"
@@ -66,282 +24,183 @@ if exist "lib\jemalloc.lib" del /q "lib\jemalloc.lib"
 if exist "configure" del /q "configure"
 if exist "include\jemalloc\jemalloc.h" del /q "include\jemalloc\jemalloc.h"
 
-REM Check for required build tools
 echo.
 echo Checking build environment...
 
-REM Check for bash (required for autogen.sh)
+REM Check for bash
 where bash >nul 2>&1
 if %errorlevel% neq 0 (
     echo Warning: bash not found. Trying MSBuild approach instead.
     goto :msbuild_approach
 )
-echo Found bash:
-bash --version | head -1
+echo Found bash
 
-REM Check for autoconf (required for configuration)
+REM Check for autoconf
 bash -c "which autoconf" >nul 2>&1
 if %errorlevel% neq 0 (
     echo Warning: autoconf not found. Trying MSBuild approach instead.
-    echo Tip: For autotools approach, install MSYS2 and run: pacman -S autoconf automake
     goto :msbuild_approach
 )
-echo Found autoconf:
-bash -c "autoconf --version" | head -1
+echo Found autoconf
 
-REM Check for make (required for building)
+REM Check for make
 bash -c "which make" >nul 2>&1
 if %errorlevel% neq 0 (
     echo Warning: make not found. Trying MSBuild approach instead.
-    echo Tip: For autotools approach, install MSYS2 and run: pacman -S make
     goto :msbuild_approach
 )
-echo Found make:
-bash -c "make --version" | head -1
+echo Found make
 
 REM Check for Visual Studio tools
 where cl >nul 2>&1
 if %errorlevel% equ 0 (
-    echo Found Visual Studio compiler (cl.exe):
-    cl 2>&1 | head -1
+    echo Found Visual Studio compiler
 ) else (
-    echo Warning: Visual Studio compiler (cl.exe) not found in PATH
-    echo Trying to find and setup Visual Studio environment...
-
-    REM Try to find Visual Studio - simplified approach
-    set "VCVARSALL_FOUND="
-
-    if exist "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" (
-        set "VCVARSALL_FOUND=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat"
-    )
-    if exist "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat" (
-        set "VCVARSALL_FOUND=C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat"
-    )
-    if exist "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" (
-        set "VCVARSALL_FOUND=C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
-    )
-    if exist "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" (
-        set "VCVARSALL_FOUND=C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat"
-    )
-
-    if defined VCVARSALL_FOUND (
-        echo Found Visual Studio at: %VCVARSALL_FOUND%
-        call "%VCVARSALL_FOUND%" x64
-
-        where cl >nul 2>&1
-        if %errorlevel% equ 0 (
-            echo Visual Studio environment setup successful
-        ) else (
-            echo Error: Could not setup Visual Studio environment
-            exit /b 1
-        )
-    ) else (
-        echo Error: Visual Studio not found. Please install Visual Studio Build Tools.
-        exit /b 1
-    )
+    echo Setting up Visual Studio environment...
+    call :setup_vs_environment
+    if !errorlevel! neq 0 exit /b 1
 )
 
 echo.
 echo Step 1: Generating configuration files...
-REM Use bash to run autogen.sh which generates the configure script and header files
-REM Set CC environment variable for the bash session
-set "CC=cl"
 bash -c "export CC=cl && ./autogen.sh"
 if %errorlevel% neq 0 (
     echo Error: autogen.sh failed
-    echo This step generates configure script and header files required for Windows build
     exit /b 1
 )
 
 echo Step 2: Running configure script...
-REM Configure jemalloc for Windows static library build
 bash -c "export CC=cl && ./configure --enable-static --disable-shared --with-malloc-conf=background_thread:true"
 if %errorlevel% neq 0 (
     echo Error: configure failed
-    echo This step configures jemalloc build settings
     exit /b 1
 )
 
 echo Step 3: Building jemalloc with make...
-REM Build jemalloc using make (works better than MSBuild for cross-platform)
 bash -c "make clean && make -j%NUMBER_OF_PROCESSORS%"
 if %errorlevel% neq 0 (
-    echo Error: make build failed
-    echo Trying alternative build approach...
-
-    REM Fallback: try Visual Studio solution if make fails
-    echo Step 3b: Falling back to Visual Studio build...
-
-    REM Check if Visual Studio solution files exist
-    if exist "msvc\jemalloc_vc2022.sln" (
-        echo Building with Visual Studio 2022 solution...
-        msbuild "msvc\jemalloc_vc2022.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal /nologo
-        if !errorlevel! equ 0 (
-            goto :vs_build_success
-        )
-    )
-    if exist "msvc\jemalloc_vc2019.sln" (
-        echo Building with Visual Studio 2019 solution...
-        msbuild "msvc\jemalloc_vc2019.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal /nologo
-        if !errorlevel! equ 0 (
-            goto :vs_build_success
-        )
-    )
-    if exist "msvc\jemalloc_vc2017.sln" (
-        echo Building with Visual Studio 2017 solution...
-        msbuild "msvc\jemalloc_vc2017.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal /nologo
-        if !errorlevel! equ 0 (
-            goto :vs_build_success
-        )
-    )
-
-    echo Error: All build methods failed
-    exit /b 1
-
-    :vs_build_success
-    echo Visual Studio build completed successfully
+    echo Error: make build failed, trying Visual Studio...
+    goto :try_vs_build
 )
 
 goto :install_library
 
-REM ==========================================
-REM MSBuild-only approach (when autotools unavailable)
-REM ==========================================
-:msbuild_approach
-echo.
-echo Using MSBuild approach (autotools not available)...
+:try_vs_build
+echo Trying Visual Studio build...
+if exist "msvc\jemalloc_vc2022.sln" (
+    msbuild "msvc\jemalloc_vc2022.sln" /p:Configuration=Release /p:Platform=x64 /m /nologo
+    if !errorlevel! equ 0 goto :install_library
+)
+if exist "msvc\jemalloc_vc2019.sln" (
+    msbuild "msvc\jemalloc_vc2019.sln" /p:Configuration=Release /p:Platform=x64 /m /nologo
+    if !errorlevel! equ 0 goto :install_library
+)
+echo Error: All build methods failed
+exit /b 1
 
-REM Check for Visual Studio tools
+:msbuild_approach
+echo Using MSBuild approach...
 where msbuild >nul 2>&1
 if %errorlevel% neq 0 (
-    echo Error: MSBuild not found. Please install Visual Studio Build Tools.
-    echo Or ensure you're running from a Visual Studio Developer Command Prompt.
+    echo Error: MSBuild not found
     exit /b 1
 )
-echo Found MSBuild:
-msbuild /version 2>nul | findstr /C:"Microsoft" || echo "MSBuild version check failed"
 
-REM Check if Visual Studio solution files exist
-if not exist "msvc\jemalloc_vc2022.sln" (
-    if not exist "msvc\jemalloc_vc2019.sln" (
-        if not exist "msvc\jemalloc_vc2017.sln" (
-            echo Error: No Visual Studio solution files found in msvc directory
-            echo Available files:
-            dir "msvc" 2>nul
-            exit /b 1
-        )
-    )
-)
-
-echo Building jemalloc with Visual Studio solutions...
-
-REM Try building with MSBuild - prefer newer versions first
 set BUILD_SUCCESS=0
 if exist "msvc\jemalloc_vc2022.sln" (
-    echo Building with Visual Studio 2022 solution...
-    msbuild "msvc\jemalloc_vc2022.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal /nologo
+    echo Building with VS2022...
+    msbuild "msvc\jemalloc_vc2022.sln" /p:Configuration=Release /p:Platform=x64 /m /nologo
     if !errorlevel! equ 0 set BUILD_SUCCESS=1
 )
 if !BUILD_SUCCESS! equ 0 (
     if exist "msvc\jemalloc_vc2019.sln" (
-        echo Building with Visual Studio 2019 solution...
-        msbuild "msvc\jemalloc_vc2019.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal /nologo
+        echo Building with VS2019...
+        msbuild "msvc\jemalloc_vc2019.sln" /p:Configuration=Release /p:Platform=x64 /m /nologo
         if !errorlevel! equ 0 set BUILD_SUCCESS=1
     )
 )
 if !BUILD_SUCCESS! equ 0 (
-    if exist "msvc\jemalloc_vc2017.sln" (
-        echo Building with Visual Studio 2017 solution...
-        msbuild "msvc\jemalloc_vc2017.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal /nologo
-        if !errorlevel! equ 0 set BUILD_SUCCESS=1
-    )
-)
-
-if !BUILD_SUCCESS! equ 0 (
-    echo Error: MSBuild failed for all Visual Studio versions
-    echo Available solution files:
-    dir "msvc\*.sln" 2>nul
+    echo Error: MSBuild failed
     exit /b 1
 )
 
-echo MSBuild completed successfully
-
 :install_library
+echo Step 4: Installing library...
 
-echo Step 4: Installing library to expected location...
-
-REM Create lib directory if it doesn't exist
 if not exist "lib" mkdir lib
 
-REM Look for the built library in various possible locations
 set LIBRARY_FOUND=0
 
-REM First check make build output
+REM Check make outputs
 if exist "lib\libjemalloc.a" (
-    echo Found make-built library: lib\libjemalloc.a
+    echo Found make library: lib\libjemalloc.a
     copy "lib\libjemalloc.a" "lib\jemalloc.lib" >nul 2>&1
     if !errorlevel! equ 0 set LIBRARY_FOUND=1
 )
 
-REM Check Unix-style output locations
 if !LIBRARY_FOUND! equ 0 (
     if exist ".libs\libjemalloc.a" (
-        echo Found make-built library: .libs\libjemalloc.a
+        echo Found make library: .libs\libjemalloc.a
         copy ".libs\libjemalloc.a" "lib\jemalloc.lib" >nul 2>&1
         if !errorlevel! equ 0 set LIBRARY_FOUND=1
     )
 )
 
-REM Check Visual Studio build outputs
+REM Check Visual Studio outputs
 if !LIBRARY_FOUND! equ 0 (
-    if exist "msvc\x64\Release\jemalloc-vc143-Release.lib" (
-        echo Found VS2022-built library: msvc\x64\Release\jemalloc-vc143-Release.lib
-        copy "msvc\x64\Release\jemalloc-vc143-Release.lib" "lib\jemalloc.lib" >nul 2>&1
-        if !errorlevel! equ 0 set LIBRARY_FOUND=1
-    ) else if exist "msvc\x64\Release\jemalloc-vc142-Release.lib" (
-        echo Found VS2019-built library: msvc\x64\Release\jemalloc-vc142-Release.lib
-        copy "msvc\x64\Release\jemalloc-vc142-Release.lib" "lib\jemalloc.lib" >nul 2>&1
-        if !errorlevel! equ 0 set LIBRARY_FOUND=1
-    ) else if exist "msvc\x64\Release\jemalloc-vc141-Release.lib" (
-        echo Found VS2017-built library: msvc\x64\Release\jemalloc-vc141-Release.lib
-        copy "msvc\x64\Release\jemalloc-vc141-Release.lib" "lib\jemalloc.lib" >nul 2>&1
-        if !errorlevel! equ 0 set LIBRARY_FOUND=1
-    ) else if exist "msvc\x64\Release\jemalloc.lib" (
-        echo Found VS-built library: msvc\x64\Release\jemalloc.lib
-        copy "msvc\x64\Release\jemalloc.lib" "lib\jemalloc.lib" >nul 2>&1
-        if !errorlevel! equ 0 set LIBRARY_FOUND=1
+    for %%f in ("msvc\x64\Release\jemalloc*.lib") do (
+        if exist "%%f" (
+            echo Found VS library: %%f
+            copy "%%f" "lib\jemalloc.lib" >nul 2>&1
+            if !errorlevel! equ 0 set LIBRARY_FOUND=1
+            goto :check_final
+        )
     )
 )
 
+:check_final
 if !LIBRARY_FOUND! equ 1 (
     if exist "lib\jemalloc.lib" (
         echo.
         echo jemalloc build complete!
-        echo Library info:
         dir "lib\jemalloc.lib"
-        echo.
-        echo Verifying library file...
         for %%F in ("lib\jemalloc.lib") do set FINAL_SIZE=%%~zF
         if !FINAL_SIZE! gtr 1000 (
             echo Library size: !FINAL_SIZE! bytes - looks valid
             echo Ready for Catzilla build!
             exit /b 0
         ) else (
-            echo Error: Library file is too small (!FINAL_SIZE! bytes)
+            echo Error: Library file too small
             exit /b 1
         )
     ) else (
-        echo Error: Failed to copy library to expected location
+        echo Error: Failed to copy library
         exit /b 1
     )
 ) else (
-    echo Error: Could not find built jemalloc library in any expected location
-    echo.
-    echo Available files:
-    echo make outputs:
-    dir "lib\libjemalloc.*" 2>nul
-    dir ".libs\libjemalloc.*" 2>nul
-    echo Visual Studio outputs:
-    dir "msvc\x64\Release\jemalloc*.lib" 2>nul
+    echo Error: Could not find built library
+    exit /b 1
+)
+
+:setup_vs_environment
+set "VCVARSALL_FOUND="
+if exist "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" set "VCVARSALL_FOUND=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat"
+if exist "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat" set "VCVARSALL_FOUND=C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat"
+if exist "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" set "VCVARSALL_FOUND=C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
+if exist "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" set "VCVARSALL_FOUND=C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat"
+
+if defined VCVARSALL_FOUND (
+    echo Found Visual Studio at: !VCVARSALL_FOUND!
+    call "!VCVARSALL_FOUND!" x64
+    where cl >nul 2>&1
+    if !errorlevel! equ 0 (
+        echo Visual Studio environment setup successful
+        exit /b 0
+    ) else (
+        echo Error: Could not setup Visual Studio environment
+        exit /b 1
+    )
+) else (
+    echo Error: Visual Studio not found
     exit /b 1
 )
