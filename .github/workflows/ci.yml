@@ -165,7 +165,17 @@ jobs:
         C:\tools\msys64\usr\bin\bash.exe -lc "pacman -Syu --noconfirm"
         C:\tools\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm autoconf automake"
         echo "MSYS2 autoconf installed"
+        echo "Verifying autoconf installation:"
+        C:\tools\msys64\usr\bin\bash.exe -lc "which autoconf && autoconf --version"
       shell: cmd
+
+    - name: Add MSYS2 to PATH (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        echo "C:\tools\msys64\usr\bin" >> $env:GITHUB_PATH
+        echo "C:\tools\msys64\mingw64\bin" >> $env:GITHUB_PATH
+        echo "MSYS2 added to PATH"
+      shell: powershell
 
     - name: Setup Visual Studio MSBuild (Windows)
       if: runner.os == 'Windows'
