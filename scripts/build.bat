@@ -13,12 +13,25 @@ echo.
 echo Step 1: Building jemalloc (if needed)...
 
 REM Check if jemalloc source directory exists
+echo DEBUG: Checking for jemalloc at: "%PROJECT_ROOT%\deps\jemalloc"
 if not exist "%PROJECT_ROOT%\deps\jemalloc" (
     echo ⚠️  Warning: jemalloc source directory not found
     echo ⚠️  Tip: Initialize git submodules: git submodule update --init --recursive
+    echo.
+    echo DEBUG: PROJECT_ROOT = %PROJECT_ROOT%
+    echo DEBUG: Contents of deps directory:
+    if exist "%PROJECT_ROOT%\deps" (
+        dir "%PROJECT_ROOT%\deps" /b
+    ) else (
+        echo DEBUG: deps directory does not exist
+    )
     echo ⚠️  Continuing with system malloc - performance may be reduced
     set JEMALLOC_BUILD_RESULT=1
 ) else (
+    echo DEBUG: Found jemalloc directory
+    echo DEBUG: Contents of jemalloc directory:
+    dir "%PROJECT_ROOT%\deps\jemalloc" /b | head -10
+
     REM Navigate to jemalloc directory and run build script
     cd /d "%PROJECT_ROOT%\deps\jemalloc"
     call "%SCRIPT_DIR%build_jemalloc.bat"
