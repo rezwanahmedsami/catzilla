@@ -31,32 +31,16 @@ if !errorlevel! neq 0 (
 )
 echo Found bash
 
-REM Check for autoconf - try standard PATH first, then MSYS2 directly
-autoconf --version > nul 2>&1
-if !errorlevel! neq 0 (
-    REM Try MSYS2 autoconf directly
-    C:\tools\msys64\usr\bin\autoconf.exe --version > nul 2>&1
-    if !errorlevel! neq 0 (
-        echo Error: autoconf not found in PATH or MSYS2
-        exit /b 1
-    ) else (
-        echo Found autoconf in MSYS2
-        set "AUTOCONF_CMD=C:\tools\msys64\usr\bin\autoconf.exe"
-        set "MAKE_CMD=C:\tools\msys64\usr\bin\make.exe"
-    )
-) else (
-    echo Found autoconf in PATH
-    set "AUTOCONF_CMD=autoconf"
-    set "MAKE_CMD=make"
-)
-
-REM Verify make is also available
-!MAKE_CMD! --version > nul 2>&1
-if !errorlevel! neq 0 (
-    echo Error: make not found
+REM Check if configure script exists (it should be pre-generated in the repo)
+if not exist "configure" (
+    echo Error: configure script not found in jemalloc directory
+    echo Expected to find configure script in the current directory
     exit /b 1
 )
-echo Found make
+echo Found configure script
+
+REM We don't need autoconf since configure script already exists
+echo Skipping autoconf step - using existing configure script
 
 echo Setting up Visual Studio environment...
 set "VCVARSALL_FOUND="
@@ -84,31 +68,17 @@ if defined VCVARSALL_FOUND (
 )
 
 echo.
-echo Step 1: Generating configuration files...
-REM Use MSYS2 bash with explicit paths for better reliability
-if "!AUTOCONF_CMD!"=="C:\tools\msys64\usr\bin\autoconf.exe" (
-    C:\tools\msys64\usr\bin\bash.exe -lc "cd '%CD:\=/%' && export CC=cl && autoconf"
-) else (
-    bash -c "export CC=cl && autoconf"
-)
-if !errorlevel! neq 0 (
-    echo Error: autoconf failed
-    exit /b 1
-)
-
-echo Step 2: Configuring jemalloc for Windows...
-REM Use MSYS2 bash with explicit paths for better reliability
-if "!AUTOCONF_CMD!"=="C:\tools\msys64\usr\bin\autoconf.exe" (
-    C:\tools\msys64\usr\bin\bash.exe -lc "cd '%CD:\=/%' && export CC=cl && ./configure --enable-autogen --enable-static --disable-shared --disable-doc --disable-debug --enable-prof --enable-stats"
-) else (
-    bash -c "export CC=cl && ./configure --enable-autogen --enable-static --disable-shared --disable-doc --disable-debug --enable-prof --enable-stats"
-)
+echo.
+echo Step 1: Configuring jemalloc for Windows...
+REM Skip autoconf since configure script already exists
+REM Use bash to run the existing configure script
+bash -c "export CC=cl && ./configure --enable-autogen --enable-static --disable-shared --disable-doc --disable-debug --enable-prof --enable-stats"
 if !errorlevel! neq 0 (
     echo Error: configure failed
     exit /b 1
 )
 
-echo Step 3: Building with MSBuild...
+echo Step 2: Building with MSBuild...
 set LIBRARY_FOUND=0
 
 REM Try VS2022 first
@@ -140,7 +110,7 @@ exit /b 1
 
 :check_library
 echo.
-echo Step 4: Checking for output libraries...
+echo Step 3: Checking for output libraries...
 
 REM Create lib directory if it doesn't exist
 if not exist "lib" mkdir lib
