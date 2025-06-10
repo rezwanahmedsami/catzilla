@@ -156,6 +156,7 @@ jobs:
       if: runner.os == 'Windows'
       run: |
         choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
+        choco install autoconf
       shell: cmd
 
     - name: Setup Visual Studio MSBuild (Windows)

@@ -23,7 +23,7 @@ if exist "include\jemalloc\jemalloc.h" del /q "include\jemalloc\jemalloc.h"
 echo.
 echo Checking build environment...
 
-REM Check for bash (should be available via MSYS2 or Git Bash)
+REM Check for bash (should be available via Git Bash on Windows CI)
 bash --version > nul 2>&1
 if !errorlevel! neq 0 (
     echo Error: bash not found
@@ -31,16 +31,13 @@ if !errorlevel! neq 0 (
 )
 echo Found bash
 
-REM Check if configure script exists (it should be pre-generated in the repo)
-if not exist "configure" (
-    echo Error: configure script not found in jemalloc directory
-    echo Expected to find configure script in the current directory
+REM Check if autogen.sh exists (required for developer sources)
+if not exist "autogen.sh" (
+    echo Error: autogen.sh script not found in jemalloc directory
+    echo Expected to find autogen.sh script for developer build
     exit /b 1
 )
-echo Found configure script
-
-REM We don't need autoconf since configure script already exists
-echo Skipping autoconf step - using existing configure script
+echo Found autogen.sh script
 
 echo Setting up Visual Studio environment...
 set "VCVARSALL_FOUND="
@@ -68,13 +65,11 @@ if defined VCVARSALL_FOUND (
 )
 
 echo.
-echo.
-echo Step 1: Configuring jemalloc for Windows...
-REM Skip autoconf since configure script already exists
-REM Use bash to run the existing configure script
-bash -c "export CC=cl && ./configure --enable-autogen --enable-static --disable-shared --disable-doc --disable-debug --enable-prof --enable-stats"
+echo Step 1: Generating header files with autogen.sh...
+REM Following jemalloc INSTALL.md Windows instructions: "sh -c "CC=cl ./autogen.sh""
+bash -c "CC=cl ./autogen.sh"
 if !errorlevel! neq 0 (
-    echo Error: configure failed
+    echo Error: autogen.sh failed
     exit /b 1
 )
 
