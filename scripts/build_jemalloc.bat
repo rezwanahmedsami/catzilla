@@ -17,27 +17,19 @@ echo Cleaning previous build artifacts...
 if exist "msvc\x64\Release" rmdir /s /q "msvc\x64\Release"
 if exist "msvc\x64\Debug" rmdir /s /q "msvc\x64\Debug"
 if exist "lib\jemalloc.lib" del /q "lib\jemalloc.lib"
-if exist "configure" del /q "configure"
-if exist "include\jemalloc\jemalloc.h" del /q "include\jemalloc\jemalloc.h"
 
 echo.
 echo Checking build environment...
 
-REM Check for bash (should be available via Git Bash on Windows CI)
-bash --version > nul 2>&1
-if !errorlevel! neq 0 (
-    echo Error: bash not found
-    exit /b 1
+REM Check for Visual Studio solution files (native Windows build)
+if not exist "msvc\jemalloc_vc2022.sln" (
+    if not exist "msvc\jemalloc_vc2019.sln" (
+        echo Error: No Visual Studio solution files found in msvc directory
+        echo Expected jemalloc_vc2022.sln or jemalloc_vc2019.sln
+        exit /b 1
+    )
 )
-echo Found bash
-
-REM Check if autogen.sh exists (required for developer sources)
-if not exist "autogen.sh" (
-    echo Error: autogen.sh script not found in jemalloc directory
-    echo Expected to find autogen.sh script for developer build
-    exit /b 1
-)
-echo Found autogen.sh script
+echo Found Visual Studio solution files
 
 echo Setting up Visual Studio environment...
 set "VCVARSALL_FOUND="
@@ -65,13 +57,10 @@ if defined VCVARSALL_FOUND (
 )
 
 echo.
-echo Step 1: Generating header files with autogen.sh...
-REM Following jemalloc INSTALL.md Windows instructions: "sh -c "CC=cl ./autogen.sh""
-bash -c "CC=cl ./autogen.sh"
-if !errorlevel! neq 0 (
-    echo Error: autogen.sh failed
-    exit /b 1
-)
+echo Step 1: Using native Windows MSVC build (skipping autotools)...
+REM Skip problematic autogen.sh/configure - use native MSVC solution files directly
+echo Jemalloc for Windows uses native MSVC project files - no autotools needed
+echo This avoids pthread.h and MSYS environment detection issues
 
 echo Step 2: Building with MSBuild...
 set LIBRARY_FOUND=0
