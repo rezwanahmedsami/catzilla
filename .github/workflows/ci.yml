@@ -156,7 +156,15 @@ jobs:
       if: runner.os == 'Windows'
       run: |
         choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
-        choco install autoconf
+        choco install msys2 --params "/NoPath"
+      shell: cmd
+
+    - name: Setup autoconf via MSYS2 (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        C:\tools\msys64\usr\bin\bash.exe -lc "pacman -Syu --noconfirm"
+        C:\tools\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm autoconf automake"
+        echo "MSYS2 autoconf installed"
       shell: cmd
 
     - name: Setup Visual Studio MSBuild (Windows)
