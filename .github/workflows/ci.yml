@@ -166,17 +166,22 @@ jobs:
         C:\tools\msys64\usr\bin\bash.exe -lc "pacman -Syu --noconfirm"
         # Install autotools through MSYS2 for jemalloc build
         C:\tools\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm autoconf automake make pkg-config"
-        # Add MSYS2 tools to PATH for jemalloc build
-        echo "C:\tools\msys64\usr\bin" >> $env:GITHUB_PATH
-        echo "C:\tools\msys64\mingw64\bin" >> $env:GITHUB_PATH
         # Verify autotools installation
         C:\tools\msys64\usr\bin\bash.exe -lc "which autoconf && autoconf --version"
         C:\tools\msys64\usr\bin\bash.exe -lc "which make && make --version"
-      shell: powershell
+      shell: cmd
 
     - name: Setup Visual Studio MSBuild (Windows)
       if: runner.os == 'Windows'
       uses: microsoft/setup-msbuild@v2
+
+    - name: Setup MSYS2 PATH for jemalloc build (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        echo "C:\tools\msys64\usr\bin" >> %GITHUB_PATH%
+        echo "C:\tools\msys64\mingw64\bin" >> %GITHUB_PATH%
+        echo PATH setup complete for MSYS2 tools
+      shell: cmd
 
     - name: Install Python dependencies
       run: |

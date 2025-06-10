@@ -23,7 +23,7 @@ if exist "include\jemalloc\jemalloc.h" del /q "include\jemalloc\jemalloc.h"
 echo.
 echo Checking build environment...
 
-REM Check for required tools
+REM Check for bash (should be available via MSYS2 or Git Bash)
 bash --version > nul 2>&1
 if !errorlevel! neq 0 (
     echo Error: bash not found
@@ -31,14 +31,27 @@ if !errorlevel! neq 0 (
 )
 echo Found bash
 
+REM Check for autoconf - try standard PATH first, then MSYS2 directly
 autoconf --version > nul 2>&1
 if !errorlevel! neq 0 (
-    echo Error: autoconf not found
-    exit /b 1
+    REM Try MSYS2 autoconf directly
+    C:\tools\msys64\usr\bin\autoconf.exe --version > nul 2>&1
+    if !errorlevel! neq 0 (
+        echo Error: autoconf not found in PATH or MSYS2
+        exit /b 1
+    ) else (
+        echo Found autoconf in MSYS2
+        set "AUTOCONF_CMD=C:\tools\msys64\usr\bin\autoconf.exe"
+        set "MAKE_CMD=C:\tools\msys64\usr\bin\make.exe"
+    )
+) else (
+    echo Found autoconf in PATH
+    set "AUTOCONF_CMD=autoconf"
+    set "MAKE_CMD=make"
 )
-echo Found autoconf
 
-make --version > nul 2>&1
+REM Verify make is also available
+!MAKE_CMD! --version > nul 2>&1
 if !errorlevel! neq 0 (
     echo Error: make not found
     exit /b 1
@@ -72,14 +85,24 @@ if defined VCVARSALL_FOUND (
 
 echo.
 echo Step 1: Generating configuration files...
-bash -c "export CC=cl && autoconf"
+REM Use MSYS2 bash with explicit paths for better reliability
+if "!AUTOCONF_CMD!"=="C:\tools\msys64\usr\bin\autoconf.exe" (
+    C:\tools\msys64\usr\bin\bash.exe -lc "cd '%CD:\=/%' && export CC=cl && autoconf"
+) else (
+    bash -c "export CC=cl && autoconf"
+)
 if !errorlevel! neq 0 (
     echo Error: autoconf failed
     exit /b 1
 )
 
 echo Step 2: Configuring jemalloc for Windows...
-bash -c "export CC=cl && ./configure --enable-autogen --enable-static --disable-shared --disable-doc --disable-debug --enable-prof --enable-stats"
+REM Use MSYS2 bash with explicit paths for better reliability
+if "!AUTOCONF_CMD!"=="C:\tools\msys64\usr\bin\autoconf.exe" (
+    C:\tools\msys64\usr\bin\bash.exe -lc "cd '%CD:\=/%' && export CC=cl && ./configure --enable-autogen --enable-static --disable-shared --disable-doc --disable-debug --enable-prof --enable-stats"
+) else (
+    bash -c "export CC=cl && ./configure --enable-autogen --enable-static --disable-shared --disable-doc --disable-debug --enable-prof --enable-stats"
+)
 if !errorlevel! neq 0 (
     echo Error: configure failed
     exit /b 1
