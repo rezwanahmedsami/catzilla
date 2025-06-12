@@ -187,14 +187,14 @@ jobs:
         try:
             from catzilla import Catzilla
             app = Catzilla()
-            print('✅ Windows malloc fallback working correctly')
+            print('[SUCCESS] Windows malloc fallback working correctly')
             print(f'jemalloc available: {Catzilla.jemalloc_available()}')
             if not Catzilla.jemalloc_available():
-                print('✅ Expected: jemalloc not available on Windows (using malloc)')
+                print('[SUCCESS] Expected: jemalloc not available on Windows (using malloc)')
             else:
-                print('ℹ️  Unexpected: jemalloc is available (this is fine too)')
+                print('[INFO] Unexpected: jemalloc is available (this is fine too)')
         except Exception as e:
-            print(f'❌ Error: {e}')
+            print(f'[ERROR] Error: {e}')
             sys.exit(1)
         "
 

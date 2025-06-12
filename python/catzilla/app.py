@@ -14,22 +14,41 @@ import time
 from typing import Any, Callable, Dict, List, Optional, Union
 from urllib.parse import parse_qs
 
+
+def _safe_print(message: str):
+    """Print message with Windows console encoding safety"""
+    try:
+        print(message)
+    except UnicodeEncodeError:
+        # Fallback for Windows console - replace problematic Unicode
+        safe_message = (
+            message.replace("⚡", "[LIGHTNING]")
+            .replace("⚠️", "[WARNING]")
+            .replace("❌", "[ERROR]")
+            .replace("✅", "[SUCCESS]")
+            .replace("🔧", "[TOOL]")
+            .replace("📊", "[CHART]")
+            .replace("💾", "[DISK]")
+            .replace("🚀", "[ROCKET]")
+        )
+        print(safe_message)
+
+
 from .auto_validation import create_auto_validated_handler
 from .c_router import CAcceleratedRouter
 from .types import HTMLResponse, JSONResponse, Request, Response, RouteHandler
 
 try:
     from catzilla._catzilla import Server as _Server
-    from catzilla._catzilla import (
+    from catzilla._catzilla import (  # New runtime allocator functions
+        get_current_allocator,
         get_memory_stats,
         has_jemalloc,
         init_memory_system,
-        send_response,
-        # New runtime allocator functions
-        jemalloc_available,
-        get_current_allocator,
-        set_allocator,
         init_memory_with_allocator,
+        jemalloc_available,
+        send_response,
+        set_allocator,
     )
 except ImportError as e:
     # Check if this is a jemalloc TLS error
@@ -207,19 +226,21 @@ class Catzilla:
                     self._memory_optimization_active = True
 
                     if self.memory_profiling:
-                        print(
+                        _safe_print(
                             "🚀 Catzilla: Memory Revolution FULL activated (jemalloc + profiling + tuning)"
                         )
                     else:
-                        print("🚀 Catzilla: Memory Revolution activated (jemalloc)")
+                        _safe_print(
+                            "🚀 Catzilla: Memory Revolution activated (jemalloc)"
+                        )
 
                     # Start memory profiling if enabled
                     if self.memory_profiling:
                         self._start_memory_profiling()
 
                 except RuntimeError as e:
-                    print(f"⚠️  Catzilla: Failed to initialize with jemalloc: {e}")
-                    print("⚠️  Catzilla: Falling back to standard memory system")
+                    _safe_print(f"⚠️  Catzilla: Failed to initialize with jemalloc: {e}")
+                    _safe_print("⚠️  Catzilla: Falling back to standard memory system")
                     self.has_jemalloc = False
                     self.use_jemalloc = False
                     # Fallback to malloc
@@ -227,7 +248,7 @@ class Catzilla:
                     init_memory_system()
 
             elif self.use_jemalloc and not jemalloc_runtime_available:
-                print(
+                _safe_print(
                     "⚠️  Catzilla: jemalloc requested but not available - falling back to standard memory"
                 )
                 self.has_jemalloc = False
@@ -237,7 +258,7 @@ class Catzilla:
                 init_memory_system()
 
             else:
-                print(
+                _safe_print(
                     "⚡ Catzilla: Running with standard memory system (jemalloc disabled)"
                 )
                 self.has_jemalloc = False
@@ -246,7 +267,7 @@ class Catzilla:
                 init_memory_system()
 
         except Exception as e:
-            print(f"⚠️  Catzilla: Memory system initialization warning: {e}")
+            _safe_print(f"⚠️  Catzilla: Memory system initialization warning: {e}")
             self.has_jemalloc = False
             self.use_jemalloc = False
             # Emergency fallback
@@ -254,7 +275,9 @@ class Catzilla:
                 set_allocator("malloc")
                 init_memory_system()
             except:
-                print("⚠️  Catzilla: Emergency fallback to uninitialized memory system")
+                _safe_print(
+                    "⚠️  Catzilla: Emergency fallback to uninitialized memory system"
+                )
                 pass
 
     def get_memory_stats(self) -> dict:
@@ -280,9 +303,11 @@ class Catzilla:
                 base_stats.update(
                     {
                         "message": f"Using {current_allocator} memory system",
-                        "jemalloc_reason": "disabled by user"
-                        if not self.use_jemalloc
-                        else "not available at runtime",
+                        "jemalloc_reason": (
+                            "disabled by user"
+                            if not self.use_jemalloc
+                            else "not available at runtime"
+                        ),
                     }
                 )
                 return base_stats
@@ -364,7 +389,7 @@ class Catzilla:
 
                     time.sleep(5)  # Check every 5 seconds
                 except Exception as e:
-                    print(f"⚠️  Memory profiling error: {e}")
+                    _safe_print(f"⚠️  Memory profiling error: {e}")
                     time.sleep(10)
 
         # Start profiling in background thread
@@ -379,7 +404,7 @@ class Catzilla:
 
             # If fragmentation is high (>15%), suggest cleanup
             if fragmentation > 15:
-                print(
+                _safe_print(
                     f"🔧 Auto-tuning: High fragmentation detected ({fragmentation:.1f}%)"
                 )
                 # In a real implementation, we could trigger arena cleanup here
@@ -390,12 +415,12 @@ class Catzilla:
                     "allocated_mb", 0
                 ) - self._memory_stats_history[-3].get("allocated_mb", 0)
                 if recent_growth > 50:  # 50MB growth in recent checks
-                    print(
+                    _safe_print(
                         f"📈 Auto-tuning: Rapid memory growth detected (+{recent_growth:.1f}MB)"
                     )
 
         except Exception as e:
-            print(f"⚠️  Auto-tuning error: {e}")
+            _safe_print(f"⚠️  Auto-tuning error: {e}")
 
     def get_memory_profile(self) -> dict:
         """Get detailed memory profiling information"""
@@ -665,11 +690,13 @@ class Catzilla:
 
         # Show memory configuration
         print(f"\n🧠 Memory Configuration:")
-        print(f"   jemalloc: {'✅ enabled' if self.has_jemalloc else '❌ disabled'}")
-        print(
+        _safe_print(
+            f"   jemalloc: {'✅ enabled' if self.has_jemalloc else '❌ disabled'}"
+        )
+        _safe_print(
             f"   profiling: {'✅ enabled' if self.memory_profiling else '❌ disabled'}"
         )
-        print(
+        _safe_print(
             f"   auto-tuning: {'✅ enabled' if self.auto_memory_tuning else '❌ disabled'}"
         )
         if self.memory_profiling:
@@ -814,9 +841,11 @@ class Catzilla:
                 "memory_stats_interval": self.memory_stats_interval,
                 "can_switch_allocator": False,  # Cannot switch after initialization
                 "build_supports_jemalloc": jemalloc_available(),
-                "status": "initialized"
-                if self.has_jemalloc or not self.use_jemalloc
-                else "fallback",
+                "status": (
+                    "initialized"
+                    if self.has_jemalloc or not self.use_jemalloc
+                    else "fallback"
+                ),
             }
         except Exception as e:
             return {
