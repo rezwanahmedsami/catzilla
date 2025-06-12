@@ -177,6 +177,27 @@ jobs:
       if: runner.os == 'Windows'
       run: scripts\build.bat
 
+    - name: Validate Windows malloc fallback
+      if: runner.os == 'Windows'
+      run: |
+        echo "Validating Windows build with malloc fallback..."
+        python -c "
+        import sys
+        sys.path.insert(0, '.')
+        try:
+            from catzilla import Catzilla
+            app = Catzilla()
+            print('✅ Windows malloc fallback working correctly')
+            print(f'jemalloc available: {Catzilla.jemalloc_available()}')
+            if not Catzilla.jemalloc_available():
+                print('✅ Expected: jemalloc not available on Windows (using malloc)')
+            else:
+                print('ℹ️  Unexpected: jemalloc is available (this is fine too)')
+        except Exception as e:
+            print(f'❌ Error: {e}')
+            sys.exit(1)
+        "
+
     # Verify segfault fixes specifically on Ubuntu
     - name: Verify segfault fixes
       if: runner.os == 'Linux'

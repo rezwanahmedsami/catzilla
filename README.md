@@ -88,6 +88,11 @@ pip install catzilla
 - Windows, macOS, or Linux
 - No additional dependencies required
 
+**Platform-Specific Features:**
+- **Linux/macOS**: jemalloc memory allocator (high performance)
+- **Windows**: Standard malloc (reliable performance)
+- See [Platform Support Guide](docs/platform_support.md) for details
+
 ### Installation Verification
 
 ```bash
