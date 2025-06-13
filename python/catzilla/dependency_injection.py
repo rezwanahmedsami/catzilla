@@ -129,6 +129,13 @@ class DIContainer:
         Returns:
             0 on success, -1 on failure
         """
+        # Validate scope
+        valid_scopes = {"singleton", "transient", "scoped", "request"}
+        if scope not in valid_scopes:
+            raise ValueError(
+                f"Invalid scope '{scope}'. Valid scopes are: {', '.join(valid_scopes)}"
+            )
+
         with self._lock:
             if name in self._services:
                 raise ValueError(f"Service '{name}' is already registered")
@@ -242,40 +249,60 @@ class DIContainer:
         self, registration: ServiceRegistration, dependencies: Dict[str, Any]
     ) -> Any:
         """Create a service instance using the factory"""
+        # Import here to avoid circular imports
+        from .decorators import Depends
+
         factory = registration.factory
 
         if inspect.isclass(factory):
             # Handle class constructor injection
-            if dependencies:
-                # Use dependency injection
-                sig = inspect.signature(factory.__init__)
-                params = {}
+            sig = inspect.signature(factory.__init__)
+            params = {}
 
-                for param_name, param in sig.parameters.items():
-                    if param_name == "self":
-                        continue
+            for param_name, param in sig.parameters.items():
+                if param_name == "self":
+                    continue
 
-                    # Try to match parameter with dependency
-                    if param_name in dependencies:
-                        params[param_name] = dependencies[param_name]
-                    elif param.annotation != param.empty:
-                        # Try to match by type annotation
-                        for dep_name, dep_instance in dependencies.items():
-                            if isinstance(dep_instance, param.annotation):
-                                params[param_name] = dep_instance
-                                break
+                # Check if parameter has a Depends default value
+                if param.default != inspect.Parameter.empty and isinstance(
+                    param.default, Depends
+                ):
+                    service_name = param.default.service_name
+                    if service_name in dependencies:
+                        params[param_name] = dependencies[service_name]
+                # Try to match parameter with dependency by name
+                elif param_name in dependencies:
+                    params[param_name] = dependencies[param_name]
+                # Try to match by type annotation if parameter has no default
+                elif (
+                    param.default == inspect.Parameter.empty
+                    and param.annotation != param.empty
+                ):
+                    for dep_name, dep_instance in dependencies.items():
+                        if isinstance(dep_instance, param.annotation):
+                            params[param_name] = dep_instance
+                            break
 
-                return factory(**params)
-            else:
-                return factory()
+            return factory(**params)
 
         elif callable(factory):
             # Handle function factory
-            if dependencies:
-                # Pass dependencies as arguments
-                return factory(**dependencies)
-            else:
-                return factory()
+            sig = inspect.signature(factory)
+            params = {}
+
+            for param_name, param in sig.parameters.items():
+                # Check if parameter has a Depends default value
+                if param.default != inspect.Parameter.empty and isinstance(
+                    param.default, Depends
+                ):
+                    service_name = param.default.service_name
+                    if service_name in dependencies:
+                        params[param_name] = dependencies[service_name]
+                # Try to match parameter with dependency by name
+                elif param_name in dependencies:
+                    params[param_name] = dependencies[param_name]
+
+            return factory(**params)
 
         else:
             raise TypeError(
@@ -284,6 +311,9 @@ class DIContainer:
 
     def _analyze_dependencies(self, factory: ServiceFactory) -> List[str]:
         """Analyze factory function/class to discover dependencies"""
+        # Import here to avoid circular imports
+        from .decorators import Depends
+
         if inspect.isclass(factory):
             # Analyze constructor parameters
             try:
@@ -294,10 +324,23 @@ class DIContainer:
                     if param_name == "self":
                         continue
 
-                    # Use parameter name as dependency name by default
-                    # In a real implementation, this could be enhanced with
-                    # type hints and custom annotations
-                    dependencies.append(param_name)
+                    # Skip *args and **kwargs parameters
+                    if param.kind in (
+                        inspect.Parameter.VAR_POSITIONAL,
+                        inspect.Parameter.VAR_KEYWORD,
+                    ):
+                        continue
+
+                    # Check if parameter has a Depends default value
+                    if param.default != inspect.Parameter.empty:
+                        if isinstance(param.default, Depends):
+                            dependencies.append(param.default.service_name)
+                        else:
+                            # Parameter has default value, it's optional
+                            continue
+                    else:
+                        # Use parameter name as dependency name by default
+                        dependencies.append(param_name)
 
                 return dependencies
             except (ValueError, TypeError):
@@ -307,7 +350,28 @@ class DIContainer:
             # Analyze function parameters
             try:
                 sig = inspect.signature(factory)
-                return list(sig.parameters.keys())
+                dependencies = []
+
+                for param_name, param in sig.parameters.items():
+                    # Skip *args and **kwargs parameters
+                    if param.kind in (
+                        inspect.Parameter.VAR_POSITIONAL,
+                        inspect.Parameter.VAR_KEYWORD,
+                    ):
+                        continue
+
+                    # Check if parameter has a Depends default value
+                    if param.default != inspect.Parameter.empty:
+                        if isinstance(param.default, Depends):
+                            dependencies.append(param.default.service_name)
+                        else:
+                            # Parameter has default value, it's optional
+                            continue
+                    else:
+                        # Use parameter name as dependency name by default
+                        dependencies.append(param_name)
+
+                return dependencies
             except (ValueError, TypeError):
                 return []
 
@@ -904,6 +968,12 @@ def set_default_container(container) -> None:
     """Set the default DI container"""
     global _default_container
     _default_container = container
+
+
+def clear_default_container() -> None:
+    """Clear the default DI container (useful for testing)"""
+    global _default_container
+    _default_container = DIContainer()
 
 
 # Convenience functions for the default container

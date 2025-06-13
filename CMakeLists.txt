@@ -932,6 +932,7 @@ if(NOT WHEEL_BUILD_MODE)
     configure_test_executable(test_advanced_router tests/c/test_advanced_router.c)
     configure_test_executable(test_server_integration tests/c/test_server_integration.c)
     configure_test_executable(test_validation_engine tests/c/test_validation_engine.c)
+    configure_test_executable(test_dependency_injection tests/c/test_dependency_injection.c)
     configure_test_executable(test_memory tests/c/test_memory.c)
 endif()
 
