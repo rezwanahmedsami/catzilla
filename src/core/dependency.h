@@ -658,4 +658,552 @@ void catzilla_di_free_service_memory(catzilla_di_container_t* container,
                                     const catzilla_di_service_t* service,
                                     void* ptr);
 
+// ============================================================================
+// PHASE 5: PRODUCTION FEATURES
+// ============================================================================
+
+/**
+ * Hierarchical Container Configuration
+ * Enables building complex modular DI hierarchies
+ */
+typedef struct {
+    char name[CATZILLA_DI_NAME_MAX];              // Container name for debugging
+    struct catzilla_di_container_s* parent;       // Parent container (can be NULL)
+    bool inherit_services;                        // Whether to inherit parent services
+    bool override_parent_services;                // Allow overriding parent service registrations
+    uint32_t isolation_level;                     // 0=full sharing, 1=scoped isolation, 2=full isolation
+
+    // Access control
+    char** allowed_service_patterns;              // Glob patterns for allowed services (NULL = all)
+    char** denied_service_patterns;               // Glob patterns for denied services (NULL = none)
+    int pattern_count;
+} catzilla_di_container_config_t;
+
+/**
+ * Advanced Factory Pattern Support
+ * Supports complex object creation scenarios
+ */
+typedef enum {
+    CATZILLA_DI_FACTORY_SIMPLE,                  // Basic factory function
+    CATZILLA_DI_FACTORY_BUILDER,                 // Builder pattern with configuration
+    CATZILLA_DI_FACTORY_PROXY,                   // Proxy/wrapper factory
+    CATZILLA_DI_FACTORY_CONDITIONAL,             // Conditional creation based on runtime state
+    CATZILLA_DI_FACTORY_ASYNC,                   // Asynchronous factory (future support)
+} catzilla_di_factory_type_t;
+
+typedef struct catzilla_di_factory_config_s {
+    catzilla_di_factory_type_t type;              // Factory type
+    catzilla_di_factory_func_t factory_func;     // Primary factory function
+
+    // Builder pattern support
+    catzilla_di_factory_func_t builder_func;     // Builder configuration function
+    void* builder_config;                        // Builder configuration data
+
+    // Conditional factory support
+    bool (*condition_func)(void* context);       // Condition evaluation function
+    catzilla_di_factory_func_t alt_factory;      // Alternative factory if condition fails
+
+    // Resource management
+    void (*destructor_func)(void* instance);     // Custom destructor
+    bool auto_cleanup;                           // Automatic cleanup on scope exit
+
+    // Factory metadata
+    char description[256];                       // Factory description for debugging
+    uint32_t factory_id;                         // Unique factory identifier
+    uint64_t creation_time;                      // When factory was registered
+} catzilla_di_factory_config_t;
+
+/**
+ * Configuration-Based Service Registration
+ * Enables JSON/YAML-based DI configuration
+ */
+typedef struct {
+    char service_name[CATZILLA_DI_NAME_MAX];     // Service name
+    char service_type[CATZILLA_DI_TYPE_MAX];     // Service type name
+    char scope[32];                              // Scope as string (singleton, transient, etc.)
+
+    // Factory configuration
+    char factory_type[32];                       // Factory type (simple, builder, etc.)
+    char factory_description[256];               // Factory description
+
+    // Dependencies
+    char dependencies[CATZILLA_DI_MAX_DEPENDENCIES][CATZILLA_DI_NAME_MAX];
+    int dependency_count;
+
+    // Configuration parameters
+    char** config_keys;                          // Configuration parameter names
+    char** config_values;                        // Configuration parameter values
+    int config_count;
+
+    // Metadata
+    bool enabled;                                // Whether service is enabled
+    int priority;                                // Service priority (higher = resolved first)
+    char tags[16][32];                           // Service tags for grouping/filtering
+    int tag_count;
+} catzilla_di_service_config_t;
+
+/**
+ * Advanced Debugging and Introspection
+ */
+typedef struct {
+    uint32_t service_id;                         // Service identifier
+    char service_name[CATZILLA_DI_NAME_MAX];    // Service name
+    char service_type[CATZILLA_DI_TYPE_MAX];    // Service type
+    catzilla_di_scope_type_t scope;              // Service scope
+
+    // Dependency information
+    char dependencies[CATZILLA_DI_MAX_DEPENDENCIES][CATZILLA_DI_NAME_MAX];
+    int dependency_count;
+
+    // Runtime statistics
+    uint64_t creation_count;                     // How many times service was created
+    uint64_t last_access_time;                   // Last time service was accessed
+    uint64_t total_resolution_time_ns;           // Total time spent resolving this service
+    uint64_t average_resolution_time_ns;         // Average resolution time
+
+    // Memory usage
+    size_t instance_memory_size;                 // Memory used by service instances
+    size_t metadata_memory_size;                 // Memory used by service metadata
+
+    // Status and health
+    bool is_healthy;                             // Service health status
+    char last_error[256];                        // Last error message
+    uint64_t error_count;                        // Total number of errors
+} catzilla_di_service_info_t;
+
+typedef struct {
+    uint32_t container_id;                       // Container identifier
+    char container_name[CATZILLA_DI_NAME_MAX];  // Container name
+
+    // Hierarchy information
+    uint32_t parent_container_id;                // Parent container ID (0 if root)
+    uint32_t child_container_ids[16];            // Child container IDs
+    int child_count;
+
+    // Service information
+    catzilla_di_service_info_t* services;        // Array of service information
+    int service_count;
+
+    // Performance metrics
+    catzilla_di_stats_t stats;                   // Container statistics
+
+    // Memory system information
+    size_t total_memory_allocated;
+    size_t total_memory_used;
+    double memory_efficiency;
+
+    // Health status
+    bool is_healthy;                             // Overall container health
+    char health_issues[10][256];                 // Health issue descriptions
+    int health_issue_count;
+} catzilla_di_container_info_t;
+
+/**
+ * Comprehensive Error Handling and Logging
+ */
+typedef enum {
+    CATZILLA_DI_LOG_TRACE,                       // Detailed tracing information
+    CATZILLA_DI_LOG_DEBUG,                       // Debug information
+    CATZILLA_DI_LOG_INFO,                        // General information
+    CATZILLA_DI_LOG_WARN,                        // Warning messages
+    CATZILLA_DI_LOG_ERROR,                       // Error messages
+    CATZILLA_DI_LOG_FATAL                        // Fatal error messages
+} catzilla_di_log_level_t;
+
+typedef struct {
+    catzilla_di_log_level_t level;               // Log level
+    uint64_t timestamp;                          // Timestamp (nanoseconds since epoch)
+    uint32_t container_id;                       // Container that generated the log
+    uint32_t context_id;                         // Context that generated the log (0 if none)
+    char service_name[CATZILLA_DI_NAME_MAX];    // Service name (if applicable)
+    char message[512];                           // Log message
+    char file[128];                              // Source file name
+    int line;                                    // Source line number
+    char function[128];                          // Source function name
+} catzilla_di_log_entry_t;
+
+typedef struct {
+    catzilla_di_log_entry_t* entries;            // Log entries buffer
+    int capacity;                                // Buffer capacity
+    int count;                                   // Current number of entries
+    int head;                                    // Head index (circular buffer)
+    catzilla_di_log_level_t min_level;           // Minimum log level to record
+
+    // Log output configuration
+    bool console_output;                         // Output to console
+    bool file_output;                            // Output to file
+    char log_file_path[256];                     // Log file path
+
+    // Performance
+    bool async_logging;                          // Asynchronous logging
+    uint32_t flush_interval_ms;                  // Auto-flush interval
+} catzilla_di_logger_t;
+
+/**
+ * Advanced Error Information
+ */
+typedef struct {
+    int error_code;                              // Error code
+    char error_message[512];                     // Human-readable error message
+    char service_name[CATZILLA_DI_NAME_MAX];    // Service that caused the error
+    char dependency_chain[CATZILLA_DI_MAX_DEPENDENCIES][CATZILLA_DI_NAME_MAX]; // Dependency resolution chain
+    int chain_length;
+
+    // Stack trace information
+    char stack_trace[2048];                      // Stack trace (if available)
+
+    // Context information
+    uint32_t container_id;                       // Container ID
+    uint32_t context_id;                         // Context ID
+    uint64_t timestamp;                          // When error occurred
+
+    // Debugging aids
+    char* debug_info;                            // Additional debug information
+    size_t debug_info_size;                      // Size of debug information
+} catzilla_di_error_info_t;
+
+// ============================================================================
+// PHASE 5: PRODUCTION FEATURES API
+// ============================================================================
+
+// Hierarchical Container Management
+// ============================================================================
+
+/**
+ * Create a child container with hierarchical configuration
+ * @param parent Parent container (NULL for root container)
+ * @param config Container configuration settings
+ * @param child_container Output pointer for created container
+ * @return 0 on success, -1 on failure
+ */
+int catzilla_di_create_child_container(catzilla_di_container_t* parent,
+                                      const catzilla_di_container_config_t* config,
+                                      catzilla_di_container_t** child_container);
+
+/**
+ * Set container configuration
+ * @param container Target container
+ * @param config Configuration settings
+ * @return 0 on success, -1 on failure
+ */
+int catzilla_di_configure_container(catzilla_di_container_t* container,
+                                   const catzilla_di_container_config_t* config);
+
+/**
+ * Get list of child containers
+ * @param container Parent container
+ * @param children Output array for child container pointers
+ * @param max_children Maximum number of children to return
+ * @return Number of child containers returned
+ */
+int catzilla_di_get_child_containers(catzilla_di_container_t* container,
+                                    catzilla_di_container_t** children,
+                                    int max_children);
+
+/**
+ * Check if service access is allowed by container policy
+ * @param container Target container
+ * @param service_name Service name to check
+ * @return true if allowed, false if denied
+ */
+bool catzilla_di_is_service_access_allowed(catzilla_di_container_t* container,
+                                          const char* service_name);
+
+// Advanced Factory Pattern Support
+// ============================================================================
+
+/**
+ * Register an advanced factory with complex configuration
+ * @param container Target container
+ * @param name Service name
+ * @param factory_config Advanced factory configuration
+ * @return 0 on success, -1 on failure
+ */
+int catzilla_di_register_advanced_factory(catzilla_di_container_t* container,
+                                         const char* name,
+                                         const catzilla_di_factory_config_t* factory_config);
+
+/**
+ * Register a builder pattern factory
+ * @param container Target container
+ * @param name Service name
+ * @param builder_func Builder configuration function
+ * @param factory_func Final factory function
+ * @param builder_config Builder configuration data
+ * @return 0 on success, -1 on failure
+ */
+int catzilla_di_register_builder_factory(catzilla_di_container_t* container,
+                                        const char* name,
+                                        catzilla_di_factory_func_t builder_func,
+                                        catzilla_di_factory_func_t factory_func,
+                                        void* builder_config);
+
+/**
+ * Register a conditional factory
+ * @param container Target container
+ * @param name Service name
+ * @param condition_func Condition evaluation function
+ * @param primary_factory Primary factory (when condition is true)
+ * @param fallback_factory Fallback factory (when condition is false)
+ * @return 0 on success, -1 on failure
+ */
+int catzilla_di_register_conditional_factory(catzilla_di_container_t* container,
+                                            const char* name,
+                                            bool (*condition_func)(void*),
+                                            catzilla_di_factory_func_t primary_factory,
+                                            catzilla_di_factory_func_t fallback_factory);
+
+/**
+ * Update factory configuration at runtime
+ * @param container Target container
+ * @param name Service name
+ * @param factory_config New factory configuration
+ * @return 0 on success, -1 on failure
+ */
+int catzilla_di_update_factory_config(catzilla_di_container_t* container,
+                                     const char* name,
+                                     const catzilla_di_factory_config_t* factory_config);
+
+// Configuration-Based Service Registration
+// ============================================================================
+
+/**
+ * Register services from configuration array
+ * @param container Target container
+ * @param configs Array of service configurations
+ * @param config_count Number of configurations
+ * @return Number of successfully registered services
+ */
+int catzilla_di_register_services_from_config(catzilla_di_container_t* container,
+                                             const catzilla_di_service_config_t* configs,
+                                             int config_count);
+
+/**
+ * Load service configuration from JSON string
+ * @param container Target container
+ * @param json_config JSON configuration string
+ * @return 0 on success, -1 on failure
+ */
+int catzilla_di_load_config_from_json(catzilla_di_container_t* container,
+                                     const char* json_config);
+
+/**
+ * Load service configuration from file
+ * @param container Target container
+ * @param config_file_path Path to configuration file
+ * @return 0 on success, -1 on failure
+ */
+int catzilla_di_load_config_from_file(catzilla_di_container_t* container,
+                                     const char* config_file_path);
+
+/**
+ * Validate service configuration
+ * @param config Service configuration to validate
+ * @param error_info Output for error information (optional)
+ * @return 0 if valid, -1 if invalid
+ */
+int catzilla_di_validate_service_config(const catzilla_di_service_config_t* config,
+                                       catzilla_di_error_info_t* error_info);
+
+/**
+ * Export container configuration to JSON
+ * @param container Source container
+ * @param json_buffer Output buffer for JSON string
+ * @param buffer_size Size of output buffer
+ * @return Length of JSON string, or -1 on failure
+ */
+int catzilla_di_export_config_to_json(catzilla_di_container_t* container,
+                                     char* json_buffer,
+                                     size_t buffer_size);
+
+// Debugging and Introspection Tools
+// ============================================================================
+
+/**
+ * Get comprehensive container information
+ * @param container Target container
+ * @param info Output structure for container information
+ * @return 0 on success, -1 on failure
+ */
+int catzilla_di_get_container_info(catzilla_di_container_t* container,
+                                  catzilla_di_container_info_t* info);
+
+/**
+ * Get detailed service information
+ * @param container Target container
+ * @param service_name Service name
+ * @param info Output structure for service information
+ * @return 0 on success, -1 on failure
+ */
+int catzilla_di_get_service_info(catzilla_di_container_t* container,
+                                const char* service_name,
+                                catzilla_di_service_info_t* info);
+
+/**
+ * Get dependency graph as string representation
+ * @param container Target container
+ * @param graph_buffer Output buffer for graph string
+ * @param buffer_size Size of output buffer
+ * @param format Graph format ("dot", "json", "text")
+ * @return Length of graph string, or -1 on failure
+ */
+int catzilla_di_get_dependency_graph(catzilla_di_container_t* container,
+                                    char* graph_buffer,
+                                    size_t buffer_size,
+                                    const char* format);
+
+/**
+ * Analyze service dependencies for issues
+ * @param container Target container
+ * @param issues Output array for detected issues
+ * @param max_issues Maximum number of issues to return
+ * @return Number of issues found
+ */
+int catzilla_di_analyze_dependencies(catzilla_di_container_t* container,
+                                    catzilla_di_error_info_t* issues,
+                                    int max_issues);
+
+/**
+ * Generate performance report
+ * @param container Target container
+ * @param report_buffer Output buffer for performance report
+ * @param buffer_size Size of output buffer
+ * @return Length of report string, or -1 on failure
+ */
+int catzilla_di_generate_performance_report(catzilla_di_container_t* container,
+                                           char* report_buffer,
+                                           size_t buffer_size);
+
+/**
+ * Enable/disable debug mode for container
+ * @param container Target container
+ * @param enabled Enable debug mode
+ * @param debug_level Debug level (0-3, higher = more verbose)
+ * @return 0 on success, -1 on failure
+ */
+int catzilla_di_set_debug_mode(catzilla_di_container_t* container,
+                              bool enabled,
+                              int debug_level);
+
+/**
+ * Get service resolution trace
+ * @param container Target container
+ * @param service_name Service name
+ * @param trace_buffer Output buffer for trace information
+ * @param buffer_size Size of output buffer
+ * @return Length of trace string, or -1 on failure
+ */
+int catzilla_di_get_resolution_trace(catzilla_di_container_t* container,
+                                    const char* service_name,
+                                    char* trace_buffer,
+                                    size_t buffer_size);
+
+// Comprehensive Error Handling and Logging
+// ============================================================================
+
+/**
+ * Initialize DI logger
+ * @param logger Logger instance to initialize
+ * @param config Logger configuration
+ * @return 0 on success, -1 on failure
+ */
+int catzilla_di_logger_init(catzilla_di_logger_t* logger,
+                           const catzilla_di_logger_t* config);
+
+/**
+ * Log a message with specified level
+ * @param logger Logger instance
+ * @param level Log level
+ * @param container_id Container ID (0 if not applicable)
+ * @param service_name Service name (NULL if not applicable)
+ * @param message Log message
+ * @param file Source file name
+ * @param line Source line number
+ * @param function Source function name
+ * @return 0 on success, -1 on failure
+ */
+int catzilla_di_log(catzilla_di_logger_t* logger,
+                   catzilla_di_log_level_t level,
+                   uint32_t container_id,
+                   const char* service_name,
+                   const char* message,
+                   const char* file,
+                   int line,
+                   const char* function);
+
+/**
+ * Get recent log entries
+ * @param logger Logger instance
+ * @param entries Output array for log entries
+ * @param max_entries Maximum number of entries to return
+ * @param min_level Minimum log level to include
+ * @return Number of entries returned
+ */
+int catzilla_di_get_log_entries(catzilla_di_logger_t* logger,
+                               catzilla_di_log_entry_t* entries,
+                               int max_entries,
+                               catzilla_di_log_level_t min_level);
+
+/**
+ * Clear log entries
+ * @param logger Logger instance
+ * @return 0 on success, -1 on failure
+ */
+int catzilla_di_clear_log(catzilla_di_logger_t* logger);
+
+/**
+ * Set global error handler
+ * @param handler Error handler function
+ * @return 0 on success, -1 on failure
+ */
+int catzilla_di_set_error_handler(void (*handler)(const catzilla_di_error_info_t* error));
+
+/**
+ * Get last error information
+ * @param container Target container (NULL for global error)
+ * @param error_info Output structure for error information
+ * @return 0 on success, -1 if no error available
+ */
+int catzilla_di_get_last_error(catzilla_di_container_t* container,
+                              catzilla_di_error_info_t* error_info);
+
+/**
+ * Clear error state
+ * @param container Target container (NULL for global error)
+ * @return 0 on success, -1 on failure
+ */
+int catzilla_di_clear_error(catzilla_di_container_t* container);
+
+// Health Monitoring and Diagnostics
+// ============================================================================
+
+/**
+ * Perform health check on container
+ * @param container Target container
+ * @param check_level Check level (0=basic, 1=detailed, 2=comprehensive)
+ * @return Health score (0-100), or -1 on failure
+ */
+int catzilla_di_health_check(catzilla_di_container_t* container, int check_level);
+
+/**
+ * Get health issues
+ * @param container Target container
+ * @param issues Output array for health issues
+ * @param max_issues Maximum number of issues to return
+ * @return Number of issues found
+ */
+int catzilla_di_get_health_issues(catzilla_di_container_t* container,
+                                 char issues[][256],
+                                 int max_issues);
+
+/**
+ * Monitor container performance
+ * @param container Target container
+ * @param duration_ms Monitoring duration in milliseconds
+ * @param stats Output structure for performance statistics
+ * @return 0 on success, -1 on failure
+ */
+int catzilla_di_monitor_performance(catzilla_di_container_t* container,
+                                   uint32_t duration_ms,
+                                   catzilla_di_stats_t* stats);
 #endif // CATZILLA_DEPENDENCY_H
