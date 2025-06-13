@@ -20,7 +20,7 @@ import time
 import json
 from datetime import datetime
 from typing import Dict, List, Optional, Any
-from catzilla import Catzilla, service, Depends, JSONResponse
+from catzilla import Catzilla, service, Depends, JSONResponse, Path
 from catzilla.dependency_injection import set_default_container
 
 # ============================================================================
@@ -380,8 +380,9 @@ def get_users(request):
 
 
 @app.get("/users/{user_id}")
-def get_user(user_id: int):
+def get_user(request, user_id: int = Path(..., description="User ID")):
     """Get specific user - demonstrates path parameters + DI"""
+
     user_service = app.di_container.resolve("user_service")
     logger = app.di_container.resolve("request_logger")
     analytics = app.di_container.resolve("analytics")
