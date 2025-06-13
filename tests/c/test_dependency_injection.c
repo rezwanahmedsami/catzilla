@@ -42,6 +42,40 @@
     #define sleep_ms(ms) usleep((ms) * 1000)
 #endif
 
+// Cross-platform timing support
+#ifdef _WIN32
+    typedef struct {
+        LARGE_INTEGER start;
+        LARGE_INTEGER end;
+        LARGE_INTEGER frequency;
+    } timing_t;
+
+    static void timing_start(timing_t* t) {
+        QueryPerformanceFrequency(&t->frequency);
+        QueryPerformanceCounter(&t->start);
+    }
+
+    static double timing_end_ms(timing_t* t) {
+        QueryPerformanceCounter(&t->end);
+        return (double)(t->end.QuadPart - t->start.QuadPart) * 1000.0 / t->frequency.QuadPart;
+    }
+#else
+    typedef struct {
+        struct timespec start;
+        struct timespec end;
+    } timing_t;
+
+    static void timing_start(timing_t* t) {
+        clock_gettime(CLOCK_MONOTONIC, &t->start);
+    }
+
+    static double timing_end_ms(timing_t* t) {
+        clock_gettime(CLOCK_MONOTONIC, &t->end);
+        long long ns = (t->end.tv_sec - t->start.tv_sec) * 1000000000LL + (t->end.tv_nsec - t->start.tv_nsec);
+        return ns / 1000000.0;
+    }
+#endif
+
 // Unity required functions
 void setUp(void) {}
 void tearDown(void) {}
@@ -348,20 +382,16 @@ void test_resolution_performance(void) {
 
     // Performance test
     const int iterations = 100000;
-    struct timespec start, end;
-    clock_gettime(CLOCK_MONOTONIC, &start);
+    timing_t timer;
+    timing_start(&timer);
 
     for (int i = 0; i < iterations; i++) {
         void* service = di_container_resolve(container, "perf_service");
         TEST_ASSERT_NOT_NULL(service);
     }
 
-    clock_gettime(CLOCK_MONOTONIC, &end);
-
-    // Calculate time
-    long long ns = (end.tv_sec - start.tv_sec) * 1000000000LL + (end.tv_nsec - start.tv_nsec);
-    double total_time_ms = ns / 1000000.0;
-    double avg_time_us = (ns / 1000.0) / iterations;
+    double total_time_ms = timing_end_ms(&timer);
+    double avg_time_us = (total_time_ms * 1000.0) / iterations;
 
     printf("  Performance Results:\n");
     printf("    Total time for %d resolutions: %.2f ms\n", iterations, total_time_ms);
@@ -412,9 +442,15 @@ void test_thread_safety(void) {
 
     const int num_threads = 10;
     const int iterations_per_thread = 1000;
-    thread_t threads[num_threads];
-    thread_test_args_t args[num_threads];
-    void* results[num_threads];
+
+    // Allocate arrays dynamically for Windows compatibility (no VLA support in MSVC)
+    thread_t* threads = malloc(num_threads * sizeof(thread_t));
+    thread_test_args_t* args = malloc(num_threads * sizeof(thread_test_args_t));
+    void** results = malloc(num_threads * sizeof(void*));
+
+    TEST_ASSERT_NOT_NULL(threads);
+    TEST_ASSERT_NOT_NULL(args);
+    TEST_ASSERT_NOT_NULL(results);
 
     // Create threads
     for (int i = 0; i < num_threads; i++) {
@@ -440,6 +476,11 @@ void test_thread_safety(void) {
     for (int i = 1; i < num_threads; i++) {
         TEST_ASSERT_EQUAL(first_result, results[i]);
     }
+
+    // Clean up dynamically allocated arrays
+    free(threads);
+    free(args);
+    free(results);
 
     di_container_destroy(container);
 
