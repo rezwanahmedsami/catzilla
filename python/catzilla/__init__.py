@@ -1,17 +1,24 @@
 """
 Catzilla Web Framework - The Python Framework That BREAKS THE RULES
 
-Catzilla v0.2.0 Memory Revolution:
+Catzilla v0.2.0 Memory Revolution + Dependency Injection:
 - 🚀 30% less memory usage with jemalloc
-- ⚡ C-speed request processing
+- ⚡ C-speed request processing + DI resolution
 - 🎯 Zero-configuration optimization
 - 📈 Gets faster over time
+- 🔄 Revolutionary C-compiled dependency injection
 
 Ultra-Fast Validation Engine:
 - 🔥 100x faster than Pydantic
 - ⚡ C-accelerated field validation
 - 🧠 jemalloc memory optimization
 - 🎯 Minimal memory footprint
+
+Revolutionary Dependency Injection:
+- ⚡ C-compiled service resolution (5-8x faster)
+- 🎯 FastAPI-style decorators and type hints
+- 🔄 Advanced scope management (singleton, request, etc.)
+- 🧠 Memory-optimized with jemalloc integration
 """
 
 from .app import Catzilla
@@ -21,8 +28,57 @@ App = Catzilla
 
 # Auto-validation system (FastAPI-style with 20x performance)
 from .auto_validation import Form, Header, Path, Query, create_auto_validated_handler
+from .decorators import Depends, auto_inject, depends, inject, scoped, service
+
+# Revolutionary Dependency Injection System
+from .dependency_injection import (
+    DIContainer,
+    DIContext,
+    create_context,
+    get_default_container,
+    register_service,
+    resolution_context,
+    resolve_service,
+    set_default_container,
+)
+from .factory import (
+    ClassFactory,
+    ConditionalFactory,
+    ConfigurableFactory,
+    FactoryConfig,
+    FactoryRegistry,
+    FunctionFactory,
+    ServiceFactoryProtocol,
+    SingletonFactory,
+    create_class_factory,
+    create_conditional_factory,
+    create_configurable_factory,
+    create_function_factory,
+    factory,
+    get_factory_registry,
+)
+from .integration import (
+    DIMiddleware,
+    DIRouteEnhancer,
+    ValidationDIIntegration,
+    create_di_app,
+    di_depends,
+    di_route,
+)
 from .response import ResponseBuilder, response
 from .routing import Router, RouterGroup
+from .scope import (
+    ScopeContext,
+    ScopedDIContainer,
+    ScopeManager,
+    ScopeType,
+    create_request_scope,
+    create_session_scope,
+    get_scope_manager,
+    request_scope,
+    scoped_service,
+    session_scope,
+)
 from .types import HTMLResponse, JSONResponse, Request, Response
 
 # Ultra-fast validation engine
@@ -72,4 +128,53 @@ __all__ = [
     "Header",
     "Form",
     "create_auto_validated_handler",
+    # Revolutionary Dependency Injection
+    "DIContainer",
+    "DIContext",
+    "get_default_container",
+    "set_default_container",
+    "register_service",
+    "resolve_service",
+    "create_context",
+    "resolution_context",
+    # DI Decorators
+    "service",
+    "inject",
+    "depends",
+    "Depends",
+    "auto_inject",
+    "scoped",
+    # DI Integration
+    "DIMiddleware",
+    "DIRouteEnhancer",
+    "ValidationDIIntegration",
+    "di_route",
+    "create_di_app",
+    "di_depends",
+    # Scope Management
+    "ScopeType",
+    "ScopeManager",
+    "ScopeContext",
+    "get_scope_manager",
+    "create_request_scope",
+    "create_session_scope",
+    "request_scope",
+    "session_scope",
+    "ScopedDIContainer",
+    "scoped_service",
+    # Factory System
+    "ServiceFactoryProtocol",
+    "ClassFactory",
+    "FunctionFactory",
+    "ConditionalFactory",
+    "SingletonFactory",
+    "ConfigurableFactory",
+    "FactoryRegistry",
+    "FactoryConfig",
+    "get_factory_registry",
+    "factory",
+    "create_class_factory",
+    "create_function_factory",
+    "create_conditional_factory",
+    "create_configurable_factory",
 ]
