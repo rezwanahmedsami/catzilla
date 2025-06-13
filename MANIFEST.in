@@ -7,6 +7,7 @@ recursive-include python/catzilla *
 recursive-include tests *
 recursive-include examples *
 recursive-include scripts *
+recursive-include cmake *
 global-exclude *.pyc
 global-exclude __pycache__
 global-exclude .git*
