@@ -18,9 +18,29 @@
 #include "dependency.h"
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 #include <time.h>
-#include <unistd.h>
+#include <stdio.h>
+
+// Cross-platform threading support
+#ifdef _WIN32
+    #include <windows.h>
+    #include <process.h>
+    typedef HANDLE thread_t;
+    typedef CRITICAL_SECTION mutex_t;
+    #define THREAD_SUCCESS 0
+    #define sleep_ms(ms) Sleep(ms)
+    // Windows compatibility for snprintf
+    #if defined(_MSC_VER) && _MSC_VER < 1900
+        #define snprintf _snprintf
+    #endif
+#else
+    #include <pthread.h>
+    #include <unistd.h>
+    typedef pthread_t thread_t;
+    typedef pthread_mutex_t mutex_t;
+    #define THREAD_SUCCESS 0
+    #define sleep_ms(ms) usleep((ms) * 1000)
+#endif
 
 // Unity required functions
 void setUp(void) {}
@@ -32,7 +52,7 @@ typedef struct {
     char** service_names;
     int service_count;
     int capacity;
-    pthread_mutex_t mutex;
+    mutex_t mutex;
 } di_container_t;
 
 typedef enum {
@@ -48,6 +68,88 @@ typedef struct {
     int (*constructor)(void**);
     void (*destructor)(void*);
 } service_definition_t;
+
+// Cross-platform mutex and threading helpers
+static int mutex_init(mutex_t* mutex) {
+#ifdef _WIN32
+    InitializeCriticalSection(mutex);
+    return 0;
+#else
+    return pthread_mutex_init(mutex, NULL);
+#endif
+}
+
+static int mutex_lock(mutex_t* mutex) {
+#ifdef _WIN32
+    EnterCriticalSection(mutex);
+    return 0;
+#else
+    return pthread_mutex_lock(mutex);
+#endif
+}
+
+static int mutex_unlock(mutex_t* mutex) {
+#ifdef _WIN32
+    LeaveCriticalSection(mutex);
+    return 0;
+#else
+    return pthread_mutex_unlock(mutex);
+#endif
+}
+
+static void mutex_destroy(mutex_t* mutex) {
+#ifdef _WIN32
+    DeleteCriticalSection(mutex);
+#else
+    pthread_mutex_destroy(mutex);
+#endif
+}
+
+// Cross-platform thread wrapper for Windows
+#ifdef _WIN32
+typedef struct {
+    void* (*start_routine)(void*);
+    void* arg;
+} win_thread_wrapper_t;
+
+static unsigned int __stdcall win_thread_wrapper(void* arg) {
+    win_thread_wrapper_t* wrapper = (win_thread_wrapper_t*)arg;
+    void* (*start_routine)(void*) = wrapper->start_routine;
+    void* routine_arg = wrapper->arg;
+    free(wrapper);
+    start_routine(routine_arg);
+    return 0;
+}
+#endif
+
+static int thread_create(thread_t* thread, void* (*start_routine)(void*), void* arg) {
+#ifdef _WIN32
+    // Create wrapper to handle calling convention
+    win_thread_wrapper_t* wrapper = malloc(sizeof(win_thread_wrapper_t));
+    if (!wrapper) return -1;
+    wrapper->start_routine = start_routine;
+    wrapper->arg = arg;
+
+    *thread = (HANDLE)_beginthreadex(NULL, 0, win_thread_wrapper, wrapper, 0, NULL);
+    if (*thread == NULL) {
+        free(wrapper);
+        return -1;
+    }
+    return 0;
+#else
+    return pthread_create(thread, NULL, start_routine, arg);
+#endif
+}
+
+static int thread_join(thread_t thread, void** retval) {
+#ifdef _WIN32
+    WaitForSingleObject(thread, INFINITE);
+    CloseHandle(thread);
+    return 0;
+#else
+    return pthread_join(thread, retval);
+#endif
+}
 
 // Mock functions for testing (these would be actual C implementation)
 di_container_t* di_container_create(void);
@@ -78,7 +180,7 @@ di_container_t* di_container_create(void) {
     container->service_names = calloc(container->capacity, sizeof(char*));
     container->service_count = 0;
 
-    if (pthread_mutex_init(&container->mutex, NULL) != 0) {
+    if (mutex_init(&container->mutex) != 0) {
         free(container->services);
         free(container->service_names);
         free(container);
@@ -91,7 +193,7 @@ di_container_t* di_container_create(void) {
 void di_container_destroy(di_container_t* container) {
     if (!container) return;
 
-    pthread_mutex_lock(&container->mutex);
+    mutex_lock(&container->mutex);
 
     for (int i = 0; i < container->service_count; i++) {
         free(container->service_names[i]);
@@ -101,8 +203,8 @@ void di_container_destroy(di_container_t* container) {
     free(container->services);
     free(container->service_names);
 
-    pthread_mutex_unlock(&container->mutex);
-    pthread_mutex_destroy(&container->mutex);
+    mutex_unlock(&container->mutex);
+    mutex_destroy(&container->mutex);
     free(container);
 }
 
@@ -110,17 +212,17 @@ int di_container_register_service(di_container_t* container, const char* name,
                                   service_scope_t scope, int (*constructor)(void**)) {
     if (!container || !name) return -1;
 
-    pthread_mutex_lock(&container->mutex);
+    mutex_lock(&container->mutex);
 
     if (container->service_count >= container->capacity) {
-        pthread_mutex_unlock(&container->mutex);
+        mutex_unlock(&container->mutex);
         return -1; // Container full
     }
 
     // Check if service already exists
     for (int i = 0; i < container->service_count; i++) {
         if (strcmp(container->service_names[i], name) == 0) {
-            pthread_mutex_unlock(&container->mutex);
+            mutex_unlock(&container->mutex);
             return -2; // Service already exists
         }
     }
@@ -130,14 +232,14 @@ int di_container_register_service(di_container_t* container, const char* name,
     container->services[container->service_count] = NULL; // Will be created on first resolution
     container->service_count++;
 
-    pthread_mutex_unlock(&container->mutex);
+    mutex_unlock(&container->mutex);
     return 0;
 }
 
 void* di_container_resolve(di_container_t* container, const char* name) {
     if (!container || !name) return NULL;
 
-    pthread_mutex_lock(&container->mutex);
+    mutex_lock(&container->mutex);
 
     for (int i = 0; i < container->service_count; i++) {
         if (strcmp(container->service_names[i], name) == 0) {
@@ -147,21 +249,21 @@ void* di_container_resolve(di_container_t* container, const char* name) {
                 snprintf((char*)container->services[i], 64, "service_%s_instance", name);
             }
             void* result = container->services[i];
-            pthread_mutex_unlock(&container->mutex);
+            mutex_unlock(&container->mutex);
             return result;
         }
     }
 
-    pthread_mutex_unlock(&container->mutex);
+    mutex_unlock(&container->mutex);
     return NULL; // Service not found
 }
 
 int di_container_get_service_count(di_container_t* container) {
     if (!container) return -1;
 
-    pthread_mutex_lock(&container->mutex);
+    mutex_lock(&container->mutex);
     int count = container->service_count;
-    pthread_mutex_unlock(&container->mutex);
+    mutex_unlock(&container->mutex);
 
     return count;
 }
@@ -293,7 +395,7 @@ void* thread_resolution_test(void* arg) {
         }
 
         // Small delay to increase chance of race conditions
-        usleep(1);
+        sleep_ms(1);
     }
 
     return NULL;
@@ -310,7 +412,7 @@ void test_thread_safety(void) {
 
     const int num_threads = 10;
     const int iterations_per_thread = 1000;
-    pthread_t threads[num_threads];
+    thread_t threads[num_threads];
     thread_test_args_t args[num_threads];
     void* results[num_threads];
 
@@ -322,13 +424,13 @@ void test_thread_safety(void) {
         args[i].thread_id = i;
         args[i].iterations = iterations_per_thread;
 
-        int result = pthread_create(&threads[i], NULL, thread_resolution_test, &args[i]);
+        int result = thread_create(&threads[i], thread_resolution_test, &args[i]);
         TEST_ASSERT_EQUAL(0, result);
     }
 
     // Wait for all threads to complete
     for (int i = 0; i < num_threads; i++) {
-        pthread_join(threads[i], NULL);
+        thread_join(threads[i], NULL);
     }
 
     // Verify all threads got the same singleton instance

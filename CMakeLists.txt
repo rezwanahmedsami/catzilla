@@ -934,6 +934,11 @@ if(NOT WHEEL_BUILD_MODE)
     configure_test_executable(test_validation_engine tests/c/test_validation_engine.c)
     configure_test_executable(test_dependency_injection tests/c/test_dependency_injection.c)
     configure_test_executable(test_memory tests/c/test_memory.c)
+
+    # Add Windows threading support for dependency injection test
+    if(WIN32)
+        target_link_libraries(test_dependency_injection PRIVATE kernel32)
+    endif()
 endif()
 
 # Install rules (unused by pip, but here for completeness)
