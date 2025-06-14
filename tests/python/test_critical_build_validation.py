@@ -424,12 +424,10 @@ class TestCriticalBuildValidation:
         # Install from current directory (development install)
         self.validator.run_command([
             python_exe, "-m", "pip", "install", "-e", "."
-        ], timeout=INSTALL_TIMEOUT)
-
-        # Check all dependencies are installed
+        ], timeout=INSTALL_TIMEOUT)        # Check all dependencies are installed
         deps_check = '''
-import pkg_resources
 import sys
+import importlib.metadata
 
 # Check core dependencies
 required_packages = [
@@ -439,9 +437,9 @@ required_packages = [
 try:
     for package in required_packages:
         try:
-            pkg_resources.get_distribution(package)
+            importlib.metadata.version(package)
             print(f"✓ {package} installed")
-        except pkg_resources.DistributionNotFound:
+        except importlib.metadata.PackageNotFoundError:
             print(f"✗ {package} NOT installed")
             sys.exit(1)
 
