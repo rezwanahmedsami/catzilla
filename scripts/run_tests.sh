@@ -14,34 +14,8 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
-# Detect OS and set up jemalloc preloading if available
-OS_NAME=$(uname -s)
-if [ "$OS_NAME" = "Linux" ]; then
-    if [ -f "/lib/x86_64-linux-gnu/libjemalloc.so.2" ]; then
-        echo -e "${GREEN}Setting up jemalloc preloading on Linux${NC}"
-        if [ -z "$LD_PRELOAD" ]; then
-            export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2
-        else
-            export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
-        fi
-    fi
-elif [ "$OS_NAME" = "Darwin" ]; then
-    if [ -f "/usr/local/lib/libjemalloc.dylib" ]; then
-        echo -e "${GREEN}Setting up jemalloc preloading on macOS${NC}"
-        if [ -z "$DYLD_INSERT_LIBRARIES" ]; then
-            export DYLD_INSERT_LIBRARIES=/usr/local/lib/libjemalloc.dylib
-        else
-            export DYLD_INSERT_LIBRARIES=/usr/local/lib/libjemalloc.dylib:$DYLD_INSERT_LIBRARIES
-        fi
-    elif [ -f "/opt/homebrew/lib/libjemalloc.dylib" ]; then
-        echo -e "${GREEN}Setting up jemalloc preloading on Apple Silicon macOS${NC}"
-        if [ -z "$DYLD_INSERT_LIBRARIES" ]; then
-            export DYLD_INSERT_LIBRARIES=/opt/homebrew/lib/libjemalloc.dylib
-        else
-            export DYLD_INSERT_LIBRARIES=/opt/homebrew/lib/libjemalloc.dylib:$DYLD_INSERT_LIBRARIES
-        fi
-    fi
-fi
+# Note: Catzilla statically links jemalloc at build time
+# No need for system jemalloc preloading
 
 # Function to print usage
 print_usage() {
@@ -208,12 +182,6 @@ run_python_tests() {
     # Change to project root directory
     cd "$PROJECT_ROOT" || exit 1
 
-    # Make sure jemalloc is preloaded
-    if [ -z "${LD_PRELOAD:-}" ] && [ -z "${DYLD_INSERT_LIBRARIES:-}" ]; then
-        echo -e "${YELLOW}Warning: No jemalloc preloading detected. Running helper script...${NC}"
-        "$PROJECT_ROOT/scripts/jemalloc_helper.py" --detect
-    fi
-
     # Set up problem detection
     echo -e "${YELLOW}Setting up segfault detection...${NC}"
     export PYTHONFAULTHANDLER=1  # Enable Python fault handler
@@ -242,10 +210,10 @@ run_python_tests() {
         echo -e "${GREEN}Python tests passed!${NC}"
     else
         echo -e "${RED}Python tests failed!${NC}"
-        # Check if we potentially have segfaults in the problematic tests
+        # Check for segfaults in test output
         if grep -q "Segmentation fault" .pytest_testlog 2>/dev/null; then
-            echo -e "${RED}Segmentation faults detected! This is often caused by jemalloc TLS issues.${NC}"
-            echo -e "${YELLOW}See docs/jemalloc_troubleshooting.md for solutions.${NC}"
+            echo -e "${RED}Segmentation faults detected in tests!${NC}"
+            echo -e "${YELLOW}This may indicate memory management issues or test instability.${NC}"
         fi
         return 1
     fi

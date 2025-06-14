@@ -101,7 +101,7 @@ class TestCriticalMemoryLeaks:
     def setup_method(self):
         """Setup for each test method"""
         import socket
-        self.test_port = 9100  # Different port range for memory tests
+        self.test_port = 9500  # Different port range for memory tests
         self.active_servers = []
         self.memory_monitors = []
 
@@ -113,10 +113,17 @@ class TestCriticalMemoryLeaks:
                 if 'process' in server_info and server_info['process']:
                     server_info['process'].terminate()
                     try:
-                        server_info['process'].wait(timeout=2)
+                        server_info['process'].wait(timeout=3)
                     except subprocess.TimeoutExpired:
                         server_info['process'].kill()
                         server_info['process'].wait()
+
+                    # Clean up script file
+                    if 'script_path' in server_info:
+                        try:
+                            os.remove(server_info['script_path'])
+                        except:
+                            pass
             except:
                 pass
         self.active_servers.clear()
@@ -127,31 +134,46 @@ class TestCriticalMemoryLeaks:
         # Force garbage collection
         gc.collect()
 
-        # Give time for cleanup
-        time.sleep(0.5)
+        # Give extra time for cleanup and memory release
+        time.sleep(2.0)
 
     def get_next_port(self) -> int:
-        """Get next available test port"""
+        """Get next available test port with better conflict avoidance"""
         import socket
+        import random
 
-        for port in range(self.test_port, self.test_port + 100):
+        # Use a wider range and add randomization to avoid conflicts
+        base_port = self.test_port + random.randint(0, 50)
+
+        for port in range(base_port, base_port + 200):
             try:
+                # Test both TCP and check if anything is listening
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                sock.bind(('localhost', port))
+                sock.settimeout(1.0)
+                result = sock.connect_ex(('localhost', port))
                 sock.close()
-                self.test_port = port + 1
-                return port
+
+                if result != 0:  # Port is not in use
+                    # Double-check by trying to bind
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    sock.bind(('localhost', port))
+                    sock.close()
+                    self.test_port = port + 1
+                    return port
             except OSError:
                 continue
 
-        raise RuntimeError("No available ports found")
+        raise RuntimeError("No available ports found in range")
 
-    def start_memory_test_server(self, app_code: str, port: int, timeout: float = 5.0) -> subprocess.Popen:
-        """Start a test server for memory testing"""
+    def start_memory_test_server(self, app_code: str, port: int, timeout: float = 10.0) -> subprocess.Popen:
+        """Start a test server for memory testing with robust startup"""
         script = f'''
 import sys
 import os
+import time
+import signal
 sys.path.insert(0, "{os.path.dirname(os.path.dirname(os.path.dirname(__file__)))}")
 
 from catzilla import Catzilla, service, Depends, JSONResponse
@@ -160,30 +182,39 @@ import gc
 
 {app_code}
 
+def signal_handler(signum, frame):
+    print("Memory test server shutting down gracefully...")
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
+
 if __name__ == "__main__":
     try:
-        print(f"Starting memory test server on port {port}")
+        print(f"Starting memory test server on port {port}", flush=True)
         # Force garbage collection before starting
         gc.collect()
+        # Add delay for proper initialization
+        time.sleep(0.5)
         app.listen({port})
     except KeyboardInterrupt:
-        print("Server stopped")
+        print("Memory test server stopped by keyboard interrupt")
     except Exception as e:
-        print(f"Server error: {{e}}")
+        print(f"Memory test server error: {{e}}", flush=True)
         import traceback
         traceback.print_exc()
         sys.exit(1)
 '''
 
-        # Write script to temporary file
-        script_path = f"/tmp/memory_test_server_{port}.py"
+        # Write script to temporary file with unique name
+        script_path = f"/tmp/memory_test_server_{port}_{int(time.time())}.py"
         with open(script_path, 'w') as f:
             f.write(script)
 
         # Start subprocess
         process = subprocess.Popen([
             sys.executable, script_path
-        ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
 
         # Track for cleanup
         self.active_servers.append({
@@ -192,34 +223,43 @@ if __name__ == "__main__":
             'script_path': script_path
         })
 
-        # Wait for server to start
+        # Wait for server to start with multiple health checks
         start_time = time.time()
+        last_error = None
+        health_checks_passed = 0
+        required_health_checks = 3
+
         while time.time() - start_time < timeout:
             if process.poll() is not None:
                 output, _ = process.communicate()
-                raise RuntimeError(f"Server process died: {output}")
+                raise RuntimeError(f"Memory test server process died: {output}")
 
             try:
-                response = requests.get(f"http://localhost:{port}/health", timeout=2)
+                response = requests.get(f"http://localhost:{port}/health", timeout=3)
                 if response.status_code == 200:
-                    print(f"Memory test server started on port {port}")
-                    return process
-            except:
-                pass
-            time.sleep(0.2)
+                    health_checks_passed += 1
+                    if health_checks_passed >= required_health_checks:
+                        print(f"Memory test server started successfully on port {port}")
+                        time.sleep(0.5)  # Additional stabilization time
+                        return process
+                    else:
+                        time.sleep(0.2)
+                else:
+                    health_checks_passed = 0
+            except Exception as e:
+                last_error = e
+                health_checks_passed = 0
+                time.sleep(0.3)
 
         # Server failed to start
-        if process.poll() is None:
+        try:
             process.terminate()
-            try:
-                output, _ = process.communicate(timeout=5)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                output = "Process killed"
-        else:
-            output, _ = process.communicate()
+            output, _ = process.communicate(timeout=2)
+        except:
+            process.kill()
+            output = "Process killed due to timeout"
 
-        raise RuntimeError(f"Memory test server failed to start: {output}")
+        raise RuntimeError(f"Memory test server failed to start on port {port} within {timeout}s. Last error: {last_error}. Output: {output}")
 
     def test_request_response_memory_cleanup(self):
         """CRITICAL: Ensure request/response objects are properly cleaned up"""

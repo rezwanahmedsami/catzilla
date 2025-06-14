@@ -12,34 +12,8 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
-# Detect OS and set up jemalloc preloading if available
-OS_NAME=$(uname -s)
-if [ "$OS_NAME" = "Linux" ]; then
-    if [ -f "/lib/x86_64-linux-gnu/libjemalloc.so.2" ]; then
-        echo -e "${GREEN}Setting up jemalloc preloading on Linux${NC}"
-        if [ -z "$LD_PRELOAD" ]; then
-            export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2
-        else
-            export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
-        fi
-    fi
-elif [ "$OS_NAME" = "Darwin" ]; then
-    if [ -f "/usr/local/lib/libjemalloc.dylib" ]; then
-        echo -e "${GREEN}Setting up jemalloc preloading on macOS${NC}"
-        if [ -z "$DYLD_INSERT_LIBRARIES" ]; then
-            export DYLD_INSERT_LIBRARIES=/usr/local/lib/libjemalloc.dylib
-        else
-            export DYLD_INSERT_LIBRARIES=/usr/local/lib/libjemalloc.dylib:$DYLD_INSERT_LIBRARIES
-        fi
-    elif [ -f "/opt/homebrew/lib/libjemalloc.dylib" ]; then
-        echo -e "${GREEN}Setting up jemalloc preloading on Apple Silicon macOS${NC}"
-        if [ -z "$DYLD_INSERT_LIBRARIES" ]; then
-            export DYLD_INSERT_LIBRARIES=/opt/homebrew/lib/libjemalloc.dylib
-        else
-            export DYLD_INSERT_LIBRARIES=/opt/homebrew/lib/libjemalloc.dylib:$DYLD_INSERT_LIBRARIES
-        fi
-    fi
-fi
+# Note: Catzilla statically links jemalloc at build time
+# No need for system jemalloc preloading
 
 # Debug flags
 DEBUG_C=0

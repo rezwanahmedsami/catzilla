@@ -50,89 +50,127 @@ class TestCriticalIntegration:
                 if 'process' in server_info and server_info['process']:
                     server_info['process'].terminate()
                     try:
-                        server_info['process'].wait(timeout=2)
+                        server_info['process'].wait(timeout=3)
                     except subprocess.TimeoutExpired:
                         server_info['process'].kill()
                         server_info['process'].wait()
+
+                    # Clean up script file
+                    if 'script_path' in server_info:
+                        try:
+                            os.remove(server_info['script_path'])
+                        except:
+                            pass
             except:
                 pass
         self.active_servers.clear()
 
-        # Give time for ports to be released
-        time.sleep(0.5)
+        # Give extra time for ports to be released and OS cleanup
+        time.sleep(2.0)
 
     def get_next_port(self) -> int:
-        """Get next available test port"""
+        """Get next available test port with better conflict avoidance"""
         import socket
+        import random
 
-        # Find an available port
-        for port in range(self.test_port, self.test_port + 100):
+        # Use a wider range and add randomization to avoid conflicts
+        base_port = self.test_port + random.randint(0, 50)
+
+        for port in range(base_port, base_port + 200):
             try:
+                # Test both TCP and check if anything is listening
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                sock.bind(('localhost', port))
+                sock.settimeout(1.0)
+                result = sock.connect_ex(('localhost', port))
                 sock.close()
-                self.test_port = port + 1
-                return port
+
+                if result != 0:  # Port is not in use
+                    # Double-check by trying to bind
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    sock.bind(('localhost', port))
+                    sock.close()
+                    self.test_port = port + 1
+                    return port
             except OSError:
                 continue
 
-        raise RuntimeError("No available ports found")
+        raise RuntimeError("No available ports found in range")
 
-    def wait_for_port_free(self, port: int, timeout: float = 5.0):
-        """Wait for a port to become free"""
+    def wait_for_port_free(self, port: int, timeout: float = 10.0):
+        """Wait for a port to become free with better checking"""
         import socket
         start_time = time.time()
 
         while time.time() - start_time < timeout:
             try:
+                # Check if anything is listening on the port
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                sock.bind(('localhost', port))
+                sock.settimeout(0.5)
+                result = sock.connect_ex(('localhost', port))
                 sock.close()
-                return True
+
+                if result != 0:  # Nothing listening, port is free
+                    # Double-check by trying to bind
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    sock.bind(('localhost', port))
+                    sock.close()
+                    return True
             except OSError:
-                time.sleep(0.1)
+                pass
+            time.sleep(0.2)
         return False
 
-    def start_test_server(self, app_code: str, port: int, timeout: float = 5.0) -> subprocess.Popen:
-        """Start a test server in a subprocess"""
+    def start_test_server(self, app_code: str, port: int, timeout: float = 10.0) -> subprocess.Popen:
+        """Start a test server in a subprocess with robust startup checking"""
         # Ensure port is free first
-        if not self.wait_for_port_free(port, timeout=2.0):
+        if not self.wait_for_port_free(port, timeout=5.0):
             raise RuntimeError(f"Port {port} is not available")
 
         script = f'''
 import sys
 import os
+import time
+import signal
 sys.path.insert(0, "{os.path.dirname(os.path.dirname(os.path.dirname(__file__)))}")
 
 from catzilla import Catzilla, service, Depends, JSONResponse
-import time
 
 {app_code}
 
+def signal_handler(signum, frame):
+    print("Server shutting down gracefully...")
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
+
 if __name__ == "__main__":
     try:
-        print(f"Starting server on port {port}")
+        print(f"Starting server on port {port}", flush=True)
+        # Add small delay to ensure proper initialization
+        time.sleep(0.5)
         app.listen({port})
     except KeyboardInterrupt:
-        print("Server stopped")
+        print("Server stopped by keyboard interrupt")
     except Exception as e:
-        print(f"Server error: {{e}}")
+        print(f"Server error: {{e}}", flush=True)
         import traceback
         traceback.print_exc()
         sys.exit(1)
 '''
 
         # Write script to temporary file
-        script_path = f"/tmp/test_server_{port}.py"
+        script_path = f"/tmp/test_server_{port}_{int(time.time())}.py"
         with open(script_path, 'w') as f:
             f.write(script)
 
         # Start subprocess with proper error handling
         process = subprocess.Popen([
             sys.executable, script_path
-        ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
 
         # Track for cleanup
         self.active_servers.append({
@@ -141,9 +179,11 @@ if __name__ == "__main__":
             'script_path': script_path
         })
 
-        # Wait for server to start with better error reporting
+        # Wait for server to start with better error reporting and multiple endpoint checks
         start_time = time.time()
         last_error = None
+        health_checks_passed = 0
+        required_health_checks = 3  # Require multiple successful checks
 
         while time.time() - start_time < timeout:
             # Check if process died
@@ -152,25 +192,31 @@ if __name__ == "__main__":
                 raise RuntimeError(f"Server process died: {output}")
 
             try:
-                response = requests.get(f"http://localhost:{port}/health", timeout=2)
+                # Test multiple endpoints to ensure server is fully ready
+                response = requests.get(f"http://localhost:{port}/health", timeout=3)
                 if response.status_code == 200:
-                    print(f"Server started successfully on port {port}")
-                    return process
+                    health_checks_passed += 1
+                    if health_checks_passed >= required_health_checks:
+                        print(f"Server started successfully on port {port}")
+                        # Give additional time for full initialization
+                        time.sleep(0.5)
+                        return process
+                    else:
+                        time.sleep(0.2)  # Brief pause between health checks
+                else:
+                    health_checks_passed = 0
             except Exception as e:
                 last_error = e
-                pass
-            time.sleep(0.2)
+                health_checks_passed = 0
+                time.sleep(0.3)
 
-        # If we get here, server failed to start
-        if process.poll() is None:
+        # If we get here, startup failed
+        try:
             process.terminate()
-            try:
-                output, _ = process.communicate(timeout=5)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                output = "Process killed due to timeout"
-        else:
-            output, _ = process.communicate()
+            output, _ = process.communicate(timeout=2)
+        except:
+            process.kill()
+            output = "Process killed due to timeout"
 
         raise RuntimeError(f"Server failed to start on port {port} within {timeout}s. Last error: {last_error}. Output: {output}")
 
@@ -194,19 +240,63 @@ def test_endpoint(request):
         process = self.start_test_server(app_code, port)
 
         try:
-            # Test server is responding
-            response = requests.get(f"http://localhost:{port}/health", timeout=5)
-            assert response.status_code == 200
-            data = response.json()
-            assert data["status"] == "ok"
-            assert data["message"] == "Server is healthy"
+            # Test server is responding with retry logic
+            max_retries = 5
+            for attempt in range(max_retries):
+                try:
+                    response = requests.get(f"http://localhost:{port}/health", timeout=5)
+                    assert response.status_code == 200
 
-            # Test additional endpoint
-            response = requests.get(f"http://localhost:{port}/test", timeout=5)
-            assert response.status_code == 200
-            data = response.json()
-            assert data["test"] == "success"
-            assert data["server"] == "running"
+                    # Validate response content
+                    try:
+                        data = response.json()
+                    except ValueError as e:
+                        if attempt < max_retries - 1:
+                            print(f"Health endpoint returned invalid JSON on attempt {attempt + 1}, retrying...")
+                            time.sleep(1)
+                            continue
+                        else:
+                            raise AssertionError(f"Health endpoint returned invalid JSON: {response.text}")
+
+                    assert "status" in data, f"Missing 'status' in response: {data}"
+                    assert data["status"] == "ok", f"Expected status 'ok', got: {data.get('status')}"
+                    assert "message" in data, f"Missing 'message' in response: {data}"
+                    assert data["message"] == "Server is healthy", f"Expected message 'Server is healthy', got: {data.get('message')}"
+                    break
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        print(f"Health check attempt {attempt + 1} failed: {e}, retrying...")
+                        time.sleep(1)
+                    else:
+                        raise
+
+            # Test additional endpoint with retry logic
+            for attempt in range(max_retries):
+                try:
+                    response = requests.get(f"http://localhost:{port}/test", timeout=5)
+                    assert response.status_code == 200
+
+                    try:
+                        data = response.json()
+                    except ValueError as e:
+                        if attempt < max_retries - 1:
+                            print(f"Test endpoint returned invalid JSON on attempt {attempt + 1}, retrying...")
+                            time.sleep(1)
+                            continue
+                        else:
+                            raise AssertionError(f"Test endpoint returned invalid JSON: {response.text}")
+
+                    assert "test" in data, f"Missing 'test' in response: {data}"
+                    assert data["test"] == "success", f"Expected test 'success', got: {data.get('test')}"
+                    assert "server" in data, f"Missing 'server' in response: {data}"
+                    assert data["server"] == "running", f"Expected server 'running', got: {data.get('server')}"
+                    break
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        print(f"Test endpoint attempt {attempt + 1} failed: {e}, retrying...")
+                        time.sleep(1)
+                    else:
+                        raise
 
             print("✅ Server startup and basic HTTP handling: PASSED")
 

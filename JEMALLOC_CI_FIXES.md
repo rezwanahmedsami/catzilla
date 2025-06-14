@@ -91,6 +91,42 @@ elseif(EXISTS "${CMAKE_SOURCE_DIR}/deps/jemalloc/lib/libjemalloc.a")
 endif()
 ```
 
+### 5. Removed Unnecessary Jemalloc Preloading
+
+**Files Modified:**
+- `scripts/run_tests.sh`
+
+**Problem:**
+The test runner script was attempting to detect and preload system jemalloc libraries, causing misleading warning messages when system jemalloc wasn't available. This was unnecessary because Catzilla statically links jemalloc at build time.
+
+**Solution:**
+- Removed OS detection and `LD_PRELOAD`/`DYLD_INSERT_LIBRARIES` setup logic
+- Updated segfault error messages to remove jemalloc-specific troubleshooting references
+- Added clear comment explaining that Catzilla uses static jemalloc linking
+
+**Before:**
+```bash
+# Detect OS and set up jemalloc preloading if available
+OS_NAME=$(uname -s)
+if [ "$OS_NAME" = "Linux" ]; then
+    if [ -f "/lib/x86_64-linux-gnu/libjemalloc.so.2" ]; then
+        echo -e "${GREEN}Setting up jemalloc preloading on Linux${NC}"
+        export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2
+    fi
+fi
+```
+
+**After:**
+```bash
+# Note: Catzilla statically links jemalloc at build time
+# No need for system jemalloc preloading
+```
+
+**Impact:**
+- Eliminates confusing warning messages about missing jemalloc libraries
+- Simplifies test runner logic
+- Makes it clear that jemalloc is statically linked, not dynamically loaded
+
 ## Build Dependencies Now Installed
 
 ### Linux (Ubuntu)
