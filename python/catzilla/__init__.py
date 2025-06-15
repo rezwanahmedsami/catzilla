@@ -65,6 +65,28 @@ from .integration import (
     di_depends,
     di_route,
 )
+
+# Memory management and optimization
+from .memory import (
+    disable_memory_profiling,
+    enable_memory_profiling,
+    get_allocator_info,
+    get_memory_stats,
+    is_jemalloc_available,
+    is_jemalloc_enabled,
+    memory_usage_mb,
+    optimize_memory,
+    reset_memory_stats,
+)
+
+# Middleware system
+from .middleware import (
+    DIMiddleware,
+    MiddlewareMetrics,
+    MiddlewareRequest,
+    MiddlewareResponse,
+    ZeroAllocMiddleware,
+)
 from .response import ResponseBuilder, response
 from .routing import Router, RouterGroup
 from .scope import (
@@ -122,6 +144,22 @@ __all__ = [
     "OptionalField",
     "get_performance_stats",
     "reset_performance_stats",
+    # Memory management
+    "get_memory_stats",
+    "optimize_memory",
+    "reset_memory_stats",
+    "enable_memory_profiling",
+    "disable_memory_profiling",
+    "get_allocator_info",
+    "memory_usage_mb",
+    "is_jemalloc_available",
+    "is_jemalloc_enabled",
+    # Middleware system
+    "ZeroAllocMiddleware",
+    "MiddlewareRequest",
+    "MiddlewareResponse",
+    "DIMiddleware",
+    "MiddlewareMetrics",
     # Auto-validation system (FastAPI-style)
     "Query",
     "Path",

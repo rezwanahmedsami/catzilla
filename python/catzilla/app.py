@@ -45,6 +45,7 @@ from .decorators import (
 # Import DI system for Phase 3 integration
 from .dependency_injection import DIContainer, DIContext
 from .integration import DIMiddleware, DIRouteEnhancer
+from .middleware import ZeroAllocMiddleware
 from .types import HTMLResponse, JSONResponse, Request, Response, RouteHandler
 
 try:
@@ -204,6 +205,10 @@ class Catzilla:
             self.di_middleware = DIMiddleware(self.di_container)
             self.di_enhancer = DIRouteEnhancer(self.di_container)
 
+        # Initialize Zero-Allocation Middleware System
+        self.middleware_system = None  # Will be initialized after app is complete
+        self._registered_middlewares = []
+
         # Memory profiling state (initialize before memory revolution)
         self._memory_stats_history: List[dict] = []
         self._last_memory_check = 0.0
@@ -223,6 +228,9 @@ class Catzilla:
         self._exception_handlers: Dict[type, Callable] = {}
         self._not_found_handler: Optional[Callable] = None
         self._internal_error_handler: Optional[Callable] = None
+
+        # Initialize Zero-Allocation Middleware System (after app is set up)
+        self.middleware_system = ZeroAllocMiddleware(self)
 
         # Only set up signal handlers in the main thread to prevent threading issues
         try:
@@ -774,6 +782,68 @@ class Catzilla:
             return self.router.patch(path, overwrite=overwrite)(validated_handler)
 
         return decorator
+
+    def _call_c_extension(self, method_name: str, *args) -> Any:
+        """Call C extension method with fallback handling"""
+        try:
+            # Try to call C extension method
+            # This would be implemented in the actual C extension
+            # For now, return None to indicate C extension is not available
+            return None
+        except Exception:
+            # C extension not available or method failed
+            return None
+
+    # ========================================================================
+    # MIDDLEWARE SYSTEM METHODS
+    # ========================================================================
+
+    def middleware(
+        self,
+        priority: int = 50,
+        pre_route: bool = True,
+        post_route: bool = False,
+        name: Optional[str] = None,
+    ):
+        """Register middleware with the Zero-Allocation Middleware System
+
+        Args:
+            priority: Middleware priority (0-100, higher numbers run first)
+            pre_route: Whether to run before route handling
+            post_route: Whether to run after route handling
+            name: Optional middleware name for debugging
+        """
+
+        def decorator(handler: Callable):
+            # Register with the middleware system
+            self.middleware_system.register_middleware(
+                handler,
+                priority=priority,
+                pre_route=pre_route,
+                post_route=post_route,
+                name=name or handler.__name__,
+            )
+            # Keep track of registered middlewares
+            self._registered_middlewares.append(
+                {
+                    "handler": handler,
+                    "priority": priority,
+                    "pre_route": pre_route,
+                    "post_route": post_route,
+                    "name": name or handler.__name__,
+                }
+            )
+            return handler
+
+        return decorator
+
+    def get_middleware_stats(self) -> Dict[str, Any]:
+        """Get middleware performance statistics"""
+        return self.middleware_system.get_stats()
+
+    def reset_middleware_stats(self):
+        """Reset middleware performance statistics"""
+        self.middleware_system.reset_stats()
 
     # ========================================================================
     # DEPENDENCY INJECTION METHODS

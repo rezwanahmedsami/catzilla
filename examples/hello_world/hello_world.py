@@ -10,7 +10,7 @@ from catzilla.response import response
 app = Catzilla(
     auto_validation=True,
     memory_profiling=False,  # Disable for stable production use
-    jemalloc_enabled=True   # Enable memory optimization
+    use_jemalloc=True   # Enable memory optimization
 )
 
 # Auto-validation model for query parameters
