@@ -2,6 +2,8 @@
 
 This directory contains comprehensive examples demonstrating Catzilla's revolutionary Zero-Allocation Middleware System - executing middleware chains entirely in C with Python flexibility.
 
+> 📖 **Getting Started?** Check out the [**Middleware User Guide**](../../docs/middleware_user_guide.md) for step-by-step tutorials and practical patterns.
+
 ## 📁 Example Structure
 
 ### Basic Examples
@@ -63,6 +65,16 @@ Each example includes performance benchmarks comparing:
 ## 📖 Documentation
 
 For complete documentation see:
-- [Zero-Allocation Middleware System Plan](../../plan/zero_allocation_middleware_system_plan.md)
-- [Migration Guide](migration_guide.md)
-- [Performance Tuning Guide](performance_guide.md)
+- **[Middleware Overview](../../docs/middleware_overview.md)** - Choose the right documentation for your needs
+- **[Middleware Guide](../../docs/middleware_guide.md)** - **START HERE** for practical tutorials and examples
+- **[Zero-Allocation Middleware System](../../docs/middleware.md)** - Advanced technical documentation
+- [Zero-Allocation Middleware System Plan](../../plan/zero_allocation_middleware_system_plan.md) - Engineering implementation details
+- [Migration Guide](migration_guide.md) - Framework migration patterns
+- [Performance Tuning Guide](performance_guide.md) - Optimization techniques
+
+## 🎯 Quick Reference
+
+**New to middleware?** → [Middleware Guide](../../docs/middleware_guide.md)
+**Need examples?** → Browse the files in this directory
+**Want performance?** → [Zero-Allocation System](../../docs/middleware.md)
+**Migrating?** → [Migration Guide](migration_guide.md)
