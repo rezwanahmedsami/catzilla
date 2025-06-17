@@ -53,13 +53,22 @@ int main() {
 
     message(STATUS "🔍 Detecting jemalloc function naming convention...")
 
+    # Find math library if on Unix-like systems
+    set(JEMALLOC_TEST_LIBRARIES "${JEMALLOC_LIBRARIES}")
+    if(UNIX)
+        find_library(MATH_LIBRARY m)
+        if(MATH_LIBRARY)
+            set(JEMALLOC_TEST_LIBRARIES "${JEMALLOC_LIBRARIES};${MATH_LIBRARY}")
+        endif()
+    endif()
+
     # First, try to compile and link with direct function names
     try_compile(DIRECT_FUNCTIONS_COMPILE
         "${TEST_DIR}"
         "${TEST_SOURCE}"
         CMAKE_FLAGS
             "-DINCLUDE_DIRECTORIES=${JEMALLOC_INCLUDE_DIRS}"
-            "-DLINK_LIBRARIES=${JEMALLOC_LIBRARIES}"
+            "-DLINK_LIBRARIES=${JEMALLOC_TEST_LIBRARIES}"
         OUTPUT_VARIABLE DIRECT_OUTPUT
     )
 
@@ -69,7 +78,7 @@ int main() {
         "${TEST_SOURCE_PREFIXED}"
         CMAKE_FLAGS
             "-DINCLUDE_DIRECTORIES=${JEMALLOC_INCLUDE_DIRS}"
-            "-DLINK_LIBRARIES=${JEMALLOC_LIBRARIES}"
+            "-DLINK_LIBRARIES=${JEMALLOC_TEST_LIBRARIES}"
         OUTPUT_VARIABLE JE_PREFIX_OUTPUT
     )
 

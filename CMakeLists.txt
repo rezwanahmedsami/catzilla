@@ -166,11 +166,21 @@ if(CATZILLA_USE_JEMALLOC)
                     message(STATUS "   Library: ${JEMALLOC_LIBRARY}")
                     message(STATUS "   Headers: ${JEMALLOC_INCLUDE_DIRS}")
 
-                    # On Windows, we might need additional libraries
+                    # Platform-specific additional libraries for jemalloc
                     if(WIN32)
-                        # Check if we need to link additional Windows libraries for jemalloc
+                        # Windows might need additional libraries
                         set(JEMALLOC_ADDITIONAL_LIBS "")
                         message(STATUS "   Platform: Windows - checking for additional dependencies")
+                    else()
+                        # Unix/Linux systems need math library for jemalloc (log, exp, round functions)
+                        find_library(MATH_LIBRARY m)
+                        if(MATH_LIBRARY)
+                            set(JEMALLOC_ADDITIONAL_LIBS ${MATH_LIBRARY})
+                            message(STATUS "   Platform: Unix/Linux - linking math library: ${MATH_LIBRARY}")
+                        else()
+                            set(JEMALLOC_ADDITIONAL_LIBS "")
+                            message(STATUS "   Platform: Unix/Linux - math library not found")
+                        endif()
                     endif()
                 else()
                     set(JEMALLOC_FOUND FALSE)
@@ -707,7 +717,7 @@ if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC)
             target_link_libraries(catzilla_core PRIVATE ${JEMALLOC_LIBRARIES})
 
             # Windows-specific additional libraries if needed
-            if(WIN32 AND JEMALLOC_ADDITIONAL_LIBS)
+            if(JEMALLOC_ADDITIONAL_LIBS)
                 target_link_libraries(catzilla_core PRIVATE ${JEMALLOC_ADDITIONAL_LIBS})
             endif()
 
@@ -769,8 +779,8 @@ if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC)
     if(JEMALLOC_LIBRARIES_PIC AND EXISTS "${JEMALLOC_LIBRARIES_PIC}")
         target_link_libraries(_catzilla PRIVATE ${JEMALLOC_LIBRARIES_PIC})
 
-        # Windows-specific additional libraries if needed
-        if(WIN32 AND JEMALLOC_ADDITIONAL_LIBS)
+        # Additional libraries for jemalloc (e.g. math library on Unix/Linux)
+        if(JEMALLOC_ADDITIONAL_LIBS)
             target_link_libraries(_catzilla PRIVATE ${JEMALLOC_ADDITIONAL_LIBS})
         endif()
 
@@ -778,8 +788,8 @@ if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC)
     elseif(JEMALLOC_LIBRARIES AND EXISTS "${JEMALLOC_LIBRARIES}")
         target_link_libraries(_catzilla PRIVATE ${JEMALLOC_LIBRARIES})
 
-        # Windows-specific additional libraries if needed
-        if(WIN32 AND JEMALLOC_ADDITIONAL_LIBS)
+        # Additional libraries for jemalloc (e.g. math library on Unix/Linux)
+        if(JEMALLOC_ADDITIONAL_LIBS)
             target_link_libraries(_catzilla PRIVATE ${JEMALLOC_ADDITIONAL_LIBS})
         endif()
 
@@ -919,7 +929,8 @@ if(NOT WHEEL_BUILD_MODE)
             endif()
 
             # Windows-specific additional libraries if needed
-            if(WIN32 AND JEMALLOC_ADDITIONAL_LIBS)
+            # Additional libraries for jemalloc (e.g. math library on Unix/Linux)
+            if(JEMALLOC_ADDITIONAL_LIBS)
                 target_link_libraries(${target_name} PRIVATE ${JEMALLOC_ADDITIONAL_LIBS})
             endif()
 
@@ -939,6 +950,15 @@ if(NOT WHEEL_BUILD_MODE)
             deps/unity/src
             ${Python3_INCLUDE_DIRS}
         )
+
+        # Apply same feature test macros as core library for pthread and POSIX types
+        if(NOT MSVC)
+            target_compile_definitions(${target_name} PRIVATE
+                _GNU_SOURCE
+                _POSIX_C_SOURCE=200809L
+                _DEFAULT_SOURCE           # For u_int and other BSD types
+            )
+        endif()
 
         # Link core library and jemalloc together on Linux for proper symbol resolution
         if(UNIX AND NOT APPLE AND CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC AND JEMALLOC_LIBRARIES AND EXISTS "${JEMALLOC_LIBRARIES}")
