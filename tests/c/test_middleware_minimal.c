@@ -40,7 +40,7 @@ void test_middleware_memory_basics() {
 // Test memory allocation patterns middleware would use
 void test_middleware_allocation_patterns() {
     const int num_allocations = 100;
-    void* ptrs[num_allocations];
+    void* ptrs[100];  // Fixed size array for MSVC compatibility
 
     // Allocate multiple small blocks (typical middleware usage)
     for (int i = 0; i < num_allocations; i++) {

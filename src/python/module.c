@@ -1,5 +1,6 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+#include <stdint.h>           // For uintptr_t
 #include "server.h"           // Provides catzilla_server_t, catzilla_server_init, etc.
 #include "logging.h"
 #include "router.h"           // Provides catzilla_router_t, catzilla_router_match, etc.
@@ -221,7 +222,7 @@ static PyObject* CatzillaServer_add_c_route(CatzillaServerObject *self, PyObject
 
     // Add route to C router with route_id as user_data
     uint32_t c_route_id = catzilla_router_add_route(&self->py_router, method, path,
-                                                   (void*)route_id, NULL, false);
+                                                   (void*)(uintptr_t)route_id, NULL, false);
 
     if (c_route_id == 0) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to add route to C router");
@@ -1022,7 +1023,7 @@ static PyObject* router_add_route(PyObject *self, PyObject *args)
 
     // Add route to global router
     uint32_t route_id = catzilla_router_add_route(&global_router, method, path,
-                                                 (void*)handler_id, NULL, false);
+                                                 (void*)(uintptr_t)handler_id, NULL, false);
 
     if (route_id == 0) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to add route to router");

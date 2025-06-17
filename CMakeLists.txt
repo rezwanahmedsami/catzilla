@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.15)
 project(catzilla VERSION 0.1.0 LANGUAGES C CXX)
 
+# Set C standard to C99 for portability (C11 VLA not supported by MSVC)
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
+
 # ============================================================================
 # 🚀 STATIC JEMALLOC INTEGRATION WITH CONDITIONAL RUNTIME SUPPORT
 # ============================================================================
