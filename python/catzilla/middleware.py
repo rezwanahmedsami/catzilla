@@ -504,7 +504,9 @@ class MiddlewareResponse:
 class Response:
     """Simple response object that can be returned from middleware"""
 
-    def __init__(self, content=None, status: int = 200, headers: Dict[str, str] = None):
+    def __init__(
+        self, content=None, status_code: int = 200, headers: Dict[str, str] = None
+    ):
         # Handle different content types
         if isinstance(content, (dict, list)):
             import json
@@ -518,7 +520,7 @@ class Response:
             self.content = str(content) if content is not None else ""
             self.content_type = "text/plain"
 
-        self.status_code = status
+        self.status_code = status_code
         self.headers = headers or {}
 
         # Ensure Content-Type is in headers

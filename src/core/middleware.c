@@ -53,6 +53,49 @@ int catzilla_middleware_chain_init(catzilla_middleware_chain_t* chain) {
 
     // Initialize performance metrics
     chain->fastest_execution_ns = UINT64_MAX;
+
+    return 0;
+}
+
+catzilla_middleware_chain_t* catzilla_middleware_create_chain(void) {
+    catzilla_middleware_chain_t* chain = catzilla_malloc(sizeof(catzilla_middleware_chain_t));
+    if (!chain) return NULL;
+
+    if (catzilla_middleware_chain_init(chain) != 0) {
+        catzilla_free(chain);
+        return NULL;
+    }
+
+    return chain;
+}
+
+void catzilla_middleware_destroy_chain(catzilla_middleware_chain_t* chain) {
+    if (!chain) return;
+
+    // Free middleware registrations
+    for (int i = 0; i < chain->middleware_count; i++) {
+        if (chain->middlewares[i]) {
+            catzilla_free(chain->middlewares[i]);
+        }
+    }
+
+    // Free execution chains
+    if (chain->pre_route_chain) catzilla_free(chain->pre_route_chain);
+    if (chain->post_route_chain) catzilla_free(chain->post_route_chain);
+    if (chain->error_chain) catzilla_free(chain->error_chain);
+
+    // Free context pool
+    if (chain->context_pool) {
+        catzilla_di_destroy_memory_pool(chain->context_pool);
+    }
+
+    catzilla_free(chain);
+}
+        return -1;
+    }
+
+    // Initialize performance metrics
+    chain->fastest_execution_ns = UINT64_MAX;
     chain->slowest_execution_ns = 0;
 
     return 0;
@@ -397,6 +440,24 @@ const char* catzilla_middleware_get_header(catzilla_middleware_context_t* ctx,
     }
 
     return NULL;
+}
+
+void catzilla_middleware_set_error(catzilla_middleware_context_t* ctx,
+                                  int status,
+                                  const char* message) {
+    if (!ctx) return;
+
+    ctx->response_status = status;
+    ctx->error_code = status;
+
+    if (message) {
+        size_t msg_len = strlen(message);
+        // Allocate memory for error message from context pool
+        ctx->error_message = catzilla_malloc(msg_len + 1);
+        if (ctx->error_message) {
+            strcpy(ctx->error_message, message);
+        }
+    }
 }
 
 void catzilla_middleware_set_data(catzilla_middleware_context_t* ctx,

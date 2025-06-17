@@ -197,6 +197,18 @@ typedef struct {
 int catzilla_middleware_chain_init(catzilla_middleware_chain_t* chain);
 
 /**
+ * Create a new middleware chain
+ * @return Pointer to new middleware chain or NULL on failure
+ */
+catzilla_middleware_chain_t* catzilla_middleware_create_chain(void);
+
+/**
+ * Destroy middleware chain and free all resources
+ * @param chain Pointer to middleware chain
+ */
+void catzilla_middleware_destroy_chain(catzilla_middleware_chain_t* chain);
+
+/**
  * Clean up middleware chain resources
  * @param chain Pointer to middleware chain structure
  */
@@ -286,6 +298,16 @@ int catzilla_middleware_set_header(catzilla_middleware_context_t* ctx,
 int catzilla_middleware_set_body(catzilla_middleware_context_t* ctx,
                                 const char* body,
                                 const char* content_type);
+
+/**
+ * Set error status and message in middleware context
+ * @param ctx Middleware context
+ * @param status HTTP error status code
+ * @param message Error message
+ */
+void catzilla_middleware_set_error(catzilla_middleware_context_t* ctx,
+                                  int status,
+                                  const char* message);
 
 /**
  * Get request header value

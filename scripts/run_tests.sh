@@ -233,7 +233,7 @@ run_c_tests() {
     cmake --build build
 
     # List of C test executables to run
-    local test_executables=("test_router" "test_advanced_router" "test_server_integration" "test_validation_engine" "test_dependency_injection")
+    local test_executables=("test_router" "test_advanced_router" "test_server_integration" "test_validation_engine" "test_dependency_injection" "test_middleware_minimal")
     local all_passed=true
 
     # Run each C test executable

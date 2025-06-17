@@ -934,6 +934,7 @@ if(NOT WHEEL_BUILD_MODE)
     configure_test_executable(test_validation_engine tests/c/test_validation_engine.c)
     configure_test_executable(test_dependency_injection tests/c/test_dependency_injection.c)
     configure_test_executable(test_memory tests/c/test_memory.c)
+    configure_test_executable(test_middleware_minimal tests/c/test_middleware_minimal.c)
 
     # Add Windows threading support for dependency injection test
     if(WIN32)
