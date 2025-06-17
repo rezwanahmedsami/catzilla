@@ -1,10 +1,28 @@
 cmake_minimum_required(VERSION 3.15)
 project(catzilla VERSION 0.1.0 LANGUAGES C CXX)
 
-# Set C standard to C99 for portability (C11 VLA not supported by MSVC)
-set(CMAKE_C_STANDARD 99)
+# Set C11 standard with MSVC compatibility
+set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
+
+# MSVC-specific compatibility flags
+if(MSVC)
+    add_compile_definitions(
+        _CRT_SECURE_NO_WARNINGS     # Disable MSVC security warnings
+        CATZILLA_NO_VLA=1            # Disable VLA on MSVC (not supported)
+        CATZILLA_MSVC_COMPAT=1       # Enable MSVC compatibility mode
+    )
+    # Disable specific MSVC warnings
+    add_compile_options(
+        /wd4996  # Deprecated function warnings
+        /wd4201  # Anonymous struct/union warnings
+        /wd4204  # Non-constant aggregate initializer
+    )
+else()
+    # Enable additional features on GCC/Clang for Catzilla sources only
+    # Don't apply globally to avoid breaking third-party libraries like libuv
+endif()
 
 # ============================================================================
 # 🚀 STATIC JEMALLOC INTEGRATION WITH CONDITIONAL RUNTIME SUPPORT
@@ -656,6 +674,16 @@ FetchContent_MakeAvailable(yyjson)
 
 # Core static library
 add_library(catzilla_core STATIC src/core/server.c src/core/router.c src/core/memory.c src/core/validation.c src/core/windows_regex.c)
+
+# Apply feature test macros only to Catzilla core sources (not third-party libs)
+if(NOT MSVC)
+    target_compile_definitions(catzilla_core PRIVATE
+        _GNU_SOURCE
+        _POSIX_C_SOURCE=200809L
+        _DEFAULT_SOURCE           # For u_int and other BSD types
+    )
+endif()
+
 target_include_directories(catzilla_core PUBLIC
   src/core
   ${llhttp_SOURCE_DIR}/include
@@ -711,6 +739,16 @@ endif()
 
 # ——— Python extension module ———
 add_library(_catzilla SHARED src/python/module.c)
+
+# Apply feature test macros only to Python extension (not third-party libs)
+if(NOT MSVC)
+    target_compile_definitions(_catzilla PRIVATE
+        _GNU_SOURCE
+        _POSIX_C_SOURCE=200809L
+        _DEFAULT_SOURCE           # For u_int and other BSD types
+    )
+endif()
+
 target_include_directories(_catzilla PRIVATE
   src/python
   ${llhttp_SOURCE_DIR}/include

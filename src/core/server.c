@@ -1,12 +1,20 @@
+// Platform compatibility
+#include "platform_compat.h"
+
+// System headers
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <signal.h>
+
+// Project headers
 #include "server.h"
 #include "router.h"
 #include "logging.h"
 #include "windows_compat.h"
 #include "memory.h"
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <signal.h>
+
+// Python headers (after system headers to avoid conflicts)
 #include <Python.h>
 #include <yyjson.h>
 

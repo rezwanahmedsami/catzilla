@@ -1,10 +1,16 @@
-#include "validation.h"
-#include "memory.h"
+// Platform compatibility
+#include "platform_compat.h"
+
+// System headers
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
 #include <assert.h>
+
+// Project headers
+#include "validation.h"
+#include "memory.h"
 
 // Platform-specific regex support
 #ifdef _WIN32

@@ -1,12 +1,19 @@
+// Platform compatibility
+#include "platform_compat.h"
+
+// System headers
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <ctype.h>
+#include <pthread.h>
+
+// Project headers
 #include "router.h"
 #include "server.h"
 #include "logging.h"
 #include "windows_compat.h"
 #include "memory.h"
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <ctype.h>
 
 // Internal helper functions
 static catzilla_route_node_t* catzilla_router_create_node(catzilla_router_t* router);

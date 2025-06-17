@@ -1,4 +1,12 @@
 // filepath: /home/rezwan/devwork/catzilla/src/core/memory.c
+
+// Platform compatibility
+#include "platform_compat.h"
+
+// System headers
+#include <sys/types.h>
+#include <unistd.h>
+
 #include "memory.h"
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,13 +1,24 @@
 #define PY_SSIZE_T_CLEAN
-#include <Python.h>
+
+// Platform compatibility
+#include "../core/platform_compat.h"
+
+// System headers
 #include <stdint.h>           // For uintptr_t
-#include "server.h"           // Provides catzilla_server_t, catzilla_server_init, etc.
-#include "logging.h"
-#include "router.h"           // Provides catzilla_router_t, catzilla_router_match, etc.
-#include "memory.h"           // Provides memory system functions
-#include "validation.h"       // Provides ultra-fast validation engine
-#include "windows_compat.h"   // Windows compatibility
+
+// Python headers
+#include <Python.h>
+
+// Third-party headers
 #include <uv.h>               // For uv_stream_t
+
+// Project headers
+#include "../core/server.h"           // Provides catzilla_server_t, catzilla_server_init, etc.
+#include "../core/logging.h"
+#include "../core/router.h"           // Provides catzilla_router_t, catzilla_router_match, etc.
+#include "../core/memory.h"           // Provides memory system functions
+#include "../core/validation.h"       // Provides ultra-fast validation engine
+#include "../core/windows_compat.h"   // Windows compatibility
 #include <stdio.h>
 #include <string.h>
 #include <math.h>             // For HUGE_VAL

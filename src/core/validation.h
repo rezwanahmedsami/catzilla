@@ -52,17 +52,17 @@ typedef struct validation_error validation_error_t;
 /**
  * Validation Error Structure
  */
-typedef struct validation_error {
+struct validation_error {
     char* field_name;
     char* message;
     validation_result_t error_code;
     struct validation_error* next;
-} validation_error_t;
+};
 
 /**
  * Validator Structure with Union for Type-Specific Rules
  */
-typedef struct validator {
+struct validator {
     catzilla_type_t type;
 
     union {
@@ -120,34 +120,34 @@ typedef struct validator {
     // Default value (if applicable)
     void* default_value;
     catzilla_type_t default_type;
-} validator_t;
+};
 
 /**
  * Field Specification for Model Validation
  */
-typedef struct field_spec {
+struct field_spec {
     char* field_name;
     validator_t* validator;
     int required;
     void* default_value;
     catzilla_type_t default_type;
-} field_spec_t;
+};
 
 /**
  * Model Specification Structure
  */
-typedef struct model_spec {
+struct model_spec {
     field_spec_t* fields;
     int field_count;        // Maximum number of fields allocated
     int fields_added;       // Number of fields actually added
     char* model_name;
     int compiled;  // Flag to indicate if model is compiled and optimized
-} model_spec_t;
+};
 
 /**
  * JSON Object Structure (simplified for validation)
  */
-typedef struct json_object {
+struct json_object {
     enum {
         JSON_NULL,
         JSON_BOOL,
@@ -173,7 +173,7 @@ typedef struct json_object {
             int count;
         } object_val;
     };
-} json_object_t;
+};
 
 /**
  * Validation Context for Memory Management
