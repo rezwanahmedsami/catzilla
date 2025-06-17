@@ -4,8 +4,7 @@
 #include "platform_compat.h"
 
 // System headers
-#include <sys/types.h>
-#include <unistd.h>
+// sys/types.h and unistd.h are now included in platform_compat.h
 
 #include "memory.h"
 #include <stdio.h>

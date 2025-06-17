@@ -10,6 +10,20 @@
 
 #include <stddef.h>
 
+// Platform-specific headers
+#ifdef _WIN32
+    #include <windows.h>
+    #include <process.h>
+    #include <io.h>
+    #include <direct.h>
+    // Windows doesn't have pthread.h or unistd.h
+    // We'll provide compatibility definitions where needed
+#else
+    #include <pthread.h>
+    #include <unistd.h>
+    #include <sys/types.h>
+#endif
+
 // Feature detection
 #ifdef __STDC_VERSION__
     #if __STDC_VERSION__ >= 201112L
@@ -100,6 +114,32 @@
     #define CATZILLA_NOINLINE __attribute__((noinline))
     #define CATZILLA_FORCEINLINE __attribute__((always_inline)) inline
     #define CATZILLA_NORETURN __attribute__((noreturn))
+#endif
+
+// Windows pthread compatibility
+#ifdef _WIN32
+    // Define minimal pthread types for Windows compatibility
+    typedef HANDLE pthread_t;
+    typedef CRITICAL_SECTION pthread_mutex_t;
+    typedef SRWLOCK pthread_rwlock_t;
+    typedef struct {
+        int dummy;
+    } pthread_attr_t;
+    typedef struct {
+        int dummy;
+    } pthread_mutexattr_t;
+    typedef struct {
+        int dummy;
+    } pthread_rwlockattr_t;
+
+    // pthread function stubs (to be implemented if needed)
+    #define pthread_mutex_init(mutex, attr) InitializeCriticalSection(mutex)
+    #define pthread_mutex_destroy(mutex) DeleteCriticalSection(mutex)
+    #define pthread_mutex_lock(mutex) EnterCriticalSection(mutex)
+    #define pthread_mutex_unlock(mutex) LeaveCriticalSection(mutex)
+
+    // For now, just provide minimal compatibility
+    // Full pthread emulation can be added later if needed
 #endif
 
 // Memory alignment validation

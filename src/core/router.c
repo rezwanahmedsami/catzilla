@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
-#include <pthread.h>
+// pthread.h is now included in platform_compat.h
 
 // Project headers
 #include "router.h"
