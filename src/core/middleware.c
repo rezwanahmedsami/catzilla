@@ -6,6 +6,10 @@
 #include <stdio.h>
 #include <time.h>
 
+#ifdef _WIN32
+#include "windows_compat.h"
+#endif
+
 // ============================================================================
 // 🌪️ CATZILLA ZERO-ALLOCATION MIDDLEWARE SYSTEM - CORE IMPLEMENTATION
 // ============================================================================
