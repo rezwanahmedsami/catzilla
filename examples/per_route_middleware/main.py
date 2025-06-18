@@ -249,4 +249,4 @@ if __name__ == "__main__":
     print("  curl -H 'X-API-Key: secret-key-123' -H 'X-User-Role: admin' http://localhost:8000/admin/dashboard")
     print("=" * 50)
 
-    app.run(host="0.0.0.0", port=8000)
+    app.listen(host="0.0.0.0", port=8000)
