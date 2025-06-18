@@ -10,6 +10,7 @@
 // Project headers
 #include "server.h"
 #include "router.h"
+#include "middleware.h"
 #include "logging.h"
 #include "windows_compat.h"
 #include "memory.h"
@@ -982,14 +983,67 @@ static int on_message_complete(llhttp_t* parser) {
 
         populate_path_params(&request, &match);
 
-        // Call the handler
-        void (*handler_fn)(uv_stream_t*) = match.route->handler;
-        if (handler_fn != NULL) {
-            handler_fn((uv_stream_t*)&context->client);
-        } else {
-            // Handler is NULL
-            const char* body = "500 Internal Server Error: NULL handler";
-            send_response_with_connection((uv_stream_t*)&context->client, 500, "text/plain", body, strlen(body), context->keep_alive);
+        // Execute per-route middleware if present
+        bool should_execute_handler = true;
+        if (match.route->middleware_chain != NULL && match.route->middleware_chain->middleware_count > 0) {
+            // Create middleware context for per-route execution
+            catzilla_middleware_context_t middleware_ctx;
+            memset(&middleware_ctx, 0, sizeof(middleware_ctx));
+
+            // Initialize middleware context
+            middleware_ctx.request = &request;
+            middleware_ctx.route_match = &match;
+            middleware_ctx.should_continue = true;
+            middleware_ctx.should_skip_route = false;
+            middleware_ctx.current_middleware_index = 0;
+            middleware_ctx.execution_start_time = catzilla_middleware_get_timestamp();
+
+            // Execute per-route middleware chain
+            int middleware_result = catzilla_middleware_execute_per_route(
+                match.route->middleware_chain,
+                &middleware_ctx,
+                NULL  // TODO: Pass DI container if available
+            );
+
+            // Check middleware execution results
+            if (middleware_result != 0) {
+                // Middleware error - send error response
+                const char* error_body = "500 Internal Server Error: Middleware execution failed";
+                send_response_with_connection((uv_stream_t*)&context->client, 500, "text/plain",
+                                           error_body, strlen(error_body), context->keep_alive);
+                should_execute_handler = false;
+            } else if (middleware_ctx.should_skip_route) {
+                // Middleware requested to skip route execution
+                should_execute_handler = false;
+
+                // If middleware set a custom response, use it
+                if (middleware_ctx.response_status > 0) {
+                    const char* response_body = middleware_ctx.response_body ?
+                                              middleware_ctx.response_body : "";
+                    const char* content_type = middleware_ctx.response_content_type ?
+                                             middleware_ctx.response_content_type : "text/plain";
+                    send_response_with_connection((uv_stream_t*)&context->client,
+                                               middleware_ctx.response_status, content_type,
+                                               response_body, strlen(response_body), context->keep_alive);
+                } else {
+                    // Default response when route is skipped
+                    const char* skip_body = "200 OK: Request handled by middleware";
+                    send_response_with_connection((uv_stream_t*)&context->client, 200, "text/plain",
+                                               skip_body, strlen(skip_body), context->keep_alive);
+                }
+            }
+        }
+
+        // Call the handler if not skipped by middleware
+        if (should_execute_handler) {
+            void (*handler_fn)(uv_stream_t*) = match.route->handler;
+            if (handler_fn != NULL) {
+                handler_fn((uv_stream_t*)&context->client);
+            } else {
+                // Handler is NULL
+                const char* body = "500 Internal Server Error: NULL handler";
+                send_response_with_connection((uv_stream_t*)&context->client, 500, "text/plain", body, strlen(body), context->keep_alive);
+            }
         }
     } else {
         // Handle different error cases based on status code suggestion

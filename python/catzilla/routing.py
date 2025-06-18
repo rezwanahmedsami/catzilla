@@ -5,7 +5,7 @@ Advanced routing system for Catzilla
 import re
 import warnings
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Callable, Dict, List, Optional, Set, Tuple, Union
 
 from .types import RouteHandler
 
@@ -23,6 +23,7 @@ class Route:
     tags: List[str] = None  # Tags for API organization
     description: str = ""  # Route description
     metadata: Dict[str, any] = None  # Additional metadata
+    middleware: List[Callable] = None  # Per-route middleware (NEW!)
 
 
 class RouteNode:
@@ -124,6 +125,7 @@ class RouterGroup:
         overwrite: bool = False,
         tags: List[str] = None,
         description: str = "",
+        middleware: List[Callable] = None,
         **kwargs,
     ) -> None:
         """Register a route in this group"""
@@ -150,6 +152,10 @@ class RouterGroup:
         route_metadata["group_prefix"] = self.prefix
         route_metadata["group_description"] = self.description
 
+        # Add middleware to metadata
+        if middleware:
+            route_metadata["middleware"] = middleware
+
         # Store the route for later registration
         self._routes.append((method, combined_path, handler, route_metadata))
 
@@ -161,9 +167,10 @@ class RouterGroup:
         overwrite: bool = False,
         tags: List[str] = None,
         description: str = "",
+        middleware: List[Callable] = None,
         **kwargs,
     ):
-        """Route decorator that supports multiple HTTP methods"""
+        """Route decorator that supports multiple HTTP methods and per-route middleware"""
         if methods is None:
             methods = ["GET"]
 
@@ -176,6 +183,7 @@ class RouterGroup:
                     overwrite=overwrite,
                     tags=tags,
                     description=description,
+                    middleware=middleware,
                     **kwargs,
                 )
             return handler
@@ -189,15 +197,17 @@ class RouterGroup:
         overwrite: bool = False,
         tags: List[str] = None,
         description: str = "",
+        middleware: List[Callable] = None,
         **kwargs,
     ):
-        """GET route decorator"""
+        """GET route decorator with per-route middleware support"""
         return self.route(
             path,
             ["GET"],
             overwrite=overwrite,
             tags=tags,
             description=description,
+            middleware=middleware,
             **kwargs,
         )
 
@@ -208,15 +218,17 @@ class RouterGroup:
         overwrite: bool = False,
         tags: List[str] = None,
         description: str = "",
+        middleware: List[Callable] = None,
         **kwargs,
     ):
-        """POST route decorator"""
+        """POST route decorator with per-route middleware support"""
         return self.route(
             path,
             ["POST"],
             overwrite=overwrite,
             tags=tags,
             description=description,
+            middleware=middleware,
             **kwargs,
         )
 
@@ -227,15 +239,17 @@ class RouterGroup:
         overwrite: bool = False,
         tags: List[str] = None,
         description: str = "",
+        middleware: List[Callable] = None,
         **kwargs,
     ):
-        """PUT route decorator"""
+        """PUT route decorator with per-route middleware support"""
         return self.route(
             path,
             ["PUT"],
             overwrite=overwrite,
             tags=tags,
             description=description,
+            middleware=middleware,
             **kwargs,
         )
 
@@ -409,9 +423,10 @@ class Router:
         tags: List[str] = None,
         description: str = "",
         metadata: Dict[str, any] = None,
+        middleware: List[Callable] = None,
     ) -> None:
         """
-        Add a route with support for dynamic path segments.
+        Add a route with support for dynamic path segments and per-route middleware.
 
         Args:
             method: HTTP method (GET, POST, etc.)
@@ -421,6 +436,7 @@ class Router:
             tags: Tags for API organization
             description: Route description
             metadata: Additional metadata
+            middleware: List of middleware functions for this route
         """
         # Normalize method to uppercase
         normalized_method = self._normalize_method(method)
@@ -436,6 +452,7 @@ class Router:
             tags or [],
             description,
             metadata or {},
+            middleware or [],  # Store per-route middleware
         )
 
         # Add to trie
@@ -561,34 +578,53 @@ class Router:
         ]
 
     # Decorator methods
-    def route(self, path: str, methods: List[str] = None, *, overwrite: bool = False):
-        """Route decorator that supports multiple HTTP methods"""
+    def route(
+        self,
+        path: str,
+        methods: List[str] = None,
+        *,
+        overwrite: bool = False,
+        middleware: List[Callable] = None,
+    ):
+        """Route decorator that supports multiple HTTP methods and per-route middleware"""
         if methods is None:
             methods = ["GET"]
 
         def decorator(handler: RouteHandler):
             for method in methods:
-                self.add_route(method, path, handler, overwrite=overwrite)
+                self.add_route(
+                    method, path, handler, overwrite=overwrite, middleware=middleware
+                )
             return handler
 
         return decorator
 
-    def get(self, path: str, *, overwrite: bool = False):
-        """GET route decorator"""
-        return self.route(path, ["GET"], overwrite=overwrite)
+    def get(
+        self, path: str, *, overwrite: bool = False, middleware: List[Callable] = None
+    ):
+        """GET route decorator with per-route middleware support"""
+        return self.route(path, ["GET"], overwrite=overwrite, middleware=middleware)
 
-    def post(self, path: str, *, overwrite: bool = False):
-        """POST route decorator"""
-        return self.route(path, ["POST"], overwrite=overwrite)
+    def post(
+        self, path: str, *, overwrite: bool = False, middleware: List[Callable] = None
+    ):
+        """POST route decorator with per-route middleware support"""
+        return self.route(path, ["POST"], overwrite=overwrite, middleware=middleware)
 
-    def put(self, path: str, *, overwrite: bool = False):
-        """PUT route decorator"""
-        return self.route(path, ["PUT"], overwrite=overwrite)
+    def put(
+        self, path: str, *, overwrite: bool = False, middleware: List[Callable] = None
+    ):
+        """PUT route decorator with per-route middleware support"""
+        return self.route(path, ["PUT"], overwrite=overwrite, middleware=middleware)
 
-    def delete(self, path: str, *, overwrite: bool = False):
-        """DELETE route decorator"""
-        return self.route(path, ["DELETE"], overwrite=overwrite)
+    def delete(
+        self, path: str, *, overwrite: bool = False, middleware: List[Callable] = None
+    ):
+        """DELETE route decorator with per-route middleware support"""
+        return self.route(path, ["DELETE"], overwrite=overwrite, middleware=middleware)
 
-    def patch(self, path: str, *, overwrite: bool = False):
-        """PATCH route decorator"""
-        return self.route(path, ["PATCH"], overwrite=overwrite)
+    def patch(
+        self, path: str, *, overwrite: bool = False, middleware: List[Callable] = None
+    ):
+        """PATCH route decorator with per-route middleware support"""
+        return self.route(path, ["PATCH"], overwrite=overwrite, middleware=middleware)

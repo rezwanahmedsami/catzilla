@@ -73,7 +73,7 @@ Request → Pre-route Middleware (priority order) → Route Handler → Response
 
 ### 4. Request Context
 
-Use `request.context` to share data between middleware:
+Use `request._context` to share data between middleware:
 
 ```python
 @app.middleware(priority=50, pre_route=True)
@@ -82,17 +82,21 @@ def user_middleware(request):
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     user = get_user_from_token(token)
 
+    # Initialize context if needed
+    if not hasattr(request, '_context'):
+        request._context = {}
+
     # Store in context for other middleware/handlers
-    request.context['user'] = user
-    request.context['user_id'] = user.id
+    request._context['user'] = user
+    request._context['user_id'] = user.id
     return None
 
 @app.middleware(priority=100, pre_route=True)
 def permission_middleware(request):
     # Use context from previous middleware
-    user = request.context.get('user')
+    user = getattr(request, '_context', {}).get('user')
     if not user.has_permission(request.path):
-        return Response(status=403, body=\"Forbidden\")
+        return Response(status=403, body="Forbidden")
     return None
 ```
 
@@ -123,8 +127,13 @@ def jwt_auth_middleware(request):
     try:
         # Validate token (you'd use a proper JWT library)
         payload = validate_jwt_token(token)
-        request.context['user_id'] = payload['user_id']
-        request.context['permissions'] = payload['permissions']
+
+        # Initialize context if needed
+        if not hasattr(request, '_context'):
+            request._context = {}
+
+        request._context['user_id'] = payload['user_id']
+        request._context['permissions'] = payload['permissions']
         return None
 
     except InvalidTokenError:
@@ -164,20 +173,24 @@ import time
 
 @app.middleware(priority=1, pre_route=True)  # Very early
 def request_logger_start(request):
-    \"\"\"Log request start and timing\"\"\"
-    request.context['start_time'] = time.time()
-    request.context['request_id'] = str(uuid.uuid4())
+    """Log request start and timing"""
+    # Initialize context if needed
+    if not hasattr(request, '_context'):
+        request._context = {}
 
-    print(f\"📥 [{request.context['request_id']}] {request.method} {request.path}\")
+    request._context['start_time'] = time.time()
+    request._context['request_id'] = str(uuid.uuid4())
+
+    print(f"📥 [{request._context['request_id']}] {request.method} {request.path}")
     return None
 
 @app.middleware(priority=999, pre_route=False)  # Very late
 def request_logger_end(request, response):
-    \"\"\"Log request completion\"\"\"
-    duration = time.time() - request.context.get('start_time', 0)
-    request_id = request.context.get('request_id', 'unknown')
+    """Log request completion"""
+    duration = time.time() - getattr(request, '_context', {}).get('start_time', 0)
+    request_id = getattr(request, '_context', {}).get('request_id', 'unknown')
 
-    print(f\"📤 [{request_id}] {response.status} - {duration*1000:.2f}ms\")
+    print(f"📤 [{request_id}] {response.status} - {duration*1000:.2f}ms")
     return response
 ```
 

@@ -50,7 +50,12 @@ def auth_middleware(request):
 
     # Store user info for route handlers
     token = auth_header[7:]  # Remove 'Bearer '
-    request.context['user'] = get_user_from_token(token)
+
+    # Initialize context if needed
+    if not hasattr(request, '_context'):
+        request._context = {}
+
+    request._context['user'] = get_user_from_token(token)
     return None
 ```
 
@@ -267,21 +272,26 @@ def rate_limit_middleware(request):
 
 ### Sharing Data Between Middleware
 
-Use `request.context` to share data:
+Use `request._context` to share data:
 
 ```python
 @app.middleware(priority=20, pre_route=True)
 def user_loader(request):
     """Load user information"""
     user_id = get_user_id_from_request(request)
-    request.context['user_id'] = user_id
-    request.context['user'] = load_user(user_id)
+
+    # Initialize context if needed
+    if not hasattr(request, '_context'):
+        request._context = {}
+
+    request._context['user_id'] = user_id
+    request._context['user'] = load_user(user_id)
     return None
 
 @app.middleware(priority=40, pre_route=True)
 def permission_checker(request):
     """Check permissions using loaded user"""
-    user = request.context.get('user')
+    user = getattr(request, '_context', {}).get('user')
     required_permission = get_required_permission(request.path)
 
     if not user.has_permission(required_permission):
@@ -464,12 +474,15 @@ def safe_middleware(request):
 ### 4. Use Context Efficiently
 ```python
 # ✅ Good: Store useful data
-request.context['user'] = user_object
-request.context['start_time'] = time.time()
+if not hasattr(request, '_context'):
+    request._context = {}
+
+request._context['user'] = user_object
+request._context['start_time'] = time.time()
 
 # ❌ Avoid: Large objects or sensitive data
-request.context['entire_database'] = db.get_all()  # Too big!
-request.context['password'] = user.password        # Sensitive!
+request._context['entire_database'] = db.get_all()  # Too big!
+request._context['password'] = user.password        # Sensitive!
 ```
 
 ## 🔗 Next Steps

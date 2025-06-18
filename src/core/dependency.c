@@ -1901,9 +1901,7 @@ int catzilla_di_generate_performance_report(catzilla_di_container_t* container,
     if (!container || !report_buffer || buffer_size == 0) return -1;
 
     catzilla_di_stats_t stats;
-    if (catzilla_di_get_stats(container, &stats) != 0) {
-        return -1;
-    }
+    catzilla_di_get_stats(container, &stats);
 
     int written = snprintf(report_buffer, buffer_size,
         "=== DI Container Performance Report ===\n"
@@ -2202,9 +2200,7 @@ int catzilla_di_monitor_performance(catzilla_di_container_t* container,
     if (!container || !stats) return -1;
 
     // Get current stats
-    if (catzilla_di_get_stats(container, stats) != 0) {
-        return -1;
-    }
+    catzilla_di_get_stats(container, stats);
 
     // For now, just return current stats
     // In full implementation, would monitor over time period

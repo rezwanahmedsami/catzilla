@@ -6,13 +6,17 @@ router for route matching while maintaining Python's flexibility for route
 management and organization.
 """
 
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Callable, Dict, List, Optional, Set, Tuple, Union
 
 from .routing import Route, RouteHandler
 from .types import Request, Response
 
 try:
-    from catzilla._catzilla import router_add_route, router_match
+    from catzilla._catzilla import (
+        router_add_route,
+        router_add_route_with_middleware,
+        router_match,
+    )
 except ImportError:
     # Fallback for when C extension is not available
     def router_match(method: str, path: str) -> Dict:
@@ -24,6 +28,15 @@ except ImportError:
         }
 
     def router_add_route(method: str, path: str, handler_id: int) -> int:
+        return 0
+
+    def router_add_route_with_middleware(
+        method: str,
+        path: str,
+        handler_id: int,
+        middleware_ids: List[int] = None,
+        middleware_priorities: List[int] = None,
+    ) -> int:
         return 0
 
 
@@ -60,6 +73,7 @@ class CAcceleratedRouter:
         handler: RouteHandler,
         *,
         overwrite: bool = False,
+        middleware: List[Callable] = None,
         **metadata,
     ) -> Route:
         """Add a route to both Python and C routers"""
@@ -93,6 +107,7 @@ class CAcceleratedRouter:
             tags=metadata.get("tags"),
             description=metadata.get("description", ""),
             metadata=metadata,
+            middleware=middleware,  # Store per-route middleware
         )
 
         # Check for conflicts if not overwriting
@@ -122,7 +137,14 @@ class CAcceleratedRouter:
         if self._use_c_router and self._server:
             try:
                 # Use the server's dedicated C router instead of global router
-                self._server.add_c_route(method, path, route_id)
+                if middleware:
+                    # If per-route middleware is specified, use the middleware-aware function
+                    self._server.add_c_route_with_middleware(
+                        method, path, route_id, middleware
+                    )
+                else:
+                    # No middleware, use the regular function
+                    self._server.add_c_route(method, path, route_id)
                 self._c_routes_synced = True
             except Exception:
                 # C router failed, but keep Python route
@@ -288,47 +310,67 @@ class CAcceleratedRouter:
 
         return decorator
 
-    def get(self, path: str, *, overwrite: bool = False):
-        """Decorator to register a GET route handler"""
+    def get(
+        self, path: str, *, overwrite: bool = False, middleware: List[Callable] = None
+    ):
+        """Decorator to register a GET route handler with optional per-route middleware"""
 
         def decorator(handler: RouteHandler):
-            self.add_route("GET", path, handler, overwrite=overwrite)
+            self.add_route(
+                "GET", path, handler, overwrite=overwrite, middleware=middleware
+            )
             return handler
 
         return decorator
 
-    def post(self, path: str, *, overwrite: bool = False):
-        """Decorator to register a POST route handler"""
+    def post(
+        self, path: str, *, overwrite: bool = False, middleware: List[Callable] = None
+    ):
+        """Decorator to register a POST route handler with optional per-route middleware"""
 
         def decorator(handler: RouteHandler):
-            self.add_route("POST", path, handler, overwrite=overwrite)
+            self.add_route(
+                "POST", path, handler, overwrite=overwrite, middleware=middleware
+            )
             return handler
 
         return decorator
 
-    def put(self, path: str, *, overwrite: bool = False):
-        """Decorator to register a PUT route handler"""
+    def put(
+        self, path: str, *, overwrite: bool = False, middleware: List[Callable] = None
+    ):
+        """Decorator to register a PUT route handler with optional per-route middleware"""
 
         def decorator(handler: RouteHandler):
-            self.add_route("PUT", path, handler, overwrite=overwrite)
+            self.add_route(
+                "PUT", path, handler, overwrite=overwrite, middleware=middleware
+            )
             return handler
 
         return decorator
 
-    def delete(self, path: str, *, overwrite: bool = False):
-        """Decorator to register a DELETE route handler"""
+    def delete(
+        self, path: str, *, overwrite: bool = False, middleware: List[Callable] = None
+    ):
+        """Decorator to register a DELETE route handler with optional per-route middleware"""
 
         def decorator(handler: RouteHandler):
-            self.add_route("DELETE", path, handler, overwrite=overwrite)
+            self.add_route(
+                "DELETE", path, handler, overwrite=overwrite, middleware=middleware
+            )
             return handler
 
         return decorator
 
-    def patch(self, path: str, *, overwrite: bool = False):
-        """Decorator to register a PATCH route handler"""
+    def patch(
+        self, path: str, *, overwrite: bool = False, middleware: List[Callable] = None
+    ):
+        """Decorator to register a PATCH route handler with optional per-route middleware"""
 
         def decorator(handler: RouteHandler):
-            self.add_route("PATCH", path, handler, overwrite=overwrite)
+            self.add_route(
+                "PATCH", path, handler, overwrite=overwrite, middleware=middleware
+            )
             return handler
 
         return decorator

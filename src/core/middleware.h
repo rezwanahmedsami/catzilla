@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include "memory.h"
 #include "router.h"
+#include "server.h"
 #include "dependency.h"
 
 // ============================================================================
@@ -15,6 +16,7 @@
 #define CATZILLA_MAX_MIDDLEWARES 64
 #define CATZILLA_MIDDLEWARE_NAME_MAX 64
 #define CATZILLA_MAX_RESPONSE_HEADERS 32
+#define CATZILLA_MAX_MIDDLEWARE_TIMINGS 64
 
 // Forward declarations
 typedef struct catzilla_middleware_context_s catzilla_middleware_context_t;
@@ -44,36 +46,6 @@ typedef enum {
  * @return CATZILLA_MIDDLEWARE_* result code
  */
 typedef int (*catzilla_middleware_fn_t)(catzilla_middleware_context_t* ctx);
-
-/**
- * Request structure for middleware processing
- */
-typedef struct catzilla_request_s {
-    char* method;                          // HTTP method (GET, POST, etc.)
-    char* path;                            // Request path
-    char* query_string;                    // Query string
-    char* remote_addr;                     // Client IP address
-    char* user_agent;                      // User-Agent header
-    char* content_type;                    // Content-Type header
-    char* authorization;                   // Authorization header
-
-    // Headers
-    char** header_names;                   // Header names array
-    char** header_values;                  // Header values array
-    int header_count;                      // Number of headers
-
-    // Body data
-    char* body;                            // Request body
-    size_t body_length;                    // Body length
-
-    // Parsed data (lazy-loaded)
-    void* json_data;                       // Parsed JSON (if applicable)
-    void* form_data;                       // Parsed form data (if applicable)
-
-    // Internal state
-    bool headers_parsed;                   // Headers parsing state
-    bool body_parsed;                      // Body parsing state
-} catzilla_request_t;
 
 /**
  * Response header structure
@@ -389,5 +361,53 @@ uint64_t catzilla_middleware_get_timestamp(void);
  * @return Duration in nanoseconds
  */
 uint64_t catzilla_middleware_calculate_duration(uint64_t start_time, uint64_t end_time);
+
+// ============================================================================
+// PER-ROUTE MIDDLEWARE FUNCTIONS
+// ============================================================================
+
+/**
+ * Execute per-route middleware chain for a specific route
+ * Zero-allocation execution of route-specific middleware
+ *
+ * @param route_middleware The per-route middleware chain to execute
+ * @param ctx The middleware context for execution
+ * @param di_container Optional DI container for dependency injection
+ * @return 0 on success, -1 on error
+ */
+int catzilla_middleware_execute_per_route(catzilla_route_middleware_t* route_middleware,
+                                         catzilla_middleware_context_t* ctx,
+                                         catzilla_di_container_t* di_container);
+
+/**
+ * Initialize per-route middleware chain
+ * Zero-allocation initialization for route-specific middleware
+ *
+ * @param route_middleware The middleware chain to initialize
+ * @param initial_capacity Initial capacity for middleware functions
+ * @return 0 on success, -1 on error
+ */
+int catzilla_route_middleware_init(catzilla_route_middleware_t* route_middleware, int initial_capacity);
+
+/**
+ * Add middleware to per-route chain
+ * Zero-allocation addition with priority-based ordering
+ *
+ * @param route_middleware The middleware chain to add to
+ * @param middleware_fn The middleware function to add
+ * @param priority The execution priority (lower = earlier)
+ * @return 0 on success, -1 on error
+ */
+int catzilla_route_middleware_add(catzilla_route_middleware_t* route_middleware,
+                                 catzilla_middleware_fn_t middleware_fn,
+                                 uint32_t priority);
+
+/**
+ * Cleanup per-route middleware chain
+ * Zero-allocation cleanup that only frees the allocated arrays
+ *
+ * @param route_middleware The middleware chain to cleanup
+ */
+void catzilla_route_middleware_cleanup(catzilla_route_middleware_t* route_middleware);
 
 #endif /* CATZILLA_MIDDLEWARE_H */

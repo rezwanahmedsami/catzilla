@@ -97,7 +97,9 @@ def auth_middleware(request):
         )
 
     # Store user info for route handlers
-    request.context['user'] = get_user_from_token(token)
+    if not hasattr(request, '_context'):
+        request._context = {}
+    request._context['user'] = get_user_from_token(token)
     return None
 ```
 
@@ -141,14 +143,16 @@ import json
 @app.middleware(priority=10, pre_route=True)
 def request_logger(request):
     """Log incoming requests with timing"""
-    request.context['start_time'] = time.time()
+    if not hasattr(request, '_context'):
+        request._context = {}
+    request._context['start_time'] = time.time()
     print(f"📥 {request.method} {request.path} - {request.remote_addr}")
     return None
 
 @app.middleware(priority=990, pre_route=False)
 def response_logger(request, response):
     """Log response with duration"""
-    duration = time.time() - request.context.get('start_time', 0)
+    duration = time.time() - getattr(request, '_context', {}).get('start_time', 0)
     print(f"📤 {response.status} - {duration*1000:.2f}ms")
     return response
 ```
@@ -191,15 +195,19 @@ def response_modifier(request, response):
 @app.middleware(priority=50, pre_route=True)
 def user_middleware(request):
     """Extract user information"""
-    request.context['user_id'] = extract_user_id(request)
-    request.context['permissions'] = get_user_permissions(request.context['user_id'])
+    # Initialize context if it doesn't exist
+    if not hasattr(request, '_context'):
+        request._context = {}
+
+    request._context['user_id'] = extract_user_id(request)
+    request._context['permissions'] = get_user_permissions(request._context['user_id'])
     return None
 
 @app.middleware(priority=100, pre_route=True)
 def permission_middleware(request):
     """Check permissions using context"""
     required_permission = get_required_permission(request.path)
-    user_permissions = request.context.get('permissions', [])
+    user_permissions = getattr(request, '_context', {}).get('permissions', [])
 
     if required_permission not in user_permissions:
         return Response("Forbidden", status_code=403)
@@ -229,7 +237,12 @@ def complex_middleware(request):
     """Complex logic - executed in Python"""
     # Database queries, external API calls, etc.
     result = complex_business_logic(request)
-    request.context['analysis'] = result
+
+    # Initialize context if needed
+    if not hasattr(request, '_context'):
+        request._context = {}
+
+    request._context['analysis'] = result
     return None
 ```
 
@@ -478,8 +491,12 @@ def fast_validation(request):
 def context_middleware(request):
     """Efficient context usage"""
 
+    # Initialize context if not exists
+    if not hasattr(request, '_context'):
+        request._context = {}
+
     # Use context for data that multiple middleware/handlers need
-    request.context.update({
+    request._context.update({
         'request_id': generate_request_id(),
         'start_time': time.time(),
         'user_ip': get_real_ip(request)

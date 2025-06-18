@@ -683,7 +683,7 @@ FetchContent_Declare(yyjson
 FetchContent_MakeAvailable(yyjson)
 
 # Core static library
-add_library(catzilla_core STATIC src/core/server.c src/core/router.c src/core/memory.c src/core/validation.c src/core/windows_regex.c)
+add_library(catzilla_core STATIC src/core/server.c src/core/router.c src/core/memory.c src/core/middleware.c src/core/dependency.c src/core/validation.c src/core/windows_regex.c)
 
 # Apply feature test macros only to Catzilla core sources (not third-party libs)
 if(NOT MSVC)

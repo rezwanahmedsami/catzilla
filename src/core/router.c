@@ -96,6 +96,15 @@ void catzilla_router_cleanup(catzilla_router_t* router) {
                 }
                 catzilla_cache_free(router->routes[i]->param_names);
             }
+
+            // Free per-route middleware chain
+            if (router->routes[i]->middleware_chain) {
+                catzilla_cache_free(router->routes[i]->middleware_chain->middleware_functions);
+                catzilla_cache_free(router->routes[i]->middleware_chain->middleware_priorities);
+                catzilla_cache_free(router->routes[i]->middleware_chain->middleware_flags);
+                catzilla_cache_free(router->routes[i]->middleware_chain);
+            }
+
             catzilla_cache_free(router->routes[i]);
         }
     }
@@ -252,6 +261,20 @@ uint32_t catzilla_router_add_route(catzilla_router_t* router,
                                    void* handler,
                                    void* user_data,
                                    bool overwrite) {
+    // Call the full function with no middleware
+    return catzilla_router_add_route_with_middleware(router, method, path, handler,
+                                                    user_data, overwrite, NULL, 0, NULL);
+}
+
+uint32_t catzilla_router_add_route_with_middleware(catzilla_router_t* router,
+                                                   const char* method,
+                                                   const char* path,
+                                                   void* handler,
+                                                   void* user_data,
+                                                   bool overwrite,
+                                                   void** middleware_functions,
+                                                   int middleware_count,
+                                                   uint32_t* middleware_priorities) {
     if (!router || !method || !path || !handler) {
         LOG_ROUTER_ERROR("Add route failed: invalid parameters");
         return 0;
@@ -295,6 +318,53 @@ uint32_t catzilla_router_add_route(catzilla_router_t* router,
     route->user_data = user_data;
     route->overwrite = overwrite;
     route->id = router->next_route_id++;
+
+    // Initialize per-route middleware chain
+    route->middleware_chain = NULL;
+    if (middleware_count > 0 && middleware_functions) {
+        route->middleware_chain = catzilla_cache_alloc(sizeof(catzilla_route_middleware_t));
+        if (route->middleware_chain) {
+            route->middleware_chain->middleware_capacity = middleware_count + 4; // Room for growth
+            route->middleware_chain->middleware_functions = catzilla_cache_alloc(
+                sizeof(void*) * route->middleware_chain->middleware_capacity);
+            route->middleware_chain->middleware_priorities = catzilla_cache_alloc(
+                sizeof(uint32_t) * route->middleware_chain->middleware_capacity);
+            route->middleware_chain->middleware_flags = catzilla_cache_alloc(
+                sizeof(uint32_t) * route->middleware_chain->middleware_capacity);
+
+            if (route->middleware_chain->middleware_functions &&
+                route->middleware_chain->middleware_priorities &&
+                route->middleware_chain->middleware_flags) {
+
+                // Copy middleware functions and priorities
+                route->middleware_chain->middleware_count = middleware_count;
+                memcpy(route->middleware_chain->middleware_functions, middleware_functions,
+                       sizeof(void*) * middleware_count);
+
+                if (middleware_priorities) {
+                    memcpy(route->middleware_chain->middleware_priorities, middleware_priorities,
+                           sizeof(uint32_t) * middleware_count);
+                } else {
+                    // Default priorities (1000, 1001, 1002, ...)
+                    for (int i = 0; i < middleware_count; i++) {
+                        route->middleware_chain->middleware_priorities[i] = 1000 + i;
+                    }
+                }
+
+                // Default flags (PRE_ROUTE)
+                for (int i = 0; i < middleware_count; i++) {
+                    route->middleware_chain->middleware_flags[i] = 1; // CATZILLA_MIDDLEWARE_PRE_ROUTE
+                }
+            } else {
+                // Cleanup on allocation failure
+                catzilla_cache_free(route->middleware_chain->middleware_functions);
+                catzilla_cache_free(route->middleware_chain->middleware_priorities);
+                catzilla_cache_free(route->middleware_chain->middleware_flags);
+                catzilla_cache_free(route->middleware_chain);
+                route->middleware_chain = NULL;
+            }
+        }
+    }
 
     // Extract parameter names
     route->param_count = 0;
@@ -662,6 +732,15 @@ int catzilla_router_remove_route(catzilla_router_t* router, uint32_t route_id) {
                 }
                 catzilla_cache_free(route->param_names);
             }
+
+            // Free per-route middleware chain
+            if (route->middleware_chain) {
+                catzilla_cache_free(route->middleware_chain->middleware_functions);
+                catzilla_cache_free(route->middleware_chain->middleware_priorities);
+                catzilla_cache_free(route->middleware_chain->middleware_flags);
+                catzilla_cache_free(route->middleware_chain);
+            }
+
             catzilla_cache_free(route);
 
             // Note: We don't remove from trie for performance reasons

@@ -243,6 +243,82 @@ static PyObject* CatzillaServer_add_c_route(CatzillaServerObject *self, PyObject
     return PyLong_FromLong(c_route_id);
 }
 
+// add_c_route_with_middleware(method, path, route_id, middleware_ids, middleware_priorities) - Add route to C router with middleware
+static PyObject* CatzillaServer_add_c_route_with_middleware(CatzillaServerObject *self, PyObject *args)
+{
+    const char *method, *path;
+    long route_id;
+    PyObject *middleware_list = NULL;
+    PyObject *priority_list = NULL;
+
+    if (!PyArg_ParseTuple(args, "ssl|OO", &method, &path, &route_id, &middleware_list, &priority_list))
+        return NULL;
+
+    // Prepare middleware arrays
+    void** middleware_functions = NULL;
+    uint32_t* middleware_priorities = NULL;
+    int middleware_count = 0;
+
+    if (middleware_list && PyList_Check(middleware_list)) {
+        middleware_count = PyList_Size(middleware_list);
+
+        if (middleware_count > 0) {
+            // Allocate middleware arrays
+            middleware_functions = catzilla_cache_alloc(sizeof(void*) * middleware_count);
+            middleware_priorities = catzilla_cache_alloc(sizeof(uint32_t) * middleware_count);
+
+            if (!middleware_functions || !middleware_priorities) {
+                if (middleware_functions) catzilla_cache_free(middleware_functions);
+                if (middleware_priorities) catzilla_cache_free(middleware_priorities);
+                PyErr_NoMemory();
+                return NULL;
+            }
+
+            // Extract middleware function pointers and priorities
+            for (int i = 0; i < middleware_count; i++) {
+                PyObject *middleware_item = PyList_GetItem(middleware_list, i);
+                if (!PyLong_Check(middleware_item)) {
+                    catzilla_cache_free(middleware_functions);
+                    catzilla_cache_free(middleware_priorities);
+                    PyErr_SetString(PyExc_TypeError, "Middleware list must contain function IDs (integers)");
+                    return NULL;
+                }
+
+                long middleware_id = PyLong_AsLong(middleware_item);
+                middleware_functions[i] = (void*)(uintptr_t)middleware_id;
+
+                // Set priority from priority_list or use default
+                if (priority_list && PyList_Check(priority_list) && i < PyList_Size(priority_list)) {
+                    PyObject *priority_item = PyList_GetItem(priority_list, i);
+                    if (PyLong_Check(priority_item)) {
+                        middleware_priorities[i] = (uint32_t)PyLong_AsLong(priority_item);
+                    } else {
+                        middleware_priorities[i] = 1000 + i;  // Default priority
+                    }
+                } else {
+                    middleware_priorities[i] = 1000 + i;  // Default priority
+                }
+            }
+        }
+    }
+
+    // Add route to C router with middleware and route_id as user_data
+    uint32_t c_route_id = catzilla_router_add_route_with_middleware(&self->py_router, method, path,
+                                                                    (void*)(uintptr_t)route_id, NULL, false,
+                                                                    middleware_functions, middleware_count, middleware_priorities);
+
+    // Cleanup middleware arrays (they are copied internally)
+    if (middleware_functions) catzilla_cache_free(middleware_functions);
+    if (middleware_priorities) catzilla_cache_free(middleware_priorities);
+
+    if (c_route_id == 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to add route with middleware to C router");
+        return NULL;
+    }
+
+    return PyLong_FromLong(c_route_id);
+}
+
 // send_response(client_capsule, status, headers, body)
 static PyObject* send_response(PyObject *self, PyObject *args)
 {
@@ -1044,6 +1120,91 @@ static PyObject* router_add_route(PyObject *self, PyObject *args)
     return PyLong_FromLong(route_id);
 }
 
+// router_add_route_with_middleware(method, path, handler_id, middleware_ids, middleware_priorities) - Add route to C router with middleware
+static PyObject* router_add_route_with_middleware(PyObject *self, PyObject *args)
+{
+    const char *method, *path;
+    long handler_id;
+    PyObject *middleware_list = NULL;
+    PyObject *priority_list = NULL;
+
+    if (!PyArg_ParseTuple(args, "ssl|OO", &method, &path, &handler_id, &middleware_list, &priority_list))
+        return NULL;
+
+    // Initialize global router if needed
+    if (!global_router_initialized) {
+        if (catzilla_router_init(&global_router) != 0) {
+            PyErr_SetString(PyExc_RuntimeError, "Failed to initialize global router");
+            return NULL;
+        }
+        global_router_initialized = true;
+    }
+
+    // Prepare middleware arrays
+    void** middleware_functions = NULL;
+    uint32_t* middleware_priorities = NULL;
+    int middleware_count = 0;
+
+    if (middleware_list && PyList_Check(middleware_list)) {
+        middleware_count = PyList_Size(middleware_list);
+
+        if (middleware_count > 0) {
+            // Allocate middleware arrays
+            middleware_functions = catzilla_cache_alloc(sizeof(void*) * middleware_count);
+            middleware_priorities = catzilla_cache_alloc(sizeof(uint32_t) * middleware_count);
+
+            if (!middleware_functions || !middleware_priorities) {
+                if (middleware_functions) catzilla_cache_free(middleware_functions);
+                if (middleware_priorities) catzilla_cache_free(middleware_priorities);
+                PyErr_NoMemory();
+                return NULL;
+            }
+
+            // Extract middleware function pointers and priorities
+            for (int i = 0; i < middleware_count; i++) {
+                PyObject *middleware_item = PyList_GetItem(middleware_list, i);
+                if (!PyLong_Check(middleware_item)) {
+                    catzilla_cache_free(middleware_functions);
+                    catzilla_cache_free(middleware_priorities);
+                    PyErr_SetString(PyExc_TypeError, "Middleware list must contain function IDs (integers)");
+                    return NULL;
+                }
+
+                long middleware_id = PyLong_AsLong(middleware_item);
+                middleware_functions[i] = (void*)(uintptr_t)middleware_id;
+
+                // Set priority from priority_list or use default
+                if (priority_list && PyList_Check(priority_list) && i < PyList_Size(priority_list)) {
+                    PyObject *priority_item = PyList_GetItem(priority_list, i);
+                    if (PyLong_Check(priority_item)) {
+                        middleware_priorities[i] = (uint32_t)PyLong_AsLong(priority_item);
+                    } else {
+                        middleware_priorities[i] = 1000 + i;  // Default priority
+                    }
+                } else {
+                    middleware_priorities[i] = 1000 + i;  // Default priority
+                }
+            }
+        }
+    }
+
+    // Add route to global router with middleware
+    uint32_t route_id = catzilla_router_add_route_with_middleware(&global_router, method, path,
+                                                                  (void*)(uintptr_t)handler_id, NULL, false,
+                                                                  middleware_functions, middleware_count, middleware_priorities);
+
+    // Cleanup middleware arrays (they are copied internally)
+    if (middleware_functions) catzilla_cache_free(middleware_functions);
+    if (middleware_priorities) catzilla_cache_free(middleware_priorities);
+
+    if (route_id == 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to add route with middleware to router");
+        return NULL;
+    }
+
+    return PyLong_FromLong(route_id);
+}
+
 // Check if jemalloc is available
 static PyObject* has_jemalloc(PyObject *self, PyObject *args)
 {
@@ -1200,6 +1361,8 @@ static PyMethodDef CatzillaServer_methods[] = {
     {"stop",      (PyCFunction)CatzillaServer_stop,      METH_NOARGS,  "Stop server"},
     {"match_route", (PyCFunction)CatzillaServer_match_route, METH_VARARGS, "Match route using C router"},
     {"add_c_route", (PyCFunction)CatzillaServer_add_c_route, METH_VARARGS, "Add route to C router"},
+    {"add_c_route_with_middleware", (PyCFunction)CatzillaServer_add_c_route_with_middleware, METH_VARARGS, "Add route to C router with per-route middleware"},
+    {"add_c_route_with_middleware", (PyCFunction)CatzillaServer_add_c_route_with_middleware, METH_VARARGS, "Add route to C router with middleware"},
     {NULL}
 };
 
@@ -1224,6 +1387,8 @@ static PyMethodDef module_methods[] = {
     {"get_query_param", get_query_param, METH_VARARGS, "Get query parameter value"},
     {"router_match", router_match, METH_VARARGS, "Match route using C router"},
     {"router_add_route", router_add_route, METH_VARARGS, "Add route to C router"},
+    {"router_add_route_with_middleware", router_add_route_with_middleware, METH_VARARGS, "Add route to C router with per-route middleware"},
+    {"router_add_route_with_middleware", router_add_route_with_middleware, METH_VARARGS, "Add route to C router with middleware"},
     {"has_jemalloc", has_jemalloc, METH_NOARGS, "Check if jemalloc is available"},
     {"jemalloc_available", jemalloc_available, METH_NOARGS, "Check if jemalloc is available at runtime"},
     {"get_current_allocator", get_current_allocator, METH_NOARGS, "Get current allocator type"},

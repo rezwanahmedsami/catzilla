@@ -659,8 +659,9 @@ class Catzilla:
         *,
         overwrite: bool = False,
         dependencies: Optional[List[str]] = None,
+        middleware: Optional[List[Callable]] = None,
     ):
-        """Register a GET route handler with optional dependency injection"""
+        """Register a GET route handler with optional dependency injection and per-route middleware"""
 
         def decorator(handler: RouteHandler):
             # Apply dependency injection if enabled
@@ -675,7 +676,9 @@ class Catzilla:
             else:
                 validated_handler = enhanced_handler
 
-            return self.router.get(path, overwrite=overwrite)(validated_handler)
+            return self.router.get(path, overwrite=overwrite, middleware=middleware)(
+                validated_handler
+            )
 
         return decorator
 
@@ -685,8 +688,9 @@ class Catzilla:
         *,
         overwrite: bool = False,
         dependencies: Optional[List[str]] = None,
+        middleware: Optional[List[Callable]] = None,
     ):
-        """Register a POST route handler with optional dependency injection"""
+        """Register a POST route handler with optional dependency injection and per-route middleware"""
 
         def decorator(handler: RouteHandler):
             # Apply dependency injection if enabled
@@ -701,7 +705,9 @@ class Catzilla:
             else:
                 validated_handler = enhanced_handler
 
-            return self.router.post(path, overwrite=overwrite)(validated_handler)
+            return self.router.post(path, overwrite=overwrite, middleware=middleware)(
+                validated_handler
+            )
 
         return decorator
 
@@ -711,8 +717,9 @@ class Catzilla:
         *,
         overwrite: bool = False,
         dependencies: Optional[List[str]] = None,
+        middleware: Optional[List[Callable]] = None,
     ):
-        """Register a PUT route handler with optional dependency injection"""
+        """Register a PUT route handler with optional dependency injection and per-route middleware"""
 
         def decorator(handler: RouteHandler):
             # Apply dependency injection if enabled
@@ -727,7 +734,9 @@ class Catzilla:
             else:
                 validated_handler = enhanced_handler
 
-            return self.router.put(path, overwrite=overwrite)(validated_handler)
+            return self.router.put(path, overwrite=overwrite, middleware=middleware)(
+                validated_handler
+            )
 
         return decorator
 
@@ -737,8 +746,9 @@ class Catzilla:
         *,
         overwrite: bool = False,
         dependencies: Optional[List[str]] = None,
+        middleware: Optional[List[Callable]] = None,
     ):
-        """Register a DELETE route handler with optional dependency injection"""
+        """Register a DELETE route handler with optional dependency injection and per-route middleware"""
 
         def decorator(handler: RouteHandler):
             # Apply dependency injection if enabled
@@ -753,7 +763,9 @@ class Catzilla:
             else:
                 validated_handler = enhanced_handler
 
-            return self.router.delete(path, overwrite=overwrite)(validated_handler)
+            return self.router.delete(path, overwrite=overwrite, middleware=middleware)(
+                validated_handler
+            )
 
         return decorator
 
@@ -763,8 +775,9 @@ class Catzilla:
         *,
         overwrite: bool = False,
         dependencies: Optional[List[str]] = None,
+        middleware: Optional[List[Callable]] = None,
     ):
-        """Register a PATCH route handler with optional dependency injection"""
+        """Register a PATCH route handler with optional dependency injection and per-route middleware"""
 
         def decorator(handler: RouteHandler):
             # Apply dependency injection if enabled
@@ -779,7 +792,9 @@ class Catzilla:
             else:
                 validated_handler = enhanced_handler
 
-            return self.router.patch(path, overwrite=overwrite)(validated_handler)
+            return self.router.patch(path, overwrite=overwrite, middleware=middleware)(
+                validated_handler
+            )
 
         return decorator
 

@@ -28,9 +28,6 @@ struct catzilla_di_context_s;
 struct catzilla_di_factory_s;
 struct catzilla_di_scope_manager_s;
 struct catzilla_di_cache_s;
-struct catzilla_route_node_s {
-    int dummy; // Placeholder for trie implementation
-};
 
 /**
  * Service scope types for lifecycle management
