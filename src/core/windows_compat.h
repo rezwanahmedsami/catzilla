@@ -38,39 +38,7 @@
         };
     #endif
 
-    // Windows implementation of clock_gettime
-    static inline int clock_gettime(int clk_id, struct timespec *tp) {
-        if (!tp) return -1;
-
-        if (clk_id == CLOCK_MONOTONIC) {
-            static LARGE_INTEGER frequency = {0};
-            LARGE_INTEGER counter;
-
-            // Initialize frequency once
-            if (frequency.QuadPart == 0) {
-                if (!QueryPerformanceFrequency(&frequency)) {
-                    return -1;
-                }
-            }
-
-            // Get the current counter value
-            if (!QueryPerformanceCounter(&counter)) {
-                return -1;
-            }
-
-            // Convert to seconds and nanoseconds
-            tp->tv_sec = (time_t)(counter.QuadPart / frequency.QuadPart);
-            tp->tv_nsec = (long)(((counter.QuadPart % frequency.QuadPart) * 1000000000LL) / frequency.QuadPart);
-
-            return 0;
-        }
-
-        // For other clock types, fall back to regular time
-        time_t t = time(NULL);
-        tp->tv_sec = t;
-        tp->tv_nsec = 0;
-        return 0;
-    }
+    // NOTE: clock_gettime() implementation moved to platform_compat.h to avoid duplication
 
     // Function to initialize Windows networking (call once at startup)
     static inline int catzilla_init_windows_networking(void) {

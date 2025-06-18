@@ -1,4 +1,5 @@
 #include "middleware.h"
+#include "platform_compat.h"
 #include "memory.h"
 #include "dependency.h"
 #include <string.h>

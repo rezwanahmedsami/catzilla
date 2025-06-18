@@ -1,4 +1,5 @@
 #include "dependency.h"
+#include "platform_compat.h"
 #include "memory.h"
 #include "logging.h"
 #include <stdlib.h>
