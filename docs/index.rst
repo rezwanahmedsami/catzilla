@@ -67,8 +67,7 @@ O(log n) route lookup performance while maintaining a clean, Pythonic API.
    :caption: User Guide
 
    advanced
-   middleware_overview.md
-   middleware_guide.md
+   per_route_middleware.md
    middleware.md
 
 .. toctree::

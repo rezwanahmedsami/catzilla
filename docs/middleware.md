@@ -1,20 +1,19 @@
-# 🌪️ Zero-Allocation Middleware System
+# 🌪️ Advanced Global Middleware System
 
 Catzilla's revolutionary Zero-Allocation Middleware System provides **unprecedented performance** by executing middleware chains entirely in C while maintaining Python's flexibility and ease of use.
 
-> 📖 **New to middleware?** Start with the [**Middleware User Guide**](middleware_user_guide.md) for practical examples and step-by-step tutorials.
-
-This document provides the complete technical reference for advanced middleware features and performance optimization.
+> � **Recommended for New Projects**: Use [**Per-Route Middleware**](per_route_middleware.md) for better performance and cleaner code.
+>
+> This document covers **Global Middleware** for cross-cutting concerns like CORS, logging, and security headers.
 
 ## 🚀 Quick Start
 
 ```python
-from catzilla import Catzilla
-from catzilla.middleware import Response
+from catzilla import Catzilla, Response
 
 app = Catzilla()
 
-# Simple middleware - automatically compiled to C for maximum performance
+# Simple global middleware - automatically compiled to C for maximum performance
 @app.middleware(priority=100, pre_route=True)
 def auth_middleware(request):
     if not request.headers.get('Authorization'):
@@ -40,9 +39,16 @@ if __name__ == '__main__':
 
 ## 📖 Core Concepts
 
-### Middleware Registration
+### Middleware Types
 
-Middleware functions are registered using the `@app.middleware()` decorator with configurable options:
+Catzilla supports two types of middleware:
+
+1. **Global Middleware**: Applied to all routes (this document)
+2. **Per-Route Middleware**: Applied to specific routes ([Per-Route Middleware Guide](per_route_middleware.md) - **Recommended**)
+
+### Global Middleware Registration
+
+Global middleware functions are registered using the `@app.middleware()` decorator with configurable options:
 
 ```python
 @app.middleware(
@@ -63,7 +69,7 @@ Request → Pre-route Middleware → Route Handler → Post-route Middleware →
 
 ### Response Handling
 
-Middleware can:
+Global middleware can:
 - **Continue**: Return `None` to proceed to next middleware
 - **Short-circuit**: Return `Response` object to skip remaining middleware and route handler
 - **Modify**: Add data to `request.context` for downstream processing
@@ -97,9 +103,9 @@ def auth_middleware(request):
         )
 
     # Store user info for route handlers
-    if not hasattr(request, '_context'):
-        request._context = {}
-    request._context['user'] = get_user_from_token(token)
+    if not hasattr(request, 'context'):
+        request.context = {}
+    request.context['user'] = get_user_from_token(token)
     return None
 ```
 
@@ -108,7 +114,7 @@ def auth_middleware(request):
 ```python
 @app.middleware(priority=50, pre_route=True)
 def cors_middleware(request):
-    """Handle CORS preflight and headers"""
+    """Handle CORS preflight requests"""
 
     # Handle preflight OPTIONS requests
     if request.method == "OPTIONS":
@@ -143,16 +149,16 @@ import json
 @app.middleware(priority=10, pre_route=True)
 def request_logger(request):
     """Log incoming requests with timing"""
-    if not hasattr(request, '_context'):
-        request._context = {}
-    request._context['start_time'] = time.time()
+    if not hasattr(request, 'context'):
+        request.context = {}
+    request.context['start_time'] = time.time()
     print(f"📥 {request.method} {request.path} - {request.remote_addr}")
     return None
 
 @app.middleware(priority=990, pre_route=False)
 def response_logger(request, response):
     """Log response with duration"""
-    duration = time.time() - getattr(request, '_context', {}).get('start_time', 0)
+    duration = time.time() - getattr(request, 'context', {}).get('start_time', 0)
     print(f"📤 {response.status} - {duration*1000:.2f}ms")
     return response
 ```
@@ -196,18 +202,18 @@ def response_modifier(request, response):
 def user_middleware(request):
     """Extract user information"""
     # Initialize context if it doesn't exist
-    if not hasattr(request, '_context'):
-        request._context = {}
+    if not hasattr(request, 'context'):
+        request.context = {}
 
-    request._context['user_id'] = extract_user_id(request)
-    request._context['permissions'] = get_user_permissions(request._context['user_id'])
+    request.context['user_id'] = extract_user_id(request)
+    request.context['permissions'] = get_user_permissions(request.context['user_id'])
     return None
 
 @app.middleware(priority=100, pre_route=True)
 def permission_middleware(request):
     """Check permissions using context"""
     required_permission = get_required_permission(request.path)
-    user_permissions = getattr(request, '_context', {}).get('permissions', [])
+    user_permissions = getattr(request, 'context', {}).get('permissions', [])
 
     if required_permission not in user_permissions:
         return Response("Forbidden", status_code=403)
@@ -239,10 +245,10 @@ def complex_middleware(request):
     result = complex_business_logic(request)
 
     # Initialize context if needed
-    if not hasattr(request, '_context'):
-        request._context = {}
+    if not hasattr(request, 'context'):
+        request.context = {}
 
-    request._context['analysis'] = result
+    request.context['analysis'] = result
     return None
 ```
 
@@ -572,7 +578,7 @@ def modern_auth_middleware(request):
 
 ## 📚 Related Documentation
 
-- **[Middleware User Guide](middleware_user_guide.md)** - Practical tutorials and examples for beginners
+- **[Per-Route Middleware](per_route_middleware.md)** - Modern FastAPI-style middleware (recommended)
 - [Dependency Injection Guide](DEPENDENCY_INJECTION_GUIDE.md)
 - [Performance Optimization](performance.md)
 - [Error Handling](error-handling.md)
@@ -582,4 +588,4 @@ def modern_auth_middleware(request):
 
 ## 🤝 Contributing
 
-See the [examples/middleware/](../examples/middleware/) directory for complete working examples and the [plan/zero_allocation_middleware_system_plan.md](../plan/zero_allocation_middleware_system_plan.md) for technical implementation details.
+See the [examples/middleware/](../examples/middleware/) directory for complete working examples.
