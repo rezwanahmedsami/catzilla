@@ -683,7 +683,16 @@ FetchContent_Declare(yyjson
 FetchContent_MakeAvailable(yyjson)
 
 # Core static library
-add_library(catzilla_core STATIC src/core/server.c src/core/router.c src/core/memory.c src/core/middleware.c src/core/dependency.c src/core/validation.c src/core/windows_regex.c)
+add_library(catzilla_core STATIC
+    src/core/server.c
+    src/core/router.c
+    src/core/memory.c
+    src/core/middleware.c
+    src/core/dependency.c
+    src/core/validation.c
+    src/core/windows_regex.c
+    src/core/task_system.c
+)
 
 # Apply feature test macros only to Catzilla core sources (not third-party libs)
 if(NOT MSVC)
@@ -998,10 +1007,12 @@ if(NOT WHEEL_BUILD_MODE)
     configure_test_executable(test_dependency_injection tests/c/test_dependency_injection.c)
     configure_test_executable(test_memory tests/c/test_memory.c)
     configure_test_executable(test_middleware_minimal tests/c/test_middleware_minimal.c)
+    configure_test_executable(test_background_tasks tests/c/test_background_tasks.c)
 
     # Add Windows threading support for dependency injection test
     if(WIN32)
         target_link_libraries(test_dependency_injection PRIVATE kernel32)
+        target_link_libraries(test_background_tasks PRIVATE kernel32)
     endif()
 endif()
 

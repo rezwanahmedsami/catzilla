@@ -35,6 +35,15 @@ def _safe_print(message: str):
 
 
 from .auto_validation import create_auto_validated_handler
+
+# Import revolutionary Background Task System
+from .background_tasks import (
+    BackgroundTasks,
+    EngineStats,
+    TaskConfig,
+    TaskPriority,
+    TaskResult,
+)
 from .c_router import CAcceleratedRouter
 from .decorators import (
     _clear_current_context,
@@ -208,6 +217,10 @@ class Catzilla:
         # Initialize Zero-Allocation Middleware System
         self.middleware_system = None  # Will be initialized after app is complete
         self._registered_middlewares = []
+
+        # Initialize Revolutionary Background Task System
+        self.tasks: Optional[BackgroundTasks] = None
+        self._task_system_enabled = False
 
         # Memory profiling state (initialize before memory revolution)
         self._memory_stats_history: List[dict] = []
@@ -927,6 +940,179 @@ class Catzilla:
             return []
 
         return self.di_container.list_services()
+
+    # ========================================================================
+    # REVOLUTIONARY BACKGROUND TASK SYSTEM
+    # ========================================================================
+
+    def enable_background_tasks(
+        self,
+        workers: Optional[int] = None,
+        min_workers: int = 2,
+        max_workers: Optional[int] = None,
+        queue_size: int = 10000,
+        enable_auto_scaling: bool = True,
+        memory_pool_mb: int = 500,
+        enable_c_compilation: bool = True,
+        enable_profiling: bool = False,
+    ) -> None:
+        """Enable revolutionary background task system with C-speed execution
+
+        Args:
+            workers: Number of worker threads (auto-detected if None)
+            min_workers: Minimum number of workers for auto-scaling
+            max_workers: Maximum number of workers for auto-scaling (auto-detected if None)
+            queue_size: Maximum queue size for tasks
+            enable_auto_scaling: Enable intelligent auto-scaling based on queue pressure
+            memory_pool_mb: Memory pool size in MB for task execution with jemalloc optimization
+            enable_c_compilation: Enable automatic compilation of simple tasks to C
+            enable_profiling: Enable real-time performance monitoring
+
+        Note:
+            This creates a revolutionary task system that automatically compiles simple
+            Python functions to C for maximum performance while maintaining full Python
+            compatibility for complex tasks. Memory is optimized using jemalloc arenas.
+        """
+        if self.tasks is not None:
+            raise RuntimeError("Background task system already enabled")
+
+        # Use optimized memory pool if jemalloc is available
+        if self.has_jemalloc:
+            memory_pool_mb = int(
+                memory_pool_mb * 1.5
+            )  # 50% larger pool with jemalloc efficiency
+
+        self.tasks = BackgroundTasks(
+            workers=workers,
+            min_workers=min_workers,
+            max_workers=max_workers,
+            queue_size=queue_size,
+            enable_auto_scaling=enable_auto_scaling,
+            memory_pool_mb=memory_pool_mb,
+            enable_c_compilation=enable_c_compilation,
+            enable_profiling=enable_profiling,
+        )
+        self._task_system_enabled = True
+
+        # Register cleanup on shutdown
+        import atexit
+
+        atexit.register(self._shutdown_tasks)
+
+        _safe_print("🚀 Catzilla: Revolutionary Background Task System enabled")
+        _safe_print(f"   Workers: {workers or 'auto-detected'}")
+        _safe_print(
+            f"   C compilation: {'✅ enabled' if enable_c_compilation else '❌ disabled'}"
+        )
+        _safe_print(
+            f"   Auto-scaling: {'✅ enabled' if enable_auto_scaling else '❌ disabled'}"
+        )
+        _safe_print(
+            f"   Memory pool: {memory_pool_mb}MB ({'jemalloc optimized' if self.has_jemalloc else 'standard'})"
+        )
+
+    def add_task(
+        self,
+        func: Callable[..., Any],
+        *args,
+        priority: TaskPriority = TaskPriority.NORMAL,
+        delay_ms: int = 0,
+        max_retries: int = 3,
+        timeout_ms: int = 30000,
+        compile_to_c: Optional[bool] = None,
+        **kwargs,
+    ) -> TaskResult:
+        """Add task to the background task system
+
+        Args:
+            func: Function to execute as background task
+            *args: Arguments to pass to the function
+            priority: Task priority level (CRITICAL, HIGH, NORMAL, LOW)
+            delay_ms: Delay before execution in milliseconds
+            max_retries: Maximum retry attempts on failure
+            timeout_ms: Task execution timeout in milliseconds
+            compile_to_c: Force C compilation (None = auto-detect)
+            **kwargs: Keyword arguments to pass to the function
+
+        Returns:
+            TaskResult object for tracking completion and getting results
+
+        Raises:
+            RuntimeError: If background task system is not enabled
+        """
+        if not self._task_system_enabled or self.tasks is None:
+            raise RuntimeError(
+                "Background task system not enabled. Call enable_background_tasks() first."
+            )
+
+        return self.tasks.add_task(
+            func,
+            *args,
+            priority=priority,
+            delay_ms=delay_ms,
+            max_retries=max_retries,
+            timeout_ms=timeout_ms,
+            compile_to_c=compile_to_c,
+            **kwargs,
+        )
+
+    def task(
+        self,
+        priority: TaskPriority = TaskPriority.NORMAL,
+        compile_to_c: bool = True,
+        **config_kwargs,
+    ):
+        """Decorator to register tasks with automatic C compilation
+
+        Args:
+            priority: Task priority level
+            compile_to_c: Enable automatic C compilation for simple tasks
+            **config_kwargs: Additional task configuration
+
+        Returns:
+            Decorator function
+
+        Usage:
+            @app.task(priority=TaskPriority.HIGH, compile_to_c=True)
+            def send_notification(user_id: int, message: str):
+                # Simple functions automatically compiled to C for maximum speed
+                log_notification(user_id, message)
+                return {"status": "sent"}
+        """
+        if not self._task_system_enabled or self.tasks is None:
+            raise RuntimeError(
+                "Background task system not enabled. Call enable_background_tasks() first."
+            )
+
+        return self.tasks.task(
+            priority=priority, compile_to_c=compile_to_c, **config_kwargs
+        )
+
+    def get_task_stats(self) -> EngineStats:
+        """Get comprehensive task system performance statistics
+
+        Returns:
+            EngineStats object with detailed performance metrics
+
+        Raises:
+            RuntimeError: If background task system is not enabled
+        """
+        if not self._task_system_enabled or self.tasks is None:
+            raise RuntimeError("Background task system not enabled")
+
+        return self.tasks.get_stats()
+
+    def _shutdown_tasks(self):
+        """Graceful shutdown of background task system"""
+        if self.tasks:
+            try:
+                self.tasks.shutdown(wait_for_completion=True, timeout=30.0)
+                _safe_print("🚀 Catzilla: Background task system shutdown complete")
+            except Exception as e:
+                _safe_print(f"⚠️  Catzilla: Error during task system shutdown: {e}")
+            finally:
+                self.tasks = None
+                self._task_system_enabled = False
 
     # ========================================================================
     # ROUTER GROUP INTEGRATION
