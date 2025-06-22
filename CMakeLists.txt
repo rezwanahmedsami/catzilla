@@ -692,6 +692,7 @@ add_library(catzilla_core STATIC
     src/core/validation.c
     src/core/windows_regex.c
     src/core/task_system.c
+    src/core/cache_engine.c
 )
 
 # Apply feature test macros only to Catzilla core sources (not third-party libs)

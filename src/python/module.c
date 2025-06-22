@@ -23,6 +23,7 @@
 #include <string.h>
 #include <math.h>             // For HUGE_VAL
 #include <yyjson.h>
+#include "../core/cache_engine.h"
 
 // Structure to hold Python callback and routing table
 typedef struct {
@@ -51,10 +52,25 @@ typedef struct {
     validation_context_t *context;
 } CatzillaModelObject;
 
+// Python Cache object
+typedef struct {
+    PyObject_HEAD
+    catzilla_cache_t *cache;
+} CatzillaCacheObject;
+
+// Python CacheResult object
+typedef struct {
+    PyObject_HEAD
+    PyObject *data;
+    int hit;
+} CatzillaCacheResultObject;
+
 // Forward declarations for type objects
 static PyTypeObject CatzillaValidatorType;
 static PyTypeObject CatzillaModelType;
 static PyTypeObject CatzillaServerType;
+static PyTypeObject CatzillaCacheType;
+static PyTypeObject CatzillaCacheResultType;
 
 // Deallocate
 static void CatzillaServer_dealloc(CatzillaServerObject *self)
@@ -1354,6 +1370,235 @@ static PyTypeObject CatzillaModelType = {
     .tp_doc       = "Ultra-fast C-accelerated model validator"
 };
 
+// CacheResult deallocation
+static void CatzillaCacheResult_dealloc(CatzillaCacheResultObject *self) {
+    Py_XDECREF(self->data);
+    Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+// CacheResult data property
+static PyObject* CatzillaCacheResult_get_data(CatzillaCacheResultObject *self, void *closure) {
+    Py_INCREF(self->data);
+    return self->data;
+}
+
+// CacheResult hit property
+static PyObject* CatzillaCacheResult_get_hit(CatzillaCacheResultObject *self, void *closure) {
+    return PyBool_FromLong(self->hit);
+}
+
+// CacheResult properties
+static PyGetSetDef CatzillaCacheResult_getsets[] = {
+    {"data", (getter)CatzillaCacheResult_get_data, NULL, "Cache data", NULL},
+    {"hit", (getter)CatzillaCacheResult_get_hit, NULL, "Cache hit", NULL},
+    {NULL}  // Sentinel
+};
+
+// CacheResult type definition
+static PyTypeObject CatzillaCacheResultType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name = "catzilla.CacheResult",
+    .tp_doc = "Catzilla Cache Result object",
+    .tp_basicsize = sizeof(CatzillaCacheResultObject),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_dealloc = (destructor)CatzillaCacheResult_dealloc,
+    .tp_getset = CatzillaCacheResult_getsets,
+};
+
+// Cache deallocation
+static void CatzillaCache_dealloc(CatzillaCacheObject *self) {
+    if (self->cache) {
+        catzilla_cache_destroy(self->cache);
+    }
+    Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+// Cache creation
+static PyObject* CatzillaCache_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+    CatzillaCacheObject *self;
+    self = (CatzillaCacheObject*)type->tp_alloc(type, 0);
+    if (self != NULL) {
+        self->cache = NULL;
+    }
+    return (PyObject*)self;
+}
+
+// Cache initialization
+static int CatzillaCache_init(CatzillaCacheObject *self, PyObject *args, PyObject *kwds) {
+    size_t capacity = 10000;
+    size_t bucket_count = 0;
+
+    static char *kwlist[] = {"capacity", "bucket_count", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|nn", kwlist, &capacity, &bucket_count)) {
+        return -1;
+    }
+
+    self->cache = catzilla_cache_create(capacity, bucket_count);
+    if (!self->cache) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to create cache");
+        return -1;
+    }
+
+    return 0;
+}
+
+// Cache set method
+static PyObject* CatzillaCache_set(CatzillaCacheObject *self, PyObject *args, PyObject *kwds) {
+    const char *key;
+    PyObject *value;
+    uint32_t ttl = 0;
+
+    static char *kwlist[] = {"key", "value", "ttl", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "sO|I", kwlist, &key, &value, &ttl)) {
+        return NULL;
+    }
+
+    // Serialize Python object using pickle
+    PyObject *pickle_module = PyImport_ImportModule("pickle");
+    if (!pickle_module) {
+        return NULL;
+    }
+
+    PyObject *pickled = PyObject_CallMethod(pickle_module, "dumps", "O", value);
+    Py_DECREF(pickle_module);
+    if (!pickled) {
+        return NULL;
+    }
+
+    char *data = PyBytes_AsString(pickled);
+    Py_ssize_t size = PyBytes_Size(pickled);
+
+    int result = catzilla_cache_set(self->cache, key, data, size, ttl);
+    Py_DECREF(pickled);
+
+    if (result != 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to set cache value");
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
+// Cache get method
+static PyObject* CatzillaCache_get(CatzillaCacheObject *self, PyObject *args) {
+    const char *key;
+
+    if (!PyArg_ParseTuple(args, "s", &key)) {
+        return NULL;
+    }
+
+    cache_result_t result = catzilla_cache_get(self->cache, key);
+
+    CatzillaCacheResultObject *py_result = (CatzillaCacheResultObject*)CatzillaCacheResultType.tp_alloc(&CatzillaCacheResultType, 0);
+    if (!py_result) {
+        return NULL;
+    }
+
+    py_result->hit = result.found ? 1 : 0;
+
+    if (result.found) {
+        // Deserialize the pickled data
+        PyObject *bytes_obj = PyBytes_FromStringAndSize((const char*)result.data, result.size);
+        if (!bytes_obj) {
+            Py_DECREF(py_result);
+            return NULL;
+        }
+
+        PyObject *pickle_module = PyImport_ImportModule("pickle");
+        if (!pickle_module) {
+            Py_DECREF(bytes_obj);
+            Py_DECREF(py_result);
+            return NULL;
+        }
+
+        PyObject *unpickled = PyObject_CallMethod(pickle_module, "loads", "O", bytes_obj);
+        Py_DECREF(pickle_module);
+        Py_DECREF(bytes_obj);
+
+        if (!unpickled) {
+            Py_DECREF(py_result);
+            return NULL;
+        }
+
+        py_result->data = unpickled;
+    } else {
+        Py_INCREF(Py_None);
+        py_result->data = Py_None;
+    }
+
+    return (PyObject*)py_result;
+}
+
+// Cache delete method
+static PyObject* CatzillaCache_delete(CatzillaCacheObject *self, PyObject *args) {
+    const char *key;
+
+    if (!PyArg_ParseTuple(args, "s", &key)) {
+        return NULL;
+    }
+
+    int result = catzilla_cache_delete(self->cache, key);
+    return PyBool_FromLong(result == 0);
+}
+
+// Cache clear method
+static PyObject* CatzillaCache_clear(CatzillaCacheObject *self, PyObject *args) {
+    catzilla_cache_clear(self->cache);
+    Py_RETURN_NONE;
+}
+
+// Cache stats method
+static PyObject* CatzillaCache_get_stats(CatzillaCacheObject *self, PyObject *args) {
+    cache_statistics_t stats = catzilla_cache_get_stats(self->cache);
+
+    return Py_BuildValue("{s:K,s:K,s:K,s:K,s:K}",
+                         "hits", (unsigned long long)stats.hits,
+                         "misses", (unsigned long long)stats.misses,
+                         "evictions", (unsigned long long)stats.evictions,
+                         "memory_usage", (unsigned long long)stats.memory_usage,
+                         "total_requests", (unsigned long long)stats.total_requests);
+}
+
+// Cache exists method
+static PyObject* CatzillaCache_exists(CatzillaCacheObject *self, PyObject *args) {
+    const char *key;
+
+    if (!PyArg_ParseTuple(args, "s", &key)) {
+        return NULL;
+    }
+
+    bool exists = catzilla_cache_exists(self->cache, key);
+    return PyBool_FromLong(exists);
+}
+
+// Cache methods
+static PyMethodDef CatzillaCache_methods[] = {
+    {"set", (PyCFunction)CatzillaCache_set, METH_VARARGS | METH_KEYWORDS, "Set a cache value"},
+    {"get", (PyCFunction)CatzillaCache_get, METH_VARARGS, "Get a cache value"},
+    {"delete", (PyCFunction)CatzillaCache_delete, METH_VARARGS, "Delete a cache value"},
+    {"clear", (PyCFunction)CatzillaCache_clear, METH_NOARGS, "Clear all cache values"},
+    {"get_stats", (PyCFunction)CatzillaCache_get_stats, METH_NOARGS, "Get cache statistics"},
+    {"exists", (PyCFunction)CatzillaCache_exists, METH_VARARGS, "Check if key exists"},
+    {NULL}  // Sentinel
+};
+
+// Cache type definition
+static PyTypeObject CatzillaCacheType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name = "catzilla.Cache",
+    .tp_doc = "Catzilla Cache object",
+    .tp_basicsize = sizeof(CatzillaCacheObject),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_new = CatzillaCache_new,
+    .tp_init = (initproc)CatzillaCache_init,
+    .tp_dealloc = (destructor)CatzillaCache_dealloc,
+    .tp_methods = CatzillaCache_methods,
+};
+
 // Method tables and module definition
 static PyMethodDef CatzillaServer_methods[] = {
     {"listen",    (PyCFunction)CatzillaServer_listen,   METH_VARARGS, "Start listening"},
@@ -1427,6 +1672,10 @@ PyMODINIT_FUNC PyInit__catzilla(void)
         return NULL;
     if (PyType_Ready(&CatzillaServerType) < 0)
         return NULL;
+    if (PyType_Ready(&CatzillaCacheType) < 0)
+        return NULL;
+    if (PyType_Ready(&CatzillaCacheResultType) < 0)
+        return NULL;
 
     PyObject *m = PyModule_Create(&catzilla_module);
     if (!m) return NULL;
@@ -1451,6 +1700,22 @@ PyMODINIT_FUNC PyInit__catzilla(void)
     Py_INCREF(&CatzillaModelType);
     if (PyModule_AddObject(m, "Model", (PyObject*)&CatzillaModelType) < 0) {
         Py_DECREF(&CatzillaModelType);
+        Py_DECREF(m);
+        return NULL;
+    }
+
+    // Add Cache type
+    Py_INCREF(&CatzillaCacheType);
+    if (PyModule_AddObject(m, "Cache", (PyObject*)&CatzillaCacheType) < 0) {
+        Py_DECREF(&CatzillaCacheType);
+        Py_DECREF(m);
+        return NULL;
+    }
+
+    // Add CacheResult type
+    Py_INCREF(&CatzillaCacheResultType);
+    if (PyModule_AddObject(m, "CacheResult", (PyObject*)&CatzillaCacheResultType) < 0) {
+        Py_DECREF(&CatzillaCacheResultType);
         Py_DECREF(m);
         return NULL;
     }
