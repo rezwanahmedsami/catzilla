@@ -67,6 +67,7 @@ O(log n) route lookup performance while maintaining a clean, Pythonic API.
    :caption: User Guide
 
    advanced
+   BACKGROUND_TASK_SYSTEM.md
    per_route_middleware.md
    middleware.md
 
