@@ -1009,11 +1009,18 @@ if(NOT WHEEL_BUILD_MODE)
     configure_test_executable(test_memory tests/c/test_memory.c)
     configure_test_executable(test_middleware_minimal tests/c/test_middleware_minimal.c)
     configure_test_executable(test_background_tasks tests/c/test_background_tasks.c)
+    configure_test_executable(test_cache_engine tests/c/test_cache_engine.c)
 
     # Add Windows threading support for dependency injection test
     if(WIN32)
         target_link_libraries(test_dependency_injection PRIVATE kernel32)
         target_link_libraries(test_background_tasks PRIVATE kernel32)
+        target_link_libraries(test_cache_engine PRIVATE kernel32)
+    endif()
+
+    # Add pthread support for cache engine test (Unix/Linux/macOS)
+    if(NOT WIN32)
+        target_link_libraries(test_cache_engine PRIVATE pthread)
     endif()
 endif()
 
