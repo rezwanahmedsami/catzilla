@@ -4,13 +4,98 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifndef _WIN32
+#ifdef _WIN32
+// Windows implementation stubs
+#include <windows.h>
+
+// Windows timing utilities
+static uint64_t get_nanoseconds(void) {
+    LARGE_INTEGER frequency, counter;
+    QueryPerformanceFrequency(&frequency);
+    QueryPerformanceCounter(&counter);
+    return (uint64_t)((counter.QuadPart * 1000000000ULL) / frequency.QuadPart);
+}
+
+static uint64_t get_thread_id(void) {
+    return (uint64_t)GetCurrentThreadId();
+}
+
+// Atomic operation helpers for Windows
+#define ATOMIC_LOAD(ptr) (*(ptr))
+#define ATOMIC_STORE(ptr, val) (*(ptr) = (val))
+#define ATOMIC_CAS(ptr, expected, desired) \
+    (InterlockedCompareExchangePointer((volatile PVOID*)(ptr), (PVOID)(desired), (PVOID)(*expected)) == (PVOID)(*expected) ? ((*expected) = (desired), true) : false)
+
+// Windows stub implementations
+uint64_t catzilla_get_nanoseconds(void) {
+    return get_nanoseconds();
+}
+
+// Task engine stubs
+task_engine_t* catzilla_task_engine_create(
+    int initial_workers,
+    int min_workers,
+    int max_workers,
+    size_t queue_size,
+    bool enable_auto_scaling,
+    size_t memory_pool_mb
+) {
+    return NULL; // Stub
+}
+
+void catzilla_task_engine_destroy(task_engine_t* engine) {
+    // Stub
+}
+
+bool catzilla_schedule_task(task_engine_t* engine, catzilla_task_func_t func, void* data, catzilla_task_priority_t priority) {
+    return false; // Stub
+}
+
+// Queue operation stubs
+lock_free_queue_t* catzilla_queue_create(const char* name, size_t max_size, int memory_type) {
+    return NULL; // Stub
+}
+
+bool catzilla_queue_enqueue(lock_free_queue_t* queue, catzilla_task_t* task) {
+    return false; // Stub
+}
+
+catzilla_task_t* catzilla_queue_dequeue(lock_free_queue_t* queue) {
+    return NULL; // Stub
+}
+
+bool catzilla_queue_is_empty(lock_free_queue_t* queue) {
+    return true; // Stub
+}
+
+uint64_t catzilla_queue_size(lock_free_queue_t* queue) {
+    return 0; // Stub
+}
+
+void catzilla_queue_destroy(lock_free_queue_t* queue) {
+    // Stub
+}
+
+// Task management stubs
+catzilla_task_t* catzilla_task_create(int priority, uint64_t delay_ms, int max_retries, int memory_type) {
+    return NULL; // Stub
+}
+
+void catzilla_task_destroy(catzilla_task_t* task) {
+    // Stub
+}
+
+void catzilla_task_update_stats(catzilla_task_t* task) {
+    // Stub
+}
+
+#else
+// Task system implementation - Unix/Linux/macOS only
 #include <unistd.h>
 #include <errno.h>
 #include <sys/time.h>
 #include <assert.h>
 #include <pthread.h>
-#endif
 
 // Platform-specific includes
 #ifdef __linux__
@@ -683,24 +768,6 @@ task_engine_stats_t catzilla_task_engine_get_stats(task_engine_t* engine) {
 // Public utility function for nanosecond timing
 uint64_t catzilla_get_nanoseconds(void) {
     return get_nanoseconds();
-}
-
-#ifndef _WIN32
-// Task system implementation - Unix/Linux/macOS only for now
-#else
-// Windows stub implementation - TODO: Implement Windows threading
-// For now, provide minimal stubs to allow compilation
-
-catzilla_task_engine_t* catzilla_task_engine_create(int num_workers) {
-    return NULL; // Stub
-}
-
-void catzilla_task_engine_destroy(catzilla_task_engine_t* engine) {
-    // Stub
-}
-
-bool catzilla_schedule_task(catzilla_task_engine_t* engine, catzilla_task_func_t func, void* data, catzilla_task_priority_t priority) {
-    return false; // Stub
 }
 
 #endif // _WIN32

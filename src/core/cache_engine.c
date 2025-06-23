@@ -19,6 +19,10 @@
 #include <time.h>
 #include "platform_threading.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #ifdef JEMALLOC_ENABLED
 #include <jemalloc/jemalloc.h>
 #endif
@@ -37,9 +41,16 @@ static uint32_t hash_key(const char* key, size_t len) {
 
 // Get current timestamp in microseconds
 static uint64_t get_timestamp_us() {
+#ifdef _WIN32
+    LARGE_INTEGER freq, counter;
+    QueryPerformanceFrequency(&freq);
+    QueryPerformanceCounter(&counter);
+    return (uint64_t)((counter.QuadPart * 1000000ULL) / freq.QuadPart);
+#else
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (uint64_t)ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
+#endif
 }
 
 // Move entry to front of LRU list (most recently used)

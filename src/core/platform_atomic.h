@@ -15,6 +15,13 @@
 
     typedef volatile uint64_t catzilla_atomic_uint64_t;
     typedef volatile size_t catzilla_atomic_size_t;
+    typedef volatile void* catzilla_atomic_ptr_t;
+    typedef volatile double catzilla_atomic_double_t;
+
+    // Atomic type aliases for task_system.h compatibility
+    typedef catzilla_atomic_ptr_t atomic_ptr_t;
+    typedef catzilla_atomic_uint64_t atomic_uint64_t;
+    typedef catzilla_atomic_double_t atomic_double_t;
 
     #define catzilla_atomic_load(ptr) (*(ptr))
     #define catzilla_atomic_store(ptr, val) (*(ptr) = (val))

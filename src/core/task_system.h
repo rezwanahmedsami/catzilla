@@ -3,19 +3,18 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <time.h>
+#include "memory.h"
+#include "platform_atomic.h"
 
 #ifndef _WIN32
 #include <pthread.h>
 #include <stdatomic.h>
-#endif
-
-#include <time.h>
-#include "memory.h"
-
-// Atomic type definitions for compatibility
+// For non-Windows, use standard atomic types
 typedef _Atomic(void*) atomic_ptr_t;
 typedef _Atomic(uint64_t) atomic_uint64_t;
 typedef _Atomic(double) atomic_double_t;
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -337,14 +336,109 @@ void catzilla_task_update_stats(catzilla_task_t* task);
 #else
 // Windows stub declarations
 typedef struct task_engine task_engine_t;
-typedef task_engine_t catzilla_task_engine_t;
+typedef struct catzilla_task catzilla_task_t;
+typedef struct lock_free_queue lock_free_queue_t;
+typedef struct worker_thread worker_thread_t;
+typedef struct worker_pool worker_pool_t;
+
+// Minimal task structure for Windows
+struct catzilla_task {
+    uint64_t task_id;
+    int priority;
+    int status;
+    void* result_data;
+    size_t result_size;
+    uint64_t created_at;
+    uint64_t scheduled_at;
+    uint64_t delay_ms;
+    uint64_t timeout_ms;
+    int max_retries;
+    int current_retries;
+    double retry_backoff_factor;
+    int memory_type;
+    void* arena_ptr;
+    size_t total_size;
+    void (*on_success)(void* result, void* context);
+    void (*on_failure)(void* error, void* context);
+    void (*on_retry)(int attempt, void* context);
+    void* callback_context;
+    uint64_t execution_start;
+    uint64_t execution_end;
+    uint64_t memory_peak;
+    atomic_ptr_t next;
+    atomic_ptr_t prev;
+    union {
+        struct {
+            void (*c_func)(void* data, void* result);
+            void* c_data;
+            size_t data_size;
+        } c_task;
+        struct {
+            void* py_func;
+            void* py_args;
+            void* py_kwargs;
+        } py_task;
+    };
+};
+
+// Minimal queue structure for Windows
+struct lock_free_queue {
+    atomic_ptr_t head;
+    atomic_ptr_t tail;
+    atomic_uint64_t size;
+    uint64_t max_size;
+    atomic_uint64_t enqueue_count;
+    atomic_uint64_t dequeue_count;
+    atomic_uint64_t contention_count;
+    atomic_uint64_t overflow_count;
+    int queue_memory_type;
+    char name[64];
+};
+
+// Minimal engine structure for Windows
+struct task_engine {
+    void* placeholder;
+};
+
+// Function type definitions
 typedef void (*catzilla_task_func_t)(void* data);
 typedef int catzilla_task_priority_t;
 
+// Statistics structure
+typedef struct {
+    uint64_t uptime_seconds;
+    uint64_t total_tasks_processed;
+    double engine_cpu_usage;
+    uint64_t engine_memory_usage;
+} task_engine_stats_t;
+
 // Minimal function declarations for Windows
-catzilla_task_engine_t* catzilla_task_engine_create(int num_workers);
-void catzilla_task_engine_destroy(catzilla_task_engine_t* engine);
-bool catzilla_schedule_task(catzilla_task_engine_t* engine, catzilla_task_func_t func, void* data, catzilla_task_priority_t priority);
+task_engine_t* catzilla_task_engine_create(
+    int initial_workers,
+    int min_workers,
+    int max_workers,
+    size_t queue_size,
+    bool enable_auto_scaling,
+    size_t memory_pool_mb
+);
+void catzilla_task_engine_destroy(task_engine_t* engine);
+bool catzilla_schedule_task(task_engine_t* engine, catzilla_task_func_t func, void* data, catzilla_task_priority_t priority);
+
+// Queue operations
+lock_free_queue_t* catzilla_queue_create(const char* name, size_t max_size, int memory_type);
+bool catzilla_queue_enqueue(lock_free_queue_t* queue, catzilla_task_t* task);
+catzilla_task_t* catzilla_queue_dequeue(lock_free_queue_t* queue);
+bool catzilla_queue_is_empty(lock_free_queue_t* queue);
+uint64_t catzilla_queue_size(lock_free_queue_t* queue);
+void catzilla_queue_destroy(lock_free_queue_t* queue);
+
+// Task management
+catzilla_task_t* catzilla_task_create(int priority, uint64_t delay_ms, int max_retries, int memory_type);
+void catzilla_task_destroy(catzilla_task_t* task);
+
+// Utility functions
+uint64_t catzilla_get_nanoseconds(void);
+void catzilla_task_update_stats(catzilla_task_t* task);
 
 #endif // _WIN32
 
