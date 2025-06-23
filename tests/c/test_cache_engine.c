@@ -2,8 +2,10 @@
 #include "unity.h"
 #include "cache_engine.h"
 #include <string.h>
+#ifndef _WIN32
 #include <unistd.h>
 #include <pthread.h>
+#endif
 
 static catzilla_cache_t* test_cache = NULL;
 

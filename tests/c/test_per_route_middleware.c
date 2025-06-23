@@ -17,8 +17,10 @@
 #include <string.h>
 #include <assert.h>
 #include <time.h>
+#ifndef _WIN32
 #include <sys/time.h>
 #include <unistd.h>
+#endif
 
 // Include core headers
 #include "../../src/core/router.h"
