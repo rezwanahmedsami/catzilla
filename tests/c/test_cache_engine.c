@@ -5,6 +5,8 @@
 #ifndef _WIN32
 #include <unistd.h>
 #include <pthread.h>
+#else
+#include <windows.h>
 #endif
 
 static catzilla_cache_t* test_cache = NULL;
@@ -139,7 +141,11 @@ void test_cache_ttl_expiration() {
     TEST_ASSERT_TRUE(get_result.found);
 
     // Wait for expiration (sleep 2 seconds to be sure)
+#ifndef _WIN32
     sleep(2);
+#else
+    Sleep(2000);
+#endif
 
     // Should be expired now
     get_result = catzilla_cache_get(test_cache, key);
@@ -212,13 +218,18 @@ void* thread_test_function(void* arg) {
         }
 
         // Small delay to increase chance of race conditions
+#ifndef _WIN32
         usleep(1000);  // 1ms
+#else
+        Sleep(1);  // 1ms
+#endif
     }
 
     return NULL;
 }
 
 void test_cache_thread_safety() {
+#ifndef _WIN32
     const int num_threads = 4;
     const int ops_per_thread = 10;  // Reduced for faster testing
     pthread_t threads[num_threads];
@@ -249,6 +260,10 @@ void test_cache_thread_safety() {
 
     // Allow for some operations to fail due to concurrency, but most should succeed
     TEST_ASSERT_GREATER_THAN(total_expected / 2, total_success);
+#else
+    // Skip thread safety test on Windows (pthread not available)
+    TEST_PASS_MESSAGE("Thread safety test skipped on Windows platform");
+#endif
 }
 
 int main(void) {

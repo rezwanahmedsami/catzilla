@@ -4,6 +4,8 @@
 #include <string.h>
 #ifndef _WIN32
 #include <unistd.h>
+#else
+#include <windows.h>
 #endif
 #include <assert.h>
 
@@ -132,11 +134,11 @@ int main() {
 
     // Test 4: Batch task submission
     printf("\n📋 Test 4: Batch Task Submission\n");
-    const int batch_size = 50;
-    uint64_t batch_task_ids[batch_size];
-    int batch_inputs[batch_size];
+#define BATCH_SIZE 50
+    uint64_t batch_task_ids[BATCH_SIZE];
+    int batch_inputs[BATCH_SIZE];
 
-    for (int i = 0; i < batch_size; i++) {
+    for (int i = 0; i < BATCH_SIZE; i++) {
         batch_inputs[i] = i + 1;
         batch_task_ids[i] = catzilla_task_add_c(
             engine,
@@ -150,23 +152,28 @@ int main() {
     }
 
     int successful_batch_tasks = 0;
-    for (int i = 0; i < batch_size; i++) {
+    for (int i = 0; i < BATCH_SIZE; i++) {
         if (batch_task_ids[i] != 0) {
             successful_batch_tasks++;
         }
     }
 
     printf("✅ Batch submission: %d/%d tasks queued successfully\n",
-           successful_batch_tasks, batch_size);
+           successful_batch_tasks, BATCH_SIZE);
 
     // Wait for tasks to complete
     printf("\n⏳ Waiting for tasks to complete...\n");
+#ifndef _WIN32
     sleep(2);  // Give tasks time to execute
+#else
+    Sleep(2000);  // Windows sleep in milliseconds
+#endif
 
     // Get performance statistics
     printf("\n📊 Performance Statistics\n");
     task_engine_stats_t stats = catzilla_task_engine_get_stats(engine);
 
+#ifndef _WIN32
     printf("Queue Status:\n");
     printf("  Critical queue: %llu tasks\n", stats.critical_queue_size);
     printf("  High queue:     %llu tasks\n", stats.high_queue_size);
@@ -190,6 +197,14 @@ int main() {
     printf("  Total processed:     %llu tasks\n", stats.total_tasks_processed);
     printf("  Failed tasks:        %llu\n", stats.failed_tasks);
     printf("  Error rate:          %.2f%%\n", stats.error_rate * 100);
+#else
+    // Windows has limited stats
+    printf("Basic Statistics (Windows):\n");
+    printf("  Uptime:              %llu seconds\n", stats.uptime_seconds);
+    printf("  Total processed:     %llu tasks\n", stats.total_tasks_processed);
+    printf("  Engine CPU usage:    %.2f%%\n", stats.engine_cpu_usage);
+    printf("  Engine memory:       %llu MB\n", stats.engine_memory_usage);
+#endif
 
     // Test 5: Stress test
     printf("\n📋 Test 5: Stress Test (1000 tasks)\n");
@@ -218,7 +233,11 @@ int main() {
 
         // Don't overwhelm the system
         if (i % 100 == 0) {
+#ifndef _WIN32
             usleep(1000); // 1ms pause every 100 tasks
+#else
+            Sleep(1); // 1ms pause every 100 tasks (Windows)
+#endif
         }
     }
 
@@ -232,14 +251,25 @@ int main() {
 
     // Wait for stress test completion
     printf("⏳ Waiting for stress test completion...\n");
+#ifndef _WIN32
     sleep(3);
+#else
+    Sleep(3000);
+#endif
 
     // Final statistics
     printf("\n📊 Final Performance Statistics\n");
     stats = catzilla_task_engine_get_stats(engine);
     printf("Total tasks processed: %llu\n", stats.total_tasks_processed);
+#ifndef _WIN32
     printf("Current throughput:    %llu tasks/second\n", stats.tasks_per_second);
     printf("Memory efficiency:     %.1f%%\n", stats.memory_efficiency * 100);
+#else
+    printf("Engine CPU usage:      %.2f%%\n", stats.engine_cpu_usage);
+    printf("Engine memory usage:   %llu MB\n", stats.engine_memory_usage);
+#endif
+
+#undef BATCH_SIZE
 
     // Shutdown test
     printf("\n🔄 Testing Graceful Shutdown\n");
