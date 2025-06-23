@@ -423,6 +423,18 @@ task_engine_t* catzilla_task_engine_create(
 );
 void catzilla_task_engine_destroy(task_engine_t* engine);
 bool catzilla_schedule_task(task_engine_t* engine, catzilla_task_func_t func, void* data, catzilla_task_priority_t priority);
+task_engine_stats_t catzilla_task_engine_get_stats(task_engine_t* engine);
+int catzilla_task_engine_start(task_engine_t* engine);
+int catzilla_task_engine_stop(task_engine_t* engine, bool wait_for_completion);
+uint64_t catzilla_task_add_c(
+    task_engine_t* engine,
+    void (*c_func)(void* data, void* result),
+    void* data,
+    size_t data_size,
+    int priority,
+    uint64_t delay_ms,
+    int max_retries
+);
 
 // Queue operations
 lock_free_queue_t* catzilla_queue_create(const char* name, size_t max_size, int memory_type);

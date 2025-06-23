@@ -89,6 +89,36 @@ void catzilla_task_update_stats(catzilla_task_t* task) {
     // Stub
 }
 
+task_engine_stats_t catzilla_task_engine_get_stats(task_engine_t* engine) {
+    task_engine_stats_t stats = {0};
+    // Windows stub - return basic stats only
+    stats.uptime_seconds = 0;
+    stats.total_tasks_processed = 0;
+    stats.engine_cpu_usage = 0.0;
+    stats.engine_memory_usage = 0;
+    return stats;
+}
+
+int catzilla_task_engine_start(task_engine_t* engine) {
+    return -1; // Stub - not implemented on Windows
+}
+
+int catzilla_task_engine_stop(task_engine_t* engine, bool wait_for_completion) {
+    return 0; // Stub - always "succeeds"
+}
+
+uint64_t catzilla_task_add_c(
+    task_engine_t* engine,
+    void (*c_func)(void* data, void* result),
+    void* data,
+    size_t data_size,
+    int priority,
+    uint64_t delay_ms,
+    int max_retries
+) {
+    return 0; // Stub - return invalid task ID
+}
+
 #else
 // Task system implementation - Unix/Linux/macOS only
 #include <unistd.h>
