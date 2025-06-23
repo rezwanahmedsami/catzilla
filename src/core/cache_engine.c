@@ -17,7 +17,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <time.h>
-#include <pthread.h>
+#include "platform_threading.h"
 
 #ifdef JEMALLOC_ENABLED
 #include <jemalloc/jemalloc.h>
@@ -166,7 +166,7 @@ catzilla_cache_t* catzilla_cache_create(size_t capacity, size_t bucket_count) {
     cache->stats.hit_ratio = 0.0;
 
     // Initialize thread safety
-    pthread_rwlock_init(&cache->rwlock, NULL);
+    catzilla_rwlock_init(&cache->rwlock);
 
     // Configuration defaults
     cache->default_ttl = 3600; // 1 hour
@@ -189,7 +189,7 @@ int catzilla_cache_set(catzilla_cache_t* cache, const char* key, const void* val
     uint64_t now = get_timestamp_us();
     uint64_t expires_at = now + (uint64_t)ttl * 1000000; // Convert to microseconds
 
-    pthread_rwlock_wrlock(&cache->rwlock);
+    catzilla_rwlock_wrlock(&cache->rwlock);
 
     // Check if key already exists
     cache_entry_t* existing = cache->buckets[bucket_index];
@@ -204,7 +204,7 @@ int catzilla_cache_set(catzilla_cache_t* cache, const char* key, const void* val
             existing->value = malloc(value_size);
 #endif
             if (!existing->value) {
-                pthread_rwlock_unlock(&cache->rwlock);
+                catzilla_rwlock_unlock(&cache->rwlock);
                 return -1;
             }
 
@@ -215,7 +215,7 @@ int catzilla_cache_set(catzilla_cache_t* cache, const char* key, const void* val
             existing->access_count++;
 
             lru_move_to_front(cache, existing);
-            pthread_rwlock_unlock(&cache->rwlock);
+            catzilla_rwlock_unlock(&cache->rwlock);
             return 0;
         }
         existing = existing->next;
@@ -249,7 +249,7 @@ int catzilla_cache_set(catzilla_cache_t* cache, const char* key, const void* val
             free(entry);
 #endif
         }
-        pthread_rwlock_unlock(&cache->rwlock);
+        catzilla_rwlock_unlock(&cache->rwlock);
         return -1;
     }
 
@@ -282,7 +282,7 @@ int catzilla_cache_set(catzilla_cache_t* cache, const char* key, const void* val
     catzilla_atomic_fetch_add(&cache->size, 1);
     catzilla_atomic_fetch_add(&cache->stats.memory_usage, value_size + key_len + sizeof(cache_entry_t));
 
-    pthread_rwlock_unlock(&cache->rwlock);
+    catzilla_rwlock_unlock(&cache->rwlock);
     return 0;
 }
 
@@ -300,17 +300,17 @@ cache_result_t catzilla_cache_get(catzilla_cache_t* cache, const char* key) {
     uint32_t bucket_index = hash % cache->bucket_count;
     uint64_t now = get_timestamp_us();
 
-    pthread_rwlock_rdlock(&cache->rwlock);
+    catzilla_rwlock_rdlock(&cache->rwlock);
 
     cache_entry_t* entry = cache->buckets[bucket_index];
     while (entry) {
         if (entry->hash == hash && strcmp(entry->key, key) == 0) {
             // Check if expired
             if (now > entry->expires_at) {
-                pthread_rwlock_unlock(&cache->rwlock);
+                catzilla_rwlock_unlock(&cache->rwlock);
 
                 // Remove expired entry (requires write lock)
-                pthread_rwlock_wrlock(&cache->rwlock);
+                catzilla_rwlock_wrlock(&cache->rwlock);
                 // Re-find entry in case it was removed by another thread
                 cache_entry_t** current = &cache->buckets[bucket_index];
                 while (*current && (*current != entry || strcmp((*current)->key, key) != 0)) {
@@ -330,7 +330,7 @@ cache_result_t catzilla_cache_get(catzilla_cache_t* cache, const char* key) {
 #endif
                     catzilla_atomic_fetch_sub(&cache->size, 1);
                 }
-                pthread_rwlock_unlock(&cache->rwlock);
+                catzilla_rwlock_unlock(&cache->rwlock);
 
                 catzilla_atomic_fetch_add(&cache->stats.misses, 1);
                 return result;
@@ -344,12 +344,12 @@ cache_result_t catzilla_cache_get(catzilla_cache_t* cache, const char* key) {
             result.size = entry->value_size;
             result.found = true;
 
-            pthread_rwlock_unlock(&cache->rwlock);
+            catzilla_rwlock_unlock(&cache->rwlock);
 
             // Move to front of LRU (requires write lock)
-            pthread_rwlock_wrlock(&cache->rwlock);
+            catzilla_rwlock_wrlock(&cache->rwlock);
             lru_move_to_front(cache, entry);
-            pthread_rwlock_unlock(&cache->rwlock);
+            catzilla_rwlock_unlock(&cache->rwlock);
 
             catzilla_atomic_fetch_add(&cache->stats.hits, 1);
             catzilla_atomic_fetch_add(&cache->stats.total_requests, 1);
@@ -364,7 +364,7 @@ cache_result_t catzilla_cache_get(catzilla_cache_t* cache, const char* key) {
         entry = entry->next;
     }
 
-    pthread_rwlock_unlock(&cache->rwlock);
+    catzilla_rwlock_unlock(&cache->rwlock);
     catzilla_atomic_fetch_add(&cache->stats.misses, 1);
     catzilla_atomic_fetch_add(&cache->stats.total_requests, 1);
 
@@ -381,7 +381,7 @@ int catzilla_cache_delete(catzilla_cache_t* cache, const char* key) {
     uint32_t hash = hash_key(key, key_len);
     uint32_t bucket_index = hash % cache->bucket_count;
 
-    pthread_rwlock_wrlock(&cache->rwlock);
+    catzilla_rwlock_wrlock(&cache->rwlock);
 
     cache_entry_t** current = &cache->buckets[bucket_index];
     while (*current) {
@@ -402,13 +402,13 @@ int catzilla_cache_delete(catzilla_cache_t* cache, const char* key) {
 #endif
 
             catzilla_atomic_fetch_sub(&cache->size, 1);
-            pthread_rwlock_unlock(&cache->rwlock);
+            catzilla_rwlock_unlock(&cache->rwlock);
             return 0;
         }
         current = &(*current)->next;
     }
 
-    pthread_rwlock_unlock(&cache->rwlock);
+    catzilla_rwlock_unlock(&cache->rwlock);
     return -1; // Key not found
 }
 
@@ -438,7 +438,7 @@ void catzilla_cache_clear(catzilla_cache_t* cache) {
         return;
     }
 
-    pthread_rwlock_wrlock(&cache->rwlock);
+    catzilla_rwlock_wrlock(&cache->rwlock);
 
     for (size_t i = 0; i < cache->bucket_count; i++) {
         cache_entry_t* entry = cache->buckets[i];
@@ -463,7 +463,7 @@ void catzilla_cache_clear(catzilla_cache_t* cache) {
     catzilla_atomic_store(&cache->size, 0);
     catzilla_atomic_store(&cache->stats.memory_usage, 0);
 
-    pthread_rwlock_unlock(&cache->rwlock);
+    catzilla_rwlock_unlock(&cache->rwlock);
 }
 
 // Destroy the cache and free all memory
@@ -474,7 +474,7 @@ void catzilla_cache_destroy(catzilla_cache_t* cache) {
 
     catzilla_cache_clear(cache);
 
-    pthread_rwlock_destroy(&cache->rwlock);
+    catzilla_rwlock_destroy(&cache->rwlock);
     free(cache->buckets);
 
 #ifdef JEMALLOC_ENABLED
@@ -500,19 +500,19 @@ bool catzilla_cache_exists(catzilla_cache_t* cache, const char* key) {
     uint32_t bucket_index = hash % cache->bucket_count;
     uint64_t now = get_timestamp_us();
 
-    pthread_rwlock_rdlock(&cache->rwlock);
+    catzilla_rwlock_rdlock(&cache->rwlock);
 
     cache_entry_t* entry = cache->buckets[bucket_index];
     while (entry) {
         if (entry->hash == hash && strcmp(entry->key, key) == 0) {
             bool exists = (now <= entry->expires_at);
-            pthread_rwlock_unlock(&cache->rwlock);
+            catzilla_rwlock_unlock(&cache->rwlock);
             return exists;
         }
         entry = entry->next;
     }
 
-    pthread_rwlock_unlock(&cache->rwlock);
+    catzilla_rwlock_unlock(&cache->rwlock);
     return false;
 }
 
@@ -549,7 +549,7 @@ size_t catzilla_cache_expire_entries(catzilla_cache_t* cache) {
     size_t expired_count = 0;
     uint64_t now = get_timestamp_us();
 
-    pthread_rwlock_wrlock(&cache->rwlock);
+    catzilla_rwlock_wrlock(&cache->rwlock);
 
     for (size_t i = 0; i < cache->bucket_count; i++) {
         cache_entry_t** current = &cache->buckets[i];
@@ -579,7 +579,7 @@ size_t catzilla_cache_expire_entries(catzilla_cache_t* cache) {
         }
     }
 
-    pthread_rwlock_unlock(&cache->rwlock);
+    catzilla_rwlock_unlock(&cache->rwlock);
     return expired_count;
 }
 
@@ -597,7 +597,7 @@ int catzilla_cache_resize(catzilla_cache_t* cache, size_t new_capacity) {
         return -1;
     }
 
-    pthread_rwlock_wrlock(&cache->rwlock);
+    catzilla_rwlock_wrlock(&cache->rwlock);
 
     // If reducing capacity, evict entries as needed
     while (catzilla_atomic_load(&cache->size) > new_capacity) {
@@ -605,7 +605,7 @@ int catzilla_cache_resize(catzilla_cache_t* cache, size_t new_capacity) {
     }
 
     cache->capacity = new_capacity;
-    pthread_rwlock_unlock(&cache->rwlock);
+    catzilla_rwlock_unlock(&cache->rwlock);
 
     return 0;
 }
@@ -650,7 +650,7 @@ int catzilla_cache_configure(catzilla_cache_t* cache, const cache_config_t* conf
         return -1;
     }
 
-    pthread_rwlock_wrlock(&cache->rwlock);
+    catzilla_rwlock_wrlock(&cache->rwlock);
 
     cache->default_ttl = config->default_ttl;
     cache->max_value_size = config->max_value_size;
@@ -664,6 +664,6 @@ int catzilla_cache_configure(catzilla_cache_t* cache, const cache_config_t* conf
         cache->capacity = config->capacity;
     }
 
-    pthread_rwlock_unlock(&cache->rwlock);
+    catzilla_rwlock_unlock(&cache->rwlock);
     return 0;
 }

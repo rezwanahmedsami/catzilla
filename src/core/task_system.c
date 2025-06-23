@@ -3,11 +3,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
+#ifndef _WIN32
 #include <unistd.h>
 #include <errno.h>
 #include <sys/time.h>
 #include <assert.h>
 #include <pthread.h>
+#endif
 
 // Platform-specific includes
 #ifdef __linux__
@@ -681,3 +684,23 @@ task_engine_stats_t catzilla_task_engine_get_stats(task_engine_t* engine) {
 uint64_t catzilla_get_nanoseconds(void) {
     return get_nanoseconds();
 }
+
+#ifndef _WIN32
+// Task system implementation - Unix/Linux/macOS only for now
+#else
+// Windows stub implementation - TODO: Implement Windows threading
+// For now, provide minimal stubs to allow compilation
+
+catzilla_task_engine_t* catzilla_task_engine_create(int num_workers) {
+    return NULL; // Stub
+}
+
+void catzilla_task_engine_destroy(catzilla_task_engine_t* engine) {
+    // Stub
+}
+
+bool catzilla_schedule_task(catzilla_task_engine_t* engine, catzilla_task_func_t func, void* data, catzilla_task_priority_t priority) {
+    return false; // Stub
+}
+
+#endif // _WIN32

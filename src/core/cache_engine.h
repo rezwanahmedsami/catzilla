@@ -8,15 +8,10 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <pthread.h>
+#include "platform_threading.h"
+#include "platform_atomic.h"
 
-// Simplified atomic compatibility - use regular types with mutex protection
-#define catzilla_atomic_uint64_t uint64_t
-#define catzilla_atomic_size_t size_t
-#define catzilla_atomic_load(ptr) (*(ptr))
-#define catzilla_atomic_store(ptr, val) (*(ptr) = (val))
-#define catzilla_atomic_fetch_add(ptr, val) (__sync_fetch_and_add(ptr, val))
-#define catzilla_atomic_fetch_sub(ptr, val) (__sync_fetch_and_sub(ptr, val))
+// Remove old atomic definitions - now using platform_atomic.h
 
 #ifdef __cplusplus
 extern "C" {
@@ -72,7 +67,7 @@ struct catzilla_cache {
     cache_entry_t* lru_tail;     // Least recently used
 
     // Thread safety
-    pthread_rwlock_t rwlock;     // Reader-writer lock for thread safety
+    catzilla_rwlock_t rwlock;     // Reader-writer lock for thread safety
 
     // jemalloc integration
     unsigned arena_index;        // jemalloc arena index for this cache

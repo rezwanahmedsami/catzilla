@@ -3,8 +3,12 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+
+#ifndef _WIN32
 #include <pthread.h>
 #include <stdatomic.h>
+#endif
+
 #include <time.h>
 #include "memory.h"
 
@@ -37,6 +41,9 @@ typedef enum {
 
 // Forward declarations
 typedef struct catzilla_task catzilla_task_t;
+
+#ifndef _WIN32
+// Full implementation for Unix/Linux/macOS
 typedef struct lock_free_queue lock_free_queue_t;
 typedef struct worker_thread worker_thread_t;
 typedef struct worker_pool worker_pool_t;
@@ -326,6 +333,20 @@ void catzilla_task_destroy(catzilla_task_t* task);
 // Memory and performance utilities
 uint64_t catzilla_get_nanoseconds(void);
 void catzilla_task_update_stats(catzilla_task_t* task);
+
+#else
+// Windows stub declarations
+typedef struct task_engine task_engine_t;
+typedef task_engine_t catzilla_task_engine_t;
+typedef void (*catzilla_task_func_t)(void* data);
+typedef int catzilla_task_priority_t;
+
+// Minimal function declarations for Windows
+catzilla_task_engine_t* catzilla_task_engine_create(int num_workers);
+void catzilla_task_engine_destroy(catzilla_task_engine_t* engine);
+bool catzilla_schedule_task(catzilla_task_engine_t* engine, catzilla_task_func_t func, void* data, catzilla_task_priority_t priority);
+
+#endif // _WIN32
 
 #ifdef __cplusplus
 }

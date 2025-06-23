@@ -309,10 +309,12 @@ class MemoryCache:
 
     def _serialize_value(self, value: Any) -> bytes:
         """Serialize Python value for C storage"""
-        if isinstance(value, (bytes, bytearray)):
-            return bytes(value)
-        elif isinstance(value, str):
-            return value.encode("utf-8")
+        if isinstance(value, str):
+            # Store strings with a prefix to identify them
+            return b"STR:" + value.encode("utf-8")
+        elif isinstance(value, (bytes, bytearray)):
+            # Store bytes with a prefix to identify them
+            return b"BYTES:" + bytes(value)
         else:
             # Use pickle for complex objects
             data = pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL)
@@ -320,24 +322,35 @@ class MemoryCache:
             # Compress if enabled and data is large enough
             if self.config.compression_enabled and len(data) > 1024 and LZ4_AVAILABLE:
                 data = b"LZ4:" + lz4.frame.compress(data)
+            else:
+                data = b"PICKLE:" + data
 
             return data
 
     def _deserialize_value(self, data: bytes) -> Any:
         """Deserialize value from C storage"""
         if data.startswith(b"LZ4:") and LZ4_AVAILABLE:
-            # Decompress LZ4 data
+            # Decompress LZ4 data and try to unpickle
             data = lz4.frame.decompress(data[4:])
-
-        try:
-            # Try to unpickle
             return pickle.loads(data)
-        except (pickle.UnpicklingError, TypeError):
-            # Return as bytes if unpickling fails
+        elif data.startswith(b"PICKLE:"):
+            # Unpickle the data
+            return pickle.loads(data[7:])
+        elif data.startswith(b"STR:"):
+            # Decode as string
+            return data[4:].decode("utf-8")
+        elif data.startswith(b"BYTES:"):
+            # Return as bytes
+            return data[6:]
+        else:
+            # Legacy handling - try to unpickle, then decode, then return as bytes
             try:
-                return data.decode("utf-8")
-            except UnicodeDecodeError:
-                return data
+                return pickle.loads(data)
+            except (pickle.UnpicklingError, TypeError):
+                try:
+                    return data.decode("utf-8")
+                except UnicodeDecodeError:
+                    return data
 
     def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
         """Store value in cache"""

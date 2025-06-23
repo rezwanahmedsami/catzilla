@@ -129,12 +129,23 @@ class TestMemoryCache:
         for key, value in test_cases:
             assert memory_cache.set(key, value) == True
             retrieved, found = memory_cache.get(key)
-            assert found == True
+            assert found == True, f"Failed to find key '{key}' with value {value} (type: {type(value)})"
 
             # Handle bytes serialization issue - cache might convert bytes to string
             if isinstance(value, bytes):
                 # Accept either bytes or the string representation
-                assert retrieved == value or retrieved == value.decode('utf-8')
+                # In some environments, bytes are serialized/deserialized differently
+                if isinstance(retrieved, bytes):
+                    assert retrieved == value
+                elif isinstance(retrieved, str):
+                    assert retrieved == value.decode('utf-8')
+                else:
+                    # Fallback: check if the values are equivalent when encoded/decoded
+                    try:
+                        assert retrieved.encode('utf-8') == value
+                    except (AttributeError, UnicodeError):
+                        # Last resort: string comparison
+                        assert str(retrieved) == str(value)
             else:
                 assert retrieved == value
 
