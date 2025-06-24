@@ -1274,7 +1274,12 @@ static PyObject* set_allocator(PyObject *self, PyObject *args)
 // Initialize memory system
 static PyObject* init_memory_system(PyObject *self, PyObject *args)
 {
-    int result = catzilla_memory_init();
+    int quiet = 0;  // Default to verbose
+    if (!PyArg_ParseTuple(args, "|i", &quiet)) {
+        return NULL;
+    }
+
+    int result = catzilla_memory_init_quiet(quiet);
     if (result != 0) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to initialize memory system");
         return NULL;
@@ -1639,7 +1644,7 @@ static PyMethodDef module_methods[] = {
     {"get_current_allocator", get_current_allocator, METH_NOARGS, "Get current allocator type"},
     {"set_allocator", set_allocator, METH_VARARGS, "Set allocator type before initialization"},
     {"get_memory_stats", get_memory_stats, METH_NOARGS, "Get memory statistics"},
-    {"init_memory_system", init_memory_system, METH_NOARGS, "Initialize memory system"},
+    {"init_memory_system", init_memory_system, METH_VARARGS, "Initialize memory system"},
     {"init_memory_with_allocator", init_memory_with_allocator, METH_VARARGS, "Initialize memory system with specific allocator"},
 
     // Ultra-fast validation engine functions

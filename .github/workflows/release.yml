@@ -307,7 +307,7 @@ jobs:
               return JSONResponse({"message": "Hello from Catzilla!"})
 
           if __name__ == "__main__":
-              app.listen(8080)
+              app.listen(host="127.0.0.1", port=8080)
           ```
 
           ## Tested Platforms

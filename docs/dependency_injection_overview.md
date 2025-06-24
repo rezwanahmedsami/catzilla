@@ -49,7 +49,7 @@ class GreetingService:
 def hello(request, name: str = Path(...), greeter: GreetingService = Depends("greeter")):
     return {"message": greeter.greet(name)}
 
-app.listen(8000)
+app.listen(host="127.0.0.1", port=8000)
 ```
 
 **3. Test it:**

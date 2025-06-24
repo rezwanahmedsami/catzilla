@@ -158,7 +158,7 @@ def memory_stats():
     return app.get_memory_stats()
 
 if __name__ == "__main__":
-    app.listen(8000)
+    app.listen(host="127.0.0.1", port=8000)
 ```
 
 Run your app:

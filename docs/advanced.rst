@@ -57,7 +57,7 @@ Catzilla's C-powered trie router supports sophisticated path patterns:
        })
 
    if __name__ == "__main__":
-       app.listen(8000)
+       app.listen(host="127.0.0.1", port=8000)
 
 Route Organization with Router Groups
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -170,7 +170,7 @@ Create modular, maintainable applications using router groups:
        })
 
    if __name__ == "__main__":
-       app.listen(8000)
+       app.listen(host="127.0.0.1", port=8000)
 
 This creates a well-organized API with clear separation of concerns:
 
@@ -344,7 +344,7 @@ Catzilla provides comprehensive error handling for production applications:
 
    if __name__ == "__main__":
        print("Starting error handling demo server...")
-       app.listen(8000)
+       app.listen(host="127.0.0.1", port=8000)
 
 Test the error handling:
 
@@ -561,7 +561,7 @@ Catzilla's C core provides exceptional routing performance:
 
    if __name__ == "__main__":
        print("Starting performance demo with 200+ routes...")
-       app.listen(8000)
+       app.listen(host="127.0.0.1", port=8000)
 
 Memory Efficiency
 ~~~~~~~~~~~~~~~~~
@@ -604,7 +604,7 @@ Optimize memory usage for high-traffic applications:
        })
 
    if __name__ == "__main__":
-       app.listen(8000)
+       app.listen(host="127.0.0.1", port=8000)
 
 Real-World Example
 ------------------
@@ -797,7 +797,7 @@ Here's a comprehensive example that demonstrates all advanced features:
        print("  POST /api/v1/users")
        print("  PUT  /api/v1/users/{id}")
        print("  DELETE /api/v1/users/{id}")
-       app.listen(8000)
+       app.listen(host="127.0.0.1", port=8000)
 
 Deploy this production API:
 

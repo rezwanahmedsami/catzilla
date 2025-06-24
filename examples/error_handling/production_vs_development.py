@@ -51,4 +51,4 @@ if __name__ == "__main__":
     print("  GET /404      - Triggers 404 Not Found")
     print("\nRun with 'python production_vs_development.py production' for production mode")
 
-    app.listen(8080)
+    app.listen(host="127.0.0.1", port=8080)

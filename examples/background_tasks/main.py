@@ -496,4 +496,4 @@ if __name__ == "__main__":
     print('curl "http://localhost:8000/users/123/recommendations?priority=high&max_recommendations=20"')
     print("\nStarting server...")
 
-    app.listen(8000)
+    app.listen(host="127.0.0.1", port=8000)

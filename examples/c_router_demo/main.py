@@ -353,4 +353,4 @@ print("\n🎯 All routes use C-accelerated matching for maximum performance!")
 print("=" * 60)
 
 if __name__ == "__main__":
-    app.listen(8000)
+    app.listen(host="127.0.0.1", port=8000)

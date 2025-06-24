@@ -54,7 +54,7 @@ O(log n) route lookup performance while maintaining a clean, Pythonic API.
        return {"user_id": user_id}
 
    if __name__ == "__main__":
-       app.listen(8000)
+       app.listen(host="127.0.0.1", port=8000)
 
 .. toctree::
    :maxdepth: 2
@@ -141,7 +141,7 @@ Install and create your first API in under 30 seconds:
    app.include_routes(api)
 
    if __name__ == "__main__":
-       app.listen(8000)
+       app.listen(host="127.0.0.1", port=8000)
 
 This creates a production-ready API with:
 
@@ -331,7 +331,7 @@ Here's a complete blog API showcasing Catzilla's capabilities:
    app.include_routes(users)
 
    if __name__ == "__main__":
-       app.listen(8000)
+       app.listen(host="127.0.0.1", port=8000)
 
 This creates a full REST API with organized endpoints:
 

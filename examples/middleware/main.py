@@ -929,4 +929,4 @@ if __name__ == "__main__":
     print("Visit http://localhost:8000 for the interactive demo!")
     print("=" * 50)
 
-    app.listen(8000)
+    app.listen(host="127.0.0.1", port=8000)

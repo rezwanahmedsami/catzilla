@@ -506,6 +506,77 @@ int catzilla_memory_init(void) {
     return 0;
 }
 
+// Initialize memory system with quiet option
+int catzilla_memory_init_quiet(int quiet) {
+    if (g_memory_initialized) {
+        return 0; // Already initialized
+    }
+
+    // Auto-detect and use jemalloc if available and no allocator explicitly set
+    if (g_current_allocator == CATZILLA_ALLOCATOR_MALLOC && catzilla_memory_jemalloc_available()) {
+        g_current_allocator = CATZILLA_ALLOCATOR_JEMALLOC;
+    }
+
+#ifdef CATZILLA_HAS_JEMALLOC
+    if (g_current_allocator == CATZILLA_ALLOCATOR_JEMALLOC) {
+        // Initialize jemalloc arenas for performance optimization
+        if (!g_arenas_created) {
+            size_t sz = sizeof(unsigned);
+
+            // Request arena - optimized for request/response data
+            if (JEMALLOC_MALLCTL("arenas.create", &g_memory_stats.request_arena, &sz, NULL, 0) != 0) {
+                fprintf(stderr, "Error: Failed to create request arena\n");
+                return -1;
+            }
+
+            // Response arena - optimized for response construction
+            if (JEMALLOC_MALLCTL("arenas.create", &g_memory_stats.response_arena, &sz, NULL, 0) != 0) {
+                fprintf(stderr, "Error: Failed to create response arena\n");
+                return -1;
+            }
+
+            // Cache arena - optimized for long-lived allocations
+            if (JEMALLOC_MALLCTL("arenas.create", &g_memory_stats.cache_arena, &sz, NULL, 0) != 0) {
+                fprintf(stderr, "Error: Failed to create cache arena\n");
+                return -1;
+            }
+
+            // Static arena - optimized for static file caching
+            if (JEMALLOC_MALLCTL("arenas.create", &g_memory_stats.static_arena, &sz, NULL, 0) != 0) {
+                fprintf(stderr, "Error: Failed to create static arena\n");
+                return -1;
+            }
+
+            // Task arena - optimized for background task data
+            if (JEMALLOC_MALLCTL("arenas.create", &g_memory_stats.task_arena, &sz, NULL, 0) != 0) {
+                fprintf(stderr, "Error: Failed to create task arena\n");
+                return -1;
+            }
+
+            g_arenas_created = true;
+        }
+
+        g_memory_initialized = true;
+
+        // Only print if not quiet
+        if (!quiet) {
+            printf("✅ Catzilla initialized with jemalloc (arenas: req=%u, res=%u, cache=%u, static=%u, task=%u)\n",
+                   g_memory_stats.request_arena, g_memory_stats.response_arena,
+                   g_memory_stats.cache_arena, g_memory_stats.static_arena, g_memory_stats.task_arena);
+        }
+
+        return 0;
+    }
+#endif
+
+    // Standard malloc fallback
+    g_memory_initialized = true;
+    if (!quiet) {
+        printf("⚠️  Catzilla running with standard malloc (jemalloc not available)\n");
+    }
+    return 0;
+}
+
 void catzilla_memory_get_stats(catzilla_memory_stats_t* stats) {
     if (!stats) return;
 

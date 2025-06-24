@@ -254,4 +254,4 @@ if __name__ == "__main__":
     print("🌐 Server starting on http://localhost:8000")
     print("Try: curl http://localhost:8000/")
 
-    app.listen(8000)
+    app.listen(host="127.0.0.1", port=8000)

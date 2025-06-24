@@ -147,4 +147,4 @@ if __name__ == "__main__":
     print("  GET  /api/nonexistent               - Triggers custom 404 handler")
     print("  POST /api/health                    - Triggers 405 method not allowed")
 
-    app.listen(8080)
+    app.listen(host="127.0.0.1", port=8080)

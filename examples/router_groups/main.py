@@ -382,4 +382,4 @@ if __name__ == "__main__":
     print(f"\nTotal routes: {len(app.routes())}")
     print("\nVisit http://localhost:8000 to see the demo!")
 
-    app.listen(8000)
+    app.listen(host="127.0.0.1", port=8000)

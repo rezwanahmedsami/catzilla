@@ -47,7 +47,7 @@ Let's start with the simplest possible Catzilla application:
        return "Hello, World!"
 
    if __name__ == "__main__":
-       app.listen(8000)
+       app.listen(host="127.0.0.1", port=8000)
 
 Save this as ``hello.py`` and run it:
 
@@ -60,7 +60,7 @@ Visit http://localhost:8000 and you'll see "Hello, World!".
 **What's happening:**
 - ``App()`` creates a new Catzilla application instance
 - ``@app.get("/")`` registers a route handler for GET requests to the root path
-- ``app.listen(8000)`` starts the server on port 8000
+- ``app.listen(host="127.0.0.1", port=8000)`` starts the server on port 8000
 
 Decorator-Based Routing
 -----------------------
@@ -92,7 +92,7 @@ Catzilla uses decorators to define routes. Each HTTP method has its own decorato
        return JSONResponse({"message": f"User {user_id} deleted!"})
 
    if __name__ == "__main__":
-       app.listen(8000)
+       app.listen(host="127.0.0.1", port=8000)
 
 **Supported HTTP Methods:**
 - ``@app.get()`` - GET requests
@@ -141,7 +141,7 @@ Capture dynamic segments from URLs using path parameters:
        })
 
    if __name__ == "__main__":
-       app.listen(8000)
+       app.listen(host="127.0.0.1", port=8000)
 
 Test these endpoints:
 - ``GET /users/123`` → Returns user 123
@@ -195,7 +195,7 @@ Catzilla provides powerful request and response objects for handling HTTP intera
        })
 
    if __name__ == "__main__":
-       app.listen(8000)
+       app.listen(host="127.0.0.1", port=8000)
 
 **Response Types:**
 
@@ -238,7 +238,7 @@ Catzilla provides powerful request and response objects for handling HTTP intera
        )
 
    if __name__ == "__main__":
-       app.listen(8000)
+       app.listen(host="127.0.0.1", port=8000)
 
 Router Groups for Organization
 ------------------------------
@@ -295,7 +295,7 @@ As your application grows, organize routes using Router Groups:
        })
 
    if __name__ == "__main__":
-       app.listen(8000)
+       app.listen(host="127.0.0.1", port=8000)
 
 This creates the following routes:
 - ``GET /`` → Home page
@@ -433,7 +433,7 @@ Here's a more comprehensive example that demonstrates all the concepts:
 
    if __name__ == "__main__":
        print("Starting Catzilla server on http://localhost:8000")
-       app.listen(8000)
+       app.listen(host="127.0.0.1", port=8000)
 
 Save this as ``complete_app.py`` and run:
 

@@ -1039,4 +1039,4 @@ if __name__ == "__main__":
     print("🎮 Interactive Demo: http://localhost:8000/interactive-demo")
     print("📚 API Docs: http://localhost:8000/api-docs")
     print("⚡ Performance: 20x faster than FastAPI!")
-    app.listen(8000)
+    app.listen(host="127.0.0.1", port=8000)

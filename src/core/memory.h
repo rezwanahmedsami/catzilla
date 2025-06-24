@@ -101,6 +101,7 @@ void catzilla_python_safe_free(void* ptr);
 
 // Memory management functions
 int catzilla_memory_init(void);
+int catzilla_memory_init_quiet(int quiet);
 int catzilla_memory_init_with_allocator(catzilla_allocator_type_t allocator);
 void catzilla_memory_cleanup(void);
 void catzilla_memory_get_stats(catzilla_memory_stats_t* stats);

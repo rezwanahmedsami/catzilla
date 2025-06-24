@@ -1,14 +1,7 @@
 # Catzilla Core Requirements
 #
-# Catzilla uses only Python standard library for core functionality.
-# This means NO runtime dependencies are required for basic usage!
-#
-# For development: pip install -r requirements-dev.txt
-# For benchmarks: pip install -r requirements-benchmarks.txt
-
-# No runtime dependencies needed! 🎉
-# Catzilla uses only Python standard library:
-# - json, dataclasses, typing, urllib.parse, http.cookies, re, os, sys
+# System information and monitoring
+psutil>=5.9.0
 
 # Development dependencies (optional)
 # Uncomment if you need these for development:

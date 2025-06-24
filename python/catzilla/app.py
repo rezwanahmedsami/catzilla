@@ -57,6 +57,9 @@ from .integration import DIMiddleware, DIRouteEnhancer
 from .middleware import ZeroAllocMiddleware
 from .types import HTMLResponse, JSONResponse, Request, Response, RouteHandler
 
+# Import logging system for beautiful startup banners and dev logging
+from .ui import BannerRenderer, DevLogger, ProductionLogger, ServerInfoCollector
+
 try:
     from catzilla._catzilla import Server as _Server
     from catzilla._catzilla import (  # New runtime allocator functions
@@ -173,6 +176,11 @@ class Catzilla:
         auto_validation: bool = True,
         enable_di: bool = True,
         di_container: Optional[DIContainer] = None,
+        # New logging parameters
+        show_banner: bool = True,
+        log_requests: bool = None,  # Auto-detect based on production mode
+        enable_colors: bool = True,
+        show_request_details: bool = True,
     ):
         """Initialize Catzilla with advanced memory optimization and dependency injection
 
@@ -187,6 +195,10 @@ class Catzilla:
             auto_validation: Enable FastAPI-style automatic validation (20x faster)
             enable_di: Enable revolutionary dependency injection system (5-8x faster DI)
             di_container: Custom DI container (creates new one if None)
+            show_banner: Show beautiful startup banner with server information
+            log_requests: Enable development request logging (auto-disabled in production)
+            enable_colors: Enable colorized output for better developer experience
+            show_request_details: Show detailed request information in development mode
 
         Note:
             The `use_jemalloc` parameter now uses conditional runtime support. If jemalloc
@@ -197,13 +209,42 @@ class Catzilla:
             Dependency injection provides C-speed service resolution with FastAPI-style
             decorators and seamless integration with the existing validation system.
         """
-        # Store memory configuration
+        # Store configuration
         self.production = production
+        self.debug = not production  # For easier reference
         self.use_jemalloc = use_jemalloc
         self.memory_profiling = memory_profiling
         self.auto_memory_tuning = auto_memory_tuning
         self.memory_stats_interval = memory_stats_interval
         self.auto_validation = auto_validation
+
+        # Logging configuration
+        self.show_banner = show_banner
+        self.log_requests = (
+            log_requests if log_requests is not None else (not production)
+        )
+        self.enable_colors = enable_colors
+        self.show_request_details = show_request_details
+
+        # Initialize logging system
+        self.banner_renderer = (
+            BannerRenderer(enable_colors=enable_colors) if show_banner else None
+        )
+        self.server_info_collector = ServerInfoCollector(self) if show_banner else None
+
+        # Initialize appropriate logger based on mode
+        if self.log_requests and not production:
+            self.logger = DevLogger(
+                enable_colors=enable_colors, show_details=show_request_details
+            )
+        elif production:
+            self.logger = ProductionLogger()
+        else:
+            self.logger = None
+
+        # Route registration buffer for clean startup
+        self._route_buffer = []
+        self._routes_buffered = not production  # Buffer routes in development
 
         # Store DI configuration
         self.enable_di = enable_di
@@ -267,18 +308,13 @@ class Catzilla:
                 try:
                     set_allocator("jemalloc")
                     # Initialize memory system with jemalloc
-                    init_memory_system()
+                    # Initialize memory system quietly (no console output)
+                    init_memory_system(1)  # 1 = quiet mode
                     self.has_jemalloc = True
                     self._memory_optimization_active = True
 
-                    if self.memory_profiling:
-                        _safe_print(
-                            "🚀 Catzilla: Memory Revolution FULL activated (jemalloc + profiling + tuning)"
-                        )
-                    else:
-                        _safe_print(
-                            "🚀 Catzilla: Memory Revolution activated (jemalloc)"
-                        )
+                    # Memory revolution messages removed for clean startup
+                    # All jemalloc status is shown in the banner instead
 
                     # Start memory profiling if enabled
                     if self.memory_profiling:
@@ -289,9 +325,9 @@ class Catzilla:
                     _safe_print("⚠️  Catzilla: Falling back to standard memory system")
                     self.has_jemalloc = False
                     self.use_jemalloc = False
-                    # Fallback to malloc
+                    # Fallback to malloc quietly
                     set_allocator("malloc")
-                    init_memory_system()
+                    init_memory_system(1)  # 1 = quiet mode
 
             elif self.use_jemalloc and not jemalloc_runtime_available:
                 _safe_print(
@@ -299,18 +335,18 @@ class Catzilla:
                 )
                 self.has_jemalloc = False
                 self.use_jemalloc = False  # Disable since not available
-                # Use standard malloc
+                # Use standard malloc quietly
                 set_allocator("malloc")
-                init_memory_system()
+                init_memory_system(1)  # 1 = quiet mode
 
             else:
                 _safe_print(
                     "⚡ Catzilla: Running with standard memory system (jemalloc disabled)"
                 )
                 self.has_jemalloc = False
-                # Use standard malloc
+                # Use standard malloc quietly
                 set_allocator("malloc")
-                init_memory_system()
+                init_memory_system(1)  # 1 = quiet mode
 
         except Exception as e:
             _safe_print(f"⚠️  Catzilla: Memory system initialization warning: {e}")
@@ -319,7 +355,7 @@ class Catzilla:
             # Emergency fallback
             try:
                 set_allocator("malloc")
-                init_memory_system()
+                init_memory_system(1)  # 1 = quiet mode
             except:
                 _safe_print(
                     "⚠️  Catzilla: Emergency fallback to uninitialized memory system"
@@ -506,135 +542,199 @@ class Catzilla:
 
     def _handle_request(self, client, method, path, body, request_capsule):
         """Internal request handler that bridges C and Python"""
-        # Get base path for routing (strip query string if present)
-        base_path = path.split("?", 1)[0] if "?" in path else path
+        import time
 
-        # Create request object with empty query params dict - will be populated by C layer
-        request = Request(
-            method=method,
-            path=path,  # Use full path with query string
-            body=body,
-            client=client,
-            request_capsule=request_capsule,
-            _query_params={},  # Changed from query_params to _query_params
-        )
+        # Start timing for request logging
+        start_time = time.time()
+        status_code = 200
+        response_size = 0
+        error_message = None
 
-        # Match the route using our new router
-        route, path_params, allowed_methods = self.router.match(method, base_path)
+        try:
+            # Get base path for routing (strip query string if present)
+            base_path = path.split("?", 1)[0] if "?" in path else path
+            query_string = path.split("?", 1)[1] if "?" in path else None
 
-        # Set path parameters on request
-        request.path_params = path_params
+            # Create request object with empty query params dict - will be populated by C layer
+            request = Request(
+                method=method,
+                path=path,  # Use full path with query string
+                body=body,
+                client=client,
+                request_capsule=request_capsule,
+                _query_params={},  # Changed from query_params to _query_params
+            )
 
-        if route:
-            try:
-                # Check content type before calling handler
-                content_type = request.content_type
-                if content_type and content_type not in [
-                    "application/json",
-                    "application/x-www-form-urlencoded",
-                    "text/plain",
-                    "multipart/form-data",
-                ]:
-                    # Return 415 Unsupported Media Type
-                    err_resp = Response(
-                        status_code=415,
-                        content_type="text/plain",
-                        body=f"Unsupported Media Type: {content_type}",
-                        headers={
-                            "X-Error-Detail": f"Content-Type {content_type} is not supported"
-                        },
+            # Match the route using our new router
+            route, path_params, allowed_methods = self.router.match(method, base_path)
+
+            # Set path parameters on request
+            request.path_params = path_params
+
+            if route:
+                try:
+                    # Check content type before calling handler
+                    content_type = request.content_type
+                    if content_type and content_type not in [
+                        "application/json",
+                        "application/x-www-form-urlencoded",
+                        "text/plain",
+                        "multipart/form-data",
+                    ]:
+                        # Return 415 Unsupported Media Type
+                        status_code = 415
+                        err_resp = Response(
+                            status_code=415,
+                            content_type="text/plain",
+                            body=f"Unsupported Media Type: {content_type}",
+                            headers={
+                                "X-Error-Detail": f"Content-Type {content_type} is not supported"
+                            },
+                        )
+                        response_size = (
+                            len(err_resp.body.encode("utf-8")) if err_resp.body else 0
+                        )
+                        err_resp.send(client)
+                        return
+
+                    # Call the handler with DI context management
+                    if self.enable_di:
+                        # Create DI context for this request
+                        with self.di_container.resolution_context() as di_context:
+                            _set_current_context(di_context)
+                            try:
+                                response = route.handler(request)
+                            finally:
+                                _clear_current_context()
+                    else:
+                        # No DI - call handler directly
+                        response = route.handler(request)
+
+                    # Normalize response based on return type
+                    if isinstance(response, Response):
+                        # Response object - use as is
+                        pass
+                    elif isinstance(response, dict):
+                        # Dictionary - convert to JSONResponse
+                        response = JSONResponse(response)
+                    elif isinstance(response, str):
+                        # String - convert to HTMLResponse
+                        response = HTMLResponse(response)
+                    else:
+                        # Unsupported type
+                        raise TypeError(
+                            f"Handler returned unsupported type {type(response)}. "
+                            "Must return Response, dict, or str."
+                        )
+
+                    # Capture response details for logging
+                    status_code = response.status_code
+                    response_size = (
+                        len(response.body.encode("utf-8")) if response.body else 0
+                    )
+
+                    # Send the response
+                    response.send(client)
+                except Exception as e:
+                    # Handle exceptions using the centralized error handling system
+                    status_code = 500
+                    error_message = str(e)
+                    err_resp = self._handle_exception(request, e)
+                    status_code = err_resp.status_code
+                    response_size = (
+                        len(err_resp.body.encode("utf-8")) if err_resp.body else 0
                     )
                     err_resp.send(client)
-                    return
-
-                # Call the handler with DI context management
-                if self.enable_di:
-                    # Create DI context for this request
-                    with self.di_container.resolution_context() as di_context:
-                        _set_current_context(di_context)
-                        try:
-                            response = route.handler(request)
-                        finally:
-                            _clear_current_context()
-                else:
-                    # No DI - call handler directly
-                    response = route.handler(request)
-
-                # Normalize response based on return type
-                if isinstance(response, Response):
-                    # Response object - use as is
-                    pass
-                elif isinstance(response, dict):
-                    # Dictionary - convert to JSONResponse
-                    response = JSONResponse(response)
-                elif isinstance(response, str):
-                    # String - convert to HTMLResponse
-                    response = HTMLResponse(response)
-                else:
-                    # Unsupported type
-                    raise TypeError(
-                        f"Handler returned unsupported type {type(response)}. "
-                        "Must return Response, dict, or str."
-                    )
-
-                # Send the response
-                response.send(client)
-            except Exception as e:
-                # Handle exceptions using the centralized error handling system
-                err_resp = self._handle_exception(request, e)
-                err_resp.send(client)
-        else:
-            if allowed_methods:
-                # Path exists but method not allowed
-                if self.production:
-                    not_allowed = self._get_clean_error_response(
-                        405,
-                        "Method not allowed",
-                        f"Allowed methods: {', '.join(sorted(allowed_methods))}",
-                    )
-                else:
-                    not_allowed = Response(
-                        status_code=405,
-                        content_type="text/plain",
-                        body=f"Method Not Allowed: {method} {path}",
-                        headers={
-                            "Allow": ", ".join(sorted(allowed_methods)),
-                            "X-Error-Path": path,
-                        },
-                    )
-                not_allowed.send(client)
             else:
-                # No route found - use custom 404 handler if set
-                if self._not_found_handler:
-                    try:
-                        not_found_resp = self._not_found_handler(request)
-                        not_found_resp.send(client)
-                    except Exception as handler_error:
-                        # 404 handler failed, fall back to default
-                        if self.production:
-                            fallback_resp = self._get_clean_error_response(
-                                404, "Not found"
-                            )
-                        else:
-                            fallback_resp = Response(
-                                status_code=500,
-                                content_type="text/plain",
-                                body=f"404 handler failed: {str(handler_error)}",
-                                headers={"X-Error-Detail": str(handler_error)},
-                            )
-                        fallback_resp.send(client)
-                else:
-                    # Default 404 handling
+                if allowed_methods:
+                    # Path exists but method not allowed
+                    status_code = 405
                     if self.production:
-                        not_found = self._get_clean_error_response(404, "Not found")
-                    else:
-                        not_found = Response(
-                            status_code=404,
-                            content_type="text/plain",
-                            body=f"Not Found: {method} {path}",
-                            headers={"X-Error-Path": path},
+                        not_allowed = self._get_clean_error_response(
+                            405,
+                            "Method not allowed",
+                            f"Allowed methods: {', '.join(sorted(allowed_methods))}",
                         )
-                    not_found.send(client)
+                    else:
+                        not_allowed = Response(
+                            status_code=405,
+                            content_type="text/plain",
+                            body=f"Method Not Allowed: {method} {path}",
+                            headers={
+                                "Allow": ", ".join(sorted(allowed_methods)),
+                                "X-Error-Path": path,
+                            },
+                        )
+                    response_size = (
+                        len(not_allowed.body.encode("utf-8")) if not_allowed.body else 0
+                    )
+                    not_allowed.send(client)
+                else:
+                    # No route found - use custom 404 handler if set
+                    status_code = 404
+                    if self._not_found_handler:
+                        try:
+                            not_found_resp = self._not_found_handler(request)
+                            status_code = not_found_resp.status_code
+                            response_size = (
+                                len(not_found_resp.body.encode("utf-8"))
+                                if not_found_resp.body
+                                else 0
+                            )
+                            not_found_resp.send(client)
+                        except Exception as handler_error:
+                            # 404 handler failed, fall back to default
+                            status_code = 500
+                            error_message = str(handler_error)
+                            if self.production:
+                                fallback_resp = self._get_clean_error_response(
+                                    404, "Not found"
+                                )
+                            else:
+                                fallback_resp = Response(
+                                    status_code=500,
+                                    content_type="text/plain",
+                                    body=f"404 handler failed: {str(handler_error)}",
+                                    headers={"X-Error-Detail": str(handler_error)},
+                                )
+                            response_size = (
+                                len(fallback_resp.body.encode("utf-8"))
+                                if fallback_resp.body
+                                else 0
+                            )
+                            fallback_resp.send(client)
+                    else:
+                        # Default 404 handling
+                        if self.production:
+                            not_found = self._get_clean_error_response(404, "Not found")
+                        else:
+                            not_found = Response(
+                                status_code=404,
+                                content_type="text/plain",
+                                body=f"Not Found: {method} {path}",
+                                headers={"X-Error-Path": path},
+                            )
+                        response_size = (
+                            len(not_found.body.encode("utf-8")) if not_found.body else 0
+                        )
+                        not_found.send(client)
+
+        finally:
+            # Log the request if logging is enabled
+            if self.logger and self.log_requests:
+                duration_ms = (time.time() - start_time) * 1000
+                client_ip = getattr(client, "remote_addr", "127.0.0.1")
+
+                self.logger.log_request(
+                    method=method,
+                    path=base_path,
+                    status_code=status_code,
+                    duration_ms=duration_ms,
+                    response_size=response_size,
+                    client_ip=client_ip,
+                    error_message=error_message,
+                    query_params=query_string,
+                )
 
     def route(
         self,
@@ -677,6 +777,11 @@ class Catzilla:
         """Register a GET route handler with optional dependency injection and per-route middleware"""
 
         def decorator(handler: RouteHandler):
+            # Buffer route registration for clean startup
+            if self._routes_buffered:
+                handler_name = getattr(handler, "__name__", "unknown")
+                self._route_buffer.append(f"📍 GET     {path} → {handler_name}")
+
             # Apply dependency injection if enabled
             if self.enable_di:
                 enhanced_handler = self.di_enhancer.enhance_route(handler, dependencies)
@@ -706,6 +811,11 @@ class Catzilla:
         """Register a POST route handler with optional dependency injection and per-route middleware"""
 
         def decorator(handler: RouteHandler):
+            # Buffer route registration for clean startup
+            if self._routes_buffered:
+                handler_name = getattr(handler, "__name__", "unknown")
+                self._route_buffer.append(f"📍 POST    {path} → {handler_name}")
+
             # Apply dependency injection if enabled
             if self.enable_di:
                 enhanced_handler = self.di_enhancer.enhance_route(handler, dependencies)
@@ -735,6 +845,11 @@ class Catzilla:
         """Register a PUT route handler with optional dependency injection and per-route middleware"""
 
         def decorator(handler: RouteHandler):
+            # Buffer route registration for clean startup
+            if self._routes_buffered:
+                handler_name = getattr(handler, "__name__", "unknown")
+                self._route_buffer.append(f"📍 PUT     {path} → {handler_name}")
+
             # Apply dependency injection if enabled
             if self.enable_di:
                 enhanced_handler = self.di_enhancer.enhance_route(handler, dependencies)
@@ -764,6 +879,11 @@ class Catzilla:
         """Register a DELETE route handler with optional dependency injection and per-route middleware"""
 
         def decorator(handler: RouteHandler):
+            # Buffer route registration for clean startup
+            if self._routes_buffered:
+                handler_name = getattr(handler, "__name__", "unknown")
+                self._route_buffer.append(f"📍 DELETE  {path} → {handler_name}")
+
             # Apply dependency injection if enabled
             if self.enable_di:
                 enhanced_handler = self.di_enhancer.enhance_route(handler, dependencies)
@@ -1134,32 +1254,61 @@ class Catzilla:
         else:
             return self.router.routes()
 
-    def listen(self, port: int, host: str = "0.0.0.0"):
-        """Start the server"""
-        print(f"[INFO-PY] Catzilla server starting on http://{host}:{port}")
-        print("[INFO-PY] Press Ctrl+C to stop the server")
+    def _display_buffered_routes(self):
+        """Display buffered route registrations in a clean format"""
+        if not self._route_buffer or not self.debug:
+            return
 
-        # Show memory configuration
-        print(f"\n🧠 Memory Configuration:")
-        _safe_print(
-            f"   jemalloc: {'✅ enabled' if self.has_jemalloc else '❌ disabled'}"
-        )
-        _safe_print(
-            f"   profiling: {'✅ enabled' if self.memory_profiling else '❌ disabled'}"
-        )
-        _safe_print(
-            f"   auto-tuning: {'✅ enabled' if self.auto_memory_tuning else '❌ disabled'}"
-        )
-        if self.memory_profiling:
-            print(f"   stats interval: {self.memory_stats_interval}s")
+        print()  # Empty line before routes
+        for route_log in self._route_buffer:
+            print(route_log)
 
-        print("\nRegistered routes:")
-        for route in self.routes():
-            print(f"  {route['method']:6} {route['path']}")
+        # Clear the buffer after displaying
+        self._route_buffer.clear()
+
+        print()  # Empty line after routes
+
+    def listen(self, host: str = "0.0.0.0", port: int = 8000):
+        """Start the server with beautiful startup banner"""
+
+        # Show beautiful startup banner
+        if self.banner_renderer and self.server_info_collector:
+            try:
+                server_info = self.server_info_collector.collect(host, port)
+                if self.debug:
+                    banner = self.banner_renderer.render_startup_banner(server_info)
+                else:
+                    banner = self.banner_renderer.render_minimal_banner(server_info)
+                print(banner)
+            except Exception as e:
+                # Fallback to simple startup message if banner fails
+                mode = "DEVELOPMENT" if self.debug else "PRODUCTION"
+                print(f"\n🐱 Catzilla v0.1.0 - {mode}")
+                print(f"Server starting on http://{host}:{port}")
+                if self.debug:
+                    print(f"Banner error: {e}")
+        else:
+            # Simple startup message
+            mode = "DEVELOPMENT" if self.debug else "PRODUCTION"
+            print(f"\n🐱 Catzilla v0.1.0 - {mode}")
+            print(f"Server starting on http://{host}:{port}")
+
+        # Display buffered route registrations after banner
+        self._display_buffered_routes()
+
+        # Log server startup
+        if self.logger:
+            mode = "development" if self.debug else "production"
+            self.logger.log_server_start(host, port, mode)
+
+        # Routes are already logged during registration, no need to log again here
 
         # Add our Python handler for all registered routes
         for route in self.router.routes():
             self.server.add_route(route["method"], route["path"], self._handle_request)
+
+        # Display buffered routes after banner
+        self._display_buffered_routes()
 
         # Start the server
         self.server.listen(port, host)

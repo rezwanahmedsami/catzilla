@@ -8,7 +8,7 @@ from http.cookies import SimpleCookie
 from typing import Any, Callable, Dict, List, Optional, Union
 from urllib.parse import parse_qs
 
-from .logging import log_types_debug, log_types_error
+from .ui import log_types_debug, log_types_error
 
 
 @dataclass
