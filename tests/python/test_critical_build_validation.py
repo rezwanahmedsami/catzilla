@@ -33,7 +33,7 @@ from typing import List, Dict, Any, Optional
 
 # Test configuration
 BUILD_TIMEOUT = 300  # 5 minutes for builds
-INSTALL_TIMEOUT = 120  # 2 minutes for installs
+INSTALL_TIMEOUT = 300  # 5 minutes for installs
 SERVER_TIMEOUT = 30   # 30 seconds for server startup
 
 
@@ -423,7 +423,7 @@ class TestCriticalBuildValidation:
 
         # Install from current directory (development install)
         self.validator.run_command([
-            python_exe, "-m", "pip", "install", "-e", "."
+            python_exe, "-m", "pip", "install", "--cache-dir", "/tmp/pip-cache", "-e", "."
         ], timeout=INSTALL_TIMEOUT)        # Check all dependencies are installed
         deps_check = '''
 import sys

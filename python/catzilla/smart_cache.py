@@ -704,12 +704,26 @@ class SmartCache:
             except Exception as e:
                 print(f"Warning: Could not initialize Redis cache: {e}")
 
-        # Disk cache
-        if self.config.disk_enabled:
+        # Disk cache - enable automatically if memory cache is not available as fallback
+        if self.config.disk_enabled or (
+            not self._memory_cache and not self._redis_cache
+        ):
+            # Enable disk cache in config if using as fallback
+            if not self.config.disk_enabled and (
+                not self._memory_cache and not self._redis_cache
+            ):
+                self.config.disk_enabled = True
+
             try:
                 self._disk_cache = DiskCache(self.config)
             except Exception as e:
                 print(f"Warning: Could not initialize disk cache: {e}")
+
+        # Ensure we have at least one working cache backend
+        if not self._memory_cache and not self._redis_cache and not self._disk_cache:
+            print(
+                "Warning: No cache backends available. Cache operations will be no-ops."
+            )
 
     def generate_key(
         self,
@@ -757,11 +771,13 @@ class SmartCache:
 
         # Store in Redis cache
         if self._redis_cache:
-            self._redis_cache.set(key, value, ttl or self.config.redis_ttl)
+            if self._redis_cache.set(key, value, ttl or self.config.redis_ttl):
+                success = True
 
         # Store in disk cache
         if self._disk_cache:
-            self._disk_cache.set(key, value, ttl or self.config.disk_ttl)
+            if self._disk_cache.set(key, value, ttl or self.config.disk_ttl):
+                success = True
 
         return success
 

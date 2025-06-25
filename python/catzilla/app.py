@@ -1268,7 +1268,7 @@ class Catzilla:
 
         print()  # Empty line after routes
 
-    def listen(self, host: str = "0.0.0.0", port: int = 8000):
+    def listen(self, port: int = 8000, host: str = "0.0.0.0"):
         """Start the server with beautiful startup banner"""
 
         # Show beautiful startup banner

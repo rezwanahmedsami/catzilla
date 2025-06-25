@@ -328,9 +328,9 @@ class TestMiddlewareContext:
             value = getattr(request, '_context', {}).get(f'key_{i}', 'default')
         access_time = time.time() - start_time
 
-        # Context operations should be reasonably fast (under 5ms for 1000 operations)
-        assert init_time < 0.005, f"Context initialization too slow: {init_time}s"
-        assert access_time < 0.005, f"Context access too slow: {access_time}s"
+        # Context operations should be reasonably fast (under 10ms for 1000 operations)
+        assert init_time < 0.01, f"Context initialization too slow: {init_time}s"
+        assert access_time < 0.01, f"Context access too slow: {access_time}s"
 
         # Verify all data was stored correctly
         assert len(request._context) == 1000

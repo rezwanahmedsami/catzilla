@@ -196,7 +196,7 @@ if __name__ == "__main__":
         gc.collect()
         # Add delay for proper initialization
         time.sleep(0.5)
-        app.listen({port})
+        app.listen(port={port})
     except KeyboardInterrupt:
         print("Memory test server stopped by keyboard interrupt")
     except Exception as e:

@@ -39,7 +39,7 @@ def test_clean_startup():
 
     # Start server - this will show clean banner then routes
     try:
-        app.listen("127.0.0.1", 8000)
+        app.listen(host="127.0.0.1", port=8000)
     except KeyboardInterrupt:
         print("\nServer stopped")
     except Exception as e:
