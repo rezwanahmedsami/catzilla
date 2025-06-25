@@ -152,7 +152,7 @@ if __name__ == "__main__":
         print(f"Starting server on port {port}", flush=True)
         # Add small delay to ensure proper initialization
         time.sleep(0.5)
-        app.listen({port})
+        app.listen(port={port})
     except KeyboardInterrupt:
         print("Server stopped by keyboard interrupt")
     except Exception as e:
