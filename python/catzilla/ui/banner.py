@@ -15,7 +15,9 @@ class BannerRenderer:
     def __init__(self, enable_colors: bool = True):
         """Initialize banner renderer with color support"""
         self.formatter = ColorFormatter(enable_colors)
-        self.box_width = 60  # Width of the banner box content
+        self.box_width = (
+            62  # Width of the banner box content (adjusted for proper alignment)
+        )
 
     def render_startup_banner(self, server_info: ServerInfo) -> str:
         """Render the complete startup banner"""
@@ -23,17 +25,17 @@ class BannerRenderer:
 
         # Header section
         lines.extend(self._render_header(server_info))
-        lines.append("║" + " " * (self.box_width + 2) + "║")
+        lines.append("║" + " " * (self.box_width + 6) + "║")
 
         # Configuration sections
         lines.extend(self._render_dev_config_section(server_info))
-        lines.append("║" + " " * (self.box_width + 2) + "║")
+        lines.append("║" + " " * (self.box_width + 6) + "║")
 
         lines.extend(self._render_server_section(server_info))
-        lines.append("║" + " " * (self.box_width + 2) + "║")
+        lines.append("║" + " " * (self.box_width + 6) + "║")
 
         lines.extend(self._render_system_section(server_info))
-        lines.append("║" + " " * (self.box_width + 2) + "║")
+        lines.append("║" + " " * (self.box_width + 6) + "║")
 
         # Footer section
         lines.extend(self._render_footer(server_info))
@@ -54,7 +56,7 @@ class BannerRenderer:
         lines = []
 
         # Top border
-        lines.append("╔" + "═" * (self.box_width + 2) + "╗")
+        lines.append("╔" + "═" * (self.box_width + 6) + "╗")
 
         # Title line with version and mode
         version_text = f"🐱 Catzilla v{info.version}"
@@ -77,22 +79,25 @@ class BannerRenderer:
 
         # Remove ANSI codes for length calculation
         clean_title = self._strip_ansi(title_line)
-        padding = self.box_width - len(clean_title)
-        lines.append("║ " + title_line + " " * padding + "║")
+        total_width = self.box_width + 6
+        line_content = f" {title_line}"
+        pad_len = total_width - 2 - len(self._strip_ansi(line_content))  # 2 for ║ ║
+        lines.append(f"║{line_content}{' ' * pad_len}║")
 
         # URL line
         url = f"{info.protocol}://{info.host}:{info.port}"
         if self.formatter.colors_enabled:
             url = self.formatter.colorize(url, COLORS.BRIGHT_WHITE)
 
-        clean_url = self._strip_ansi(url)
-        padding = self.box_width - len(clean_url) - 1
-        lines.append("║ " + url + " " * padding + "║")
+        line_content = f" {url}"
+        pad_len = total_width - 2 - len(self._strip_ansi(line_content))
+        lines.append(f"║{line_content}{' ' * pad_len}║")
 
         # Bind info line
         bind_info = f"(bound on host {info.host} and port {info.port})"
-        padding = self.box_width - len(bind_info) - 1
-        lines.append("║ " + bind_info + " " * padding + "║")
+        line_content = f" {bind_info}"
+        pad_len = total_width - 2 - len(self._strip_ansi(line_content))
+        lines.append(f"║{line_content}{' ' * pad_len}║")
 
         return lines
 
@@ -172,12 +177,14 @@ class BannerRenderer:
             if self.formatter.colors_enabled:
                 message = self.formatter.colorize(message, COLORS.BRIGHT_GREEN)
 
-        clean_message = self._strip_ansi(message)
-        padding = self.box_width - len(clean_message) - 1
-        lines.append("║ " + message + " " * padding + "║")
+        line_content = f" {message}"
+        pad_len = (
+            self.box_width + 4 - len(self._strip_ansi(line_content))
+        )  # 4 because '║ ' and ' ║'
+        lines.append(f"║{line_content}{' ' * pad_len}║")
 
         # Bottom border
-        lines.append("╚" + "═" * (self.box_width + 2) + "╝")
+        lines.append("╚" + "═" * (self.box_width + 6) + "╝")
 
         return lines
 
@@ -206,11 +213,11 @@ class BannerRenderer:
             value_colored = self._color_value(value)
             formatted_line = f" {label_colored} {dots_colored} {value_colored}"
 
-        # Calculate padding needed
-        clean_line = self._strip_ansi(formatted_line)
-        padding = self.box_width - len(clean_line)
-
-        return "║" + formatted_line + " " * padding + "║"
+        # Calculate padding needed (account for leading and trailing spaces)
+        total_width = self.box_width + 6
+        line_content = f"{formatted_line}"
+        pad_len = total_width - 2 - len(self._strip_ansi(line_content))  # 2 for ║ ║
+        return f"║{line_content}{' ' * pad_len}║"
 
     def _color_value(self, value: str) -> str:
         """Apply appropriate color to a value based on its content"""
