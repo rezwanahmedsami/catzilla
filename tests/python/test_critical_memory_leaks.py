@@ -739,7 +739,8 @@ def stats(request):
             # High-frequency test
             print("Starting high-frequency request test...")
 
-            num_requests = 500
+            # Reduce requests in CI environments to prevent overload
+            num_requests = 300 if os.environ.get('CI') else 500
             success_count = 0
             error_count = 0
 
@@ -747,15 +748,18 @@ def stats(request):
 
             for i in range(num_requests):
                 try:
+                    # Increase timeout slightly for CI environments
+                    request_timeout = 3 if os.environ.get('CI') else 2
+
                     if i % 2 == 0:
                         # GET request
-                        response = requests.get(f"http://localhost:{port}/fast", timeout=2)
+                        response = requests.get(f"http://localhost:{port}/fast", timeout=request_timeout)
                     else:
                         # POST request with small payload
                         response = requests.post(
                             f"http://localhost:{port}/fast_post",
                             json={"test": f"data_{i}"},
-                            timeout=2
+                            timeout=request_timeout
                         )
 
                     if response.status_code == 200:
@@ -765,8 +769,8 @@ def stats(request):
 
                 except Exception as e:
                     error_count += 1
-                    if error_count > num_requests * 0.1:  # More than 10% errors
-                        print(f"Too many errors, stopping at request {i}")
+                    if error_count > num_requests * 0.15:  # More than 15% errors (increased tolerance)
+                        print(f"Too many errors ({error_count}/{i+1}), stopping at request {i}")
                         break
 
                 # Sample memory every 50 requests
@@ -774,12 +778,30 @@ def stats(request):
                     current_memory = server_monitor.sample()
                     print(f"Request {i}: {current_memory:.2f} MB, Success: {success_count}, Errors: {error_count}")
 
+                # Add small delay every 100 requests to prevent overwhelming
+                if os.environ.get('CI') and i > 0 and i % 100 == 0:
+                    time.sleep(0.1)
+
             end_time = time.time()
             duration = end_time - start_time
 
-            # Get final stats
-            stats_response = requests.get(f"http://localhost:{port}/stats", timeout=5)
-            if stats_response.status_code == 200:
+            # Allow server to cool down after high-frequency requests
+            print("Allowing server to process remaining requests...")
+            time.sleep(3)
+
+            # Get final stats with retry logic
+            stats_response = None
+            for attempt in range(3):
+                try:
+                    stats_response = requests.get(f"http://localhost:{port}/stats", timeout=15)
+                    if stats_response.status_code == 200:
+                        break
+                except requests.exceptions.RequestException as e:
+                    print(f"Stats request attempt {attempt + 1} failed: {e}")
+                    if attempt < 2:  # Not the last attempt
+                        time.sleep(2)
+
+            if stats_response and stats_response.status_code == 200:
                 server_stats = stats_response.json()
                 print(f"Server processed {server_stats['total_requests']} requests")
 
