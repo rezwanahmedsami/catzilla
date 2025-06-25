@@ -4,7 +4,7 @@ Development request logger for Catzilla web framework.
 
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from .formatters import COLORS, ColorFormatter
@@ -69,7 +69,7 @@ class DevLogger:
         """
 
         entry = RequestLogEntry(
-            timestamp=datetime.now(),
+            timestamp=datetime.now(timezone.utc),
             method=method,
             path=path,
             status_code=status_code,
@@ -94,8 +94,8 @@ class DevLogger:
 
     def _format_main_line(self, entry: RequestLogEntry) -> str:
         """Format the main request log line"""
-        # Format timestamp
-        timestamp = entry.timestamp.strftime("%H:%M:%S")
+        # Format timestamp as ISO 8601 UTC with milliseconds
+        timestamp = entry.timestamp.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
         timestamp_colored = self.formatter.colorize(f"[{timestamp}]", COLORS.GRAY)
 
         # Format method
@@ -243,7 +243,7 @@ class ProductionLogger:
         **kwargs,
     ) -> None:
         """Log request in structured format for production"""
-        timestamp = datetime.now().isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
 
         # Simple structured log entry
         log_entry = {
@@ -264,7 +264,7 @@ class ProductionLogger:
 
     def log_server_start(self, host: str, port: int, mode: str) -> None:
         """Log server startup in production"""
-        timestamp = datetime.now().isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
         print(f"{timestamp} Server started on {host}:{port} (mode: {mode})")
 
     # No-op methods for production

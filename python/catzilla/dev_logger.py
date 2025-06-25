@@ -9,7 +9,7 @@ import os
 import platform
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 
@@ -95,8 +95,10 @@ class DevelopmentLogger:
         status_text = self._get_status_text(status_code)
         colored_status = self._colorize_status(status_code, status_text)
 
-        # Format timestamp
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # Format timestamp as ISO 8601 UTC with milliseconds
+        timestamp = (
+            datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        )
 
         # Build log message
         log_parts = [
@@ -132,7 +134,9 @@ class DevelopmentLogger:
         if not self.enabled:
             return
 
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = (
+            datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        )
         colored_error = self._colorize("ERROR", "red")
 
         log_parts = [f"[{timestamp}]", "🔴", colored_error, message]
@@ -157,7 +161,9 @@ class DevelopmentLogger:
         if not self.enabled:
             return
 
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = (
+            datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        )
         colored_info = self._colorize("INFO", "blue")
 
         print(f"[{timestamp}] ℹ️  {colored_info} {message}")
@@ -178,7 +184,9 @@ class DevelopmentLogger:
         if not self.enabled:
             return
 
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = (
+            datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        )
         colored_warning = self._colorize("WARN", "yellow")
 
         print(f"[{timestamp}] ⚠️  {colored_warning} {message}")

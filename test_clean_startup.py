@@ -15,7 +15,7 @@ def test_clean_startup():
     """Test clean startup experience"""
 
     # Create app with clean startup
-    app = Catzilla(production=False, show_banner=True)
+    app = Catzilla(production=True, show_banner=True)
 
     @app.get("/")
     def hello():
