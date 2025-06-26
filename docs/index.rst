@@ -67,6 +67,9 @@ O(log n) route lookup performance while maintaining a clean, Pythonic API.
    :caption: User Guide
 
    advanced
+   static_file_server.md
+   static_file_server_migration.md
+   static_file_server_troubleshooting.md
    BACKGROUND_TASK_SYSTEM.md
    per_route_middleware.md
    middleware.md
@@ -81,6 +84,7 @@ O(log n) route lookup performance while maintaining a clean, Pythonic API.
    :maxdepth: 2
    :caption: Reference
 
+   static_file_server_quick_reference.md
    ../SYSTEM_COMPATIBILITY.md
    c-accelerated-routing.md
    error-handling.md
