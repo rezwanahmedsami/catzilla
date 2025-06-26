@@ -109,4 +109,10 @@ static inline int catzilla_debug_enabled() {
 #define LOG_VALIDATION_ERROR(fmt, ...) LOG_ERROR("Validation", fmt, ##__VA_ARGS__)
 #define LOG_VALIDATION_WARN(fmt, ...)  LOG_WARN("Validation", fmt, ##__VA_ARGS__)
 
+// 🚀 C-NATIVE: Static file server logging macros
+#define LOG_STATIC_DEBUG(fmt, ...)     LOG_DEBUG("Static", fmt, ##__VA_ARGS__)
+#define LOG_STATIC_INFO(fmt, ...)      LOG_INFO("Static", fmt, ##__VA_ARGS__)
+#define LOG_STATIC_ERROR(fmt, ...)     LOG_ERROR("Static", fmt, ##__VA_ARGS__)
+#define LOG_STATIC_WARN(fmt, ...)      LOG_WARN("Static", fmt, ##__VA_ARGS__)
+
 #endif // CATZILLA_LOGGING_H

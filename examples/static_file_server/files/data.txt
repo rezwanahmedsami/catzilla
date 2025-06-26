@@ -1,0 +1,24 @@
+Catzilla Static File Server
+===========================
+
+This file is served from the /files mount which has directory listing enabled.
+
+Performance Features:
+- C-native file serving with libuv
+- Zero-copy sendfile operations
+- Hot file caching with jemalloc
+- Path traversal protection
+- HTTP Range request support
+- Gzip compression
+- ETag generation
+- File watching and cache invalidation
+
+Security Features:
+- Path validation prevents directory traversal
+- File size limits prevent abuse
+- Hidden file protection
+- Extension whitelisting support
+- Access control integration
+
+This demonstrates how static files are served at incredible speed
+while maintaining enterprise-grade security.

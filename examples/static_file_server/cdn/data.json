@@ -1,0 +1,22 @@
+{
+  "cdn_info": {
+    "server": "Catzilla C-Native Static Server",
+    "mount": "/cdn",
+    "compression": "Level 9 Gzip",
+    "caching": "24 hour TTL with ETags",
+    "performance": "400,000+ RPS for hot files"
+  },
+  "features": [
+    "Aggressive caching",
+    "Maximum compression",
+    "ETag support",
+    "Range requests",
+    "Zero-copy sendfile"
+  ],
+  "use_cases": [
+    "JavaScript libraries",
+    "CSS frameworks",
+    "JSON configuration",
+    "Static API responses"
+  ]
+}

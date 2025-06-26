@@ -693,6 +693,10 @@ add_library(catzilla_core STATIC
     src/core/windows_regex.c
     src/core/task_system.c
     src/core/cache_engine.c
+    src/core/static_server.c
+    src/core/static_cache.c
+    src/core/static_response.c
+    src/core/static_utils.c
 )
 
 # Apply feature test macros only to Catzilla core sources (not third-party libs)
@@ -1010,6 +1014,7 @@ if(NOT WHEEL_BUILD_MODE)
     configure_test_executable(test_middleware_minimal tests/c/test_middleware_minimal.c)
     configure_test_executable(test_background_tasks tests/c/test_background_tasks.c)
     configure_test_executable(test_cache_engine tests/c/test_cache_engine.c)
+    configure_test_executable(test_static_server tests/c/test_static_server.c)
 
     # Add Windows threading support for dependency injection test
     if(WIN32)

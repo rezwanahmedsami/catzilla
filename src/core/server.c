@@ -9,6 +9,7 @@
 
 // Project headers
 #include "server.h"
+#include "static_server.h"
 #include "router.h"
 #include "middleware.h"
 #include "logging.h"
@@ -611,6 +612,10 @@ int catzilla_server_init(catzilla_server_t* server) {
     server->is_running = false;
     server->py_request_callback = NULL;
 
+    // Initialize static file mounts
+    server->static_mounts = NULL;
+    server->static_mount_count = 0;
+
     // Set global reference for signal handling
     active_server = server;
 
@@ -934,6 +939,41 @@ static int on_message_complete(llhttp_t* parser) {
         const char* body = "415 Unsupported Media Type";
         send_response_with_connection((uv_stream_t*)&context->client, 415, "text/plain", body, strlen(body), context->keep_alive);
         return 0;
+    }
+
+    // 🔥 STATIC FILE CHECK FIRST (before Python callback and router)
+    if (server->static_mount_count > 0) {
+        catzilla_server_mount_t* static_mount = NULL;
+        char relative_path[CATZILLA_PATH_MAX];
+
+        LOG_STATIC_DEBUG("Checking for static request: path='%s', mount_count=%d",
+                         path, server->static_mount_count);
+
+        if (catzilla_is_static_request(server, path, &static_mount, relative_path)) {
+            LOG_STATIC_INFO("Processing static request: mount='%s', relative='%s'",
+                           static_mount->mount_path, relative_path);
+
+            // Create request structure for static file serving
+            catzilla_request_t request;
+            memset(&request, 0, sizeof(request));
+            strncpy(request.method, context->method, CATZILLA_METHOD_MAX - 1);
+            strncpy(request.path, path, CATZILLA_PATH_MAX - 1);
+            request.body = context->body;
+            request.body_length = context->body_length;
+
+            // ⚡ Handle static file - bypass Python and router entirely
+            // Need to pass client stream correctly
+            int result = catzilla_static_serve_file_with_client(server, &request,
+                                                               static_mount, relative_path,
+                                                               (uv_stream_t*)&context->client);
+            if (result == 0) {
+                LOG_STATIC_INFO("Static file served successfully");
+                return 0;  // Static file handled successfully
+            } else {
+                LOG_STATIC_WARN("Static file serving failed with code: %d", result);
+            }
+            // If static file serving failed, fall through to normal routing
+        }
     }
 
     // 1) If Python callback is set, hand off to Python and return

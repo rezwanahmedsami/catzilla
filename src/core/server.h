@@ -54,6 +54,9 @@ typedef struct catzilla_request_s {
     bool has_path_params;
 } catzilla_request_t;
 
+// Forward declaration for static file mounts
+struct catzilla_server_mount;
+
 typedef struct catzilla_server_s {
     // libuv
     uv_loop_t* loop;
@@ -69,6 +72,10 @@ typedef struct catzilla_server_s {
     // Legacy route table (for backward compatibility)
     catzilla_route_t routes[CATZILLA_MAX_ROUTES];
     int route_count;
+
+    // Static file serving
+    struct catzilla_server_mount* static_mounts;  // Linked list of static mounts
+    int static_mount_count;                       // Number of static mounts
 
     // State
     bool is_running;

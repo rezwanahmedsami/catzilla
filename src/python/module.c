@@ -18,6 +18,7 @@
 #include "../core/router.h"           // Provides catzilla_router_t, catzilla_router_match, etc.
 #include "../core/memory.h"           // Provides memory system functions
 #include "../core/validation.h"       // Provides ultra-fast validation engine
+#include "../core/static_server.h"    // Provides static file server functionality
 #include "../core/windows_compat.h"   // Windows compatibility
 #include <stdio.h>
 #include <string.h>
@@ -333,6 +334,123 @@ static PyObject* CatzillaServer_add_c_route_with_middleware(CatzillaServerObject
     }
 
     return PyLong_FromLong(c_route_id);
+}
+
+// CatzillaServer.mount_static(mount_path, directory, **options)
+static PyObject* CatzillaServer_mount_static(CatzillaServerObject *self, PyObject *args, PyObject *kwargs)
+{
+    const char *mount_path, *directory;
+
+    // Default configuration options
+    static char *kwlist[] = {
+        "mount_path", "directory", "index_file", "enable_hot_cache", "cache_size_mb",
+        "cache_ttl_seconds", "enable_compression", "compression_level",
+        "max_file_size", "enable_etags", "enable_range_requests",
+        "enable_directory_listing", "enable_hidden_files", NULL
+    };
+
+    // Default values
+    const char *index_file = "index.html";
+    int enable_hot_cache = 1;
+    int cache_size_mb = 100;
+    int cache_ttl_seconds = 3600;
+    int enable_compression = 1;
+    int compression_level = 6;
+    long max_file_size = 100 * 1024 * 1024;  // 100MB
+    int enable_etags = 1;
+    int enable_range_requests = 1;
+    int enable_directory_listing = 0;
+    int enable_hidden_files = 0;
+
+    // Parse arguments with keyword support
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "ss|siiiiiLiiii", kwlist,
+                                     &mount_path, &directory, &index_file,
+                                     &enable_hot_cache, &cache_size_mb, &cache_ttl_seconds,
+                                     &enable_compression, &compression_level, &max_file_size,
+                                     &enable_etags, &enable_range_requests,
+                                     &enable_directory_listing, &enable_hidden_files)) {
+        return NULL;
+    }
+
+    // Validate mount path
+    if (!mount_path || strlen(mount_path) == 0 || mount_path[0] != '/') {
+        PyErr_SetString(PyExc_ValueError, "mount_path must start with '/'");
+        return NULL;
+    }
+
+    // Validate directory path
+    if (!directory || strlen(directory) == 0) {
+        PyErr_SetString(PyExc_ValueError, "directory path cannot be empty");
+        return NULL;
+    }
+
+    // Create static server configuration
+    static_server_config_t *config = catzilla_cache_alloc(sizeof(static_server_config_t));
+    if (!config) {
+        PyErr_NoMemory();
+        return NULL;
+    }
+
+    // Initialize configuration with Python values
+    memset(config, 0, sizeof(static_server_config_t));
+
+    // Basic paths - allocate and copy strings
+    config->mount_path = catzilla_cache_alloc(strlen(mount_path) + 1);
+    config->directory = catzilla_cache_alloc(strlen(directory) + 1);
+    config->index_file = catzilla_cache_alloc(strlen(index_file) + 1);
+
+    if (!config->mount_path || !config->directory || !config->index_file) {
+        if (config->mount_path) catzilla_cache_free(config->mount_path);
+        if (config->directory) catzilla_cache_free(config->directory);
+        if (config->index_file) catzilla_cache_free(config->index_file);
+        catzilla_cache_free(config);
+        PyErr_NoMemory();
+        return NULL;
+    }
+
+    strcpy(config->mount_path, mount_path);
+    strcpy(config->directory, directory);
+    strcpy(config->index_file, index_file);
+
+    // libuv settings - use the server's event loop
+    config->loop = self->server.loop;
+    config->fs_thread_pool_size = 4;
+    config->use_sendfile = true;
+
+    // Performance settings
+    config->enable_hot_cache = enable_hot_cache ? true : false;
+    config->cache_size_mb = cache_size_mb > 0 ? cache_size_mb : 100;
+    config->cache_ttl_seconds = cache_ttl_seconds > 0 ? cache_ttl_seconds : 3600;
+
+    // Compression settings
+    config->enable_compression = enable_compression ? true : false;
+    config->compression_level = (compression_level >= 1 && compression_level <= 9) ? compression_level : 6;
+    config->compression_min_size = 1024;  // Compress files > 1KB
+
+    // Security settings
+    config->enable_path_validation = true;  // Always enable security
+    config->enable_hidden_files = enable_hidden_files ? true : false;
+    config->max_file_size = max_file_size > 0 ? max_file_size : 100 * 1024 * 1024;
+
+    // HTTP features
+    config->enable_etags = enable_etags ? true : false;
+    config->enable_last_modified = true;
+    config->enable_range_requests = enable_range_requests ? true : false;
+    config->enable_directory_listing = enable_directory_listing ? true : false;
+
+    // Call the C function to mount the static directory
+    int result = catzilla_server_mount_static(&self->server, mount_path, directory, config);
+
+    // The C function takes ownership of the config, so we don't free it here
+
+    if (result != 0) {
+        PyErr_Format(PyExc_RuntimeError, "Failed to mount static directory: %s -> %s (error code: %d)",
+                     mount_path, directory, result);
+        return NULL;
+    }
+
+    // Return success
+    Py_RETURN_NONE;
 }
 
 // send_response(client_capsule, status, headers, body)
@@ -1613,6 +1731,7 @@ static PyMethodDef CatzillaServer_methods[] = {
     {"add_c_route", (PyCFunction)CatzillaServer_add_c_route, METH_VARARGS, "Add route to C router"},
     {"add_c_route_with_middleware", (PyCFunction)CatzillaServer_add_c_route_with_middleware, METH_VARARGS, "Add route to C router with per-route middleware"},
     {"add_c_route_with_middleware", (PyCFunction)CatzillaServer_add_c_route_with_middleware, METH_VARARGS, "Add route to C router with middleware"},
+    {"mount_static", (PyCFunction)CatzillaServer_mount_static, METH_VARARGS | METH_KEYWORDS, "Mount a static directory"},
     {NULL}
 };
 
