@@ -1,7 +1,9 @@
 #include "server_stats.h"
 #include "server.h"
 #include <string.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #include <time.h>
 
 #ifdef JEMALLOC_ENABLED
