@@ -62,11 +62,11 @@ int catzilla_static_server_init(catzilla_static_server_t* server,
     server->loop = config->loop;
 
     // Initialize statistics
-    atomic_init(&server->requests_served, 0);
-    atomic_init(&server->bytes_served, 0);
-    atomic_init(&server->cache_hits, 0);
-    atomic_init(&server->cache_misses, 0);
-    atomic_init(&server->sendfile_operations, 0);
+    catzilla_atomic_store(&server->requests_served, 0);
+    catzilla_atomic_store(&server->bytes_served, 0);
+    catzilla_atomic_store(&server->cache_hits, 0);
+    catzilla_atomic_store(&server->cache_misses, 0);
+    catzilla_atomic_store(&server->sendfile_operations, 0);
 
     // Initialize cache if enabled
     if (config->enable_hot_cache) {
@@ -291,10 +291,10 @@ int catzilla_static_serve_file_async(catzilla_server_t* server,
                                                      ctx->relative_path);
         if (ctx->cache_entry) {
             // Serve from cache
-            atomic_fetch_add(&mount->static_server->cache_hits, 1);
+            catzilla_atomic_fetch_add(&mount->static_server->cache_hits, 1);
             return catzilla_static_serve_cached_file(ctx);
         }
-        atomic_fetch_add(&mount->static_server->cache_misses, 1);
+        catzilla_atomic_fetch_add(&mount->static_server->cache_misses, 1);
     }
 
     // Start async file operations
@@ -362,12 +362,12 @@ int catzilla_static_serve_file_with_client(catzilla_server_t* server,
         if (ctx->cache_entry) {
             LOG_STATIC_DEBUG("Found cached entry for: '%s'", ctx->relative_path);
             // Serve from cache
-            atomic_fetch_add(&mount->static_server->cache_hits, 1);
+            catzilla_atomic_fetch_add(&mount->static_server->cache_hits, 1);
             return catzilla_static_serve_cached_file(ctx);
         } else {
             LOG_STATIC_DEBUG("No cached entry found for: '%s'", ctx->relative_path);
         }
-        atomic_fetch_add(&mount->static_server->cache_misses, 1);
+        catzilla_atomic_fetch_add(&mount->static_server->cache_misses, 1);
     } else {
         LOG_STATIC_DEBUG("Cache not enabled for this mount");
     }
@@ -674,8 +674,8 @@ static void on_file_read(uv_fs_t* req) {
 
     // Update statistics
     if (result == 0) {
-        atomic_fetch_add(&ctx->mount->static_server->requests_served, 1);
-        atomic_fetch_add(&ctx->mount->static_server->bytes_served, bytes_read);
+        catzilla_atomic_fetch_add(&ctx->mount->static_server->requests_served, 1);
+        catzilla_atomic_fetch_add(&ctx->mount->static_server->bytes_served, bytes_read);
         LOG_STATIC_DEBUG("Statistics updated successfully");
     }
 
@@ -746,8 +746,8 @@ static int catzilla_static_serve_cached_file(static_file_context_t* ctx) {
 
     // Update statistics
     if (result == 0) {
-        atomic_fetch_add(&ctx->mount->static_server->requests_served, 1);
-        atomic_fetch_add(&ctx->mount->static_server->bytes_served, ctx->cache_entry->content_size);
+        catzilla_atomic_fetch_add(&ctx->mount->static_server->requests_served, 1);
+        catzilla_atomic_fetch_add(&ctx->mount->static_server->bytes_served, ctx->cache_entry->content_size);
     }
 
     catzilla_static_free(ctx);

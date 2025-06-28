@@ -371,21 +371,21 @@ static void test_performance_monitoring() {
     TEST_START("performance_monitoring");
 
     // Check initial statistics
-    uint64_t initial_requests = atomic_load(&test_server.requests_served);
-    uint64_t initial_bytes = atomic_load(&test_server.bytes_served);
+    uint64_t initial_requests = catzilla_atomic_load(&test_server.requests_served);
+    uint64_t initial_bytes = catzilla_atomic_load(&test_server.bytes_served);
 
     // Statistics should be initialized to 0
     TEST_ASSERT(initial_requests == 0, "Initial request count should be 0");
     TEST_ASSERT(initial_bytes == 0, "Initial bytes served should be 0");
 
     // Simulate serving a file (we'll increment manually for testing)
-    atomic_fetch_add(&test_server.requests_served, 1);
-    atomic_fetch_add(&test_server.bytes_served, 1024);
-    atomic_fetch_add(&test_server.cache_hits, 1);
+    catzilla_atomic_fetch_add(&test_server.requests_served, 1);
+    catzilla_atomic_fetch_add(&test_server.bytes_served, 1024);
+    catzilla_atomic_fetch_add(&test_server.cache_hits, 1);
 
-    TEST_ASSERT(atomic_load(&test_server.requests_served) == 1, "Request count should increment");
-    TEST_ASSERT(atomic_load(&test_server.bytes_served) == 1024, "Bytes served should increment");
-    TEST_ASSERT(atomic_load(&test_server.cache_hits) == 1, "Cache hits should increment");
+    TEST_ASSERT(catzilla_atomic_load(&test_server.requests_served) == 1, "Request count should increment");
+    TEST_ASSERT(catzilla_atomic_load(&test_server.bytes_served) == 1024, "Bytes served should increment");
+    TEST_ASSERT(catzilla_atomic_load(&test_server.cache_hits) == 1, "Cache hits should increment");
 
     TEST_END("performance_monitoring");
 }

@@ -5,10 +5,10 @@
 #include <stdint.h>
 #include <time.h>
 #include <sys/stat.h>
-#include <stdatomic.h>
 #include <uv.h>
 #include "server.h"
 #include "memory.h"
+#include "platform_atomic.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -149,9 +149,9 @@ typedef struct hot_cache {
     uv_timer_t cleanup_timer;     // TTL cleanup timer
 
     // Statistics
-    _Atomic uint64_t cache_hits;
-    _Atomic uint64_t cache_misses;
-    _Atomic uint64_t evictions;
+    catzilla_atomic_uint64_t cache_hits;
+    catzilla_atomic_uint64_t cache_misses;
+    catzilla_atomic_uint64_t evictions;
 } hot_cache_t;
 
 // File context for serving
@@ -198,11 +198,11 @@ typedef struct catzilla_static_server {
     static_security_config_t* security; // Security configuration
 
     // Performance statistics
-    _Atomic uint64_t requests_served;
-    _Atomic uint64_t bytes_served;
-    _Atomic uint64_t cache_hits;
-    _Atomic uint64_t cache_misses;
-    _Atomic uint64_t sendfile_operations;
+    catzilla_atomic_uint64_t requests_served;
+    catzilla_atomic_uint64_t bytes_served;
+    catzilla_atomic_uint64_t cache_hits;
+    catzilla_atomic_uint64_t cache_misses;
+    catzilla_atomic_uint64_t sendfile_operations;
 } catzilla_static_server_t;
 
 // Core API functions

@@ -72,9 +72,9 @@ int catzilla_static_cache_init(hot_cache_t* cache, size_t max_memory) {
     }
 
     // Initialize atomic counters
-    atomic_init(&cache->cache_hits, 0);
-    atomic_init(&cache->cache_misses, 0);
-    atomic_init(&cache->evictions, 0);
+    catzilla_atomic_store(&cache->cache_hits, 0);
+    catzilla_atomic_store(&cache->cache_misses, 0);
+    catzilla_atomic_store(&cache->evictions, 0);
 
     // Initialize read-write lock
     int result = uv_rwlock_init(&cache->cache_lock);
@@ -143,7 +143,7 @@ int catzilla_static_cache_put(hot_cache_t* cache, const char* file_path,
         // Evict least recently used entry
         hot_cache_entry_t* victim = cache->lru_tail;
         catzilla_static_cache_remove_unlocked(cache, victim->file_path);
-        atomic_fetch_add(&cache->evictions, 1);
+        catzilla_atomic_fetch_add(&cache->evictions, 1);
     }
 
     // Create new entry
