@@ -1,4 +1,5 @@
 #include "static_server.h"
+#include "platform_compat.h"
 #include "memory.h"
 #include "logging.h"
 #include <string.h>

@@ -205,6 +205,15 @@
     // Note: _fullpath is already declared in <stdlib.h> on Windows
     #define realpath(path, resolved) _fullpath(resolved, path, PATH_MAX)
 
+    // Windows file stat compatibility
+    #include <sys/stat.h>
+    #ifndef S_ISDIR
+        #define S_ISDIR(mode) (((mode) & _S_IFMT) == _S_IFDIR)
+    #endif
+    #ifndef S_ISREG
+        #define S_ISREG(mode) (((mode) & _S_IFMT) == _S_IFREG)
+    #endif
+
     // Helper function to check if character is a path separator
     static inline int catzilla_is_path_separator(char c) {
         return (c == '/' || c == '\\');
