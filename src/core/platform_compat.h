@@ -201,15 +201,9 @@
     #define CATZILLA_PATH_SEPARATOR '\\'
     #define CATZILLA_PATH_SEPARATOR_STR "\\"
 
-    // Windows equivalent of realpath
-    static inline char* catzilla_realpath(const char* path, char* resolved_path) {
-        if (!path || !resolved_path) return NULL;
-
-        // Use _fullpath on Windows
-        return _fullpath(resolved_path, path, PATH_MAX);
-    }
-
-    #define realpath(path, resolved) catzilla_realpath(path, resolved)
+    // Windows equivalent of realpath - use _fullpath directly
+    // Note: _fullpath is already declared in <stdlib.h> on Windows
+    #define realpath(path, resolved) _fullpath(resolved, path, PATH_MAX)
 
     // Helper function to check if character is a path separator
     static inline int catzilla_is_path_separator(char c) {
