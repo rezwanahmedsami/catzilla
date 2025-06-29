@@ -324,8 +324,7 @@ def create_demo_files():
     static_dir = base_dir / "static"
 
     # CSS file
-    (static_dir / "style.css").write_text("""
-/* Catzilla Static Server Demo Styles */
+    (static_dir / "style.css").write_text("""/* Catzilla Static Server Demo Styles */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
@@ -450,11 +449,10 @@ h2 {
     .mount-grid { grid-template-columns: 1fr; }
     .api-links { flex-direction: column; }
 }
-    """.strip())
+""")
 
     # JavaScript file
-    (static_dir / "app.js").write_text("""
-// Catzilla Static Server Demo JavaScript
+    (static_dir / "app.js").write_text("""// Catzilla Static Server Demo JavaScript
 console.log('🐱 Catzilla Static Server Demo loaded!');
 console.log('This JavaScript file is served at C-native speed!');
 
@@ -489,11 +487,10 @@ style.textContent = `
 }
 `;
 document.head.appendChild(style);
-    """.strip())
+""")
 
     # Create index.html in static directory
-    (static_dir / "index.html").write_text("""
-<!DOCTYPE html>
+    (static_dir / "index.html").write_text("""<!DOCTYPE html>
 <html>
 <head>
     <title>Static Directory Index</title>
@@ -512,12 +509,11 @@ document.head.appendChild(style);
     <script src="app.js"></script>
 </body>
 </html>
-    """.strip())
+""")
 
     # Create CDN files
     cdn_dir = base_dir / "cdn"
-    (cdn_dir / "library.js").write_text("""
-/* Catzilla Static Server - CDN Demo Library */
+    (cdn_dir / "library.js").write_text("""/* Catzilla Static Server - CDN Demo Library */
 (function(window) {
     'use strict';
 
@@ -550,7 +546,7 @@ document.head.appendChild(style);
     }
 
 })(window);
-    """.strip())
+""")
 
     (cdn_dir / "data.json").write_text(json.dumps({
         "cdn_info": {
@@ -573,13 +569,12 @@ document.head.appendChild(style);
             "JSON configuration",
             "Static API responses"
         ]
-    }, indent=2))
+    }, indent=2) + "\n")
 
     # Create files directory
     files_dir = base_dir / "files"
     (files_dir / "document.pdf").write_text("This would be a PDF file in a real application.")
-    (files_dir / "data.txt").write_text("""
-Catzilla Static File Server
+    (files_dir / "data.txt").write_text("""Catzilla Static File Server
 ===========================
 
 This file is served from the /files mount which has directory listing enabled.
@@ -603,7 +598,7 @@ Security Features:
 
 This demonstrates how static files are served at incredible speed
 while maintaining enterprise-grade security.
-    """.strip())
+""")
 
     print("✅ Created demo files for static server example")
 
