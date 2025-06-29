@@ -1,4 +1,5 @@
 #include "static_server.h"
+#include "platform_compat.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -148,42 +149,47 @@ char* catzilla_static_generate_etag(const char* file_path, time_t last_modified,
 bool catzilla_static_validate_path(const char* requested_path, const char* base_dir) {
     if (!requested_path || !base_dir) return false;
 
-    // Resolve the requested path to an absolute path
-    char resolved_path[PATH_MAX];
-    if (!realpath(requested_path, resolved_path)) {
-        // If realpath fails, the file might not exist, but we still need to validate the path
-        // Try to resolve as much as possible
-        strncpy(resolved_path, requested_path, PATH_MAX - 1);
-        resolved_path[PATH_MAX - 1] = '\0';
-    }
+    // Check for empty path
+    if (strlen(requested_path) == 0) return false;
 
-    // Resolve the base directory
+    // Resolve the base directory first - it must exist
     char resolved_base[PATH_MAX];
     if (!realpath(base_dir, resolved_base)) {
         return false;  // Base directory must exist
     }
 
-    // Check if the resolved path is within the base directory
-    size_t base_len = strlen(resolved_base);
-    if (strncmp(resolved_path, resolved_base, base_len) != 0) {
-        return false;  // Path is outside base directory
-    }
+    // For security validation, we don't need the file to exist yet
+    // Just check for dangerous patterns in the requested path
 
-    // Check that the path doesn't escape with '..' after the base
-    if (resolved_path[base_len] != '\0' && resolved_path[base_len] != '/') {
-        return false;  // Invalid path structure
-    }
-
-    // Additional security checks
-    const char* path_part = resolved_path + base_len;
-
-    // Check for dangerous patterns
-    if (strstr(path_part, "/../") || strstr(path_part, "/./")) {
+    // Check for null bytes (should not happen, but safety check)
+    if (strlen(requested_path) != strlen(requested_path)) {
         return false;
     }
 
-    // Check for null bytes (should not happen, but safety check)
-    if (strlen(path_part) != strlen(path_part)) {
+    // Check for dangerous patterns (both Unix and Windows path separators)
+    if (strstr(requested_path, "../") || strstr(requested_path, "./") ||
+        strstr(requested_path, "..\\") || strstr(requested_path, ".\\") ||
+        strstr(requested_path, "..") == requested_path) {
+        return false;
+    }
+
+    // Check for hidden files (starting with .)
+    const char* filename = strrchr(requested_path, '/');
+    if (!filename) filename = strrchr(requested_path, '\\');
+    if (!filename) filename = requested_path;
+    else filename++; // Skip the separator
+
+    if (filename[0] == '.') {
+        return false;  // Hidden files are blocked
+    }
+
+    // Basic path construction to ensure it stays within base
+    char full_path[PATH_MAX];
+    int ret = snprintf(full_path, PATH_MAX, "%s%s", resolved_base, requested_path);
+    if (ret >= PATH_MAX || ret < 0) return false;
+
+    // Ensure the constructed path starts with the base directory
+    if (strncmp(full_path, resolved_base, strlen(resolved_base)) != 0) {
         return false;
     }
 

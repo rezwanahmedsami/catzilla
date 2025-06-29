@@ -212,20 +212,20 @@ static void test_mime_type_detection() {
 static void test_path_validation() {
     TEST_START("path_validation");
 
-    // Test valid paths (use validate_path with base directory)
-    TEST_ASSERT(catzilla_static_validate_path("/index.html", "/var/www") == true, "Simple file path should be safe");
-    TEST_ASSERT(catzilla_static_validate_path("/css/style.css", "/var/www") == true, "Subdirectory path should be safe");
-    TEST_ASSERT(catzilla_static_validate_path("/images/logo.png", "/var/www") == true, "Deep path should be safe");
+    // Test valid paths (use validate_path with actual test directory)
+    TEST_ASSERT(catzilla_static_validate_path("/index.html", test_dir) == true, "Simple file path should be safe");
+    TEST_ASSERT(catzilla_static_validate_path("/style.css", test_dir) == true, "CSS file path should be safe");
+    TEST_ASSERT(catzilla_static_validate_path("/app.js", test_dir) == true, "JS file path should be safe");
 
     // Test dangerous paths
-    TEST_ASSERT(catzilla_static_validate_path("../etc/passwd", "/var/www") == false, "Directory traversal should be blocked");
-    TEST_ASSERT(catzilla_static_validate_path("/../../etc/passwd", "/var/www") == false, "Root escape should be blocked");
-    TEST_ASSERT(catzilla_static_validate_path("/.htaccess", "/var/www") == false, "Hidden files should be blocked");
-    TEST_ASSERT(catzilla_static_validate_path("/config/.env", "/var/www") == false, "Config files should be blocked");
+    TEST_ASSERT(catzilla_static_validate_path("../etc/passwd", test_dir) == false, "Directory traversal should be blocked");
+    TEST_ASSERT(catzilla_static_validate_path("/../../etc/passwd", test_dir) == false, "Root escape should be blocked");
+    TEST_ASSERT(catzilla_static_validate_path("/.htaccess", test_dir) == false, "Hidden files should be blocked");
+    TEST_ASSERT(catzilla_static_validate_path("/config/.env", test_dir) == false, "Config files should be blocked");
 
     // Test edge cases
-    TEST_ASSERT(catzilla_static_validate_path("", "/var/www") == false, "Empty path should be invalid");
-    TEST_ASSERT(catzilla_static_validate_path("/", "/var/www") == true, "Root path should be valid for directory listing");
+    TEST_ASSERT(catzilla_static_validate_path("", test_dir) == false, "Empty path should be invalid");
+    TEST_ASSERT(catzilla_static_validate_path("/", test_dir) == true, "Root path should be valid for directory listing");
 
     TEST_END("path_validation");
 }

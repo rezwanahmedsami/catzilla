@@ -187,6 +187,54 @@
     // Full pthread emulation can be added later if needed
 #endif
 
+// ========================================================================
+// PATH LENGTH COMPATIBILITY
+// ========================================================================
+
+#ifdef _WIN32
+    // Windows uses MAX_PATH instead of PATH_MAX
+    #ifndef PATH_MAX
+        #define PATH_MAX MAX_PATH
+    #endif
+
+    // Windows path separator
+    #define CATZILLA_PATH_SEPARATOR '\\'
+    #define CATZILLA_PATH_SEPARATOR_STR "\\"
+
+    // Windows equivalent of realpath
+    static inline char* catzilla_realpath(const char* path, char* resolved_path) {
+        if (!path || !resolved_path) return NULL;
+
+        // Use _fullpath on Windows
+        return _fullpath(resolved_path, path, PATH_MAX);
+    }
+
+    #define realpath(path, resolved) catzilla_realpath(path, resolved)
+
+    // Helper function to check if character is a path separator
+    static inline int catzilla_is_path_separator(char c) {
+        return (c == '/' || c == '\\');
+    }
+#else
+    // Unix-like systems typically define PATH_MAX in limits.h
+    #include <limits.h>
+    #ifndef PATH_MAX
+        // Fallback for systems that don't define PATH_MAX
+        #define PATH_MAX 4096
+    #endif
+
+    // Unix path separator
+    #define CATZILLA_PATH_SEPARATOR '/'
+    #define CATZILLA_PATH_SEPARATOR_STR "/"
+
+    // Unix-like systems have realpath natively
+
+    // Helper function to check if character is a path separator
+    static inline int catzilla_is_path_separator(char c) {
+        return (c == '/');
+    }
+#endif
+
 // Memory alignment validation
 CATZILLA_STATIC_ASSERT(sizeof(void*) >= 4, "Pointer size must be at least 4 bytes");
 CATZILLA_STATIC_ASSERT(sizeof(size_t) >= 4, "size_t must be at least 4 bytes");
