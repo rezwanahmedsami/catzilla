@@ -23,6 +23,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>             // For HUGE_VAL
+#include <unistd.h>           // For getpid()
+#include <time.h>             // For time()
 #include <yyjson.h>
 #include "../core/cache_engine.h"
 
@@ -1166,6 +1168,183 @@ static PyObject* get_query_param(PyObject *self, PyObject *args)
     return PyUnicode_FromString(value);
 }
 
+// Get uploaded files from request
+static PyObject* get_files(PyObject *self, PyObject *args) {
+    catzilla_request_t* request;
+    PyObject* capsule;
+
+    LOG_DEBUG("Bridge", "get_files() called");
+
+    if (!PyArg_ParseTuple(args, "O", &capsule)) {
+        LOG_DEBUG("Bridge", "Failed to parse args");
+        return NULL;
+    }
+
+    LOG_DEBUG("Bridge", "Getting request from capsule");
+    request = (catzilla_request_t*)PyCapsule_GetPointer(capsule, "catzilla.request");
+    if (!request) {
+        LOG_DEBUG("Bridge", "Invalid request capsule");
+        PyErr_SetString(PyExc_TypeError, "Invalid request capsule");
+        return NULL;
+    }
+
+    LOG_DEBUG("Bridge", "Request valid, has_files=%d, file_count=%d",
+           request->has_files, request->file_count);
+
+    PyObject* files_dict = PyDict_New();
+    if (!files_dict) {
+        LOG_DEBUG("Bridge", "Failed to create dict");
+        return NULL;
+    }
+
+    LOG_DEBUG("Bridge", "Created files dictionary");
+
+    if (request->has_files && request->file_count > 0) {
+        LOG_DEBUG("Bridge", "Processing %d files", request->file_count);
+        for (int i = 0; i < request->file_count; i++) {
+            LOG_DEBUG("Bridge", "Processing file %d/%d", i+1, request->file_count);
+
+            catzilla_upload_file_t* file = request->files[i];
+            if (!file) {
+                LOG_DEBUG("Bridge", "File %d is NULL, skipping", i);
+                continue;
+            }
+
+            LOG_DEBUG("Bridge", "File %d: field_name=%s, filename=%s, size=%llu",
+                   i, file->field_name ? file->field_name : "NULL",
+                   file->filename ? file->filename : "NULL",
+                   (unsigned long long)file->size);
+
+            // Create a file info dict for each file
+            LOG_DEBUG("Bridge", "Creating file info dict for file %d", i);
+            PyObject* file_info = PyDict_New();
+            if (!file_info) {
+                LOG_DEBUG("Bridge", "Failed to create file_info dict");
+                Py_DECREF(files_dict);
+                return NULL;
+            }
+
+            LOG_DEBUG("Bridge", "Adding field_name to dict");
+            // Add field name
+            if (file->field_name) {
+                PyDict_SetItemString(file_info, "field_name", PyUnicode_FromString(file->field_name));
+            } else {
+                PyDict_SetItemString(file_info, "field_name", Py_None);
+            }
+
+            LOG_DEBUG("Bridge", "Adding filename to dict");
+            // Add filename
+            if (file->filename) {
+                PyDict_SetItemString(file_info, "filename", PyUnicode_FromString(file->filename));
+            } else {
+                PyDict_SetItemString(file_info, "filename", Py_None);
+            }
+
+            LOG_DEBUG("Bridge", "Adding content_type to dict");
+            // Add content type
+            if (file->content_type) {
+                PyDict_SetItemString(file_info, "content_type", PyUnicode_FromString(file->content_type));
+            } else {
+                PyDict_SetItemString(file_info, "content_type", Py_None);
+            }
+
+            LOG_DEBUG("Bridge", "About to process content (size=%llu, pointer=%p)",
+                   (unsigned long long)file->size, (void*)file->content);
+
+            // Add content - use temp_path for large files, content for smaller files
+            if (file->temp_file_path && strlen(file->temp_file_path) > 0) {
+                // Large file streamed to temp file - provide temp_path instead of content
+                LOG_DEBUG("Bridge", "Large file streamed to temp file: %s (size=%llu)",
+                       file->temp_file_path, (unsigned long long)file->size);
+                PyDict_SetItemString(file_info, "content", Py_None);
+                PyDict_SetItemString(file_info, "temp_path", PyUnicode_FromString(file->temp_file_path));
+                PyDict_SetItemString(file_info, "is_streamed", Py_True);
+            } else if (file->content && file->size > 0) {
+                // Regular file content in memory
+                LOG_DEBUG("Bridge", "Processing file content in memory: field_name=%s, filename=%s, size=%llu",
+                       file->field_name ? file->field_name : "NULL",
+                       file->filename ? file->filename : "NULL",
+                       (unsigned long long)file->size);
+
+                PyObject* content_bytes = PyBytes_FromStringAndSize(file->content, (Py_ssize_t)file->size);
+                if (content_bytes) {
+                    LOG_DEBUG("Bridge", "Successfully created PyBytes object for file content");
+                    PyDict_SetItemString(file_info, "content", content_bytes);
+                    Py_DECREF(content_bytes);
+                    PyDict_SetItemString(file_info, "temp_path", Py_None);
+                    PyDict_SetItemString(file_info, "is_streamed", Py_False);
+                } else {
+                    // PyBytes creation failed (likely too large) - create temp file instead
+                    LOG_DEBUG("Bridge", "PyBytes creation failed for large file - creating temp file");
+
+                    // Create temporary file for large upload
+                    char temp_path[256];
+                    snprintf(temp_path, sizeof(temp_path), "/tmp/catzilla_upload_%d_%llu.tmp",
+                             getpid(), (unsigned long long)time(NULL));
+
+                    FILE* temp_file = fopen(temp_path, "wb");
+                    if (temp_file && file->content) {
+                        size_t written = fwrite(file->content, 1, file->size, temp_file);
+                        fclose(temp_file);
+
+                        if (written == file->size) {
+                            LOG_DEBUG("Bridge", "Successfully wrote large file to temp path: %s", temp_path);
+                            PyDict_SetItemString(file_info, "content", Py_None);
+                            PyDict_SetItemString(file_info, "temp_path", PyUnicode_FromString(temp_path));
+                            PyDict_SetItemString(file_info, "is_streamed", Py_True);
+                        } else {
+                            LOG_DEBUG("Bridge", "Failed to write complete file to temp path");
+                            PyDict_SetItemString(file_info, "content", Py_None);
+                            PyDict_SetItemString(file_info, "temp_path", Py_None);
+                            PyDict_SetItemString(file_info, "is_streamed", Py_False);
+                        }
+                    } else {
+                        LOG_DEBUG("Bridge", "Failed to create temp file for large upload");
+                        PyDict_SetItemString(file_info, "content", Py_None);
+                        PyDict_SetItemString(file_info, "temp_path", Py_None);
+                        PyDict_SetItemString(file_info, "is_streamed", Py_False);
+                    }
+                }
+            } else if (file->size == 0) {
+                LOG_DEBUG("Bridge", "Zero-size file, setting content to empty bytes");
+                PyDict_SetItemString(file_info, "content", PyBytes_FromStringAndSize("", 0));
+            } else {
+                LOG_DEBUG("Bridge", "No content pointer for file");
+                PyDict_SetItemString(file_info, "content", Py_None);
+            }
+
+            // Add size
+            PyDict_SetItemString(file_info, "size", PyLong_FromUnsignedLongLong(file->size));
+
+            // Add temp file path
+            if (file->temp_file_path) {
+                PyDict_SetItemString(file_info, "temp_path", PyUnicode_FromString(file->temp_file_path));
+            } else {
+                PyDict_SetItemString(file_info, "temp_path", Py_None);
+            }
+
+            // Add state
+            PyDict_SetItemString(file_info, "state", PyLong_FromLong(file->state));
+
+            // Use field_name as key, fallback to filename, or file_N if neither
+            const char* key = file->field_name;
+            char default_key[32];
+            if (!key) {
+                key = file->filename;
+                if (!key) {
+                    snprintf(default_key, sizeof(default_key), "file_%d", i);
+                    key = default_key;
+                }
+            }
+
+            PyDict_SetItemString(files_dict, key, file_info);
+            Py_DECREF(file_info);
+        }
+    }
+
+    return files_dict;
+}
+
 // Global router for module-level functions
 static catzilla_router_t global_router;
 static bool global_router_initialized = false;
@@ -1752,6 +1931,7 @@ static PyMethodDef module_methods[] = {
     {"get_json", get_json, METH_VARARGS, "Get parsed JSON from request"},
     {"parse_form", parse_form, METH_VARARGS, "Parse form data from request"},
     {"get_form_field", get_form_field, METH_VARARGS, "Get form field value"},
+    {"get_files", get_files, METH_VARARGS, "Get uploaded files from request"},
     {"get_content_type", get_content_type, METH_VARARGS, "Get content type from request"},
     {"get_query_param", get_query_param, METH_VARARGS, "Get query parameter value"},
     {"router_match", router_match, METH_VARARGS, "Match route using C router"},

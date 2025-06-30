@@ -697,6 +697,11 @@ add_library(catzilla_core STATIC
     src/core/static_cache.c
     src/core/static_response.c
     src/core/static_utils.c
+    # Revolutionary File Upload System
+    src/core/upload_parser.c
+    src/core/upload_memory.c
+    src/core/upload_stream.c
+    src/core/upload_clamav.c
 )
 
 # Apply feature test macros only to Catzilla core sources (not third-party libs)

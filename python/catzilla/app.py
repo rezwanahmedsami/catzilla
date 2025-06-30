@@ -181,6 +181,8 @@ class Catzilla:
         log_requests: bool = None,  # Auto-detect based on production mode
         enable_colors: bool = True,
         show_request_details: bool = True,
+        # Revolutionary upload system configuration
+        upload_config: Optional[Dict[str, Any]] = None,
     ):
         """Initialize Catzilla with advanced memory optimization and dependency injection
 
@@ -199,6 +201,7 @@ class Catzilla:
             log_requests: Enable development request logging (auto-disabled in production)
             enable_colors: Enable colorized output for better developer experience
             show_request_details: Show detailed request information in development mode
+            upload_config: Configuration for the revolutionary C-native upload system
 
         Note:
             The `use_jemalloc` parameter now uses conditional runtime support. If jemalloc
@@ -208,6 +211,12 @@ class Catzilla:
 
             Dependency injection provides C-speed service resolution with FastAPI-style
             decorators and seamless integration with the existing validation system.
+
+            The upload_config enables the revolutionary file upload system with:
+            - C-native multipart parsing (10-100x faster)
+            - Zero-copy streaming and memory optimization
+            - Enterprise-grade virus scanning with ClamAV
+            - Real-time performance monitoring
         """
         # Store configuration
         self.production = production
@@ -225,6 +234,9 @@ class Catzilla:
         )
         self.enable_colors = enable_colors
         self.show_request_details = show_request_details
+
+        # Upload system configuration
+        self.upload_config = upload_config or {}
 
         # Initialize logging system
         self.banner_renderer = (

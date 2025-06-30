@@ -15,6 +15,7 @@
 #include "logging.h"
 #include "windows_compat.h"
 #include "memory.h"
+#include "upload_parser.h"
 
 // Python headers (after system headers to avoid conflicts)
 #include <Python.h>
@@ -36,6 +37,7 @@ typedef struct {
     size_t body_length;
     size_t body_size;
     content_type_t content_type;  // Keep this aligned with 4-byte boundary
+    char* content_type_header;  // Store full Content-Type header value
     bool parsing_content_type;
     bool keep_alive;  // Track if client wants keep-alive
     bool parsing_connection;  // Track if we're parsing Connection header
@@ -111,6 +113,17 @@ static int on_header_value(llhttp_t* parser, const char* at, size_t length) {
     if (context->parsing_content_type) {
         LOG_HTTP_DEBUG("Processing Content-Type header: '%.*s'", (int)length, at);
 
+        // Store the full Content-Type header value for multipart boundary extraction
+        if (context->content_type_header) {
+            catzilla_cache_free(context->content_type_header);
+        }
+        context->content_type_header = catzilla_cache_alloc(length + 1);
+        if (context->content_type_header) {
+            memcpy(context->content_type_header, at, length);
+            context->content_type_header[length] = '\0';
+            LOG_HTTP_DEBUG("Stored full Content-Type header: %s", context->content_type_header);
+        }
+
         // Store content type for later use in JSON/form parsing
         content_type_t new_type = CONTENT_TYPE_NONE;
 
@@ -118,14 +131,17 @@ static int on_header_value(llhttp_t* parser, const char* at, size_t length) {
             new_type = CONTENT_TYPE_JSON;
         } else if (length >= 33 && strncasecmp(at, "application/x-www-form-urlencoded", 33) == 0) {
             new_type = CONTENT_TYPE_FORM;
+        } else if (length >= 19 && strncasecmp(at, "multipart/form-data", 19) == 0) {
+            new_type = CONTENT_TYPE_MULTIPART;
         }
 
         // Validate and set the content type
-        if (new_type >= CONTENT_TYPE_NONE && new_type <= CONTENT_TYPE_FORM) {
+        if (new_type >= CONTENT_TYPE_NONE && new_type <= CONTENT_TYPE_MULTIPART) {
             context->content_type = new_type;
             LOG_HTTP_DEBUG("Content-Type set to: %s (type=%d)",
                 new_type == CONTENT_TYPE_JSON ? "application/json" :
-                new_type == CONTENT_TYPE_FORM ? "application/x-www-form-urlencoded" : "none",
+                new_type == CONTENT_TYPE_FORM ? "application/x-www-form-urlencoded" :
+                new_type == CONTENT_TYPE_MULTIPART ? "multipart/form-data" : "none",
                 (int)context->content_type);
         } else {
             context->content_type = CONTENT_TYPE_NONE;
@@ -175,16 +191,25 @@ static int on_body(llhttp_t* parser, const char* at, size_t length) {
         if (!context->body) return -1;
         context->body_length = 0;
     } else if (context->body_length + length > context->body_size) {
+        // Calculate new size to accommodate current chunk + some extra space
+        size_t required_size = context->body_length + length;
         size_t new_size = context->body_size * 2;
+
+        // Ensure new_size is at least large enough for the required size
+        while (new_size < required_size) {
+            new_size *= 2;
+        }
+
         char* new_body = catzilla_request_realloc(context->body, new_size + 1);
         if (!new_body) return -1;
         context->body = new_body;
         context->body_size = new_size;
+        LOG_HTTP_DEBUG("Reallocated body buffer: %zu bytes -> %zu bytes", context->body_length, new_size);
     }
     memcpy(context->body + context->body_length, at, length);
     context->body_length += length;
     context->body[context->body_length] = '\0';
-    LOG_HTTP_DEBUG("Received body chunk: %zu bytes", length);
+    LOG_HTTP_DEBUG("Received body chunk: %zu bytes (total: %zu bytes)", length, context->body_length);
     return 0;
 }
 
@@ -249,6 +274,15 @@ static void request_capsule_destructor(PyObject* capsule) {
     catzilla_request_t* request = PyCapsule_GetPointer(capsule, "catzilla.request");
     if (request) {
         if (request->json_doc) yyjson_doc_free(request->json_doc);
+        // Clean up uploaded files
+        if (request->has_files) {
+            for (int i = 0; i < request->file_count; i++) {
+                if (request->files[i]) {
+                    catzilla_upload_file_unref(request->files[i]);
+                    request->files[i] = NULL;
+                }
+            }
+        }
         catzilla_request_free(request->body);
         catzilla_request_free(request);
     }
@@ -259,7 +293,8 @@ PyObject* handle_request_in_server(PyObject* callback,
     PyObject* client_capsule,
     const char* method,
     const char* path,
-    const char* body)
+    const char* body,
+    size_t body_length)
 {
     if (!callback || !PyCallable_Check(callback)) {
         PyErr_SetString(PyExc_TypeError, "Callback is not callable");
@@ -300,9 +335,16 @@ PyObject* handle_request_in_server(PyObject* callback,
         LOG_HTTP_DEBUG("After query parameter section, continuing...");
     }
 
-    if (body) {
-        request->body = strdup(body);
-        request->body_length = strlen(body);
+    if (body && body_length > 0) {
+        request->body = malloc(body_length);
+        if (request->body) {
+            memcpy(request->body, body, body_length);
+            request->body_length = body_length;
+        } else {
+            PyErr_NoMemory();
+            catzilla_request_free(request);
+            return NULL;
+        }
     }
 
     // Get the client context using our new helper function
@@ -328,11 +370,19 @@ PyObject* handle_request_in_server(PyObject* callback,
                 LOG_HTTP_DEBUG("JSON parsing failed");
             }
         } else if (request->content_type == CONTENT_TYPE_FORM) {
-            LOG_HTTP_DEBUG("Pre-parsing form content");
+            LOG_HTTP_DEBUG("Parsing form data");
             if (catzilla_parse_form(request) == 0) {
                 LOG_HTTP_DEBUG("Form parsing successful");
             } else {
                 LOG_HTTP_DEBUG("Form parsing failed");
+            }
+        } else if (request->content_type == CONTENT_TYPE_MULTIPART) {
+            LOG_HTTP_DEBUG("Pre-parsing multipart content");
+            // Pass the context for boundary extraction
+            if (catzilla_parse_multipart_with_context(request, context) == 0) {
+                LOG_HTTP_DEBUG("Multipart parsing successful");
+            } else {
+                LOG_HTTP_DEBUG("Multipart parsing failed");
             }
         } else {
             LOG_HTTP_DEBUG("Unknown content type: %d", request->content_type);
@@ -352,7 +402,16 @@ PyObject* handle_request_in_server(PyObject* callback,
     }
 
     // Build arguments tuple: (client_capsule, method, path, body, request_capsule)
-    PyObject* args = Py_BuildValue("(OsssO)", client_capsule, method, path, body ? body : "", request_capsule);
+    // For multipart/form-data, we don't need the raw body in Python since files are handled separately
+    const char* body_for_python;
+    if (request->content_type == CONTENT_TYPE_MULTIPART) {
+        // For multipart, use empty string since files are accessed via get_files()
+        body_for_python = "";
+    } else {
+        // For other content types, use the body as string (safe for text data)
+        body_for_python = body ? body : "";
+    }
+    PyObject* args = Py_BuildValue("(OsssO)", client_capsule, method, path, body_for_python, request_capsule);
     if (!args) {
         Py_DECREF(request_capsule);  // This will call the destructor to free request memory
         return NULL;
@@ -463,12 +522,20 @@ int catzilla_parse_form(catzilla_request_t* request) {
     char* rest = body;
 
     while ((token = strtok_r(rest, "&", &rest))) {
+        if (!token) break;  // Safety check
+
         char* key = token;
         char* value = strchr(token, '=');
 
         if (value) {
             *value = '\0';  // Split key=value
             value++;
+
+            // Check for empty key or value
+            if (!key || strlen(key) == 0) {
+                LOG_HTTP_DEBUG("Form parse warning: empty key found");
+                continue;
+            }
 
             // URL decode key and value
             char* decoded_key = catzilla_request_alloc(strlen(key) + 1);
@@ -477,7 +544,7 @@ int catzilla_parse_form(catzilla_request_t* request) {
             if (!decoded_key || !decoded_value) {
                 catzilla_request_free(decoded_key);
                 catzilla_request_free(decoded_value);
-                catzilla_request_free(body);
+                free(body);  // Use regular free for strdup
                 LOG_HTTP_DEBUG("Form parse error: memory allocation failed");
                 request->is_form_parsed = true;  // Mark as parsed even if failed
                 return -1;
@@ -494,16 +561,211 @@ int catzilla_parse_form(catzilla_request_t* request) {
                 request->form_values[request->form_field_count] = decoded_value;
                 request->form_field_count++;
             } else {
+                LOG_HTTP_DEBUG("Form parse warning: maximum field count reached");
                 catzilla_request_free(decoded_key);
                 catzilla_request_free(decoded_value);
-            break;
+                break;
             }
+        } else {
+            LOG_HTTP_DEBUG("Form parse warning: field without '=' found: %s", token);
         }
     }
 
-    catzilla_request_free(body);
+    free(body);  // Use regular free for strdup
     LOG_HTTP_DEBUG("Form parsed successfully with %d fields", request->form_field_count);
     request->is_form_parsed = true;
+    return 0;
+}
+
+int catzilla_parse_multipart(catzilla_request_t* request) {
+    if (!request || !request->body || request->body_length == 0) {
+        LOG_HTTP_DEBUG("Multipart parse failed: no request, body, or zero length");
+        return -1;
+    }
+
+    // Check content type - only parse if it's multipart type
+    if (request->content_type != CONTENT_TYPE_MULTIPART) {
+        LOG_HTTP_DEBUG("Multipart parse failed: wrong content type (%d)", request->content_type);
+        return -1;
+    }
+
+    LOG_HTTP_DEBUG("Parsing multipart data: %zu bytes", request->body_length);
+
+    // Initialize multipart parser - allocate on heap to avoid stack issues
+    multipart_parser_t* parser = catzilla_request_alloc(sizeof(multipart_parser_t));
+    if (!parser) {
+        LOG_HTTP_DEBUG("Failed to allocate multipart parser");
+        return -1;
+    }
+    memset(parser, 0, sizeof(multipart_parser_t));
+
+    // For now, we need the content-type header to extract boundary
+    // This is a simplified implementation - in practice, we'd need access to the full Content-Type header
+    // to extract the boundary parameter
+    const char* dummy_content_type = "multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW";
+
+    if (catzilla_multipart_parse_init(parser, dummy_content_type) != 0) {
+        LOG_HTTP_DEBUG("Failed to initialize multipart parser");
+        catzilla_request_free(parser);
+        return -1;
+    }
+
+    // Parse the multipart data
+    int parse_result = catzilla_multipart_parse_chunk(parser, request->body, request->body_length);
+    if (parse_result != 0) {
+        LOG_HTTP_DEBUG("Failed to parse multipart data (error: %d)", parse_result);
+        catzilla_multipart_parser_cleanup(parser);
+        catzilla_request_free(parser);
+        return -1;
+    }
+
+    parse_result = catzilla_multipart_parse_complete(parser);
+    if (parse_result != 0) {
+        LOG_HTTP_DEBUG("Failed to complete multipart parsing (error: %d)", parse_result);
+        catzilla_multipart_parser_cleanup(parser);
+        catzilla_request_free(parser);
+        return -1;
+    }
+
+    LOG_HTTP_DEBUG("Multipart parsing completed, found %zu files", parser->files_count);
+
+    // Store the parsed files in the request structure
+    request->file_count = 0;
+    request->has_files = false;
+
+    if (parser->files && parser->files_count > 0) {
+        size_t files_to_copy = parser->files_count;
+        if (files_to_copy > CATZILLA_MAX_FILES) {
+            files_to_copy = CATZILLA_MAX_FILES;
+            LOG_HTTP_DEBUG("Warning: truncating files from %zu to %d", parser->files_count, CATZILLA_MAX_FILES);
+        }
+
+        for (size_t i = 0; i < files_to_copy; i++) {
+            if (parser->files[i]) {
+                request->files[i] = parser->files[i];
+                // Increase reference count since we're storing it in the request
+                catzilla_upload_file_ref(parser->files[i]);
+                request->file_count++;
+
+                LOG_HTTP_DEBUG("File %zu: filename=%s, size=%llu, temp_path=%s",
+                              i,
+                              parser->files[i]->filename ? parser->files[i]->filename : "unknown",
+                              (unsigned long long)parser->files[i]->size,
+                              parser->files[i]->temp_file_path ? parser->files[i]->temp_file_path : "none");
+            }
+        }
+
+        if (request->file_count > 0) {
+            request->has_files = true;
+            LOG_HTTP_DEBUG("Stored %d files in request", request->file_count);
+        }
+    } else {
+        LOG_HTTP_DEBUG("No files found in multipart data");
+    }
+
+    // Clean up
+    catzilla_multipart_parser_cleanup(parser);
+    catzilla_request_free(parser);
+    return 0;
+}
+
+// Enhanced multipart parsing with context for boundary extraction
+int catzilla_parse_multipart_with_context(catzilla_request_t* request, void* context_ptr) {
+    client_context_t* context = (client_context_t*)context_ptr;
+    if (!request || !request->body || request->body_length == 0) {
+        LOG_HTTP_DEBUG("Multipart parse failed: no request, body, or zero length");
+        return -1;
+    }
+
+    // Check content type - only parse if it's multipart type
+    if (request->content_type != CONTENT_TYPE_MULTIPART) {
+        LOG_HTTP_DEBUG("Multipart parse failed: wrong content type (%d)", request->content_type);
+        return -1;
+    }
+
+    LOG_HTTP_DEBUG("Parsing multipart data: %zu bytes", request->body_length);
+
+    // Initialize multipart parser - allocate on heap to avoid stack issues
+    multipart_parser_t* parser = catzilla_request_alloc(sizeof(multipart_parser_t));
+    if (!parser) {
+        LOG_HTTP_DEBUG("Failed to allocate multipart parser");
+        return -1;
+    }
+    memset(parser, 0, sizeof(multipart_parser_t));
+
+    // Use the real Content-Type header from context if available
+    const char* content_type_header = NULL;
+    if (context && context->content_type_header) {
+        content_type_header = context->content_type_header;
+        LOG_HTTP_DEBUG("Using real Content-Type header: %s", content_type_header);
+    } else {
+        // Fallback to dummy header
+        content_type_header = "multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW";
+        LOG_HTTP_DEBUG("Using fallback Content-Type header: %s", content_type_header);
+    }
+
+    if (catzilla_multipart_parse_init(parser, content_type_header) != 0) {
+        LOG_HTTP_DEBUG("Failed to initialize multipart parser");
+        catzilla_request_free(parser);
+        return -1;
+    }
+
+    // Parse the multipart data
+    int parse_result = catzilla_multipart_parse_chunk(parser, request->body, request->body_length);
+    if (parse_result != 0) {
+        LOG_HTTP_DEBUG("Failed to parse multipart data (error: %d)", parse_result);
+        catzilla_multipart_parser_cleanup(parser);
+        catzilla_request_free(parser);
+        return -1;
+    }
+
+    parse_result = catzilla_multipart_parse_complete(parser);
+    if (parse_result != 0) {
+        LOG_HTTP_DEBUG("Failed to complete multipart parsing (error: %d)", parse_result);
+        catzilla_multipart_parser_cleanup(parser);
+        catzilla_request_free(parser);
+        return -1;
+    }
+
+    LOG_HTTP_DEBUG("Multipart parsing completed, found %zu files", parser->files_count);
+
+    // Store the parsed files in the request structure
+    request->file_count = 0;
+    request->has_files = false;
+
+    if (parser->files && parser->files_count > 0) {
+        size_t files_to_copy = parser->files_count;
+        if (files_to_copy > CATZILLA_MAX_FILES) {
+            files_to_copy = CATZILLA_MAX_FILES;
+            LOG_HTTP_DEBUG("Warning: truncating files from %zu to %d", parser->files_count, CATZILLA_MAX_FILES);
+        }
+
+        for (size_t i = 0; i < files_to_copy; i++) {
+            if (parser->files[i]) {
+                request->files[i] = parser->files[i];
+                // Increase reference count since we're storing it in the request
+                catzilla_upload_file_ref(parser->files[i]);
+                request->file_count++;
+
+                LOG_HTTP_DEBUG("File %zu: filename=%s, size=%llu, temp_path=%s",
+                              i,
+                              parser->files[i]->filename ? parser->files[i]->filename : "unknown",
+                              (unsigned long long)parser->files[i]->size,
+                              parser->files[i]->temp_file_path ? parser->files[i]->temp_file_path : "none");
+            }
+        }
+
+        if (request->file_count > 0) {
+            request->has_files = true;
+            LOG_HTTP_DEBUG("Stored %d files in request", request->file_count);
+        }
+    } else {
+        LOG_HTTP_DEBUG("No files found in multipart data");
+    }
+
+    // Clean up
+    catzilla_multipart_parser_cleanup(parser);
+    catzilla_request_free(parser);
     return 0;
 }
 
@@ -548,6 +810,9 @@ const char* catzilla_get_content_type_str(catzilla_request_t* request) {
         case CONTENT_TYPE_FORM:
             LOG_HTTP_DEBUG("get_content_type_str: returning application/x-www-form-urlencoded");
             return "application/x-www-form-urlencoded";
+        case CONTENT_TYPE_MULTIPART:
+            LOG_HTTP_DEBUG("get_content_type_str: returning multipart/form-data");
+            return "multipart/form-data";
         case CONTENT_TYPE_NONE:
         default:
             LOG_HTTP_DEBUG("get_content_type_str: returning text/plain");
@@ -888,8 +1153,11 @@ static void on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf) {
 static void on_close(uv_handle_t* handle) {
     client_context_t* ctx = handle->data;
     if (ctx) {
-    catzilla_request_free(ctx->body);
-    catzilla_cache_free(ctx);
+        catzilla_request_free(ctx->body);
+        if (ctx->content_type_header) {
+            catzilla_cache_free(ctx->content_type_header);
+        }
+        catzilla_cache_free(ctx);
     }
 }
 
@@ -936,8 +1204,9 @@ static int on_message_complete(llhttp_t* parser) {
 
     // Check for 415 Unsupported Media Type before routing
     if (should_return_415(context)) {
-        const char* body = "415 Unsupported Media Type";
-        send_response_with_connection((uv_stream_t*)&context->client, 415, "text/plain", body, strlen(body), context->keep_alive);
+        const char* body = "415 Unsupported Media Type\r\nThe server cannot process the request because the content type is not supported.\r\n";
+        const char* headers = "Content-Type: text/plain\r\n";
+        send_response_with_connection((uv_stream_t*)&context->client, 415, headers, body, strlen(body), context->keep_alive);
         return 0;
     }
 
@@ -989,7 +1258,8 @@ static int on_message_complete(llhttp_t* parser) {
                 client_capsule,
                 context->method,
                 context->url,
-                context->body ? context->body : ""  // Handle NULL body case
+                context->body ? context->body : "",  // Handle NULL body case
+                context->body_length
             );
             Py_XDECREF(result);
             Py_DECREF(client_capsule);
@@ -1020,6 +1290,9 @@ static int on_message_complete(llhttp_t* parser) {
         request.body = context->body;
         request.body_length = context->body_length;
         request.content_type = context->content_type;
+
+        LOG_HTTP_DEBUG("Created request: body_length=%zu, context->body_length=%zu",
+                      request.body_length, context->body_length);
 
         populate_path_params(&request, &match);
 

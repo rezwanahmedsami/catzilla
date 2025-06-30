@@ -14,7 +14,30 @@ import json
 from typing import Any, Callable, Dict, List, Optional, Type, Union, get_type_hints
 from urllib.parse import parse_qs
 
+from .uploads import CatzillaUploadFile, File
 from .validation import BaseModel, ValidationError
+
+
+def _parse_size_string(size_str: Union[int, str]) -> int:
+    """Parse size string like '100MB' to bytes."""
+    import re
+
+    if isinstance(size_str, int):
+        return size_str
+
+    size_str = size_str.upper().strip()
+
+    # Extract number and unit
+    match = re.match(r"^(\d+(?:\.\d+)?)\s*([KMGT]?B?)$", size_str)
+    if not match:
+        raise ValueError(f"Invalid size format: {size_str}")
+
+    value = float(match.group(1))
+    unit = match.group(2) or "B"
+
+    multipliers = {"B": 1, "KB": 1024, "MB": 1024**2, "GB": 1024**3, "TB": 1024**4}
+
+    return int(value * multipliers.get(unit, 1))
 
 
 class Query:
@@ -129,6 +152,24 @@ class Form:
         self.regex = regex
 
 
+class File:
+    """Marker class for file upload validation"""
+
+    def __init__(
+        self,
+        default=None,
+        alias: str = None,
+        description: str = "",
+        max_length: int = None,
+        mime_types: List[str] = None,
+    ):
+        self.default = default
+        self.alias = alias
+        self.description = description
+        self.max_length = max_length
+        self.mime_types = mime_types
+
+
 class ParameterSpec:
     """Specification for a single parameter with ultra-fast validation"""
 
@@ -164,6 +205,7 @@ class AutoValidationSpec:
         self.path_params: List[str] = []
         self.header_params: List[str] = []
         self.form_params: List[str] = []
+        self.file_params: List[str] = []
 
         # Performance optimization: group parameters by type
         self._inspect_function_signature()
@@ -203,6 +245,10 @@ class AutoValidationSpec:
                         self.header_params.append(param_name)
                     elif param_spec.param_type == "form":
                         self.form_params.append(param_name)
+                    elif param_spec.param_type == "file":
+                        self.file_params.append(param_name)
+                    elif param_spec.param_type == "file":
+                        self.file_params.append(param_name)
 
         except Exception as e:
             # If signature inspection fails, disable auto-validation for this handler
@@ -245,6 +291,8 @@ class AutoValidationSpec:
             return ParameterSpec(param_name, "header", annotation, default_value, False)
         elif isinstance(default_value, Form):
             return ParameterSpec(param_name, "form", annotation, default_value, False)
+        elif isinstance(default_value, dict) and default_value.get("type") == "file":
+            return ParameterSpec(param_name, "file", annotation, default_value, False)
 
         return None
 
@@ -391,6 +439,132 @@ def auto_validate_request(
             # Note: Form data parsing would be implemented here
             # For now, we'll raise a not implemented error
             raise ValidationError("Form data validation not yet implemented")
+
+        # 6. File Parameter Processing (multipart/form-data)
+        if validation_spec.file_params:
+            # Process multipart files from the request
+            if request.content_type and "multipart/form-data" in request.content_type:
+                # Get files from the parsed multipart data
+                files = getattr(request, "files", {})
+                for param_name in validation_spec.file_params:
+                    param_spec = validation_spec.parameters[param_name]
+                    file_config = param_spec.default
+
+                    if param_name in files:
+                        # Create UploadFile instance from parsed file data
+                        file_data = files[param_name]
+                        if isinstance(file_data, dict):
+                            # Validate file size against developer's max_size parameter
+                            file_config = param_spec.default
+                            if (
+                                file_config
+                                and "max_size" in file_config
+                                and file_config["max_size"]
+                            ):
+                                max_size_bytes = _parse_size_string(
+                                    file_config["max_size"]
+                                )
+                                file_size = file_data.get("size", 0)
+                                if file_size > max_size_bytes:
+                                    raise ValidationError(
+                                        f"File '{param_name}' size ({file_size} bytes) exceeds maximum allowed size ({max_size_bytes} bytes)"
+                                    )
+
+                            # Create UploadFile from the parsed data
+                            upload_file = CatzillaUploadFile(
+                                filename=file_data.get("filename", "unknown"),
+                                content_type=file_data.get(
+                                    "content_type", "application/octet-stream"
+                                ),
+                                max_size=(
+                                    file_config.get("max_size") if file_config else None
+                                ),
+                                allowed_types=(
+                                    file_config.get("allowed_types")
+                                    if file_config
+                                    else None
+                                ),
+                                validate_signature=(
+                                    file_config.get("validate_signature", False)
+                                    if file_config
+                                    else False
+                                ),
+                                virus_scan=(
+                                    file_config.get("virus_scan", False)
+                                    if file_config
+                                    else False
+                                ),
+                                timeout=(
+                                    file_config.get("timeout") if file_config else None
+                                ),
+                            )
+
+                            # Set the file content and mark as finalized
+                            if (
+                                "temp_path" in file_data
+                                and file_data["temp_path"] is not None
+                            ):
+                                # Large file streamed to temp file by C layer
+                                upload_file._temp_path = file_data["temp_path"]
+                                upload_file._bytes_received = file_data.get("size", 0)
+                                upload_file._total_size = file_data.get("size", 0)
+                                upload_file._is_streamed = file_data.get(
+                                    "is_streamed", False
+                                )
+                            elif (
+                                "content" in file_data
+                                and file_data["content"] is not None
+                            ):
+                                # Regular file content in memory - store in temp file for consistency
+                                import tempfile
+
+                                with tempfile.NamedTemporaryFile(
+                                    delete=False
+                                ) as temp_file:
+                                    temp_file.write(file_data["content"])
+                                    upload_file._temp_path = temp_file.name
+
+                                upload_file._bytes_received = len(file_data["content"])
+                                upload_file._total_size = len(file_data["content"])
+                                upload_file._is_streamed = False
+                            else:
+                                # No content available - create empty temp file as fallback
+                                import tempfile
+
+                                with tempfile.NamedTemporaryFile(
+                                    delete=False
+                                ) as temp_file:
+                                    pass  # Create empty file
+                                upload_file._temp_path = temp_file.name
+                                upload_file._bytes_received = file_data.get("size", 0)
+                                upload_file._total_size = file_data.get("size", 0)
+                                upload_file._is_streamed = False
+
+                            # Mark as finalized since the C layer already parsed and finalized it
+                            upload_file._is_finalized = True
+
+                            validated_params[param_name] = upload_file
+                        else:
+                            validated_params[param_name] = file_data
+                    else:
+                        # Check if file parameter is required
+                        if not file_config or file_config.get("required", True):
+                            raise ValidationError(
+                                f"Missing required file parameter: {param_name}"
+                            )
+                        else:
+                            validated_params[param_name] = None
+            else:
+                # No multipart data, but file parameters expected
+                for param_name in validation_spec.file_params:
+                    param_spec = validation_spec.parameters[param_name]
+                    file_config = param_spec.default
+                    if not file_config or file_config.get("required", True):
+                        raise ValidationError(
+                            f"Missing required file parameter: {param_name} (expected multipart/form-data)"
+                        )
+                    else:
+                        validated_params[param_name] = None
 
         return validated_params
 

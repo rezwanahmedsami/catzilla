@@ -68,3 +68,5 @@ benchmarks/results/temp_*
 
 # wheelhouse
 wheelhouse/
+
+uploads/

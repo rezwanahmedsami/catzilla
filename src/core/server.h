@@ -6,6 +6,7 @@
 #include <llhttp.h>
 #include <yyjson.h>
 #include "router.h"
+#include "upload_parser.h"
 
 #define CATZILLA_MAX_ROUTES 100
 #define CATZILLA_PATH_MAX 256
@@ -13,6 +14,7 @@
 #define CATZILLA_MAX_HEADERS 50
 #define CATZILLA_MAX_FORM_FIELDS 50
 #define CATZILLA_MAX_QUERY_PARAMS 50
+#define CATZILLA_MAX_FILES 20
 
 // Forward declaration
 struct catzilla_server_s;
@@ -20,7 +22,8 @@ struct catzilla_server_s;
 typedef enum {
     CONTENT_TYPE_NONE = 0,
     CONTENT_TYPE_JSON = 1,
-    CONTENT_TYPE_FORM = 2
+    CONTENT_TYPE_FORM = 2,
+    CONTENT_TYPE_MULTIPART = 3
 } content_type_t;
 
 typedef struct catzilla_header_s {
@@ -52,6 +55,10 @@ typedef struct catzilla_request_s {
     catzilla_route_param_t path_params[CATZILLA_MAX_PATH_PARAMS];
     int path_param_count;
     bool has_path_params;
+    // File upload support
+    catzilla_upload_file_t* files[CATZILLA_MAX_FILES];
+    int file_count;
+    bool has_files;
 } catzilla_request_t;
 
 // Forward declaration for static file mounts
@@ -116,6 +123,13 @@ int catzilla_parse_json(catzilla_request_t* request);
  * @return 0 on success, error code on failure
  */
 int catzilla_parse_form(catzilla_request_t* request);
+
+/**
+ * Parse multipart form data from request body
+ * @param request Pointer to request structure
+ * @return 0 on success, error code on failure
+ */
+int catzilla_parse_multipart(catzilla_request_t* request);
 
 /**
  * Get JSON value from request
@@ -249,5 +263,13 @@ int catzilla_server_get_route_info(catzilla_server_t* server,
  * @param path URL path of new route
  */
 void catzilla_server_check_route_conflicts(catzilla_server_t* server, const char* method, const char* path);
+
+/**
+ * Parse multipart form data with context for boundary extraction
+ * @param request Pointer to request structure
+ * @param context Pointer to client context containing full Content-Type header
+ * @return 0 on success, error code on failure
+ */
+int catzilla_parse_multipart_with_context(catzilla_request_t* request, void* context);
 
 #endif /* CATZILLA_SERVER_H */

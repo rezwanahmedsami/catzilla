@@ -28,6 +28,7 @@ class Request:
     _text: Optional[str] = None
     _json: Optional[Any] = None
     _content_type: Optional[str] = None
+    _files: Optional[Dict[str, Any]] = None
     _loaded_query_params: bool = False
 
     def __post_init__(self):
@@ -229,6 +230,20 @@ class Request:
                 self._content_type = header_value
 
         return self._content_type
+
+    @property
+    def files(self) -> Dict[str, Any]:
+        """Get uploaded files from multipart/form-data requests"""
+        if self._files is None:
+            try:
+                from catzilla._catzilla import get_files
+
+                self._files = get_files(self.request_capsule) or {}
+                log_types_debug("Got files from C: %s", list(self._files.keys()))
+            except Exception as e:
+                log_types_error("Error loading files from C: %s", e)
+                self._files = {}
+        return self._files
 
 
 class Response:

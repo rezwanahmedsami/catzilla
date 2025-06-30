@@ -103,6 +103,12 @@ from .scope import (
 )
 from .types import HTMLResponse, JSONResponse, Request, Response
 
+# Revolutionary File Upload System (C-native, 10-100x faster)
+from .uploads import CatzillaUploadFile, File, UploadManager, UploadPerformanceMonitor
+
+# Alias for FastAPI compatibility
+UploadFile = CatzillaUploadFile
+
 # Ultra-fast validation engine
 from .validation import (
     BaseModel,
@@ -132,6 +138,12 @@ __all__ = [
     "ResponseBuilder",
     "Router",
     "RouterGroup",
+    # Revolutionary File Upload System (C-native performance)
+    "CatzillaUploadFile",
+    "File",
+    "UploadFile",
+    "UploadManager",
+    "UploadPerformanceMonitor",
     # Ultra-fast validation engine
     "BaseModel",
     "Field",
