@@ -1,5 +1,6 @@
 #include "upload_clamav.h"
 #include "logging.h"
+#include "platform_compat.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>

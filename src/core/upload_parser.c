@@ -1,6 +1,7 @@
 #include "upload_parser.h"
 #include "upload_memory.h"
 #include "logging.h"
+#include "platform_compat.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -650,7 +651,7 @@ int catzilla_upload_file_write_chunk(catzilla_upload_file_t* file, const char* d
     // Update total size to include the new data
     file->size = file->bytes_received + len;
 
-    LOG_PARSER_DEBUG("Wrote %zu bytes to upload file (total: %lu bytes, speed: %.2f MB/s)",
+    LOG_PARSER_DEBUG("Wrote %zu bytes to upload file (total: %" PRIu64 " bytes, speed: %.2f MB/s)",
               len, file->size, file->upload_speed_mbps);
 
     return 0;
@@ -665,7 +666,7 @@ int catzilla_upload_file_finalize(catzilla_upload_file_t* file) {
     file->state = UPLOAD_STATE_COMPLETE;
     file->size = file->bytes_received;
 
-    LOG_PARSER_INFO("Finalized upload file: %s (%lu bytes, %.2f MB/s)",
+    LOG_PARSER_INFO("Finalized upload file: %s (%" PRIu64 " bytes, %.2f MB/s)",
              file->filename ? file->filename : "unknown",
              file->size, file->upload_speed_mbps);
 
@@ -800,7 +801,7 @@ int catzilla_upload_validate_chunk(catzilla_upload_file_t* file, const char* chu
 
     // Check file size limit before processing chunk
     if (file->bytes_received + chunk_size > file->max_size) {
-        LOG_PARSER_ERROR("File size limit exceeded: %lu + %zu > %lu",
+        LOG_PARSER_ERROR("File size limit exceeded: %" PRIu64 " + %zu > %" PRIu64,
                  file->bytes_received, chunk_size, file->max_size);
         return CATZILLA_UPLOAD_ERROR_FILE_TOO_LARGE;
     }

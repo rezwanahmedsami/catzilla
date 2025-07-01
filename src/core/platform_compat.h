@@ -242,6 +242,46 @@
     }
 #endif
 
+// ========================================================================
+// STRING FUNCTION COMPATIBILITY
+// ========================================================================
+
+#ifdef _WIN32
+    #include <string.h>
+
+    // Windows string comparison functions
+    #ifndef strncasecmp
+        #define strncasecmp _strnicmp
+    #endif
+
+    #ifndef strcasecmp
+        #define strcasecmp _stricmp
+    #endif
+#endif
+
+// ========================================================================
+// FORMAT STRING COMPATIBILITY FOR uint64_t
+// ========================================================================
+
+#include <inttypes.h>
+
+// Use portable format macros for printf family functions
+#ifndef PRIu64
+    #ifdef _WIN32
+        #define PRIu64 "I64u"
+    #else
+        #define PRIu64 "llu"
+    #endif
+#endif
+
+#ifndef PRId64
+    #ifdef _WIN32
+        #define PRId64 "I64d"
+    #else
+        #define PRId64 "lld"
+    #endif
+#endif
+
 // Memory alignment validation
 CATZILLA_STATIC_ASSERT(sizeof(void*) >= 4, "Pointer size must be at least 4 bytes");
 CATZILLA_STATIC_ASSERT(sizeof(size_t) >= 4, "size_t must be at least 4 bytes");

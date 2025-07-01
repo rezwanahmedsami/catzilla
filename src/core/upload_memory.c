@@ -1,5 +1,6 @@
 #include "upload_memory.h"
 #include "logging.h"
+#include "platform_compat.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -129,9 +130,9 @@ void catzilla_upload_memory_cleanup(upload_memory_manager_t* mgr) {
     }
 
     // Log final statistics
-    LOG_MEMORY_INFO("Memory manager cleanup - Total allocated: %lu bytes, "
-             "Total freed: %lu bytes, Peak usage: %lu bytes, "
-             "Pool hits: %lu, Pool misses: %lu",
+    LOG_MEMORY_INFO("Memory manager cleanup - Total allocated: %" PRIu64 " bytes, "
+             "Total freed: %" PRIu64 " bytes, Peak usage: %" PRIu64 " bytes, "
+             "Pool hits: %" PRIu64 ", Pool misses: %" PRIu64,
              mgr->total_allocated, mgr->total_freed, mgr->peak_usage,
              mgr->pool_hits, mgr->pool_misses);
 
@@ -549,14 +550,14 @@ void catzilla_upload_memory_stats(upload_memory_manager_t* mgr, char* buffer, si
 
     snprintf(buffer, buffer_size,
              "Memory Statistics:\n"
-             "  Total allocated: %lu bytes\n"
-             "  Total freed: %lu bytes\n"
-             "  Current usage: %lu bytes\n"
-             "  Peak usage: %lu bytes\n"
-             "  Allocations: %lu\n"
-             "  Frees: %lu\n"
-             "  Pool hits: %lu\n"
-             "  Pool misses: %lu\n"
+             "  Total allocated: %" PRIu64 " bytes\n"
+             "  Total freed: %" PRIu64 " bytes\n"
+             "  Current usage: %" PRIu64 " bytes\n"
+             "  Peak usage: %" PRIu64 " bytes\n"
+             "  Allocations: %" PRIu64 "\n"
+             "  Frees: %" PRIu64 "\n"
+             "  Pool hits: %" PRIu64 "\n"
+             "  Pool misses: %" PRIu64 "\n"
              "  jemalloc: %s\n"
              "  Pooling: %s\n",
              mgr->total_allocated,

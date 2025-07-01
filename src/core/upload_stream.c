@@ -1,6 +1,7 @@
 #include "upload_stream.h"
 #include "upload_memory.h"
 #include "logging.h"
+#include "platform_compat.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -122,7 +123,7 @@ void catzilla_stream_context_cleanup(catzilla_stream_context_t* ctx) {
         catzilla_upload_file_unref(ctx->upload_file);
     }
 
-    LOG_STREAM_DEBUG("Stream context cleanup completed (bytes_written: %lu, operations: %lu, avg_speed: %.2f MB/s)",
+    LOG_STREAM_DEBUG("Stream context cleanup completed (bytes_written: %" PRIu64 ", operations: %" PRIu64 ", avg_speed: %.2f MB/s)",
               ctx->bytes_written, ctx->write_operations, ctx->avg_write_speed_mbps);
 
     free(ctx);
@@ -388,7 +389,7 @@ void catzilla_stream_close_file(catzilla_stream_context_t* ctx) {
 
     ctx->file_opened = false;
 
-    LOG_STREAM_DEBUG("Closed stream file: %s (total_written: %lu bytes)",
+    LOG_STREAM_DEBUG("Closed stream file: %s (total_written: %" PRIu64 " bytes)",
               ctx->file_path ? ctx->file_path : "unknown", ctx->bytes_written);
 }
 
@@ -492,7 +493,7 @@ static void optimize_stream_for_file_size(catzilla_stream_context_t* ctx, uint64
         ctx->sync_writes = false; // Async for very large files
     }
 
-    LOG_STREAM_DEBUG("Optimized stream for file size %lu: buffer_size=%zu, direct_io=%s",
+    LOG_STREAM_DEBUG("Optimized stream for file size %" PRIu64 ": buffer_size=%zu, direct_io=%s",
               file_size, ctx->buffer_size, ctx->direct_io ? "enabled" : "disabled");
 }
 
@@ -526,12 +527,12 @@ static int create_optimized_file_handle(const char* path, uint64_t expected_size
 #ifdef __linux__
         // Use fallocate on Linux
         if (fallocate(fd, 0, 0, expected_size) == 0) {
-            LOG_STREAM_DEBUG("Pre-allocated %lu bytes for file", expected_size);
+            LOG_STREAM_DEBUG("Pre-allocated %" PRIu64 " bytes for file", expected_size);
         }
 #elif defined(__APPLE__)
         // Use ftruncate on macOS (simpler approach)
         if (ftruncate(fd, expected_size) == 0) {
-            LOG_STREAM_DEBUG("Pre-allocated %lu bytes for file", expected_size);
+            LOG_STREAM_DEBUG("Pre-allocated %" PRIu64 " bytes for file", expected_size);
         }
 #endif
     }
