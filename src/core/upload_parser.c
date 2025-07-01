@@ -6,13 +6,39 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <time.h>
-#include <sys/time.h>
 
 // Platform-specific includes
 #ifdef _WIN32
 #include <windows.h>
+#include <io.h>
+
+// Windows doesn't have struct timeval by default
+struct timeval {
+    long tv_sec;
+    long tv_usec;
+};
+
+// Windows implementation of gettimeofday
+static int gettimeofday(struct timeval *tv, struct timezone *tz) {
+    FILETIME ft;
+    unsigned __int64 tmpres = 0;
+    static int tzflag = 0;
+
+    if (NULL != tv) {
+        GetSystemTimeAsFileTime(&ft);
+        tmpres |= ft.dwHighDateTime;
+        tmpres <<= 32;
+        tmpres |= ft.dwLowDateTime;
+        tmpres /= 10;  // convert into microseconds
+        tmpres -= 11644473600000000ULL; // UNIX epoch start
+        tv->tv_sec = (long)(tmpres / 1000000UL);
+        tv->tv_usec = (long)(tmpres % 1000000UL);
+    }
+    return 0;
+}
 #else
 #include <unistd.h>
+#include <sys/time.h>
 #endif
 
 // Platform compatibility: strcasestr may not be available on all systems

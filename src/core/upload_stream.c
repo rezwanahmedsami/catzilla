@@ -4,13 +4,39 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
 #include <errno.h>
 #include <time.h>
 
 // Platform-specific includes
+#ifdef _WIN32
+#include <windows.h>
+#include <io.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+// Windows equivalents for Unix functions
+#define access _access
+#define close _close
+#define read _read
+#define write _write
+#define lseek _lseek
+#define fileno _fileno
+#define open _open
+// Windows file mode constants and types
+typedef int mode_t;
+typedef SSIZE_T ssize_t;
+#ifndef S_IRUSR
+#define S_IRUSR _S_IREAD
+#define S_IWUSR _S_IWRITE
+#define S_IRGRP _S_IREAD
+#define S_IROTH _S_IREAD
+#endif
+#else
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#endif
+
+// Platform-specific file operations
 #ifdef __linux__
 #include <sys/sendfile.h>
 #include <linux/fs.h>

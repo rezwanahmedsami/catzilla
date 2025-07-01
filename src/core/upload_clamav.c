@@ -3,12 +3,25 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
+#include <time.h>
+
+// Platform-specific includes
+#ifdef _WIN32
+#include <windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <io.h>
+// Windows socket and type compatibility
+#define close closesocket
+#define access _access
+typedef SSIZE_T ssize_t;
+#else
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <errno.h>
-#include <time.h>
+#endif
 
 // Platform-specific includes
 #ifdef __linux__
@@ -403,6 +416,12 @@ static int catzilla_clamav_parse_scan_response(const char* response, clamav_scan
 
 // Test daemon connection
 static bool catzilla_test_clamd_connection_internal(const char* socket_path) {
+#ifdef _WIN32
+    // On Windows, ClamAV typically runs as a service with TCP interface
+    // For now, return false to disable daemon connection on Windows
+    CATZILLA_LOG_DEBUG("ClamAV daemon connection not supported on Windows");
+    return false;
+#else
     int sock = socket(AF_UNIX, SOCK_STREAM, 0);
     if (sock < 0) {
         return false;
@@ -430,6 +449,7 @@ static bool catzilla_test_clamd_connection_internal(const char* socket_path) {
 
     close(sock);
     return connected;
+#endif
 }
 
 // Get ClamAV version

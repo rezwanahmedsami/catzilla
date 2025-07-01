@@ -18,6 +18,10 @@
     #include <direct.h>
     // Windows doesn't have pthread.h or unistd.h
     // We'll provide compatibility definitions where needed
+
+    // Define missing types on Windows
+    typedef SSIZE_T ssize_t;
+    typedef int mode_t;
 #else
     #include <pthread.h>
     #include <unistd.h>
