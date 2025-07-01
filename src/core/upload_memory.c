@@ -34,7 +34,24 @@ static int (*je_mallctl)(const char* name, void* oldp, size_t* oldlenp, void* ne
 static bool g_jemalloc_initialized = false;
 
 // Thread safety for memory manager
+#ifdef _WIN32
+static CRITICAL_SECTION g_memory_mutex;
+static bool g_memory_mutex_initialized = false;
+
+static void ensure_memory_mutex_init(void) {
+    if (!g_memory_mutex_initialized) {
+        InitializeCriticalSection(&g_memory_mutex);
+        g_memory_mutex_initialized = true;
+    }
+}
+
+#define MEMORY_MUTEX_LOCK() do { ensure_memory_mutex_init(); EnterCriticalSection(&g_memory_mutex); } while(0)
+#define MEMORY_MUTEX_UNLOCK() LeaveCriticalSection(&g_memory_mutex)
+#else
 static pthread_mutex_t g_memory_mutex = PTHREAD_MUTEX_INITIALIZER;
+#define MEMORY_MUTEX_LOCK() pthread_mutex_lock(&g_memory_mutex)
+#define MEMORY_MUTEX_UNLOCK() pthread_mutex_unlock(&g_memory_mutex)
+#endif
 
 // Initialize upload memory manager
 upload_memory_manager_t* catzilla_upload_memory_init(void) {
@@ -93,7 +110,7 @@ void catzilla_upload_memory_cleanup(upload_memory_manager_t* mgr) {
         return;
     }
 
-    pthread_mutex_lock(&g_memory_mutex);
+    MEMORY_MUTEX_LOCK();
 
     // Cleanup memory pools
     if (mgr->small_pool) {
@@ -120,7 +137,7 @@ void catzilla_upload_memory_cleanup(upload_memory_manager_t* mgr) {
 
     free(mgr);
 
-    pthread_mutex_unlock(&g_memory_mutex);
+    MEMORY_MUTEX_UNLOCK();
 }
 
 // Allocate memory with arena optimization
@@ -129,7 +146,7 @@ void* catzilla_upload_memory_alloc(upload_memory_manager_t* mgr, size_t size, up
         return NULL;
     }
 
-    pthread_mutex_lock(&g_memory_mutex);
+    MEMORY_MUTEX_LOCK();
 
     void* ptr = NULL;
 
@@ -145,7 +162,7 @@ void* catzilla_upload_memory_alloc(upload_memory_manager_t* mgr, size_t size, up
                 mgr->peak_usage = mgr->total_allocated - mgr->total_freed;
             }
 
-            pthread_mutex_unlock(&g_memory_mutex);
+            MEMORY_MUTEX_UNLOCK();
             return ptr;
         }
         mgr->pool_misses++;
@@ -169,7 +186,7 @@ void* catzilla_upload_memory_alloc(upload_memory_manager_t* mgr, size_t size, up
         }
     }
 
-    pthread_mutex_unlock(&g_memory_mutex);
+    MEMORY_MUTEX_UNLOCK();
 
     if (!ptr) {
         LOG_MEMORY_ERROR("Failed to allocate %zu bytes", size);
@@ -184,7 +201,7 @@ void* catzilla_upload_memory_realloc(upload_memory_manager_t* mgr, void* ptr, si
         return realloc(ptr, new_size);
     }
 
-    pthread_mutex_lock(&g_memory_mutex);
+    MEMORY_MUTEX_LOCK();
 
     void* new_ptr = NULL;
 
@@ -204,7 +221,7 @@ void* catzilla_upload_memory_realloc(upload_memory_manager_t* mgr, void* ptr, si
         }
     }
 
-    pthread_mutex_unlock(&g_memory_mutex);
+    MEMORY_MUTEX_UNLOCK();
 
     return new_ptr;
 }
@@ -215,14 +232,14 @@ void catzilla_upload_memory_free(upload_memory_manager_t* mgr, void* ptr, size_t
         return;
     }
 
-    pthread_mutex_lock(&g_memory_mutex);
+    MEMORY_MUTEX_LOCK();
 
     // Try to return to pool first
     if (mgr->enable_pooling) {
         catzilla_memory_pool_return(mgr, ptr, size);
         mgr->total_freed += size;
         mgr->frees_count++;
-        pthread_mutex_unlock(&g_memory_mutex);
+        MEMORY_MUTEX_UNLOCK();
         return;
     }
 
@@ -236,7 +253,7 @@ void catzilla_upload_memory_free(upload_memory_manager_t* mgr, void* ptr, size_t
     mgr->total_freed += size;
     mgr->frees_count++;
 
-    pthread_mutex_unlock(&g_memory_mutex);
+    MEMORY_MUTEX_UNLOCK();
 }
 
 // Get buffer from memory pool
@@ -329,7 +346,7 @@ bool catzilla_jemalloc_detect(void) {
     }
 #elif defined(_WIN32)
     // Try to load jemalloc DLL on Windows
-    HMODULE handle = LoadLibrary(L"jemalloc.dll");
+    HMODULE handle = LoadLibraryA("jemalloc.dll");
     if (handle) {
         je_malloc = (void*(*)(size_t))GetProcAddress(handle, "je_malloc");
         je_free = (void(*)(void*))GetProcAddress(handle, "je_free");
@@ -528,7 +545,7 @@ void catzilla_upload_memory_stats(upload_memory_manager_t* mgr, char* buffer, si
         return;
     }
 
-    pthread_mutex_lock(&g_memory_mutex);
+    MEMORY_MUTEX_LOCK();
 
     snprintf(buffer, buffer_size,
              "Memory Statistics:\n"
@@ -553,7 +570,7 @@ void catzilla_upload_memory_stats(upload_memory_manager_t* mgr, char* buffer, si
              mgr->jemalloc_available ? "enabled" : "disabled",
              mgr->enable_pooling ? "enabled" : "disabled");
 
-    pthread_mutex_unlock(&g_memory_mutex);
+    MEMORY_MUTEX_UNLOCK();
 }
 
 // Get current memory usage
@@ -562,9 +579,9 @@ size_t catzilla_upload_memory_usage(upload_memory_manager_t* mgr) {
         return 0;
     }
 
-    pthread_mutex_lock(&g_memory_mutex);
+    MEMORY_MUTEX_LOCK();
     size_t usage = mgr->total_allocated - mgr->total_freed;
-    pthread_mutex_unlock(&g_memory_mutex);
+    MEMORY_MUTEX_UNLOCK();
 
     return usage;
 }
@@ -575,9 +592,9 @@ double catzilla_upload_memory_fragmentation(upload_memory_manager_t* mgr) {
         return 0.0;
     }
 
-    pthread_mutex_lock(&g_memory_mutex);
+    MEMORY_MUTEX_LOCK();
     double fragmentation = (double)mgr->pool_misses / (double)(mgr->pool_hits + mgr->pool_misses);
-    pthread_mutex_unlock(&g_memory_mutex);
+    MEMORY_MUTEX_UNLOCK();
 
     return fragmentation;
 }

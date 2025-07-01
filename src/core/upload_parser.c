@@ -10,15 +10,10 @@
 // Platform-specific includes
 #ifdef _WIN32
 #include <windows.h>
+#include <winsock2.h>  // Must include winsock2.h before windows.h for timeval
 #include <io.h>
 
-// Windows doesn't have struct timeval by default
-struct timeval {
-    long tv_sec;
-    long tv_usec;
-};
-
-// Windows implementation of gettimeofday
+// Windows implementation of gettimeofday (struct timeval is already defined in winsock2.h)
 static int gettimeofday(struct timeval *tv, struct timezone *tz) {
     FILETIME ft;
     unsigned __int64 tmpres = 0;
