@@ -52,15 +52,36 @@ error C1083: Cannot open include file: 'unistd.h': No such file or directory
   - `S_IRUSR` → `_S_IREAD`
   - `S_IWUSR` → `_S_IWRITE`
 
-### 4. upload_clamav.c - Socket Operations
-**Issue:** Unix domain sockets (`sys/socket.h`, `sys/un.h`) not available on Windows
+### 4. upload_clamav.c - Complete Windows Compatibility
+**Issues:** Multiple Windows-specific errors:
+- `struct stat` vs `struct _stat` incompatibility
+- `popen`/`pclose` vs `_popen`/`_pclose` mismatch
+- Unix domain sockets (`sys/socket.h`, `sys/un.h`) not available on Windows
 
-**Fix:**
-- Added Windows socket includes: `winsock2.h`, `ws2tcpip.h`
-- Added conditional compilation for Unix socket code
-- Disabled daemon connection on Windows (returns false)
-- Added Windows socket compatibility: `close` → `closesocket`
-- Added `typedef SSIZE_T ssize_t` for recv/send functions
+**Fixes Applied:**
+- **Unified stat structure handling:**
+  - Created `typedef struct _stat stat_t` for Windows
+  - Created `typedef struct stat stat_t` for Unix
+  - Added `#define stat_func _stat` (Windows) / `#define stat_func stat` (Unix)
+  - Used consistent `stat_t` and `stat_func()` throughout code
+
+- **Fixed popen/pclose compatibility:**
+  - Removed problematic macro redefinitions (`#define popen _popen`)
+  - Used direct platform-specific calls:
+    - Windows: `_popen(command, "r")` and `_pclose(fp)`
+    - Unix: `popen(command, "r")` and `pclose(fp)`
+  - Eliminated "FILE * differs in levels of indirection" warnings
+
+- **Socket operations:**
+  - Added Windows socket includes: `winsock2.h`, `ws2tcpip.h`
+  - Added conditional compilation for Unix socket code
+  - Disabled daemon connection on Windows (returns false)
+  - Added Windows socket compatibility: `close` → `closesocket`
+  - Added `typedef SSIZE_T ssize_t` for recv/send functions
+
+- **Command syntax optimization:**
+  - Windows: `"quoted_paths"` and `2>nul` for error redirection
+  - Unix: `'quoted_paths'` and `2>/dev/null` for error redirection
 
 ### 5. platform_compat.h - Global Type Definitions
 **Enhanced** the existing platform compatibility header:
@@ -74,7 +95,7 @@ error C1083: Cannot open include file: 'unistd.h': No such file or directory
 1. `src/core/upload_parser.c` - Time and platform compatibility
 2. `src/core/upload_memory.c` - Threading compatibility
 3. `src/core/upload_stream.c` - File I/O compatibility
-4. `src/core/upload_clamav.c` - Socket compatibility
+4. `src/core/upload_clamav.c` - **Complete Windows compatibility (struct stat, popen/pclose, sockets)**
 5. `src/core/platform_compat.h` - Global type definitions
 
 ### Windows Compatibility Features Added
@@ -84,6 +105,9 @@ error C1083: Cannot open include file: 'unistd.h': No such file or directory
 - ✅ Socket operations (Winsock2 support)
 - ✅ Type definitions (`ssize_t`, `mode_t`)
 - ✅ File mode constants compatibility
+- ✅ **Unified stat structure handling (struct _stat vs struct stat)**
+- ✅ **Direct popen/_popen and pclose/_pclose calls**
+- ✅ **Command syntax optimization for Windows shell**
 
 ### Existing Windows Support Verified
 - ✅ CMakeLists.txt already links `ws2_32 iphlpapi userenv`
@@ -118,6 +142,10 @@ D:\a\catzilla\catzilla\src\core\upload_parser.c(9,1): error C1083: Cannot open i
 D:\a\catzilla\catzilla\src\core\upload_memory.c(6,1): error C1083: Cannot open include file: 'pthread.h': No such file or directory
 D:\a\catzilla\catzilla\src\core\upload_stream.c(7,1): error C1083: Cannot open include file: 'unistd.h': No such file or directory
 D:\a\catzilla\catzilla\src\core\upload_clamav.c(6,1): error C1083: Cannot open include file: 'unistd.h': No such file or directory
+D:\a\catzilla\catzilla\src\core\upload_clamav.c(301,17): error C2079: 'st' uses undefined struct 'stat'
+D:\a\catzilla\catzilla\src\core\upload_clamav.c(303,32): error C2224: left of '.st_size' must have struct/union type
+D:\a\catzilla\catzilla\src\core\upload_clamav.c(330,11): warning C4047: 'initializing': 'FILE *' differs in levels of indirection from 'int'
+D:\a\catzilla\catzilla\src\core\upload_clamav.c(460,11): warning C4047: 'initializing': 'FILE *' differs in levels of indirection from 'int'
 Build failed
 ```
 

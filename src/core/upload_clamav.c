@@ -6,40 +6,36 @@
 #include <errno.h>
 #include <time.h>
 
-// Platform-specific includes
+// Platform-specific includes and compatibility
 #ifdef _WIN32
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <io.h>
-// Windows socket and type compatibility
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <shlwapi.h>
+#pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "shlwapi.lib")
+
+// Windows compatibility definitions
 #define close closesocket
 #define access _access
+// Note: Do NOT redefine popen/pclose - use _popen/_pclose directly on Windows
 typedef SSIZE_T ssize_t;
+typedef struct _stat stat_t;
+#define stat_func _stat
 #else
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#endif
-
-// Platform-specific includes
-#ifdef __linux__
 #include <sys/wait.h>
 #include <fcntl.h>
-#endif
 
-#ifdef __APPLE__
-#include <sys/wait.h>
-#include <fcntl.h>
-#endif
-
-#ifdef _WIN32
-#include <windows.h>
-#include <winsock2.h>
-#include <shlwapi.h>
-#pragma comment(lib, "ws2_32.lib")
-#pragma comment(lib, "shlwapi.lib")
+// Unix compatibility definitions
+typedef struct stat stat_t;
+#define stat_func stat
 #endif
 
 // Global ClamAV system info cache
@@ -298,8 +294,8 @@ clamav_scan_result_t* catzilla_clamav_scan_file(const char* file_path) {
     result->scanned_file_path = strdup(file_path);
 
     // Get file size for statistics
-    struct stat st;
-    if (stat(file_path, &st) == 0) {
+    stat_t st;
+    if (stat_func(file_path, &st) == 0) {
         result->file_size = st.st_size;
     }
 
@@ -308,13 +304,24 @@ clamav_scan_result_t* catzilla_clamav_scan_file(const char* file_path) {
     // Build scan command based on available tools
     if (g_clamav_info.daemon_running && g_clamav_info.daemon_socket) {
         // Use daemon client (fastest)
+#ifdef _WIN32
+        snprintf(command, sizeof(command),
+                "clamdscan --no-summary --infected --stdout \"%s\" 2>&1", file_path);
+#else
         snprintf(command, sizeof(command),
                 "clamdscan --no-summary --infected --stdout '%s' 2>&1", file_path);
+#endif
     } else if (g_clamav_info.binary_path) {
         // Use direct scanner
+#ifdef _WIN32
+        snprintf(command, sizeof(command),
+                "\"%s\" --no-summary --infected --stdout \"%s\" 2>&1",
+                g_clamav_info.binary_path, file_path);
+#else
         snprintf(command, sizeof(command),
                 "'%s' --no-summary --infected --stdout '%s' 2>&1",
                 g_clamav_info.binary_path, file_path);
+#endif
     } else {
         result->is_error = true;
         result->error_message = strdup("No ClamAV scanner available");
@@ -327,7 +334,11 @@ clamav_scan_result_t* catzilla_clamav_scan_file(const char* file_path) {
     uint64_t start_time = time(NULL);
 
     // Execute scan with timeout
+#ifdef _WIN32
+    FILE* fp = _popen(command, "r");
+#else
     FILE* fp = popen(command, "r");
+#endif
     if (!fp) {
         result->is_error = true;
         result->error_message = strdup("Failed to execute ClamAV");
@@ -339,7 +350,11 @@ clamav_scan_result_t* catzilla_clamav_scan_file(const char* file_path) {
     size_t output_len = fread(output, 1, sizeof(output) - 1, fp);
     output[output_len] = '\0';
 
+#ifdef _WIN32
+    int exit_code = _pclose(fp);
+#else
     int exit_code = pclose(fp);
+#endif
 
     uint64_t end_time = time(NULL);
     result->scan_time_seconds = (double)(end_time - start_time);
@@ -455,16 +470,28 @@ static bool catzilla_test_clamd_connection_internal(const char* socket_path) {
 // Get ClamAV version
 static char* catzilla_get_clamav_version(const char* binary_path) {
     char command[512];
+#ifdef _WIN32
+    snprintf(command, sizeof(command), "\"%s\" --version 2>nul", binary_path);
+#else
     snprintf(command, sizeof(command), "'%s' --version 2>/dev/null", binary_path);
+#endif
 
+#ifdef _WIN32
+    FILE* fp = _popen(command, "r");
+#else
     FILE* fp = popen(command, "r");
+#endif
     if (!fp) {
         return NULL;
     }
 
     char version_line[256];
     if (fgets(version_line, sizeof(version_line), fp)) {
+#ifdef _WIN32
+        _pclose(fp);
+#else
         pclose(fp);
+#endif
 
         // Parse version from output like "ClamAV 0.103.8/..."
         char* version_start = strstr(version_line, "ClamAV ");
@@ -485,7 +512,11 @@ static char* catzilla_get_clamav_version(const char* binary_path) {
         }
     }
 
+#ifdef _WIN32
+    _pclose(fp);
+#else
     pclose(fp);
+#endif
     return NULL;
 }
 
