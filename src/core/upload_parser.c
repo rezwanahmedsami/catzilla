@@ -780,7 +780,11 @@ uint64_t catzilla_get_time_ns(void) {
 // Atomic operations
 void catzilla_atomic_increment(catzilla_upload_atomic_uint64_t* counter) {
     if (counter) {
+#ifdef _WIN32
+        InterlockedIncrement64((volatile LONG64*)&counter->value);
+#else
         __sync_fetch_and_add(&counter->value, 1);
+#endif
     }
 }
 

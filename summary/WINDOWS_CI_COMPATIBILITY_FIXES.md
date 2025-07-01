@@ -16,16 +16,20 @@ error C1083: Cannot open include file: 'unistd.h': No such file or directory
 
 ## ✅ Fixes Applied
 
-### 1. upload_parser.c - Time Functions
+### 1. upload_parser.c - Time Functions & Atomic Operations
 **Issues:**
 - `sys/time.h` and `gettimeofday()` not available on Windows
 - `struct timeval` redefinition conflict with `winsock2.h`
+- **Missing `__sync_fetch_and_add` atomic intrinsic on Windows**
 
 **Fixes:**
 - Moved `sys/time.h` include to Unix-only section
 - Added `#include <winsock2.h>` before windows.h to get `struct timeval` definition
 - Added Windows implementation of `gettimeofday()` using `GetSystemTimeAsFileTime()`
 - Removed custom `struct timeval` definition (uses system one from winsock2.h)
+- **Added Windows atomic operations compatibility:**
+  - **Windows:** `InterlockedIncrement64((volatile LONG64*)&counter->value)`
+  - **Unix:** `__sync_fetch_and_add(&counter->value, 1)`
 
 ### 2. upload_memory.c - Threading Support
 **Issues:**
@@ -90,7 +94,15 @@ error C1083: Cannot open include file: 'unistd.h': No such file or directory
   - Windows: `"quoted_paths"` and `2>nul` for error redirection
   - Unix: `'quoted_paths'` and `2>/dev/null` for error redirection
 
-### 5. platform_compat.h - Global Type Definitions
+### 5. module.c (Python Extension) - Cross-Platform Process ID
+**Issue:** `unistd.h` not available on Windows for `getpid()` function
+
+**Fix:**
+- Added Windows process ID compatibility:
+  - **Windows:** `#include <process.h>` and `#define getpid _getpid`
+  - **Unix:** `#include <unistd.h>` for standard `getpid()`
+
+### 6. platform_compat.h - Global Type Definitions
 **Enhanced** the existing platform compatibility header:
 - Added `typedef SSIZE_T ssize_t` for Windows
 - Added `typedef int mode_t` for Windows
@@ -99,14 +111,16 @@ error C1083: Cannot open include file: 'unistd.h': No such file or directory
 ## 🧪 Validation
 
 ### Files Modified
-1. `src/core/upload_parser.c` - Time and platform compatibility
+1. `src/core/upload_parser.c` - **Time, atomic operations, and platform compatibility**
 2. `src/core/upload_memory.c` - Threading compatibility
 3. `src/core/upload_stream.c` - File I/O compatibility
 4. `src/core/upload_clamav.c` - **Complete Windows compatibility (struct stat, popen/pclose, sockets)**
-5. `src/core/platform_compat.h` - Global type definitions
+5. `src/python/module.c` - **Python extension process ID compatibility**
+6. `src/core/platform_compat.h` - Global type definitions
 
 ### Windows Compatibility Features Added
 - ✅ Time functions (`gettimeofday` implementation)
+- ✅ **Atomic operations (`InterlockedIncrement64` for Windows)**
 - ✅ Threading primitives (Critical Section mapping)
 - ✅ File I/O operations (Windows _functions)
 - ✅ Socket operations (Winsock2 support)
@@ -115,6 +129,8 @@ error C1083: Cannot open include file: 'unistd.h': No such file or directory
 - ✅ **Unified stat structure handling (struct _stat vs struct stat)**
 - ✅ **Direct popen/_popen and pclose/_pclose calls**
 - ✅ **Command syntax optimization for Windows shell**
+- ✅ **Process ID compatibility (getpid/_getpid)**
+- ✅ **String comparison compatibility (strncasecmp/_strnicmp)**
 
 ### Existing Windows Support Verified
 - ✅ CMakeLists.txt already links `ws2_32 iphlpapi userenv`

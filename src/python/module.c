@@ -23,7 +23,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>             // For HUGE_VAL
-#include <unistd.h>           // For getpid()
+#ifdef _WIN32
+#include <process.h>          // For _getpid() on Windows
+#define getpid _getpid
+#else
+#include <unistd.h>           // For getpid() on Unix
+#endif
 #include <time.h>             // For time()
 #include <yyjson.h>
 #include "../core/cache_engine.h"
