@@ -4,10 +4,16 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdatomic.h>
 #include <time.h>
 #include <uv.h>
+
+// Platform-specific includes
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <stdatomic.h>
 #include <unistd.h>
+#endif
 
 // Forward declaration for server integration
 struct catzilla_request_s;
@@ -17,6 +23,98 @@ typedef struct catzilla_server_s catzilla_server_t;
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+// Cross-platform atomic operations
+#ifdef _WIN32
+// Windows atomic implementation
+typedef struct {
+    volatile LONG64 value;
+} atomic_size_t;
+
+typedef struct {
+    volatile LONG value;
+} atomic_uint;
+
+typedef struct {
+    volatile LONG value;
+} atomic_bool;
+
+// Function prototypes for Windows atomic operations
+static inline size_t atomic_load_size(const atomic_size_t* obj);
+static inline unsigned int atomic_load_uint(const atomic_uint* obj);
+static inline bool atomic_load_bool(const atomic_bool* obj);
+static inline void atomic_store_size(atomic_size_t* obj, size_t value);
+static inline void atomic_store_uint(atomic_uint* obj, unsigned int value);
+static inline void atomic_store_bool(atomic_bool* obj, bool value);
+static inline size_t atomic_fetch_add_size(atomic_size_t* obj, size_t arg);
+static inline unsigned int atomic_fetch_add_uint(atomic_uint* obj, unsigned int arg);
+static inline size_t atomic_fetch_sub_size(atomic_size_t* obj, size_t arg);
+static inline unsigned int atomic_fetch_sub_uint(atomic_uint* obj, unsigned int arg);
+
+// Macro wrappers for type-generic atomic operations
+#define atomic_load(obj) _Generic((obj), \
+    atomic_size_t*: atomic_load_size, \
+    atomic_uint*: atomic_load_uint, \
+    atomic_bool*: atomic_load_bool \
+    )(obj)
+
+#define atomic_store(obj, value) _Generic((obj), \
+    atomic_size_t*: atomic_store_size, \
+    atomic_uint*: atomic_store_uint, \
+    atomic_bool*: atomic_store_bool \
+    )(obj, value)
+
+#define atomic_fetch_add(obj, arg) _Generic((obj), \
+    atomic_size_t*: atomic_fetch_add_size, \
+    atomic_uint*: atomic_fetch_add_uint \
+    )(obj, arg)
+
+#define atomic_fetch_sub(obj, arg) _Generic((obj), \
+    atomic_size_t*: atomic_fetch_sub_size, \
+    atomic_uint*: atomic_fetch_sub_uint \
+    )(obj, arg)
+
+// Implementation of atomic operations for Windows
+static inline size_t atomic_load_size(const atomic_size_t* obj) {
+    return (size_t)InterlockedCompareExchange64((volatile LONG64*)&obj->value, 0, 0);
+}
+
+static inline unsigned int atomic_load_uint(const atomic_uint* obj) {
+    return (unsigned int)InterlockedCompareExchange((volatile LONG*)&obj->value, 0, 0);
+}
+
+static inline bool atomic_load_bool(const atomic_bool* obj) {
+    return InterlockedCompareExchange((volatile LONG*)&obj->value, 0, 0) != 0;
+}
+
+static inline void atomic_store_size(atomic_size_t* obj, size_t value) {
+    InterlockedExchange64((volatile LONG64*)&obj->value, (LONG64)value);
+}
+
+static inline void atomic_store_uint(atomic_uint* obj, unsigned int value) {
+    InterlockedExchange((volatile LONG*)&obj->value, (LONG)value);
+}
+
+static inline void atomic_store_bool(atomic_bool* obj, bool value) {
+    InterlockedExchange((volatile LONG*)&obj->value, value ? 1 : 0);
+}
+
+static inline size_t atomic_fetch_add_size(atomic_size_t* obj, size_t arg) {
+    return (size_t)InterlockedExchangeAdd64((volatile LONG64*)&obj->value, (LONG64)arg);
+}
+
+static inline unsigned int atomic_fetch_add_uint(atomic_uint* obj, unsigned int arg) {
+    return (unsigned int)InterlockedExchangeAdd((volatile LONG*)&obj->value, (LONG)arg);
+}
+
+static inline size_t atomic_fetch_sub_size(atomic_size_t* obj, size_t arg) {
+    return (size_t)InterlockedExchangeAdd64((volatile LONG64*)&obj->value, -(LONG64)arg);
+}
+
+static inline unsigned int atomic_fetch_sub_uint(atomic_uint* obj, unsigned int arg) {
+    return (unsigned int)InterlockedExchangeAdd((volatile LONG*)&obj->value, -(LONG)arg);
+}
 #endif
 
 // Forward declarations
@@ -55,7 +153,11 @@ typedef struct catzilla_stream_context_s {
 
     // Performance monitoring (GOOD)
     uint64_t bytes_streamed;
+#ifdef _WIN32
+    LARGE_INTEGER start_time;
+#else
     struct timespec start_time;
+#endif
 
     // Integration with existing server lifecycle
     catzilla_request_t* request;         // Link to original request

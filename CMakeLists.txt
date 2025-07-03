@@ -335,6 +335,9 @@ if(MSVC)
     set(CMAKE_C_FLAGS_RELEASE "/O2 /DNDEBUG")
     set(CMAKE_C_FLAGS_RELWITHDEBINFO "/O2 /Zi /DNDEBUG")
 
+    # Use C11 standard for MSVC
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /std:c11")
+
     # Ensure warnings don't cause build failures
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /WX-")
 

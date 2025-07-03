@@ -4,7 +4,10 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
+
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 
 // Global streaming statistics
 static catzilla_streaming_stats_t g_streaming_stats = {0};
@@ -83,7 +86,11 @@ catzilla_stream_context_t* catzilla_stream_create(uv_stream_t* client,
     ctx->content_type = strdup("text/plain");
 
     // Record start time
+#ifdef _WIN32
+    QueryPerformanceCounter(&ctx->start_time);
+#else
     clock_gettime(CLOCK_MONOTONIC, &ctx->start_time);
+#endif
 
     // Update global statistics
     atomic_fetch_add(&g_streaming_stats.active_streams, 1);
@@ -476,16 +483,28 @@ int catzilla_stream_wait_for_drain(catzilla_stream_context_t* ctx,
         return CATZILLA_STREAM_EINVAL;
     }
 
+#ifdef _WIN32
+    LARGE_INTEGER start_time, current_time, frequency;
+    QueryPerformanceFrequency(&frequency);
+    QueryPerformanceCounter(&start_time);
+#else
     struct timespec start_time, current_time;
     clock_gettime(CLOCK_MONOTONIC, &start_time);
+#endif
 
     // Poll until backpressure is relieved or timeout
     while (ctx->backpressure_active) {
         // Check timeout
         if (timeout_ms > 0) {
+#ifdef _WIN32
+            QueryPerformanceCounter(&current_time);
+            uint64_t elapsed_ms = (uint64_t)(((current_time.QuadPart - start_time.QuadPart) * 1000) /
+                                  frequency.QuadPart);
+#else
             clock_gettime(CLOCK_MONOTONIC, &current_time);
             uint64_t elapsed_ms = (current_time.tv_sec - start_time.tv_sec) * 1000 +
                                  (current_time.tv_nsec - start_time.tv_nsec) / 1000000;
+#endif
 
             if (elapsed_ms >= timeout_ms) {
                 return UV_ETIMEDOUT;
@@ -523,11 +542,22 @@ double catzilla_stream_get_throughput_mbps(catzilla_stream_context_t* ctx) {
         return 0.0;
     }
 
+    double elapsed_seconds = 0.0;
+
+#ifdef _WIN32
+    LARGE_INTEGER current_time, frequency;
+    QueryPerformanceCounter(&current_time);
+    QueryPerformanceFrequency(&frequency);
+
+    elapsed_seconds = (double)(current_time.QuadPart - ctx->start_time.QuadPart) /
+                     (double)frequency.QuadPart;
+#else
     struct timespec current_time;
     clock_gettime(CLOCK_MONOTONIC, &current_time);
 
-    double elapsed_seconds = (current_time.tv_sec - ctx->start_time.tv_sec) +
-                           (current_time.tv_nsec - ctx->start_time.tv_nsec) / 1e9;
+    elapsed_seconds = (current_time.tv_sec - ctx->start_time.tv_sec) +
+                     (current_time.tv_nsec - ctx->start_time.tv_nsec) / 1e9;
+#endif
 
     if (elapsed_seconds <= 0.0) {
         return 0.0;
