@@ -1,0 +1,163 @@
+"""
+Catzilla Streaming Response Module
+
+This module provides a streaming response system for the Catzilla web framework.
+This is a temporary implementation that collects all streaming content into a single response.
+"""
+from typing import Callable, Iterator, Optional, Union, Dict, List
+import io
+import time
+from .types import Response
+
+
+class StreamingResponse(Response):
+    """
+    Streaming HTTP response class that sends data incrementally to the client.
+
+    NOTE: This is currently a simplified implementation that collects all streaming data
+    into a single response. True streaming will be implemented in a future version.
+
+    Example:
+        ```python
+        @app.get("/stream")
+        def stream_response(request):
+            def generate_data():
+                for i in range(100):
+                    yield f"data: {i}\n\n"
+                    time.sleep(0.1)
+
+            return StreamingResponse(generate_data())
+        ```
+    """
+    def __init__(self,
+                 content=None,
+                 content_type: str = "text/plain",
+                 status_code: int = 200,
+                 headers: Optional[Dict[str, str]] = None):
+        """
+        Initialize a streaming response.
+
+        Args:
+            content: An iterator, generator, or callable that produces strings or bytes
+            content_type: MIME type of the response
+            status_code: HTTP status code
+            headers: Additional HTTP headers
+        """
+        # Collect all the content into a single string
+        body = ""
+
+        if content is not None:
+            # Handle callable content
+            if callable(content):
+                content = content()
+
+            # Consume the iterator/generator
+            for chunk in content:
+                if isinstance(chunk, bytes):
+                    chunk = chunk.decode('utf-8', errors='replace')
+                body += chunk
+
+        # Initialize the base Response class with the collected content
+        super().__init__(
+            status_code=status_code,
+            content_type=content_type,
+            body=body,
+            headers=headers
+        )
+
+
+class StreamingWriter(io.StringIO):
+    """
+    A file-like object for writing to a streaming response.
+
+    NOTE: This is currently a simplified implementation that collects all data
+    into memory. True streaming will be implemented in a future version.
+
+    Example:
+        ```python
+        @app.get("/stream-writer")
+        def stream_csv(request):
+            response = StreamingResponse(content_type="text/csv")
+            writer = StreamingWriter(response)
+
+            writer.write("id,name,value\n")
+            for i in range(1000):
+                writer.write(f"{i},item-{i},{i*10}\n")
+
+            writer.close()
+            return response
+        ```
+    """
+    def __init__(self, response: StreamingResponse):
+        """
+        Initialize a streaming writer.
+
+        Args:
+            response: The StreamingResponse to write to
+        """
+        super().__init__()
+        self.response = response
+
+    def close(self):
+        """
+        Close the writer and update the response with the collected content.
+        """
+        if not self.closed:
+            self.response.body = self.getvalue()
+            super().close()
+
+
+def stream_template(template: str, **context) -> StreamingResponse:
+    """
+    Stream a template response.
+
+    NOTE: This is currently a simplified implementation that renders the entire
+    template at once. True streaming will be implemented in a future version.
+
+    Args:
+        template: Template name or path
+        **context: Template rendering context
+
+    Returns:
+        StreamingResponse object
+
+    Example:
+        ```python
+        @app.get("/report")
+        def report(request):
+            return stream_template("large_report.html", data=get_large_dataset())
+        ```
+    """
+    try:
+        from jinja2 import Environment, FileSystemLoader
+        from pathlib import Path
+
+        # Try to find templates in standard locations
+        template_dirs = [
+            Path.cwd() / "templates",
+            Path.cwd() / "views",
+            Path.cwd(),
+        ]
+
+        env = Environment(loader=FileSystemLoader(template_dirs))
+        template_obj = env.get_template(template)
+        content = template_obj.render(**context)
+
+        return StreamingResponse(
+            content=[content],
+            content_type="text/html"
+        )
+    except ImportError:
+        # Jinja2 not installed
+        return StreamingResponse(
+            content=["<h1>Template Error</h1><p>Jinja2 is required for template rendering</p>"],
+            content_type="text/html",
+            status_code=500
+        )
+    except Exception as e:
+        # Template not found or other error
+        return StreamingResponse(
+            content=[f"<h1>Template Error</h1><p>{str(e)}</p>"],
+            content_type="text/html",
+            status_code=500
+        )

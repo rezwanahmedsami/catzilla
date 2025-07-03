@@ -702,6 +702,8 @@ add_library(catzilla_core STATIC
     src/core/upload_memory.c
     src/core/upload_stream.c
     src/core/upload_clamav.c
+    # Streaming and WebSocket system
+    src/core/streaming.c
 )
 
 # Apply feature test macros only to Catzilla core sources (not third-party libs)
@@ -767,7 +769,10 @@ if(WIN32)
 endif()
 
 # ——— Python extension module ———
-add_library(_catzilla SHARED src/python/module.c)
+add_library(_catzilla SHARED
+  src/python/module.c
+  src/python/streaming.c
+)
 
 # Apply feature test macros only to Python extension (not third-party libs)
 if(NOT MSVC)
@@ -1020,6 +1025,7 @@ if(NOT WHEEL_BUILD_MODE)
     configure_test_executable(test_background_tasks tests/c/test_background_tasks.c)
     configure_test_executable(test_cache_engine tests/c/test_cache_engine.c)
     configure_test_executable(test_static_server tests/c/test_static_server.c)
+    configure_test_executable(test_streaming tests/c/test_streaming.c)
 
     # Add Windows threading support for dependency injection test
     if(WIN32)

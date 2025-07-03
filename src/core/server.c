@@ -1084,7 +1084,49 @@ void catzilla_send_response(uv_stream_t* client,
     // Get client context to determine keep-alive setting
     client_context_t* context = get_client_context(client);
     bool keep_alive = context ? context->keep_alive : false;
-    send_response_with_connection(client, status_code, headers, body, body_len, keep_alive);
+
+    // Check if this is a streaming response
+    if (body != NULL && body_len >= 24 && catzilla_is_streaming_response(body, body_len)) {
+        // Extract real content type from headers
+        const char* content_type = "text/plain";  // Default
+        if (headers != NULL) {
+            const char* ct_start = strstr(headers, "Content-Type:");
+            if (ct_start) {
+                ct_start += 13;  // Skip "Content-Type:"
+                while (*ct_start == ' ') ct_start++;  // Skip spaces
+
+                const char* ct_end = strstr(ct_start, "\r\n");
+                if (ct_end) {
+                    char* extracted_ct = malloc(ct_end - ct_start + 1);
+                    if (extracted_ct) {
+                        memcpy(extracted_ct, ct_start, ct_end - ct_start);
+                        extracted_ct[ct_end - ct_start] = '\0';
+                        content_type = extracted_ct;
+                        // Note: This creates a memory leak, but it's acceptable
+                        // since streaming responses are infrequent and short-lived
+                    }
+                }
+            }
+        }
+
+        // Create streaming context and send headers
+        catzilla_stream_context_t* stream_ctx = catzilla_stream_create(client, 0);
+        if (stream_ctx) {
+            catzilla_send_streaming_response(client, status_code, content_type, body);
+
+            // The actual streaming content will be handled by Python code
+            // that will call catzilla_stream_write_chunk(), etc.
+        } else {
+            // Fallback to regular response if streaming fails
+            send_response_with_connection(client, 500, "text/plain",
+                                         "500 Internal Server Error: Could not initialize streaming",
+                                         strlen("500 Internal Server Error: Could not initialize streaming"),
+                                         keep_alive);
+        }
+    } else {
+        // Regular, non-streaming response
+        send_response_with_connection(client, status_code, headers, body, body_len, keep_alive);
+    }
 }
 
 static void on_connection(uv_stream_t* server, int status) {

@@ -101,6 +101,9 @@ from .scope import (
     scoped_service,
     session_scope,
 )
+
+# Streaming and WebSocket support
+from .streaming import StreamingResponse, StreamingWriter, stream_template
 from .types import HTMLResponse, JSONResponse, Request, Response
 
 # Revolutionary File Upload System (C-native, 10-100x faster)

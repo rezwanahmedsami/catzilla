@@ -33,6 +33,9 @@
 #include <yyjson.h>
 #include "../core/cache_engine.h"
 
+// Forward declarations for submodules
+PyObject* init_streaming(void);
+
 // Structure to hold Python callback and routing table
 typedef struct {
     PyObject *callback;
@@ -1989,6 +1992,16 @@ PyMODINIT_FUNC PyInit__catzilla(void)
     PyObject *m = PyModule_Create(&catzilla_module);
     if (!m) return NULL;
 
+    // Initialize streaming submodule
+    PyObject* streaming_m = init_streaming();
+    if (streaming_m) {
+        if (PyModule_AddObject(m, "_streaming", streaming_m) < 0) {
+            Py_DECREF(streaming_m);
+            Py_DECREF(m);
+            return NULL;
+        }
+    }
+
     // Add Server type
     Py_INCREF(&CatzillaServerType);
     if (PyModule_AddObject(m, "Server", (PyObject*)&CatzillaServerType) < 0) {
@@ -2030,5 +2043,19 @@ PyMODINIT_FUNC PyInit__catzilla(void)
     }
 
     PyModule_AddStringConstant(m, "VERSION", "0.1.0");
+
+    // Initialize and add streaming module
+    PyObject* streaming_module = init_streaming();
+    if (streaming_module) {
+        if (PyModule_AddObject(m, "_streaming", streaming_module) < 0) {
+            Py_DECREF(streaming_module);
+            Py_DECREF(m);
+            return NULL;
+        }
+    } else {
+        // Log warning but don't fail - streaming is an optional feature
+        LOG_WARN("Module", "Failed to initialize streaming module");
+    }
+
     return m;
 }

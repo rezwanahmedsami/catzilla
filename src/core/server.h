@@ -8,6 +8,18 @@
 #include "router.h"
 #include "upload_parser.h"
 
+// Forward declaration for streaming support
+typedef struct catzilla_stream_context_s catzilla_stream_context_t;
+struct catzilla_stream_context_s;
+
+// Function declarations for streaming support
+bool catzilla_is_streaming_response(const char* body, size_t body_len);
+int catzilla_send_streaming_response(uv_stream_t* client,
+                                    int status_code,
+                                    const char* content_type,
+                                    const char* streaming_marker);
+catzilla_stream_context_t* catzilla_stream_create(uv_stream_t* client, size_t buffer_size);
+
 #define CATZILLA_MAX_ROUTES 100
 #define CATZILLA_PATH_MAX 256
 #define CATZILLA_METHOD_MAX 32
