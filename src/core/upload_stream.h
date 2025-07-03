@@ -112,7 +112,7 @@ void stream_write_worker(uv_work_t* req);
 void stream_write_after_work(uv_work_t* req, int status);
 
 // Utility functions
-size_t catzilla_stream_optimal_buffer_size(uint64_t file_size);
+size_t catzilla_upload_optimal_buffer_size(uint64_t file_size);
 bool catzilla_stream_should_use_direct_io(uint64_t file_size);
 int catzilla_stream_create_temp_file(char* template_path, size_t template_size);
 

@@ -6,17 +6,11 @@
 #include <stdio.h>
 
 // Platform-specific threading includes
-#ifdef _WIN32
-#include <windows.h>
-// Use Windows critical sections instead of pthread mutexes
-typedef CRITICAL_SECTION pthread_mutex_t;
-#define pthread_mutex_init(m, a) InitializeCriticalSection(m)
-#define pthread_mutex_lock(m) EnterCriticalSection(m)
-#define pthread_mutex_unlock(m) LeaveCriticalSection(m)
-#define pthread_mutex_destroy(m) DeleteCriticalSection(m)
-#else
+#ifndef _WIN32
+// Unix systems use standard pthread
 #include <pthread.h>
 #endif
+// Windows systems use the pthread emulation from platform_compat.h
 
 // Platform-specific includes for jemalloc detection
 #ifdef __linux__

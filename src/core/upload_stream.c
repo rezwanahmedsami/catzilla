@@ -76,7 +76,7 @@ catzilla_stream_context_t* catzilla_stream_context_create(catzilla_upload_file_t
     memset(ctx, 0, sizeof(catzilla_stream_context_t));
 
     // Initialize default configuration
-    ctx->buffer_size = catzilla_stream_optimal_buffer_size(file->max_size);
+    ctx->buffer_size = catzilla_upload_optimal_buffer_size(file->max_size);
     ctx->max_buffers = 4; // Allow up to 4 buffers for async operations
     ctx->direct_io = catzilla_stream_should_use_direct_io(file->max_size);
     ctx->sync_writes = false; // Async by default for better performance
@@ -552,8 +552,8 @@ static void update_stream_performance_metrics(catzilla_stream_context_t* ctx, si
     }
 }
 
-// Get optimal buffer size for file size
-size_t catzilla_stream_optimal_buffer_size(uint64_t file_size) {
+// Get optimal buffer size for file uploads
+size_t catzilla_upload_optimal_buffer_size(uint64_t file_size) {
     if (file_size < 1024 * 1024) {
         return 4096;        // 4KB for small files
     } else if (file_size < 10 * 1024 * 1024) {

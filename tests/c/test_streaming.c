@@ -130,7 +130,17 @@ void test_stream_create_destroy(void) {
     // Verify initial state
     TEST_ASSERT_FALSE(ctx->backpressure_active);
     TEST_ASSERT_EQUAL(0, ctx->bytes_streamed);
+#ifdef _WIN32
+    // On Windows, is_active is a struct
+    TEST_ASSERT_TRUE(atomic_load(&ctx->is_active));
+#else
+    // On Unix, is_active is a plain bool
+#ifdef _WIN32
+    TEST_ASSERT_TRUE(atomic_load(&ctx->is_active));
+#else
     TEST_ASSERT_TRUE(ctx->is_active);
+#endif
+#endif
 
     catzilla_stream_destroy(ctx);
     // Successful if no crashes

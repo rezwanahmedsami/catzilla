@@ -515,7 +515,11 @@ int catzilla_stream_wait_for_drain(catzilla_stream_context_t* ctx,
         uv_run(ctx->loop, UV_RUN_NOWAIT);
 
         // Small sleep to prevent busy waiting
-        usleep(1000);  // 1ms
+#ifdef _WIN32
+        Sleep(1);      // 1ms on Windows
+#else
+        usleep(1000);  // 1ms on Unix
+#endif
     }
 
     return CATZILLA_STREAM_OK;
