@@ -107,7 +107,14 @@ class TestStreamingResponse(unittest.TestCase):
         """Test that byte content is properly handled."""
         response = StreamingResponse([b"binary data"])
         # Ensure bytes are properly processed
-        self.assertIn("binary data", response.body)
+        # If C streaming is enabled, body will contain streaming marker
+        if response.body.startswith("___CATZILLA_STREAMING___"):
+            # In C streaming mode, check the original content
+            content = response._collect_content()
+            self.assertIn("binary data", content)
+        else:
+            # In fallback mode, check the body
+            self.assertIn("binary data", response.body)
 
     def test_streaming_response_with_mixed_content(self):
         """Test that mixed str/bytes content is properly handled."""
@@ -117,9 +124,18 @@ class TestStreamingResponse(unittest.TestCase):
             "more text"
         ])
         # Ensure all content is included
-        self.assertIn("text data", response.body)
-        self.assertIn("binary data", response.body)
-        self.assertIn("more text", response.body)
+        # If C streaming is enabled, body will contain streaming marker
+        if response.body.startswith("___CATZILLA_STREAMING___"):
+            # In C streaming mode, check the original content
+            content = response._collect_content()
+            self.assertIn("text data", content)
+            self.assertIn("binary data", content)
+            self.assertIn("more text", content)
+        else:
+            # In fallback mode, check the body
+            self.assertIn("text data", response.body)
+            self.assertIn("binary data", response.body)
+            self.assertIn("more text", response.body)
 
     def test_streaming_response_with_callable(self):
         """Test that callable content is properly handled."""
@@ -130,9 +146,18 @@ class TestStreamingResponse(unittest.TestCase):
 
         response = StreamingResponse(generate_content)
         # Ensure the callable is executed and content is included
-        self.assertIn("first", response.body)
-        self.assertIn("second", response.body)
-        self.assertIn("third", response.body)
+        # If C streaming is enabled, body will contain streaming marker
+        if response.body.startswith("___CATZILLA_STREAMING___"):
+            # In C streaming mode, check the original content
+            content = response._collect_content()
+            self.assertIn("first", content)
+            self.assertIn("second", content)
+            self.assertIn("third", content)
+        else:
+            # In fallback mode, check the body
+            self.assertIn("first", response.body)
+            self.assertIn("second", response.body)
+            self.assertIn("third", response.body)
 
     def test_streaming_writer(self):
         """Test the StreamingWriter class."""
@@ -190,7 +215,14 @@ class TestStreamingResponse(unittest.TestCase):
 
             # Verify the content
             expected_content = "chunk-0chunk-1chunk-2"
-            self.assertEqual(response.body, expected_content)
+            # If C streaming is enabled, body will contain streaming marker
+            if response.body.startswith("___CATZILLA_STREAMING___"):
+                # In C streaming mode, check the original content
+                content = response._collect_content()
+                self.assertEqual(content, expected_content)
+            else:
+                # In fallback mode, check the body
+                self.assertEqual(response.body, expected_content)
 
         finally:
             # Shutdown the app
@@ -222,9 +254,18 @@ class TestStreamingResponse(unittest.TestCase):
             self.assertEqual(response.content_type, "text/event-stream")
 
             # Verify SSE format
-            self.assertIn("id: 1", response.body)
-            self.assertIn("data: {\"message\": \"test\"}", response.body)
-            self.assertIn("id: 2", response.body)
+            # If C streaming is enabled, body will contain streaming marker
+            if response.body.startswith("___CATZILLA_STREAMING___"):
+                # In C streaming mode, check the original content
+                content = response._collect_content()
+                self.assertIn("id: 1", content)
+                self.assertIn("data: {\"message\": \"test\"}", content)
+                self.assertIn("id: 2", content)
+            else:
+                # In fallback mode, check the body
+                self.assertIn("id: 1", response.body)
+                self.assertIn("data: {\"message\": \"test\"}", response.body)
+                self.assertIn("id: 2", response.body)
 
         finally:
             # Shutdown the app
@@ -264,7 +305,14 @@ class TestStreamingPerformance(unittest.TestCase):
             # Basic validation only
             self.assertIsNotNone(response)
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(len(response.body), 1024 * 1024)
+            # If C streaming is enabled, body will contain streaming marker
+            if response.body.startswith("___CATZILLA_STREAMING___"):
+                # In C streaming mode, check the original content length
+                content = response._collect_content()
+                self.assertEqual(len(content), 1024 * 1024)
+            else:
+                # In fallback mode, check the body length
+                self.assertEqual(len(response.body), 1024 * 1024)
 
             # Print timing info (useful for manual testing)
             print(f"Large response generation time: {end_time - start_time:.3f}s")

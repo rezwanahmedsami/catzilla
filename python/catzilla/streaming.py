@@ -5,9 +5,81 @@ This module provides a streaming response system for the Catzilla web framework.
 """
 
 import io
+import threading
+import time
+import uuid
+import weakref
 from typing import Any, Callable, Dict, Iterator, Optional, Union
 
 from .types import Response
+
+# Import the C streaming extension
+try:
+    # Try importing as installed package
+    import catzilla._catzilla as _catzilla
+
+    _HAS_C_STREAMING = hasattr(_catzilla, "_streaming") and hasattr(
+        _catzilla._streaming, "connect_streaming_response"
+    )
+    _catzilla_streaming = _catzilla._streaming if _HAS_C_STREAMING else None
+except ImportError:
+    try:
+        # Try importing from current directory context
+        from . import _catzilla
+
+        _HAS_C_STREAMING = hasattr(_catzilla, "_streaming") and hasattr(
+            _catzilla._streaming, "connect_streaming_response"
+        )
+        _catzilla_streaming = _catzilla._streaming if _HAS_C_STREAMING else None
+    except ImportError:
+        try:
+            # Try direct import
+            import _catzilla
+
+            _HAS_C_STREAMING = hasattr(_catzilla, "_streaming") and hasattr(
+                _catzilla._streaming, "connect_streaming_response"
+            )
+            _catzilla_streaming = _catzilla._streaming if _HAS_C_STREAMING else None
+        except ImportError:
+            _HAS_C_STREAMING = False
+            _catzilla = None
+            _catzilla_streaming = None
+
+
+# Global registry for streaming responses awaiting connection to C context
+_streaming_responses = weakref.WeakValueDictionary()
+_streaming_lock = threading.Lock()
+
+
+def _register_streaming_response(
+    streaming_id: str, response: "StreamingResponse"
+) -> None:
+    """Register a streaming response in the global registry."""
+    with _streaming_lock:
+        _streaming_responses[streaming_id] = response
+
+
+def _get_streaming_response(streaming_id: str) -> Optional["StreamingResponse"]:
+    """Get a streaming response from the global registry."""
+    with _streaming_lock:
+        return _streaming_responses.get(streaming_id)
+
+
+def _unregister_streaming_response(streaming_id: str) -> None:
+    """Unregister a streaming response from the global registry."""
+    with _streaming_lock:
+        _streaming_responses.pop(streaming_id, None)
+
+
+# Make registry functions accessible for C extension
+__all__ = [
+    "StreamingResponse",
+    "StreamingWriter",
+    "stream_template",
+    "_get_streaming_response",
+    "_register_streaming_response",
+    "_unregister_streaming_response",
+]
 
 
 class StreamingResponse(Response):
@@ -53,34 +125,27 @@ class StreamingResponse(Response):
             status_code: HTTP status code
             headers: Additional HTTP headers
         """
-        # For now, we'll collect all the content into a single string/response
-        # This is a temporary solution until we properly integrate with the C streaming API
-        body = ""
-
-        # Store original content for future reference
+        # Store the original content for streaming
         self._content = content
+        self._content_type = content_type
+        self._status_code = status_code
+        self._headers = headers or {}
 
-        # Handle different types of content
-        if content is not None:
-            if isinstance(content, list):
-                # If content is already a list, join it directly
-                for chunk in content:
-                    if isinstance(chunk, bytes):
-                        chunk = chunk.decode("utf-8", errors="replace")
-                    body += chunk
-            elif callable(content):
-                # If content is callable, call it to get an iterator
-                iterator = content()
-                for chunk in iterator:
-                    if isinstance(chunk, bytes):
-                        chunk = chunk.decode("utf-8", errors="replace")
-                    body += chunk
-            else:
-                # Otherwise, treat it as an iterator
-                for chunk in content:
-                    if isinstance(chunk, bytes):
-                        chunk = chunk.decode("utf-8", errors="replace")
-                    body += chunk
+        # C streaming context (will be set by server when response is sent)
+        self._stream_context = None
+        self._is_streaming = content is not None
+        self._streaming_id = None  # Unique ID for connecting to C context
+
+        # For fallback compatibility, also create the collected response
+        if not _HAS_C_STREAMING or not self._is_streaming:
+            # Fallback to collecting all content
+            body = self._collect_content()
+        else:
+            # Create a unique streaming ID for this response
+            self._streaming_id = str(uuid.uuid4())
+            # Mark this as a streaming response for server detection
+            # Include the streaming ID so the server can connect back to this instance
+            body = f"___CATZILLA_STREAMING___{self._streaming_id}___"
 
         # Track closed state for writing
         self._closed = False
@@ -90,7 +155,7 @@ class StreamingResponse(Response):
         if headers is None:
             headers = {}
 
-        # Initialize the Response with the collected content
+        # Initialize the Response with the collected content or marker
         super().__init__(
             status_code=status_code,
             content_type=content_type,
@@ -102,6 +167,101 @@ class StreamingResponse(Response):
         if headers:
             for key, value in headers.items():
                 self._headers[key.lower()] = value
+
+        # Register this streaming response globally so server can find it
+        if self._is_streaming and _HAS_C_STREAMING and self._streaming_id:
+            _register_streaming_response(self._streaming_id, self)
+
+    def _collect_content(self) -> str:
+        """
+        Collect all content for fallback mode when C streaming is not available.
+        """
+        if self._content is None:
+            return ""
+
+        body = ""
+        content = self._content
+
+        if isinstance(content, list):
+            # If content is already a list, join it directly
+            for chunk in content:
+                if isinstance(chunk, bytes):
+                    chunk = chunk.decode("utf-8", errors="replace")
+                body += chunk
+        elif callable(content):
+            # If content is callable, call it to get an iterator
+            iterator = content()
+            for chunk in iterator:
+                if isinstance(chunk, bytes):
+                    chunk = chunk.decode("utf-8", errors="replace")
+                body += chunk
+        else:
+            # Otherwise, treat it as an iterator
+            for chunk in content:
+                if isinstance(chunk, bytes):
+                    chunk = chunk.decode("utf-8", errors="replace")
+                body += chunk
+
+        return body
+
+    def is_streaming(self) -> bool:
+        """
+        Check if this response is using streaming.
+
+        Returns:
+            True if the response is using streaming, False otherwise
+        """
+        return self._is_streaming and _HAS_C_STREAMING
+
+    def _connect_to_stream_context(self, stream_context):
+        """
+        Connect this response to a C streaming context.
+        This is called internally by the server when setting up streaming.
+
+        Args:
+            stream_context: The C streaming context object
+        """
+        self._stream_context = stream_context
+        self._native_response = stream_context
+
+    def _start_streaming(self):
+        """
+        Start streaming the content if C streaming is available.
+        This method is called by the server after headers are sent.
+        """
+        if not self.is_streaming() or not self._stream_context:
+            return
+
+        # Stream content directly through C core without threading
+        try:
+            content = self._content
+
+            # Handle callable content
+            if callable(content):
+                content = content()
+
+            # Stream the content chunk by chunk
+            for chunk in content:
+                if self._closed:
+                    break
+
+                if isinstance(chunk, str):
+                    chunk = chunk.encode("utf-8")
+
+                # Write to the C streaming context
+                if self._stream_context:
+                    self._stream_context.write(chunk)
+
+        except Exception as e:
+            # Handle errors during streaming
+            error_msg = f"Streaming error: {str(e)}"
+            if self._stream_context:
+                self._stream_context.write(error_msg.encode("utf-8"))
+        finally:
+            # Always close the stream when done
+            if not self._closed and self._stream_context:
+                self._stream_context.close()
+                self._closed = True
 
     @property
     def headers(self):
@@ -145,13 +305,18 @@ class StreamingResponse(Response):
         if self._closed:
             raise RuntimeError("Cannot write to a closed StreamingResponse")
 
-        if not self._native_response:
+        # If we have C streaming available and connected, use it
+        if self.is_streaming() and self._stream_context:
+            if isinstance(data, str):
+                data = data.encode("utf-8")
+            self._stream_context.write(data)
+        elif self._native_response:
+            # Fallback to the existing native response method
+            if isinstance(data, str):
+                data = data.encode("utf-8")
+            self._native_response.write(data)
+        else:
             raise RuntimeError("StreamingResponse not connected to a client")
-
-        if isinstance(data, str):
-            data = data.encode("utf-8")
-
-        self._native_response.write(data)
 
     def close(self):
         """
@@ -159,7 +324,20 @@ class StreamingResponse(Response):
 
         This marks the stream as closed and prevents further writes.
         """
-        self._closed = True
+        if not self._closed:
+            self._closed = True
+
+            # Close the C streaming context if available
+            if self.is_streaming() and self._stream_context:
+                self._stream_context.close()
+
+            # Unregister from global registry
+            if self._streaming_id:
+                _unregister_streaming_response(self._streaming_id)
+
+            # Clean up references
+            self._stream_context = None
+            self._native_response = None
 
     def flush(self):
         """

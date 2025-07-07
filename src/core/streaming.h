@@ -269,6 +269,14 @@ int catzilla_stream_abort(catzilla_stream_context_t* ctx);
 bool catzilla_is_streaming_response(const char* body, size_t body_len);
 
 /**
+ * Extract streaming ID from response body
+ * @param body Response body pointer
+ * @param body_len Response body length
+ * @return streaming ID string (caller must free) or NULL if not found
+ */
+const char* catzilla_extract_streaming_id(const char* body, size_t body_len);
+
+/**
  * Send streaming response headers
  * @param client libuv client handle
  * @param status_code HTTP status code

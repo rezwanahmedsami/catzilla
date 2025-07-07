@@ -1,6 +1,7 @@
 #include <Python.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdlib.h>
 #include "../core/streaming.h"
 #include "../core/server.h"
 
@@ -293,10 +294,218 @@ static PyObject* py_create_streaming_response(PyObject* self, PyObject* args, Py
     return response_obj;
 }
 
-// Create the streaming module
+// Create a streaming response connected to a client
+static PyObject* py_connect_streaming_response(PyObject* self, PyObject* args) {
+    PyObject* client_capsule;
+    const char* streaming_id;
+
+    if (!PyArg_ParseTuple(args, "Os", &client_capsule, &streaming_id))
+        return NULL;
+
+    // Check if client is a valid PyCapsule
+    if (!PyCapsule_CheckExact(client_capsule)) {
+        PyErr_SetString(PyExc_TypeError, "client must be a PyCapsule");
+        return NULL;
+    }
+
+    // Extract client handle from capsule
+    uv_stream_t* client = PyCapsule_GetPointer(client_capsule, "catzilla.client");
+    if (!client) {
+        PyErr_SetString(PyExc_ValueError, "Invalid client capsule");
+        return NULL;
+    }
+
+    // Find the Python StreamingResponse by ID
+    PyObject* catzilla_module = PyImport_ImportModule("catzilla.streaming");
+    if (!catzilla_module) {
+        return NULL;
+    }
+
+    PyObject* get_func = PyObject_GetAttrString(catzilla_module, "_get_streaming_response");
+    if (!get_func) {
+        Py_DECREF(catzilla_module);
+        return NULL;
+    }
+
+    PyObject* id_arg = PyUnicode_FromString(streaming_id);
+    if (!id_arg) {
+        Py_DECREF(get_func);
+        Py_DECREF(catzilla_module);
+        return NULL;
+    }
+
+    PyObject* py_response = PyObject_CallFunctionObjArgs(get_func, id_arg, NULL);
+    Py_DECREF(id_arg);
+    Py_DECREF(get_func);
+    Py_DECREF(catzilla_module);
+
+    if (!py_response || py_response == Py_None) {
+        Py_XDECREF(py_response);
+        PyErr_SetString(PyExc_ValueError, "StreamingResponse not found for given ID");
+        return NULL;
+    }
+
+    // Get the content generator from the Python StreamingResponse
+    PyObject* content = PyObject_GetAttrString(py_response, "_content");
+    if (!content) {
+        Py_DECREF(py_response);
+        PyErr_SetString(PyExc_AttributeError, "StreamingResponse missing _content attribute");
+        return NULL;
+    }
+
+    // Get content type and status
+    PyObject* content_type = PyObject_GetAttrString(py_response, "_content_type");
+    PyObject* status_code = PyObject_GetAttrString(py_response, "_status_code");
+
+    if (!content_type || !status_code) {
+        Py_XDECREF(content);
+        Py_XDECREF(content_type);
+        Py_XDECREF(status_code);
+        Py_DECREF(py_response);
+        PyErr_SetString(PyExc_AttributeError, "StreamingResponse missing required attributes");
+        return NULL;
+    }
+
+    int status = PyLong_AsLong(status_code);
+    const char* content_type_str = PyUnicode_AsUTF8(content_type);
+
+    // Send headers with chunked transfer encoding
+    char response_headers[1024];
+    snprintf(response_headers, sizeof(response_headers),
+        "HTTP/1.1 %d OK\r\n"
+        "Content-Type: %s\r\n"
+        "Transfer-Encoding: chunked\r\n"
+        "Connection: keep-alive\r\n"
+        "\r\n",
+        status, content_type_str);
+
+    // Send response headers using uv_write
+    uv_buf_t header_buf = uv_buf_init(response_headers, strlen(response_headers));
+    uv_write_t* header_req = malloc(sizeof(uv_write_t));
+    if (header_req) {
+        uv_write(header_req, client, &header_buf, 1, NULL);  // Fire and forget for now
+    }
+
+    // Start streaming the content
+    PyObject* iterator = content;
+
+    // Check if content is callable, and call it if so
+    if (PyCallable_Check(iterator)) {
+        PyObject* iter_result = PyObject_CallObject(iterator, NULL);
+        if (!iter_result) {
+            Py_DECREF(content);
+            Py_DECREF(content_type);
+            Py_DECREF(status_code);
+            Py_DECREF(py_response);
+            return NULL;
+        }
+        iterator = iter_result;
+    } else {
+        Py_INCREF(iterator);
+    }
+
+    // Get the iterator and stream chunks
+    PyObject* iter = PyObject_GetIter(iterator);
+    Py_DECREF(iterator);
+
+    if (!iter) {
+        Py_DECREF(content);
+        Py_DECREF(content_type);
+        Py_DECREF(status_code);
+        Py_DECREF(py_response);
+        return NULL;
+    }
+
+    // Stream each chunk with HTTP chunked encoding
+    PyObject* item;
+    while ((item = PyIter_Next(iter)) != NULL) {
+        const char* data;
+        Py_ssize_t data_len;
+
+        if (PyUnicode_Check(item)) {
+            data = PyUnicode_AsUTF8AndSize(item, &data_len);
+        } else if (PyBytes_Check(item)) {
+            PyBytes_AsStringAndSize(item, (char**)&data, &data_len);
+        } else {
+            Py_DECREF(item);
+            Py_DECREF(iter);
+            Py_DECREF(content);
+            Py_DECREF(content_type);
+            Py_DECREF(status_code);
+            Py_DECREF(py_response);
+            PyErr_SetString(PyExc_TypeError, "Iterator must yield strings or bytes");
+            return NULL;
+        }
+
+        if (data && data_len > 0) {
+            // Create chunk: size in hex + CRLF + data + CRLF
+            char* full_chunk = malloc(data_len + 64);  // Extra space for headers
+            if (full_chunk) {
+                int header_len = snprintf(full_chunk, 32, "%lx\r\n", (unsigned long)data_len);
+                memcpy(full_chunk + header_len, data, data_len);
+                memcpy(full_chunk + header_len + data_len, "\r\n", 2);
+
+                size_t total_len = header_len + data_len + 2;
+
+                // Send chunk using uv_write
+                uv_buf_t chunk_buf = uv_buf_init(full_chunk, total_len);
+                uv_write_t* chunk_req = malloc(sizeof(uv_write_t));
+                if (chunk_req) {
+                    chunk_req->data = full_chunk;  // Store pointer for cleanup
+                    uv_write(chunk_req, client, &chunk_buf, 1, NULL);  // Fire and forget for now
+                }
+            }
+        }
+
+        Py_DECREF(item);
+    }
+
+    Py_DECREF(iter);
+
+    // Check for iteration error
+    if (PyErr_Occurred()) {
+        Py_DECREF(content);
+        Py_DECREF(content_type);
+        Py_DECREF(status_code);
+        Py_DECREF(py_response);
+        return NULL;
+    }
+
+    // Send final chunk to end the stream
+    char* end_chunk = strdup("0\r\n\r\n");
+    if (end_chunk) {
+        uv_buf_t end_buf = uv_buf_init(end_chunk, 5);
+        uv_write_t* end_req = malloc(sizeof(uv_write_t));
+        if (end_req) {
+            end_req->data = end_chunk;
+            uv_write(end_req, client, &end_buf, 1, NULL);
+        }
+    }
+
+    // Cleanup
+    Py_DECREF(content);
+    Py_DECREF(content_type);
+    Py_DECREF(status_code);
+    Py_DECREF(py_response);
+
+    // Unregister the streaming response
+    PyObject* unregister_func = PyObject_GetAttrString(catzilla_module, "_unregister_streaming_response");
+    if (unregister_func) {
+        PyObject* id_arg2 = PyUnicode_FromString(streaming_id);
+        PyObject_CallFunctionObjArgs(unregister_func, id_arg2, NULL);
+        Py_DECREF(id_arg2);
+        Py_DECREF(unregister_func);
+    }
+    Py_DECREF(catzilla_module);
+
+    Py_RETURN_NONE;
+}
+
 static PyMethodDef streaming_methods[] = {
     {"create_streaming_response", (PyCFunction)py_create_streaming_response,
      METH_VARARGS | METH_KEYWORDS, "Create a streaming response for a client"},
+    {"connect_streaming_response", (PyCFunction)py_connect_streaming_response,
+     METH_VARARGS, "Connect a streaming response to a client by ID"},
     {NULL, NULL, 0, NULL}  // Sentinel
 };
 

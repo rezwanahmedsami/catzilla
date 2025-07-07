@@ -22,6 +22,7 @@
 #include "../core/windows_compat.h"   // Windows compatibility
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>           // For malloc, free
 #include <math.h>             // For HUGE_VAL
 #ifdef _WIN32
 #include <process.h>          // For _getpid() on Windows
@@ -477,6 +478,68 @@ static PyObject* send_response(PyObject *self, PyObject *args)
         PyErr_SetString(PyExc_TypeError, "Invalid client capsule");
         return NULL;
     }
+
+    // Check if this is a streaming response
+    if (body && strncmp(body, "___CATZILLA_STREAMING___", 24) == 0) {
+        // Extract streaming ID from marker: ___CATZILLA_STREAMING___<uuid>___
+        const char* id_start = body + 24;  // Skip marker prefix
+        const char* id_end = strstr(id_start, "___");  // Find end marker
+
+        if (id_end) {
+            // Extract the streaming ID
+            size_t id_len = id_end - id_start;
+            char* streaming_id = malloc(id_len + 1);
+            if (!streaming_id) {
+                PyErr_SetString(PyExc_MemoryError, "Failed to allocate memory for streaming ID");
+                return NULL;
+            }
+
+            strncpy(streaming_id, id_start, id_len);
+            streaming_id[id_len] = '\0';
+
+            // Connect to streaming response via the streaming module
+            PyObject* catzilla_module = PyImport_ImportModule("catzilla._catzilla");
+            if (!catzilla_module) {
+                free(streaming_id);
+                return NULL;
+            }
+
+            PyObject* streaming_attr = PyObject_GetAttrString(catzilla_module, "_streaming");
+            if (!streaming_attr) {
+                Py_DECREF(catzilla_module);
+                free(streaming_id);
+                return NULL;
+            }
+
+            PyObject* connect_func = PyObject_GetAttrString(streaming_attr, "connect_streaming_response");
+            if (!connect_func) {
+                Py_DECREF(streaming_attr);
+                Py_DECREF(catzilla_module);
+                free(streaming_id);
+                return NULL;
+            }
+
+            // Call connect_streaming_response(client_capsule, streaming_id)
+            PyObject* id_str = PyUnicode_FromString(streaming_id);
+            PyObject* result = PyObject_CallFunctionObjArgs(connect_func, capsule, id_str, NULL);
+
+            // Cleanup
+            free(streaming_id);
+            Py_DECREF(id_str);
+            Py_DECREF(connect_func);
+            Py_DECREF(streaming_attr);
+            Py_DECREF(catzilla_module);
+
+            if (!result) {
+                return NULL;
+            }
+
+            Py_DECREF(result);
+            Py_RETURN_NONE;
+        }
+    }
+
+    // Regular response handling
     catzilla_send_response(client, status, headers, body, strlen(body));
     Py_RETURN_NONE;
 }

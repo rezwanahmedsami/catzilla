@@ -15,6 +15,7 @@ static catzilla_streaming_stats_t g_streaming_stats = {0};
 // Streaming response marker for detection
 #define STREAMING_MARKER "___CATZILLA_STREAMING___"
 #define STREAMING_MARKER_LEN 24
+#define STREAMING_MARKER_LEN 24
 
 // Default buffer sizes
 #define DEFAULT_RING_BUFFER_SIZE    (64 * 1024)    // 64KB
@@ -248,6 +249,38 @@ bool catzilla_is_streaming_response(const char* body, size_t body_len) {
 
     // Check for streaming marker at the beginning of the response body
     return memcmp(body, STREAMING_MARKER, STREAMING_MARKER_LEN) == 0;
+}
+
+// Extract streaming ID from the response body
+const char* catzilla_extract_streaming_id(const char* body, size_t body_len) {
+    if (!body || body_len < STREAMING_MARKER_LEN + 3) {  // Need at least marker + delimiter
+        return NULL;
+    }
+
+    // Check for streaming marker
+    if (memcmp(body, STREAMING_MARKER, STREAMING_MARKER_LEN) != 0) {
+        return NULL;
+    }
+
+    // Look for the streaming ID after the marker
+    const char* id_start = body + STREAMING_MARKER_LEN;
+    const char* id_end = strstr(id_start, "___");
+
+    if (!id_end || id_end == id_start) {
+        return NULL;  // No valid ID found
+    }
+
+    // Allocate and return the ID string
+    size_t id_len = id_end - id_start;
+    char* streaming_id = malloc(id_len + 1);
+    if (!streaming_id) {
+        return NULL;
+    }
+
+    memcpy(streaming_id, id_start, id_len);
+    streaming_id[id_len] = '\0';
+
+    return streaming_id;
 }
 
 int catzilla_send_streaming_response(uv_stream_t* client,

@@ -16,6 +16,7 @@
 #include "windows_compat.h"
 #include "memory.h"
 #include "upload_parser.h"
+#include "streaming.h"
 
 // Python headers (after system headers to avoid conflicts)
 #include <Python.h>
@@ -1087,40 +1088,52 @@ void catzilla_send_response(uv_stream_t* client,
 
     // Check if this is a streaming response
     if (body != NULL && body_len >= 24 && catzilla_is_streaming_response(body, body_len)) {
-        // Extract real content type from headers
-        const char* content_type = "text/plain";  // Default
-        if (headers != NULL) {
-            const char* ct_start = strstr(headers, "Content-Type:");
-            if (ct_start) {
-                ct_start += 13;  // Skip "Content-Type:"
-                while (*ct_start == ' ') ct_start++;  // Skip spaces
+        // Extract the streaming ID to connect to the Python StreamingResponse
+        const char* streaming_id = catzilla_extract_streaming_id(body, body_len);
 
-                const char* ct_end = strstr(ct_start, "\r\n");
-                if (ct_end) {
-                    char* extracted_ct = malloc(ct_end - ct_start + 1);
-                    if (extracted_ct) {
-                        memcpy(extracted_ct, ct_start, ct_end - ct_start);
-                        extracted_ct[ct_end - ct_start] = '\0';
-                        content_type = extracted_ct;
-                        // Note: This creates a memory leak, but it's acceptable
-                        // since streaming responses are infrequent and short-lived
+        if (streaming_id) {
+            // Connect to the Python StreamingResponse via the C extension
+            // This will start the streaming process immediately
+            PyGILState_STATE gstate = PyGILState_Ensure();
+
+            PyObject* streaming_module = PyImport_ImportModule("catzilla._streaming");
+            if (streaming_module) {
+                PyObject* connect_func = PyObject_GetAttrString(streaming_module, "connect_streaming_response");
+                if (connect_func) {
+                    // Create a client capsule
+                    PyObject* client_capsule = PyCapsule_New(client, "uv_stream_t", NULL);
+                    if (client_capsule) {
+                        // Call the connect function
+                        PyObject* args = Py_BuildValue("(Os)", client_capsule, streaming_id);
+                        if (args) {
+                            PyObject* result = PyObject_CallObject(connect_func, args);
+                            if (!result) {
+                                // Handle error - fall back to regular response
+                                PyErr_Clear();
+                                send_response_with_connection(client, 500, "text/plain",
+                                                             "500 Internal Server Error: Streaming connection failed",
+                                                             strlen("500 Internal Server Error: Streaming connection failed"),
+                                                             keep_alive);
+                            } else {
+                                Py_DECREF(result);
+                                // Streaming has started successfully, headers already sent by connect function
+                            }
+                            Py_DECREF(args);
+                        }
+                        Py_DECREF(client_capsule);
                     }
+                    Py_DECREF(connect_func);
                 }
+                Py_DECREF(streaming_module);
             }
-        }
 
-        // Create streaming context and send headers
-        catzilla_stream_context_t* stream_ctx = catzilla_stream_create(client, 0);
-        if (stream_ctx) {
-            catzilla_send_streaming_response(client, status_code, content_type, body);
-
-            // The actual streaming content will be handled by Python code
-            // that will call catzilla_stream_write_chunk(), etc.
+            PyGILState_Release(gstate);
+            free((void*)streaming_id);  // Free the allocated ID string
         } else {
-            // Fallback to regular response if streaming fails
+            // Fallback to regular response if streaming ID extraction fails
             send_response_with_connection(client, 500, "text/plain",
-                                         "500 Internal Server Error: Could not initialize streaming",
-                                         strlen("500 Internal Server Error: Could not initialize streaming"),
+                                         "500 Internal Server Error: Invalid streaming response",
+                                         strlen("500 Internal Server Error: Invalid streaming response"),
                                          keep_alive);
         }
     } else {
