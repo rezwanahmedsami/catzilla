@@ -5,81 +5,78 @@
 - **Connections**: 100
 - **Threads**: 4
 - **Tool**: wrk
-- **Date**: Tue Jun  3 12:04:42 +06 2025
+- **Date**: Tue Jul  8 14:15:07 +06 2025
 
 ## System Information
 
-**Collection Time**: 2025-06-03T12:04:42.838056
+**Collection Time**: 2025-07-08T14:15:07.515785
 
 ### Operating System
-- **System**: Linux
-- **Release**: 6.12.20-amd64
-- **Version**: #1 SMP PREEMPT_DYNAMIC Kali 6.12.20-1kali1 (2025-03-26)
-- **Platform**: Linux-6.12.20-amd64-x86_64-with-glibc2.41
+- **System**: Darwin
+- **Release**: 24.5.0
+- **Version**: Darwin Kernel Version 24.5.0: Tue Apr 22 19:53:26 PDT 2025; root:xnu-11417.121.6~2/RELEASE_X86_64
+- **Platform**: macOS-15.5-x86_64-i386-64bit
 - **Machine**: x86_64
 
-#### Linux Distribution
-- **NAME**: Kali GNU/Linux
-- **VERSION_ID**: 2025.1
-- **VERSION**: 2025.1
-- **ID**: kali
-- **ID_LIKE**: debian
+#### macOS Details
+- **ProductName**: macOS
+- **ProductVersion**: 15.5
+- **BuildVersion**: 24F74
 
 ### CPU
-- **Processor**: 
+- **Processor**: i386
 - **Architecture**: 64bit
 - **Logical Cores**: 8
 - **Physical Cores**: 4
-- **Model**: 11th Gen Intel(R) Core(TM) i5-11300H @ 3.10GHz
-- **Current Frequency**: 2649.83 MHz
-- **Max Frequency**: 4400.0 MHz
+- **Model**: Quad-Core Intel Core i5
+- **Speed**: 1.1 GHz
+- **Current Frequency**: 1100 MHz
+- **Max Frequency**: 1100 MHz
 
 ### Memory
-- **Total RAM**: 7.54 GB
-- **Available RAM**: 2.38 GB
-- **Used RAM**: 4.08 GB (68.4%)
-- **Total Swap**: 7.45 GB
-- **Used Swap**: 10.9%
+- **Total RAM**: 8.0 GB
+- **Available RAM**: 2.1 GB
+- **Used RAM**: 4.41 GB (73.7%)
+- **Total Swap**: 3.0 GB
+- **Used Swap**: 52.6%
 
 ### Disk
-- **Total Space**: 228.12 GB
-- **Free Space**: 128.36 GB
-- **Used Space**: 88.1 GB (38.6%)
+- **Total Space**: 418.16 GB
+- **Free Space**: 16.25 GB
+- **Used Space**: 384.59 GB (92.0%)
 
 ### Python Environment
-- **Python Version**: 3.11.8
-- **Implementation**: cpython 3.11.8
-- **Executable**: /home/rezwan/devwork/catzilla/venv/bin/python3
+- **Python Version**: 3.10.11
+- **Implementation**: cpython 3.10.11
+- **Executable**: /Users/user/devwork/catzilla/venv/bin/python3
 
 ### System Load
-- **1 minute**: 0.82
-- **5 minutes**: 0.96
-- **15 minutes**: 0.97
+- **1 minute**: 1.81
+- **5 minutes**: 2.38
+- **15 minutes**: 2.56
 ## Performance Results
 
 | Framework | Endpoint | Requests/sec | Avg Latency | 99% Latency |
 |-----------|----------|--------------|-------------|-------------|
-| catzilla | complex_json | 35399.54 | 2.88ms | 3.53ms |
-| catzilla | hello_world | 60519.47 | 1.69ms | 2.01ms |
-| catzilla | json_response | 45874.48 | 2.20ms | 2.58ms |
-| catzilla | path_params | 45477.02 | 2.22ms | 2.63ms |
-| catzilla | query_params | 23522.66 | 4.43ms | 5.36ms |
-| catzilla | query_validation | 26738.33 | 3.92ms | 5.85ms |
-| catzilla | validate_product_model | 25093.43 | 4.14ms | 4.85ms |
-| catzilla | validate_user_model | 24638.44 | 4.19ms | 4.82ms |
-| django | complex_json | 4390.24 | 22.64ms | 25.61ms |
-| django | hello_world | 4827.95 | 20.61ms | 23.09ms |
-| django | json_response | 4551.99 | 21.85ms | 25.45ms |
-| django | path_params | 4547.89 | 21.88ms | 24.00ms |
-| django | query_params | 3975.90 | 25.01ms | 28.05ms |
-| fastapi | complex_json | 4795.91 | 20.78ms | 24.63ms |
-| fastapi | hello_world | 7228.22 | 13.76ms | 15.33ms |
-| fastapi | json_response | 6455.49 | 15.45ms | 18.02ms |
-| fastapi | path_params | 5660.86 | 17.59ms | 19.86ms |
-| fastapi | query_params | 3002.46 | 33.10ms | 37.94ms |
-| flask | complex_json | 5033.67 | 19.77ms | 22.07ms |
-| flask | hello_world | 5698.33 | 17.44ms | 19.01ms |
-| flask | json_response | 5394.48 | 18.46ms | 21.42ms |
-| flask | path_params | 5255.20 | 18.95ms | 21.30ms |
-| flask | query_params | 4653.36 | 21.34ms | 24.17ms |
-
+| catzilla | complex_json | 11158.63 | 10.09ms | 19.79ms |
+| catzilla | hello_world | 22414.34 | 4.82ms | 7.47ms |
+| catzilla | json_response | 15810.79 | 7.86ms | 77.45ms |
+| catzilla | path_params | 12919.70 | 10.13ms | 107.99ms |
+| catzilla | query_params | 8669.24 | 14.22ms | 123.56ms |
+| catzilla | query_validation | 9133.11 | 12.65ms | 54.94ms |
+| catzilla | validate_product_model | 8338.30 | 14.60ms | 112.09ms |
+| catzilla | validate_user_model | 8178.64 | 16.27ms | 166.06ms |
+| django | complex_json | 0.40 | 2.59ms | 4.31ms |
+| django | hello_world | 1172.77 | 84.77ms | 119.99ms |
+| django | json_response | 0.40 | 3.77ms | 5.90ms |
+| django | path_params | 677.24 | 147.49ms | 362.40ms |
+| django | query_params | 1082.01 | 91.83ms | 110.47ms |
+| fastapi | complex_json | 2374.22 | 42.02ms | 51.31ms |
+| fastapi | hello_world | 3566.03 | 27.99ms | 33.76ms |
+| fastapi | json_response | 3019.95 | 34.07ms | 107.39ms |
+| fastapi | path_params | 2736.39 | 36.47ms | 43.73ms |
+| fastapi | query_params | 1547.44 | 64.42ms | 75.10ms |
+| flask | complex_json | 310.03 | 166.38ms | 525.90ms |
+| flask | hello_world | 1193.43 | 84.50ms | 252.61ms |
+| flask | json_response | 236.08 | 116.51ms | 168.49ms |
+| flask | query_params | 837.29 | 112.85ms | 208.59ms |

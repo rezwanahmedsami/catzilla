@@ -1,48 +1,47 @@
 ## System Information
 
-**Collection Time**: 2025-06-03T12:04:42.838056
+**Collection Time**: 2025-07-08T14:15:07.515785
 
 ### Operating System
-- **System**: Linux
-- **Release**: 6.12.20-amd64
-- **Version**: #1 SMP PREEMPT_DYNAMIC Kali 6.12.20-1kali1 (2025-03-26)
-- **Platform**: Linux-6.12.20-amd64-x86_64-with-glibc2.41
+- **System**: Darwin
+- **Release**: 24.5.0
+- **Version**: Darwin Kernel Version 24.5.0: Tue Apr 22 19:53:26 PDT 2025; root:xnu-11417.121.6~2/RELEASE_X86_64
+- **Platform**: macOS-15.5-x86_64-i386-64bit
 - **Machine**: x86_64
 
-#### Linux Distribution
-- **NAME**: Kali GNU/Linux
-- **VERSION_ID**: 2025.1
-- **VERSION**: 2025.1
-- **ID**: kali
-- **ID_LIKE**: debian
+#### macOS Details
+- **ProductName**: macOS
+- **ProductVersion**: 15.5
+- **BuildVersion**: 24F74
 
 ### CPU
-- **Processor**: 
+- **Processor**: i386
 - **Architecture**: 64bit
 - **Logical Cores**: 8
 - **Physical Cores**: 4
-- **Model**: 11th Gen Intel(R) Core(TM) i5-11300H @ 3.10GHz
-- **Current Frequency**: 2649.83 MHz
-- **Max Frequency**: 4400.0 MHz
+- **Model**: Quad-Core Intel Core i5
+- **Speed**: 1.1 GHz
+- **Current Frequency**: 1100 MHz
+- **Max Frequency**: 1100 MHz
 
 ### Memory
-- **Total RAM**: 7.54 GB
-- **Available RAM**: 2.38 GB
-- **Used RAM**: 4.08 GB (68.4%)
-- **Total Swap**: 7.45 GB
-- **Used Swap**: 10.9%
+- **Total RAM**: 8.0 GB
+- **Available RAM**: 2.1 GB
+- **Used RAM**: 4.41 GB (73.7%)
+- **Total Swap**: 3.0 GB
+- **Used Swap**: 52.6%
 
 ### Disk
-- **Total Space**: 228.12 GB
-- **Free Space**: 128.36 GB
-- **Used Space**: 88.1 GB (38.6%)
+- **Total Space**: 418.16 GB
+- **Free Space**: 16.25 GB
+- **Used Space**: 384.59 GB (92.0%)
 
 ### Python Environment
-- **Python Version**: 3.11.8
-- **Implementation**: cpython 3.11.8
-- **Executable**: /home/rezwan/devwork/catzilla/venv/bin/python3
+- **Python Version**: 3.10.11
+- **Implementation**: cpython 3.10.11
+- **Executable**: /Users/user/devwork/catzilla/venv/bin/python3
 
 ### System Load
-- **1 minute**: 0.82
-- **5 minutes**: 0.96
-- **15 minutes**: 0.97
+- **1 minute**: 1.81
+- **5 minutes**: 2.38
+- **15 minutes**: 2.56
