@@ -19,10 +19,10 @@ VENV_PATH="$PROJECT_ROOT/venv"
 mkdir -p "$RESULTS_DIR"
 
 # Benchmark settings
-DURATION="30s"          # Duration of each test (increased for accurate measurement)
-CONNECTIONS="2000"      # Number of concurrent connections (increased for high-throughput testing)
-THREADS="16"            # Number of threads to use (fully utilize 8-core CPU)
-WARMUP_TIME="5s"        # Warmup duration (increased for stability)
+DURATION="10s"          # Duration of each test
+CONNECTIONS="100"       # Number of concurrent connections
+THREADS="4"             # Number of threads to use
+WARMUP_TIME="3s"        # Warmup duration
 
 # Server configurations (using arrays instead of associative arrays for compatibility)
 SERVERS=(
