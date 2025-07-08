@@ -19,10 +19,10 @@ VENV_PATH="$PROJECT_ROOT/venv"
 mkdir -p "$RESULTS_DIR"
 
 # Benchmark settings
-DURATION="10s"          # Duration of each test
-CONNECTIONS="100"       # Number of concurrent connections
-THREADS="4"             # Number of threads to use
-WARMUP_TIME="3s"        # Warmup duration
+DURATION="30s"          # Duration of each test (increased for accurate measurement)
+CONNECTIONS="2000"      # Number of concurrent connections (increased for high-throughput testing)
+THREADS="16"            # Number of threads to use (fully utilize 8-core CPU)
+WARMUP_TIME="5s"        # Warmup duration (increased for stability)
 
 # Server configurations (using arrays instead of associative arrays for compatibility)
 SERVERS=(
@@ -276,7 +276,7 @@ start_server() {
 
     # Start the server in background
     cd "$BENCHMARK_DIR/.."  # Run from project root
-    
+
     # For Catzilla, we need to preload jemalloc to avoid TLS allocation issues
     if [ "$framework" = "catzilla" ]; then
         # Check for jemalloc library location and set LD_PRELOAD
@@ -288,13 +288,13 @@ start_server() {
         elif [ -f "/usr/lib/x86_64-linux-gnu/libjemalloc.so.2" ]; then
             jemalloc_lib="/usr/lib/x86_64-linux-gnu/libjemalloc.so.2"
         fi
-        
+
         if [ -n "$jemalloc_lib" ]; then
             print_status "Preloading jemalloc: $jemalloc_lib"
             export LD_PRELOAD="$jemalloc_lib:$LD_PRELOAD"
         fi
     fi
-    
+
     eval "$command" > "$RESULTS_DIR/${framework}_server.log" 2>&1 &
     local server_pid=$!
 
