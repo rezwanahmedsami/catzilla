@@ -1,47 +1,48 @@
 ## System Information
 
-**Collection Time**: 2025-07-08T14:15:07.515785
+**Collection Time**: 2025-07-08T11:20:38.449850
 
 ### Operating System
-- **System**: Darwin
-- **Release**: 24.5.0
-- **Version**: Darwin Kernel Version 24.5.0: Tue Apr 22 19:53:26 PDT 2025; root:xnu-11417.121.6~2/RELEASE_X86_64
-- **Platform**: macOS-15.5-x86_64-i386-64bit
+- **System**: Linux
+- **Release**: 4.18.0-553.27.1.el8_10.x86_64
+- **Version**: #1 SMP Tue Nov 5 04:50:16 EST 2024
+- **Platform**: Linux-4.18.0-553.27.1.el8_10.x86_64-x86_64-with-glibc2.28
 - **Machine**: x86_64
 
-#### macOS Details
-- **ProductName**: macOS
-- **ProductVersion**: 15.5
-- **BuildVersion**: 24F74
+#### Linux Distribution
+- **NAME**: AlmaLinux
+- **VERSION**: 8.10 (Cerulean Leopard)
+- **ID**: almalinux
+- **ID_LIKE**: rhel centos fedora
+- **VERSION_ID**: 8.10
 
 ### CPU
-- **Processor**: i386
+- **Processor**: x86_64
 - **Architecture**: 64bit
-- **Logical Cores**: 8
-- **Physical Cores**: 4
-- **Model**: Quad-Core Intel Core i5
-- **Speed**: 1.1 GHz
-- **Current Frequency**: 1100 MHz
-- **Max Frequency**: 1100 MHz
+- **Logical Cores**: 16
+- **Physical Cores**: 8
+- **Model**: Intel(R) Xeon(R) E-2388G CPU @ 3.20GHz
+- **Current Frequency**: 3112.49 MHz
+- **Max Frequency**: 3201.0 MHz
 
 ### Memory
-- **Total RAM**: 8.0 GB
-- **Available RAM**: 2.1 GB
-- **Used RAM**: 4.41 GB (73.7%)
-- **Total Swap**: 3.0 GB
-- **Used Swap**: 52.6%
+- **Total RAM**: 62.78 GB
+- **Available RAM**: 41.42 GB
+- **Used RAM**: 17.65 GB (34.0%)
+- **Total Swap**: 1.0 GB
+- **Used Swap**: 100.0%
 
 ### Disk
-- **Total Space**: 418.16 GB
-- **Free Space**: 16.25 GB
-- **Used Space**: 384.59 GB (92.0%)
+- **Total Space**: 474.58 GB
+- **Free Space**: 324.74 GB
+- **Used Space**: 149.84 GB (31.6%)
 
 ### Python Environment
-- **Python Version**: 3.10.11
-- **Implementation**: cpython 3.10.11
-- **Executable**: /Users/user/devwork/catzilla/venv/bin/python3
+- **Python Version**: 3.11.9
+- **Implementation**: cpython 3.11.9
+- **Executable**: /root/devwork/catzilla/venv/bin/python3
 
 ### System Load
-- **1 minute**: 1.81
-- **5 minutes**: 2.38
-- **15 minutes**: 2.56
+- **1 minute**: 1.31
+- **5 minutes**: 1.11
+- **15 minutes**: 0.92
