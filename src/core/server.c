@@ -922,7 +922,7 @@ int catzilla_server_listen(catzilla_server_t* server, const char* host, int port
         LOG_SERVER_ERROR("Bind %s:%d: %s", bind_host, port, uv_strerror(rc));
         return rc;
     }
-    rc = uv_listen((uv_stream_t*)&server->server, 128, on_connection);
+    rc = uv_listen((uv_stream_t*)&server->server, 4096, on_connection);
     if (rc) {
         LOG_SERVER_ERROR("Listen %s:%d: %s", bind_host, port, uv_strerror(rc));
         return rc;
