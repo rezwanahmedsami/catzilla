@@ -609,6 +609,56 @@ class Catzilla:
                         err_resp.send(client)
                         return
 
+                    # Execute per-route middleware before handler
+                    if hasattr(route, "middleware") and route.middleware:
+                        # Execute middleware chain
+                        for middleware_func in route.middleware:
+                            try:
+                                middleware_result = middleware_func(request)
+                                if middleware_result is not None:
+                                    # Middleware returned a response - short circuit
+                                    if isinstance(middleware_result, Response):
+                                        status_code = middleware_result.status_code
+                                        response_size = (
+                                            len(middleware_result.body.encode("utf-8"))
+                                            if middleware_result.body
+                                            else 0
+                                        )
+                                        middleware_result.send(client)
+                                        return  # Skip route handler
+                                    else:
+                                        # Invalid middleware return type
+                                        error_resp = Response(
+                                            status_code=500,
+                                            content_type="text/plain",
+                                            body="Internal Server Error: Middleware returned invalid type",
+                                        )
+                                        error_resp.send(client)
+                                        return
+                            except Exception as middleware_error:
+                                # Middleware failed
+                                if self.production:
+                                    error_resp = self._get_clean_error_response(
+                                        500, "Internal Server Error"
+                                    )
+                                else:
+                                    error_resp = Response(
+                                        status_code=500,
+                                        content_type="text/plain",
+                                        body=f"Middleware Error: {str(middleware_error)}",
+                                        headers={
+                                            "X-Middleware-Error": str(middleware_error)
+                                        },
+                                    )
+                                status_code = 500
+                                response_size = (
+                                    len(error_resp.body.encode("utf-8"))
+                                    if error_resp.body
+                                    else 0
+                                )
+                                error_resp.send(client)
+                                return
+
                     # Call the handler with DI context management
                     if self.enable_di:
                         # Create DI context for this request

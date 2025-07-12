@@ -892,7 +892,20 @@ int catzilla_server_init(catzilla_server_t* server) {
 void signal_handler(uv_signal_t* handle, int signum) {
     LOG_SERVER_INFO("Signal %d received, stopping server...", signum);
     catzilla_server_t* server = (catzilla_server_t*)handle->data;
-    catzilla_server_stop(server);
+
+    // Check if we're being called from Python and properly release GIL
+    // This prevents the "GIL must be held" error during shutdown
+    if (PyGILState_Check()) {
+        // We have the GIL, release it before stopping the server
+        // This allows Python to properly finalize without GIL conflicts
+        LOG_SERVER_INFO("Releasing Python GIL before server shutdown...");
+        Py_BEGIN_ALLOW_THREADS
+        catzilla_server_stop(server);
+        Py_END_ALLOW_THREADS
+    } else {
+        // We don't have the GIL, safe to proceed
+        catzilla_server_stop(server);
+    }
 }
 
 void catzilla_server_cleanup(catzilla_server_t* server) {

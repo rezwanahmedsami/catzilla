@@ -43,6 +43,280 @@ typedef struct {
     PyObject *routes;
 } PyRouteData;
 
+// ============================================================================
+// MIDDLEWARE REGISTRATION SYSTEM
+// ============================================================================
+
+// Global middleware registry
+static PyObject *g_middleware_registry = NULL;  // Dict: middleware_id -> PyObject*
+static int g_next_middleware_id = 1;
+
+// Global router for module-level functions
+static catzilla_router_t global_router;
+static bool global_router_initialized = false;
+
+// Middleware execution context
+typedef struct {
+    PyObject *request;
+    PyObject *response;
+    int middleware_id;
+} middleware_context_t;
+
+// Initialize middleware registry
+static int init_middleware_registry(void) {
+    if (!g_middleware_registry) {
+        g_middleware_registry = PyDict_New();
+        if (!g_middleware_registry) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+// Cleanup middleware registry
+static void cleanup_middleware_registry(void) {
+    // Check if Python is still available and GIL can be acquired
+    if (Py_IsInitialized()) {
+        PyGILState_STATE gstate = PyGILState_Ensure();
+
+        // Safely clean up Python objects
+        if (g_middleware_registry) {
+            PyDict_Clear(g_middleware_registry);
+            Py_CLEAR(g_middleware_registry);
+        }
+
+        PyGILState_Release(gstate);
+    }
+
+    // Reset static variables safely
+    g_middleware_registry = NULL;
+    g_next_middleware_id = 1;
+}
+
+// Safe cleanup for module exit
+static void safe_module_cleanup(void) {
+    // Only do cleanup if Python interpreter is still active
+    if (Py_IsInitialized()) {
+        cleanup_middleware_registry();
+
+        // Cleanup global router if it was initialized
+        if (global_router_initialized) {
+            catzilla_router_cleanup(&global_router);
+            global_router_initialized = false;
+        }
+    }
+}
+
+// Register a Python middleware function and return its ID
+static PyObject* register_middleware_function(PyObject *self, PyObject *args) {
+    PyObject *middleware_func;
+
+    if (!PyArg_ParseTuple(args, "O", &middleware_func)) {
+        return NULL;
+    }
+
+    if (!PyCallable_Check(middleware_func)) {
+        PyErr_SetString(PyExc_TypeError, "Middleware must be callable");
+        return NULL;
+    }
+
+    // Initialize registry if needed
+    if (init_middleware_registry() < 0) {
+        return NULL;
+    }
+
+    // Get next middleware ID
+    int middleware_id = g_next_middleware_id++;
+    PyObject *id_obj = PyLong_FromLong(middleware_id);
+    if (!id_obj) {
+        return NULL;
+    }
+
+    // Store middleware function in registry
+    Py_INCREF(middleware_func);
+    if (PyDict_SetItem(g_middleware_registry, id_obj, middleware_func) < 0) {
+        Py_DECREF(middleware_func);
+        Py_DECREF(id_obj);
+        return NULL;
+    }
+
+    // Return the middleware ID
+    return id_obj;
+}
+
+// Execute a middleware function by ID
+static PyObject* execute_middleware_by_id(PyObject *self, PyObject *args) {
+    int middleware_id;
+    PyObject *request, *response = Py_None;
+
+    if (!PyArg_ParseTuple(args, "iO|O", &middleware_id, &request, &response)) {
+        return NULL;
+    }
+
+    if (!g_middleware_registry) {
+        PyErr_SetString(PyExc_RuntimeError, "Middleware registry not initialized");
+        return NULL;
+    }
+
+    // Get middleware function from registry
+    PyObject *id_obj = PyLong_FromLong(middleware_id);
+    if (!id_obj) {
+        return NULL;
+    }
+
+    PyObject *middleware_func = PyDict_GetItem(g_middleware_registry, id_obj);
+    Py_DECREF(id_obj);
+
+    if (!middleware_func) {
+        PyErr_Format(PyExc_KeyError, "Middleware ID %d not found", middleware_id);
+        return NULL;
+    }
+
+    // Call the middleware function
+    PyObject *args_tuple;
+    if (response == Py_None) {
+        // Pre-route middleware: middleware(request)
+        args_tuple = PyTuple_Pack(1, request);
+    } else {
+        // Post-route middleware: middleware(request, response)
+        args_tuple = PyTuple_Pack(2, request, response);
+    }
+
+    if (!args_tuple) {
+        return NULL;
+    }
+
+    PyObject *result = PyObject_CallObject(middleware_func, args_tuple);
+    Py_DECREF(args_tuple);
+
+    return result;
+}
+
+// Python middleware execution bridge for C middleware system
+// This function is called by the C middleware system to execute Python middleware
+static int execute_python_middleware_bridge(int middleware_id, void* request_ctx, void* response_ctx) {
+    // Ensure we have the GIL
+    PyGILState_STATE gstate = PyGILState_Ensure();
+
+    int result = 0;  // Default: continue
+
+    if (!g_middleware_registry) {
+        PyGILState_Release(gstate);
+        return -1;  // Error
+    }
+
+    // Get middleware function from registry
+    PyObject *id_obj = PyLong_FromLong(middleware_id);
+    if (!id_obj) {
+        PyGILState_Release(gstate);
+        return -1;
+    }
+
+    PyObject *middleware_func = PyDict_GetItem(g_middleware_registry, id_obj);
+    Py_DECREF(id_obj);
+
+    if (!middleware_func) {
+        PyGILState_Release(gstate);
+        return -1;  // Error: middleware not found
+    }
+
+    // Create Python request object from context
+    // For now, create a minimal request object - this would need to be enhanced
+    // to properly convert the C request context to a Python Request object
+    PyObject *request = PyCapsule_New(request_ctx, "catzilla.request", NULL);
+    if (!request) {
+        PyGILState_Release(gstate);
+        return -1;
+    }
+
+    // Call the middleware function with just the request for now
+    PyObject *args_tuple = PyTuple_Pack(1, request);
+    if (!args_tuple) {
+        Py_DECREF(request);
+        PyGILState_Release(gstate);
+        return -1;
+    }
+
+    PyObject *middleware_result = PyObject_CallObject(middleware_func, args_tuple);
+    Py_DECREF(args_tuple);
+    Py_DECREF(request);
+
+    if (middleware_result) {
+        // Check the result type
+        if (middleware_result == Py_None) {
+            result = 0;  // Continue processing
+        } else {
+            // If middleware returns a Response object, stop processing
+            result = 1;  // Stop processing (short-circuit)
+        }
+        Py_DECREF(middleware_result);
+    } else {
+        // Exception occurred
+        PyErr_Clear();  // Clear the error for now
+        result = -1;    // Error
+    }
+
+    PyGILState_Release(gstate);
+    return result;
+}
+
+// Set the Python middleware execution bridge for the C middleware system
+static PyObject* set_python_middleware_bridge(PyObject *self, PyObject *args) {
+    // This function would register the execute_python_middleware_bridge function
+    // with the C middleware system so it can call Python middleware functions
+
+    // For now, just return success - the actual integration would depend on
+    // the C middleware system API
+    Py_RETURN_NONE;
+}
+
+// Convert middleware function list to middleware ID list
+static PyObject* convert_middleware_to_ids(PyObject *self, PyObject *args) {
+    PyObject *middleware_list;
+
+    if (!PyArg_ParseTuple(args, "O", &middleware_list)) {
+        return NULL;
+    }
+
+    if (!PyList_Check(middleware_list)) {
+        PyErr_SetString(PyExc_TypeError, "Expected list of middleware functions");
+        return NULL;
+    }
+
+    Py_ssize_t count = PyList_Size(middleware_list);
+    PyObject *id_list = PyList_New(count);
+    if (!id_list) {
+        return NULL;
+    }        for (Py_ssize_t i = 0; i < count; i++) {
+            PyObject *middleware_func = PyList_GetItem(middleware_list, i);
+
+            if (!PyCallable_Check(middleware_func)) {
+                PyErr_Format(PyExc_TypeError, "Middleware item %zd is not callable", i);
+                Py_DECREF(id_list);
+                return NULL;
+            }
+
+            // Register the middleware and get its ID
+            PyObject *register_args = PyTuple_Pack(1, middleware_func);
+            if (!register_args) {
+                Py_DECREF(id_list);
+                return NULL;
+            }
+
+            PyObject *middleware_id = register_middleware_function(self, register_args);
+            Py_DECREF(register_args);
+
+            if (!middleware_id) {
+                Py_DECREF(id_list);
+                return NULL;
+            }
+
+            PyList_SET_ITEM(id_list, i, middleware_id);  // Steals reference
+        }
+
+    return id_list;
+}
+
 // Python CatzillaServer object
 typedef struct {
     PyObject_HEAD
@@ -286,11 +560,39 @@ static PyObject* CatzillaServer_add_c_route_with_middleware(CatzillaServerObject
     void** middleware_functions = NULL;
     uint32_t* middleware_priorities = NULL;
     int middleware_count = 0;
+    PyObject *middleware_ids = NULL;  // Declare at function scope
 
     if (middleware_list && PyList_Check(middleware_list)) {
         middleware_count = PyList_Size(middleware_list);
 
         if (middleware_count > 0) {
+            // Convert Python functions to IDs if needed
+            bool need_conversion = false;
+
+            // Check if we have function objects that need conversion
+            for (int i = 0; i < middleware_count; i++) {
+                PyObject *middleware_item = PyList_GetItem(middleware_list, i);
+                if (!PyLong_Check(middleware_item)) {
+                    need_conversion = true;
+                    break;
+                }
+            }
+
+            if (need_conversion) {
+                // Convert middleware functions to IDs
+                PyObject *convert_args = PyTuple_Pack(1, middleware_list);
+                if (!convert_args) {
+                    return NULL;
+                }
+                middleware_ids = convert_middleware_to_ids(NULL, convert_args);
+                Py_DECREF(convert_args);
+
+                if (!middleware_ids) {
+                    return NULL;
+                }
+                middleware_list = middleware_ids;  // Use converted list
+            }
+
             // Allocate middleware arrays
             middleware_functions = catzilla_cache_alloc(sizeof(void*) * middleware_count);
             middleware_priorities = catzilla_cache_alloc(sizeof(uint32_t) * middleware_count);
@@ -298,17 +600,19 @@ static PyObject* CatzillaServer_add_c_route_with_middleware(CatzillaServerObject
             if (!middleware_functions || !middleware_priorities) {
                 if (middleware_functions) catzilla_cache_free(middleware_functions);
                 if (middleware_priorities) catzilla_cache_free(middleware_priorities);
+                Py_XDECREF(middleware_ids);
                 PyErr_NoMemory();
                 return NULL;
             }
 
-            // Extract middleware function pointers and priorities
+            // Extract middleware function IDs and priorities
             for (int i = 0; i < middleware_count; i++) {
                 PyObject *middleware_item = PyList_GetItem(middleware_list, i);
                 if (!PyLong_Check(middleware_item)) {
                     catzilla_cache_free(middleware_functions);
                     catzilla_cache_free(middleware_priorities);
-                    PyErr_SetString(PyExc_TypeError, "Middleware list must contain function IDs (integers)");
+                    Py_XDECREF(middleware_ids);
+                    PyErr_SetString(PyExc_TypeError, "Middleware conversion failed - expected integer IDs");
                     return NULL;
                 }
 
@@ -338,6 +642,7 @@ static PyObject* CatzillaServer_add_c_route_with_middleware(CatzillaServerObject
     // Cleanup middleware arrays (they are copied internally)
     if (middleware_functions) catzilla_cache_free(middleware_functions);
     if (middleware_priorities) catzilla_cache_free(middleware_priorities);
+    Py_XDECREF(middleware_ids);  // Clean up converted middleware IDs if any
 
     if (c_route_id == 0) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to add route with middleware to C router");
@@ -1416,10 +1721,6 @@ static PyObject* get_files(PyObject *self, PyObject *args) {
     return files_dict;
 }
 
-// Global router for module-level functions
-static catzilla_router_t global_router;
-static bool global_router_initialized = false;
-
 // router_match(method, path) - Expose C router matching to Python
 static PyObject* router_match(PyObject *self, PyObject *args)
 {
@@ -1705,8 +2006,7 @@ static PyObject* get_memory_stats(PyObject *self, PyObject *args)
     );
 }
 
-// ============================================================================
-// VALIDATION ENGINE TYPE DEFINITIONS
+// ============================================================================// VALIDATION ENGINE TYPE DEFINITIONS
 // ============================================================================
 
 // Validator methods
@@ -2025,6 +2325,12 @@ static PyMethodDef module_methods[] = {
     {"get_validation_stats", get_validation_stats, METH_NOARGS, "Get validation performance statistics"},
     {"reset_validation_stats", reset_validation_stats, METH_NOARGS, "Reset validation statistics"},
 
+    // Middleware functions
+    {"register_middleware_function", register_middleware_function, METH_VARARGS, "Register a middleware function"},
+    {"execute_middleware_by_id", execute_middleware_by_id, METH_VARARGS, "Execute a middleware function by ID"},
+    {"convert_middleware_to_ids", convert_middleware_to_ids, METH_VARARGS, "Convert middleware function list to middleware ID list"},
+    {"set_python_middleware_bridge", set_python_middleware_bridge, METH_VARARGS, "Set Python middleware execution bridge"},
+
     {NULL}
 };
 
@@ -2106,6 +2412,18 @@ PyMODINIT_FUNC PyInit__catzilla(void)
     }
 
     PyModule_AddStringConstant(m, "VERSION", "0.1.0");
+
+    // Initialize middleware registry
+    if (init_middleware_registry() < 0) {
+        Py_DECREF(m);
+        return NULL;
+    }
+
+    // Register cleanup function
+    if (Py_AtExit(safe_module_cleanup) < 0) {
+        Py_DECREF(m);
+        return NULL;
+    }
 
     // Initialize and add streaming module
     PyObject* streaming_module = init_streaming();
