@@ -20,12 +20,12 @@ def auth_middleware(request):
         return Response("Unauthorized", status_code=401)
     return None  # Continue to next middleware
 
-@app.route('/api/users')
-def get_users():
+@app.get('/api/users')
+def get_users(request):
     return {"users": ["alice", "bob"]}
 
 if __name__ == '__main__':
-    app.run(port=8000)
+    app.listen(host="127.0.0.1", port=8000)
 ```
 
 ## 🎯 Key Features
@@ -130,14 +130,12 @@ def cors_middleware(request):
 
     return None
 
-@app.middleware(priority=900, pre_route=False)
+@app.middleware(priority=900, pre_route=False, post_route=True)
 def cors_response_middleware(request, response):
     """Add CORS headers to all responses"""
-    response.headers.update({
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Credentials": "true"
-    })
-    return response
+    response.set_header("Access-Control-Allow-Origin", "*")
+    response.set_header("Access-Control-Allow-Credentials", "true")
+    return None
 ```
 
 ### Request Logging
@@ -155,12 +153,12 @@ def request_logger(request):
     print(f"📥 {request.method} {request.path} - {request.remote_addr}")
     return None
 
-@app.middleware(priority=990, pre_route=False)
+@app.middleware(priority=990, pre_route=False, post_route=True)
 def response_logger(request, response):
     """Log response with duration"""
     duration = time.time() - getattr(request, 'context', {}).get('start_time', 0)
-    print(f"📤 {response.status} - {duration*1000:.2f}ms")
-    return response
+    print(f"📤 {response.status_code} - {duration*1000:.2f}ms")
+    return None
 ```
 
 ## 🏗️ Advanced Features
@@ -189,10 +187,10 @@ def auth_middleware(request):
     return None
 
 # Post-route: Executes after route handler
-@app.middleware(priority=100, pre_route=False)
+@app.middleware(priority=100, pre_route=False, post_route=True)
 def response_modifier(request, response):
-    response.headers['X-Custom'] = 'Value'
-    return response
+    response.set_header('X-Custom', 'Value')
+    return None
 ```
 
 ### Context Sharing
@@ -272,33 +270,45 @@ def memory_efficient_middleware(request):
 ### Built-in Profiling
 
 ```python
-from catzilla.middleware import get_middleware_stats
-
-# Get detailed performance metrics
-stats = get_middleware_stats()
-print(f"Total executions: {stats.total_executions}")
-print(f"Average duration: {stats.avg_duration_us}µs")
-print(f"Memory pool usage: {stats.memory_pool_usage_bytes} bytes")
+# Get detailed performance metrics from the app instance
+stats = app.get_middleware_stats()
+print(f"Middleware statistics: {stats}")
 ```
+
+**Note**: The built-in C middleware and profiling features are currently under development.
 
 ## 🔧 Built-in Middleware
 
-Catzilla provides high-performance C middleware for common use cases:
+**Note**: Built-in C middleware is currently under development. Use Python middleware for now:
 
 ```python
-# Enable built-in C middleware
-app.enable_builtin_middleware([
-    'cors',           # CORS handling
-    'rate_limit',     # Rate limiting
-    'compression',    # Response compression
-    'security_headers' # Security headers
-])
+# Example of implementing common middleware patterns in Python
 
-# Configure built-in middleware
-app.configure_builtin_middleware('rate_limit', {
-    'requests_per_minute': 100,
-    'burst_size': 10
-})
+@app.middleware(priority=50, pre_route=True)
+def cors_middleware(request):
+    """CORS handling"""
+    if request.method == "OPTIONS":
+        return Response("", status_code=200, headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type,Authorization"
+        })
+    return None
+
+@app.middleware(priority=100, pre_route=True)
+def rate_limit_middleware(request):
+    """Basic rate limiting"""
+    # Implement rate limiting logic here
+    return None
+
+@app.middleware(priority=900, post_route=True)
+def security_headers_middleware(request, response):
+    """Security headers"""
+    response.set_header("X-Content-Type-Options", "nosniff")
+    response.set_header("X-Frame-Options", "DENY")
+    response.set_header("X-XSS-Protection", "1; mode=block")
+    return None
+```
 ```
 
 ### Available Built-in Middleware
@@ -397,18 +407,18 @@ def safe_middleware(request):
 ### Global Error Handling
 
 ```python
-@app.middleware(priority=999, pre_route=False)
+@app.middleware(priority=999, post_route=True)
 def error_handler_middleware(request, response):
     """Global error response formatting"""
-    if response.status >= 400:
+    if response.status_code >= 400:
         # Ensure error responses have consistent format
         if not response.headers.get('Content-Type'):
-            response.content_type = 'application/json'
+            response.set_header('Content-Type', 'application/json')
 
         # Add error tracking
-        response.headers['X-Error-ID'] = generate_error_id()
+        response.set_header('X-Error-ID', generate_error_id())
 
-    return response
+    return None
 ```
 
 ## 🔍 Debugging

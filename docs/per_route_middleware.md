@@ -41,7 +41,7 @@ def auth_middleware(request: Request, response: Response) -> Optional[Response]:
 
 def cors_middleware(request: Request, response: Response) -> Optional[Response]:
     """CORS middleware"""
-    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.set_header('Access-Control-Allow-Origin', '*')
     return None  # Continue processing
 
 # Apply middleware to specific routes
@@ -253,16 +253,14 @@ def cors_middleware(origins=['*'], methods=['GET', 'POST', 'PUT', 'DELETE']):
     def middleware(request: Request, response: Response) -> Optional[Response]:
         # Handle preflight requests
         if request.method == 'OPTIONS':
-            response.headers.update({
-                'Access-Control-Allow-Origin': ', '.join(origins),
-                'Access-Control-Allow-Methods': ', '.join(methods),
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-                'Access-Control-Max-Age': '86400'
-            })
+            response.set_header('Access-Control-Allow-Origin', ', '.join(origins))
+            response.set_header('Access-Control-Allow-Methods', ', '.join(methods))
+            response.set_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+            response.set_header('Access-Control-Max-Age', '86400')
             return Response("", status_code=200)
 
         # Add CORS headers to actual requests
-        response.headers['Access-Control-Allow-Origin'] = ', '.join(origins)
+        response.set_header('Access-Control-Allow-Origin', ', '.join(origins))
         return None
 
     return middleware
@@ -662,7 +660,7 @@ def timing_middleware(request: Request, response: Response) -> Optional[Response
 def add_timing_header(request: Request, response: Response) -> Optional[Response]:
     start_time = request.context.get('start_time', time.time())
     process_time = time.time() - start_time
-    response.headers["X-Process-Time"] = str(process_time)
+    response.set_header("X-Process-Time", str(process_time))
     return None
 
 # Apply only to routes that need timing
@@ -778,7 +776,7 @@ def api_version_middleware(version):
     """API versioning middleware"""
     def middleware(request: Request, response: Response) -> Optional[Response]:
         request.context['api_version'] = version
-        response.headers['X-API-Version'] = version
+        response.set_header('X-API-Version', version)
         return None
     return middleware
 

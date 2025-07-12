@@ -3,6 +3,11 @@ from typing import Optional
 
 app = Catzilla()
 
+@app.middleware(priority=100, pre_route=True, name="global_auth")
+def global_auth_middleware(request):
+    print(f"🌍 Global auth middleware would execute for {request.method} {request.path}")
+    return None
+
 def example_middleware(request: Request) -> Optional[Response]:
     """
     Example middleware that modifies the response.

@@ -609,6 +609,65 @@ class Catzilla:
                         err_resp.send(client)
                         return
 
+                    # Execute global middleware first (pre-route)
+                    pre_route_middlewares = [
+                        mw
+                        for mw in self._registered_middlewares
+                        if mw.get("pre_route", True)
+                    ]
+                    # Sort by priority (lower numbers run first)
+                    pre_route_middlewares.sort(key=lambda x: x.get("priority", 50))
+
+                    for middleware_info in pre_route_middlewares:
+                        try:
+                            middleware_func = middleware_info["handler"]
+                            middleware_result = middleware_func(request)
+                            if middleware_result is not None:
+                                # Global middleware returned a response - short circuit
+                                if isinstance(middleware_result, Response):
+                                    status_code = middleware_result.status_code
+                                    response_size = (
+                                        len(middleware_result.body.encode("utf-8"))
+                                        if middleware_result.body
+                                        else 0
+                                    )
+                                    middleware_result.send(client)
+                                    return  # Skip everything else
+                                else:
+                                    # Invalid middleware return type
+                                    error_resp = Response(
+                                        status_code=500,
+                                        content_type="text/plain",
+                                        body="Internal Server Error: Global middleware returned invalid type",
+                                    )
+                                    error_resp.send(client)
+                                    return
+                        except Exception as middleware_error:
+                            # Global middleware failed
+                            if self.production:
+                                error_resp = self._get_clean_error_response(
+                                    500, "Internal Server Error"
+                                )
+                            else:
+                                error_resp = Response(
+                                    status_code=500,
+                                    content_type="text/plain",
+                                    body=f"Global Middleware Error: {str(middleware_error)}",
+                                    headers={
+                                        "X-Global-Middleware-Error": str(
+                                            middleware_error
+                                        )
+                                    },
+                                )
+                            status_code = 500
+                            response_size = (
+                                len(error_resp.body.encode("utf-8"))
+                                if error_resp.body
+                                else 0
+                            )
+                            error_resp.send(client)
+                            return
+
                     # Execute per-route middleware before handler
                     if hasattr(route, "middleware") and route.middleware:
                         # Execute middleware chain
@@ -694,6 +753,42 @@ class Catzilla:
                     response_size = (
                         len(response.body.encode("utf-8")) if response.body else 0
                     )
+
+                    # Execute global post-route middleware
+                    post_route_middlewares = [
+                        mw
+                        for mw in self._registered_middlewares
+                        if mw.get("post_route", False)
+                    ]
+                    # Sort by priority (lower numbers run first)
+                    post_route_middlewares.sort(key=lambda x: x.get("priority", 50))
+
+                    for middleware_info in post_route_middlewares:
+                        try:
+                            middleware_func = middleware_info["handler"]
+                            # Post-route middleware gets both request and response
+                            if middleware_func.__code__.co_argcount == 2:
+                                middleware_result = middleware_func(request, response)
+                            else:
+                                # Legacy single-argument middleware
+                                middleware_result = middleware_func(request)
+
+                            if middleware_result is not None:
+                                # Post-route middleware can modify response
+                                if isinstance(middleware_result, Response):
+                                    response = middleware_result
+                                    status_code = response.status_code
+                                    response_size = (
+                                        len(response.body.encode("utf-8"))
+                                        if response.body
+                                        else 0
+                                    )
+                        except Exception as middleware_error:
+                            # Post-route middleware failed - log but don't break response
+                            if not self.production:
+                                print(
+                                    f"Warning: Post-route middleware '{middleware_info.get('name', 'unknown')}' failed: {middleware_error}"
+                                )
 
                     # Send the response
                     response.send(client)

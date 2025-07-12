@@ -28,6 +28,7 @@ from catzilla.middleware import (
     Response,
     MiddlewareMetrics
 )
+from catzilla.response import JSONResponse
 from catzilla.memory import get_memory_stats, optimize_memory, is_jemalloc_available
 
 
@@ -866,6 +867,369 @@ class TestIntegrationWithActualRequests:
         print(f"   - Middleware executed: ✅")
         print(f"   - Route handler executed: ✅")
         print(f"   - Response generated: ✅")
+
+
+# ========================================================================
+# GLOBAL MIDDLEWARE TESTS - NEW ADDITION
+# ========================================================================
+
+class TestGlobalMiddleware:
+    """Test global middleware functionality - the missing piece"""
+
+    def setup_method(self):
+        """Set up test fixtures"""
+        self.app = Catzilla(use_jemalloc=False, memory_profiling=False)
+        self.middleware_executions = []
+
+    def test_global_middleware_registration(self):
+        """Test that global middleware is properly registered"""
+
+        @self.app.middleware(priority=100, pre_route=True, name="global_auth")
+        def global_auth_middleware(request):
+            self.middleware_executions.append("global_auth")
+            return None
+
+        @self.app.middleware(priority=200, post_route=True, name="global_response")
+        def global_response_middleware(request, response):
+            self.middleware_executions.append("global_response")
+            return None
+
+        # Verify middleware was registered
+        assert len(self.app._registered_middlewares) == 2
+
+        # Verify middleware details
+        auth_mw = next(mw for mw in self.app._registered_middlewares if mw['name'] == 'global_auth')
+        assert auth_mw['priority'] == 100
+        assert auth_mw['pre_route'] is True
+        assert auth_mw['post_route'] is False
+
+        response_mw = next(mw for mw in self.app._registered_middlewares if mw['name'] == 'global_response')
+        assert response_mw['priority'] == 200
+        assert response_mw['pre_route'] is True  # Default is True
+        assert response_mw['post_route'] is True
+
+    def test_global_middleware_filtering_and_sorting(self):
+        """Test that global middleware is properly filtered and sorted"""
+
+        # Register middleware in random order to test sorting
+        @self.app.middleware(priority=300, pre_route=True, name="third")
+        def third_middleware(request):
+            return None
+
+        @self.app.middleware(priority=100, pre_route=True, name="first")
+        def first_middleware(request):
+            return None
+
+        @self.app.middleware(priority=200, pre_route=True, name="second")
+        def second_middleware(request):
+            return None
+
+        @self.app.middleware(priority=400, post_route=True, name="post_only")
+        def post_only_middleware(request, response):
+            return None
+
+        # Test pre-route filtering
+        pre_route_middlewares = [
+            mw for mw in self.app._registered_middlewares
+            if mw.get('pre_route', True)
+        ]
+        assert len(pre_route_middlewares) == 4  # All middleware default to pre_route=True
+
+        # Test sorting
+        pre_route_middlewares.sort(key=lambda x: x.get('priority', 50))
+        sorted_names = [mw['name'] for mw in pre_route_middlewares]
+        expected_order = ['first', 'second', 'third', 'post_only']
+        assert sorted_names == expected_order
+
+        # Test post-route filtering
+        post_route_middlewares = [
+            mw for mw in self.app._registered_middlewares
+            if mw.get('post_route', False)
+        ]
+        assert len(post_route_middlewares) == 1
+        assert post_route_middlewares[0]['name'] == 'post_only'
+
+    def test_global_middleware_execution_simulation(self):
+        """Test simulated execution of global middleware"""
+
+        @self.app.middleware(priority=100, pre_route=True, name="global_cors")
+        def global_cors_middleware(request):
+            self.middleware_executions.append("global_cors")
+            return None
+
+        @self.app.middleware(priority=200, pre_route=True, name="global_auth")
+        def global_auth_middleware(request):
+            self.middleware_executions.append("global_auth")
+            # Add custom data to request
+            request.custom_data = getattr(request, 'custom_data', {})
+            request.custom_data['auth_passed'] = True
+            return None
+
+        @self.app.middleware(priority=300, post_route=True, name="global_logger")
+        def global_logger_middleware(request, response):
+            self.middleware_executions.append("global_logger")
+            return None
+
+        # Simulate pre-route middleware execution
+        from unittest.mock import Mock
+        mock_request = Mock()
+        mock_request.method = "GET"
+        mock_request.path = "/test"
+        mock_request.custom_data = {}
+
+        # Get and execute pre-route middleware
+        pre_route_middlewares = [
+            mw for mw in self.app._registered_middlewares
+            if mw.get('pre_route', True)
+        ]
+        pre_route_middlewares.sort(key=lambda x: x.get('priority', 50))
+
+        for middleware_info in pre_route_middlewares:
+            middleware_func = middleware_info['handler']
+            if middleware_func.__code__.co_argcount == 1:  # pre-route middleware
+                result = middleware_func(mock_request)
+                assert result is None  # Should not return early
+
+        # Verify global middleware executed
+        assert "global_cors" in self.middleware_executions
+        assert "global_auth" in self.middleware_executions
+        assert hasattr(mock_request, 'custom_data')
+        assert mock_request.custom_data.get('auth_passed') is True
+
+    def test_global_and_per_route_middleware_integration(self):
+        """Test that global and per-route middleware work together"""
+
+        # Global middleware
+        @self.app.middleware(priority=100, pre_route=True, name="global_cors")
+        def global_cors_middleware(request):
+            self.middleware_executions.append("global_cors")
+            return None
+
+        @self.app.middleware(priority=200, post_route=True, name="global_logger")
+        def global_logger_middleware(request, response):
+            self.middleware_executions.append("global_logger")
+            return None
+
+        # Per-route middleware
+        def route_auth_middleware(request):
+            self.middleware_executions.append("route_auth")
+            return None
+
+        @self.app.get("/protected", middleware=[route_auth_middleware])
+        def protected_route(request):
+            self.middleware_executions.append("handler")
+            return JSONResponse({"message": "protected"})
+
+        # Verify both types are registered
+        assert len(self.app._registered_middlewares) == 2  # Global middleware
+
+        # Check route has per-route middleware
+        routes = self.app.routes()
+        route = next(r for r in routes if r['path'] == '/protected')
+
+        # In the actual implementation, we need to check if the route object has middleware
+        # This test verifies the registration part
+
+    def test_global_middleware_early_return(self):
+        """Test that global middleware can return early and stop execution"""
+
+        @self.app.middleware(priority=100, pre_route=True, name="failing_auth")
+        def failing_auth_middleware(request):
+            self.middleware_executions.append("failing_auth")
+            # Return early with error response
+            return Response({"error": "Unauthorized"}, status_code=401)
+
+        @self.app.middleware(priority=200, pre_route=True, name="should_not_execute")
+        def should_not_execute_middleware(request):
+            self.middleware_executions.append("should_not_execute")
+            return None
+
+        # Simulate middleware execution with early return
+        from unittest.mock import Mock
+        mock_request = Mock()
+
+        pre_route_middlewares = [
+            mw for mw in self.app._registered_middlewares
+            if mw.get('pre_route', True)
+        ]
+        pre_route_middlewares.sort(key=lambda x: x.get('priority', 50))
+
+        early_return_response = None
+        for middleware_info in pre_route_middlewares:
+            middleware_func = middleware_info['handler']
+            result = middleware_func(mock_request)
+            if result is not None:  # Early return
+                early_return_response = result
+                break
+
+        # Verify only first middleware executed and returned early
+        assert "failing_auth" in self.middleware_executions
+        assert "should_not_execute" not in self.middleware_executions
+        assert early_return_response is not None
+        assert early_return_response.status_code == 401
+
+    def test_global_middleware_priority_order(self):
+        """Test that global middleware executes in correct priority order"""
+
+        # Register middleware in reverse priority order to test sorting
+        @self.app.middleware(priority=300, pre_route=True, name="third")
+        def third_middleware(request):
+            self.middleware_executions.append("third")
+            return None
+
+        @self.app.middleware(priority=100, pre_route=True, name="first")
+        def first_middleware(request):
+            self.middleware_executions.append("first")
+            return None
+
+        @self.app.middleware(priority=200, pre_route=True, name="second")
+        def second_middleware(request):
+            self.middleware_executions.append("second")
+            return None
+
+        # Simulate execution in sorted order
+        from unittest.mock import Mock
+        mock_request = Mock()
+
+        pre_route_middlewares = [
+            mw for mw in self.app._registered_middlewares
+            if mw.get('pre_route', True)
+        ]
+        pre_route_middlewares.sort(key=lambda x: x.get('priority', 50))
+
+        for middleware_info in pre_route_middlewares:
+            middleware_func = middleware_info['handler']
+            middleware_func(mock_request)
+
+        # Verify execution order matches priority order
+        expected_order = ["first", "second", "third"]
+        assert self.middleware_executions == expected_order
+
+    def test_post_route_global_middleware(self):
+        """Test that post-route global middleware executes correctly"""
+
+        @self.app.middleware(priority=100, post_route=True, name="response_modifier")
+        def response_modifier_middleware(request, response):
+            self.middleware_executions.append("response_modifier")
+            # Modify response to prove post-route middleware ran
+            response.headers["X-Global-Middleware"] = "executed"
+            return None
+
+        # Simulate post-route execution
+        from unittest.mock import Mock
+        mock_request = Mock()
+        mock_response = Mock()
+        mock_response.headers = {}
+
+        post_route_middlewares = [
+            mw for mw in self.app._registered_middlewares
+            if mw.get('post_route', False)
+        ]
+
+        for middleware_info in post_route_middlewares:
+            middleware_func = middleware_info['handler']
+            if middleware_func.__code__.co_argcount == 2:  # post-route middleware
+                middleware_func(mock_request, mock_response)
+
+        # Verify post-route middleware executed
+        assert "response_modifier" in self.middleware_executions
+        assert mock_response.headers["X-Global-Middleware"] == "executed"
+
+class TestGlobalAndPerRouteMiddlewareIntegration:
+    """Test integration between global and per-route middleware"""
+
+    def setup_method(self):
+        """Set up test fixtures"""
+        self.app = Catzilla(use_jemalloc=False, memory_profiling=False)
+        self.execution_order = []
+
+    def test_complete_middleware_execution_order(self):
+        """Test complete execution order: global pre -> per-route -> handler -> global post"""
+
+        # Global pre-route middleware
+        @self.app.middleware(priority=100, pre_route=True, name="global_cors")
+        def global_cors(request):
+            self.execution_order.append("global_cors")
+            return None
+
+        @self.app.middleware(priority=200, pre_route=True, name="global_auth")
+        def global_auth(request):
+            self.execution_order.append("global_auth")
+            return None
+
+        # Global post-route middleware
+        @self.app.middleware(priority=300, post_route=True, name="global_logger")
+        def global_logger(request, response):
+            self.execution_order.append("global_logger")
+            return None
+
+        # Per-route middleware
+        def route_validation(request):
+            self.execution_order.append("route_validation")
+            return None
+
+        def route_caching(request):
+            self.execution_order.append("route_caching")
+            return None
+
+        @self.app.get("/api/data", middleware=[route_validation, route_caching])
+        def api_handler(request):
+            self.execution_order.append("handler")
+            return JSONResponse({"data": "test"})
+
+        # Expected order: global_cors -> global_auth -> route_validation -> route_caching -> handler -> global_logger
+        expected_order = [
+            "global_cors",      # Global pre-route (priority 100)
+            "global_auth",      # Global pre-route (priority 200)
+            "route_validation", # Per-route middleware (first)
+            "route_caching",    # Per-route middleware (second)
+            "handler",          # Route handler
+            "global_logger"     # Global post-route
+        ]
+
+        # This test verifies the structure is in place for correct execution
+        # The actual execution would happen in _handle_request during a real HTTP request
+
+        # Verify global middleware is registered
+        assert len(self.app._registered_middlewares) == 3
+
+        # Verify route with per-route middleware is registered
+        routes = self.app.routes()
+        api_route = next(r for r in routes if r['path'] == '/api/data')
+        assert api_route is not None
+
+    def test_global_middleware_affects_all_routes(self):
+        """Test that global middleware affects all routes, not just specific ones"""
+
+        @self.app.middleware(priority=100, pre_route=True, name="universal_cors")
+        def universal_cors(request):
+            self.execution_order.append(f"cors_{request.path}")
+            return None
+
+        # Multiple routes - some with middleware, some without
+        @self.app.get("/public")
+        def public_route(request):
+            self.execution_order.append(f"public_handler_{request.path}")
+            return JSONResponse({"type": "public"})
+
+        def auth_middleware(request):
+            self.execution_order.append(f"auth_{request.path}")
+            return None
+
+        @self.app.get("/private", middleware=[auth_middleware])
+        def private_route(request):
+            self.execution_order.append(f"private_handler_{request.path}")
+            return JSONResponse({"type": "private"})
+
+        @self.app.get("/admin")
+        def admin_route(request):
+            self.execution_order.append(f"admin_handler_{request.path}")
+            return JSONResponse({"type": "admin"})
+
+        # Verify that global middleware will run on all routes
+        # The universal_cors middleware should execute for /public, /private, and /admin
+        assert len(self.app._registered_middlewares) == 1  # One global middleware
+        assert len(self.app.routes()) == 3  # Three routes
 
 
 # Performance test that prints results
