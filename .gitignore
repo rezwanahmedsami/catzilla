@@ -38,8 +38,9 @@ benchmarks/results/*.pid
 
 # Sphinx docs build
 docs/_build/
-docs/api/
-
+# docs/api/
+docs_new/_build/
+# docs_new/api/
 # Submodule temp files
 deps/**/.git
 
