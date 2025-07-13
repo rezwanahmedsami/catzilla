@@ -3,6 +3,7 @@ from typing import Optional
 
 app = Catzilla()
 
+# global middleware example
 @app.middleware(priority=100, pre_route=True, name="global_auth")
 def global_auth_middleware(request):
     print(f"🌍 Global auth middleware would execute for {request.method} {request.path}")
