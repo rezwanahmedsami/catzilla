@@ -627,10 +627,10 @@ def upload(request, file: UploadFile = File()):
 
 ## Next Steps
 
-- [API Reference](./api-reference.md) - Complete API documentation
-- [Security Guide](./security-guide.md) - Advanced security features
-- [Performance Tuning](./performance-tuning.md) - Optimization tips
-- [Examples](../examples/file_upload_system/) - Complete working examples
+- **API Reference**: Complete API documentation is included in this guide above
+- **Security Guide**: Advanced security features are covered in the Security section above
+- **Performance Tuning**: Optimization tips are provided in the Performance section above
+- **Examples**: Complete working examples in the `file_upload_system directory <https://github.com/rezwanahmedsami/catzilla/tree/main/examples/file_upload_system>`_
 
 ## Changelog
 

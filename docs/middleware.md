@@ -598,4 +598,4 @@ def modern_auth_middleware(request):
 
 ## 🤝 Contributing
 
-See the [examples/middleware/](../examples/middleware/) directory for complete working examples.
+See the `examples/middleware/ <https://github.com/rezwanahmedsami/catzilla/tree/main/examples/middleware>`_ directory for complete working examples.

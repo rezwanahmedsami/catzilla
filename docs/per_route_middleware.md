@@ -1026,4 +1026,4 @@ def middleware_stats(request):
 
 ---
 
-**Need help?** Check out the [examples directory](../examples/per_route_middleware/) for complete working examples, or visit our [community forum](https://github.com/rezwanahmedsami/catzilla/discussions) for support.
+**Need help?** Check out the `examples directory <https://github.com/rezwanahmedsami/catzilla/tree/main/examples/per_route_middleware>`_ for complete working examples, or visit our `community forum <https://github.com/rezwanahmedsami/catzilla/discussions>`_ for support.

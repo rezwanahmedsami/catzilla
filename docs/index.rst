@@ -73,6 +73,51 @@ O(log n) route lookup performance while maintaining a clean, Pythonic API.
    BACKGROUND_TASK_SYSTEM.md
    per_route_middleware.md
    middleware.md
+   DEPENDENCY_INJECTION_GUIDE.md
+   auto-validation.md
+   streaming.md
+   file-upload-system.md
+   smart_caching_system.md
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Advanced Features
+
+   auto-validation-architecture.md
+   auto-validation-examples.md
+   auto-validation-index.md
+   auto-validation-quick-reference.md
+   advanced_di_guide.md
+   dependency_injection_overview.md
+   di_documentation_summary.md
+   di_use_cases.md
+   simple_di_guide.md
+   migration-fastapi.md
+   migration_from_fastapi.md
+
+.. toctree::
+   :maxdepth: 2
+   :caption: System & Platform
+
+   jemalloc_runtime_support.md
+   jemalloc_troubleshooting.md
+   windows_jemalloc_fix.md
+   platform_support.md
+   startup_banner_and_logging.md
+   logging_quick_reference.md
+   MIDDLEWARE_CONTEXT_GUIDE.md
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Development & Deployment
+
+   DOCKER_TESTING_GUIDE.md
+   PYPI_SETUP.md
+   RELEASE_GUIDE.md
+   VERSION_MANAGEMENT.md
+   STARTUP_BANNER_SUCCESS.md
+   STATUS.md
+   README.md
 
 .. toctree::
    :maxdepth: 2

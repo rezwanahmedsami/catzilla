@@ -397,7 +397,8 @@ if __name__ == "__main__":
 ```
 
 ### Test the Example
----
+
+Run the server and test the endpoints to see dependency injection in action.
 
 ## 💡 Common Patterns & Best Practices
 

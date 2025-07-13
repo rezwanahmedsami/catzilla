@@ -447,4 +447,4 @@ Or use the CLI:
 
    python -m catzilla complete_app:app
 
-**Ready for more?** Check out the :doc:`getting-started` guide for detailed explanations and the :doc:`examples` section for real-world use cases.
+**Ready for more?** Check out the :doc:`advanced` guide for detailed explanations and explore the examples directory in the GitHub repository for real-world use cases.

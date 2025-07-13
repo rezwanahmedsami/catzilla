@@ -117,7 +117,7 @@ WebSocket support is planned for a future release and will include:
 4. **Message queuing**: Buffer messages when clients disconnect
 5. **Authentication and authorization**: Secure your WebSocket connections
 
-#### File-Like Interface with StreamingWriter
+### File-Like Interface with StreamingWriter
 
 ```python
 @app.route("/csv")
