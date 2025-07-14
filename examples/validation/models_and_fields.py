@@ -2,44 +2,53 @@
 Models and Field Types Example
 
 This example demonstrates Catzilla's ultra-fast validation engine with
-BaseModel and various field types for data validation.
+FastAPI/Pydantic-compatible Field validation and C-acceleration.
 
 Features demonstrated:
-- BaseModel (Pydantic-compatible)
-- Basic field types (IntField, StringField, FloatField, BoolField)
-- List and optional fields
-- Custom validation rules
+- BaseModel (Pydantic-compatible syntax)
+- Field() with FastAPI-style constraints (ge, le, min_length, max_length, regex)
+- Simple style: name: str = "default"
+- Advanced style: name: str = Field(min_length=3, max_length=20)
+- Nested models with automatic validation
+- Custom validation rules with __post_init__
 - Performance metrics
-- Nested models
+- C-accelerated validation (100x faster than Pydantic)
 """
 
 from catzilla import (
     Catzilla, Request, Response, JSONResponse,
-    BaseModel, Field, IntField, StringField, FloatField,
-    BoolField, ListField, OptionalField, ValidationError,
+    BaseModel, Field, ValidationError,
     get_performance_stats, reset_performance_stats,
     Query, Header, Path, Form
 )
 from typing import Optional, List
 
-# Initialize Catzilla
+# Initialize Catzilla with auto-validation
 app = Catzilla(
     production=False,
     show_banner=True,
-    log_requests=True
+    log_requests=True,
+    auto_validation=True  # Enable auto-validation for BaseModel parameters, but its by default True
 )
 
 # Define validation models
-class UserProfile(BaseModel):
-    """User profile model with various field types"""
+class UserCreate(BaseModel):
+    """User creation model with simple auto-validation (FastAPI style)"""
+    id: Optional[int] = 1
+    name: str = "Unknown"
+    email: Optional[str] = None
 
-    id: int = IntField(min_value=1, max_value=1000000)
-    username: str = StringField(min_length=3, max_length=20, pattern=r'^[a-zA-Z0-9_]+$')
-    email: str = StringField(pattern=r'^[^@]+@[^@]+\.[^@]+$')
-    age: int = IntField(min_value=13, max_value=120)
-    height: float = FloatField(min_value=0.5, max_value=3.0)  # meters
-    is_active: bool = BoolField()
-    bio: Optional[str] = OptionalField(StringField(max_length=500))
+class UserProfile(BaseModel):
+    """User profile model with FastAPI-style Field validation"""
+
+    # Basic fields with defaults
+    id: int = Field(ge=1, le=1000000, description="User ID")
+    username: str = Field(min_length=3, max_length=20, regex=r'^[a-zA-Z0-9_]+$', description="Username")
+    email: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$', description="Email address")
+    age: int = Field(ge=13, le=120, description="User age")
+    height: float = Field(gt=0.5, lt=3.0, description="Height in meters")
+    is_active: bool = Field(default=True, description="Account status")
+    bio: Optional[str] = Field(None, max_length=500, description="User biography")
 
     def __post_init__(self):
         """Custom validation after field validation"""
@@ -47,31 +56,29 @@ class UserProfile(BaseModel):
             raise ValidationError("Users under 18 cannot have bio longer than 100 characters")
 
 class UserPreferences(BaseModel):
-    """User preferences with list fields"""
+    """User preferences with Field validation for lists"""
 
-    user_id: int = IntField(min_value=1)
-    favorite_colors: List[str] = ListField(StringField(), min_items=1, max_items=5)
-    hobbies: List[str] = ListField(StringField(min_length=2, max_length=50))
-    notification_types: List[str] = ListField(
-        StringField(choices=["email", "sms", "push", "none"])
-    )
-    scores: List[float] = ListField(FloatField(min_value=0.0, max_value=100.0))
+    user_id: int = Field(ge=1, description="User ID")
+    favorite_colors: List[str] = Field(min_items=1, max_items=5, description="Favorite colors")
+    hobbies: List[str] = Field(min_items=0, max_items=10, description="User hobbies")
+    notification_types: List[str] = Field(default=[], description="Notification preferences")
+    scores: List[float] = Field(min_items=0, max_items=20, description="Performance scores")
 
 class CompanyAddress(BaseModel):
-    """Address model for nested validation"""
+    """Address model with Field validation"""
 
-    street: str = StringField(min_length=5, max_length=100)
-    city: str = StringField(min_length=2, max_length=50)
-    country: str = StringField(min_length=2, max_length=50)
-    postal_code: str = StringField(pattern=r'^\d{5}(-\d{4})?$')
+    street: str = Field(min_length=5, max_length=100, description="Street address")
+    city: str = Field(min_length=2, max_length=50, description="City name")
+    country: str = Field(min_length=2, max_length=50, description="Country name")
+    postal_code: str = Field(regex=r'^\d{5}(-\d{4})?$', description="Postal code")
 
 class Company(BaseModel):
-    """Company model with nested address"""
+    """Company model with nested Field validation"""
 
-    name: str = StringField(min_length=2, max_length=100)
-    industry: str = StringField(choices=["tech", "finance", "healthcare", "education", "other"])
-    employee_count: int = IntField(min_value=1, max_value=100000)
-    revenue: Optional[float] = OptionalField(FloatField(min_value=0.0))
+    name: str = Field(min_length=2, max_length=100, description="Company name")
+    industry: str = Field(description="Industry sector")
+    employee_count: int = Field(ge=1, le=100000, description="Number of employees")
+    revenue: Optional[float] = Field(None, ge=0.0, description="Annual revenue")
     address: CompanyAddress
 
 @app.get("/")
@@ -188,11 +195,11 @@ def get_validation_examples(request: Request) -> Response:
                 "bio": "Software developer"
             },
             "user_invalid": {
-                "id": 0,  # Below min_value
+                "id": 0,  # Below min
                 "username": "jo",  # Too short
                 "email": "invalid-email",  # Invalid format
-                "age": 150,  # Above max_value
-                "height": -1.0,  # Below min_value
+                "age": 150,  # Above max
+                "height": -1.0,  # Below min
                 "is_active": "yes"  # Wrong type
             },
             "preferences_valid": {
@@ -245,9 +252,8 @@ if __name__ == "__main__":
     print()
     print("🎨 Features demonstrated:")
     print("   • BaseModel (Pydantic-compatible)")
-    print("   • Field types: IntField, StringField, FloatField, BoolField")
-    print("   • ListField and OptionalField")
-    print("   • Custom validation rules (min/max, patterns, choices)")
+    print("   • Field() with FastAPI-style constraints (ge, le, min_length, regex)")
+    print("   • Simple default syntax also supported")
     print("   • Nested model validation")
     print("   • Performance monitoring (100x faster than Pydantic)")
     print()
