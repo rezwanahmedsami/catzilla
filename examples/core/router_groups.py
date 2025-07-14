@@ -10,28 +10,39 @@ Features demonstrated:
 - Group-level middleware
 - Route organization patterns
 - API versioning with groups
+- Auto-validation support (controlled globally by Catzilla app)
+
+Note: Auto-validation is controlled globally by the main Catzilla app's auto_validation setting.
+All RouterGroup routes automatically inherit the app's auto-validation configuration.
 """
 
 from catzilla import (
     Catzilla, Request, Response, JSONResponse,
-    Query, Header, Path, Form, ValidationError
+    Query, Header, Path, Form, ValidationError, BaseModel
 )
 from catzilla.routing import RouterGroup
 
-# Initialize Catzilla
+# Data models for auto-validation (works with both main app and RouterGroup)
+class UserCreate(BaseModel):
+    """User creation model"""
+    name: str
+    email: str
+
+# Initialize Catzilla with auto-validation enabled globally
 app = Catzilla(
     production=False,
     show_banner=True,
-    log_requests=True
+    log_requests=True,
+    auto_validation=True  # Global auto-validation for all routes (app + RouterGroup)
 )
 
-# Create API v1 router group
+# Create API v1 router group (inherits global auto-validation setting)
 api_v1 = RouterGroup(prefix="/api/v1")
 
-# Create API v2 router group
+# Create API v2 router group (inherits global auto-validation setting)
 api_v2 = RouterGroup(prefix="/api/v2")
 
-# Create admin router group with nested structure
+# Create admin router group with nested structure (inherits global auto-validation setting)
 admin = RouterGroup(prefix="/admin")
 admin_users = RouterGroup(prefix="/users")  # Will be mounted under /admin
 
@@ -44,6 +55,21 @@ def root(request: Request) -> Response:
         "available_groups": ["/api/v1", "/api/v2", "/admin"],
         "framework": "Catzilla v0.2.0"
     })
+
+# Main app endpoint with auto-validation
+@app.post("/users")
+def create_user_main(request, user_data: UserCreate) -> Response:
+    """Create user - Main app with auto-validation"""
+    return JSONResponse({
+        "message": "User created via main app",
+        "framework": "Catzilla v0.2.0",
+        "user_id": 456,
+        "user": {
+            "name": user_data.name,
+            "email": user_data.email
+        },
+        "validation": "automatic"
+    }, status_code=201)
 
 # API v1 endpoints
 @api_v1.get("/users")
@@ -72,12 +98,13 @@ def get_user_v1(request, user_id: int = Path(..., description="User ID", ge=1)) 
     })
 
 @api_v1.post("/users")
-def create_user_v1(request: Request) -> Response:
-    """Create user - API v1"""
+def create_user_v1(request, user: UserCreate) -> Response:
+    """Create user - API v1 with auto-validation"""
     return JSONResponse({
         "message": "User created",
         "version": "v1",
-        "user_id": 123
+        "user_id": 123,
+        "user": {"name": user.name, "email": user.email}
     }, status_code=201)
 
 # API v2 endpoints with enhanced features
@@ -196,12 +223,12 @@ def admin_delete_user(request, user_id: int = Path(..., description="User ID", g
     })
 
 # Register router groups with the main app
-app.include_router(api_v1)
-app.include_router(api_v2)
-app.include_router(admin)
+app.include_routes(api_v1)
+app.include_routes(api_v2)
+app.include_routes(admin)
 
 # Register nested group - admin_users under admin
-admin.include_router(admin_users)
+admin.include_group(admin_users)
 
 # Group information endpoint
 @app.get("/groups")
@@ -250,17 +277,18 @@ if __name__ == "__main__":
     print()
     print("🏠 Main App:")
     print("   GET  /                    - Root endpoint")
+    print("   POST /users               - Create user (auto-validation)")
     print("   GET  /groups              - List all router groups")
     print()
     print("🔗 API v1 Group (/api/v1):")
     print("   GET  /api/v1/users        - List users (v1)")
-    print("   GET  /api/v1/users/{id}   - Get user (v1)")
-    print("   POST /api/v1/users        - Create user (v1)")
+    print("   GET  /api/v1/users/{id}   - Get user (v1, auto-validation)")
+    print("   POST /api/v1/users        - Create user (v1, auto-validation)")
     print()
     print("🔗 API v2 Group (/api/v2):")
-    print("   GET  /api/v2/users        - List users with pagination (v2)")
-    print("   GET  /api/v2/users/{id}   - Get user with enhanced data (v2)")
-    print("   PATCH /api/v2/users/{id}  - Update user (v2)")
+    print("   GET  /api/v2/users        - List users with pagination (v2, auto-validation)")
+    print("   GET  /api/v2/users/{id}   - Get user with enhanced data (v2, auto-validation)")
+    print("   PATCH /api/v2/users/{id}  - Update user (v2, auto-validation)")
     print()
     print("🔗 Admin Group (/admin):")
     print("   GET  /admin/dashboard     - Admin dashboard")
@@ -268,13 +296,21 @@ if __name__ == "__main__":
     print()
     print("🔗 Nested Admin Users (/admin/users):")
     print("   GET  /admin/users/        - Admin list users")
-    print("   DELETE /admin/users/{id}  - Admin delete user")
+    print("   DELETE /admin/users/{id}  - Admin delete user (auto-validation)")
     print()
     print("🎨 Features demonstrated:")
     print("   • Router group creation with prefixes")
     print("   • Nested router groups")
     print("   • API versioning with groups")
     print("   • Route organization patterns")
+    print("   • Auto-validation with Path(), Query(), BaseModel")
+    print()
+    print("🔍 Auto-Validation:")
+    print("   • Controlled globally by Catzilla app's auto_validation setting")
+    print("   • Both main app and RouterGroup routes inherit this setting")
+    print("   • Path parameters: user_id: int = Path(...)")
+    print("   • Query parameters: page: int = Query(1, ge=1)")
+    print("   • Request body: user_data: UserCreate")
     print()
     print("🧪 Try these examples:")
     print("   curl http://localhost:8000/groups")
@@ -282,6 +318,16 @@ if __name__ == "__main__":
     print("   curl http://localhost:8000/api/v2/users?page=2&limit=5")
     print("   curl http://localhost:8000/admin/dashboard")
     print("   curl http://localhost:8000/admin/users/")
+    print()
+    print("🔄 Test auto-validation:")
+    print("   # Main app auto-validation")
+    print('   curl -X POST http://localhost:8000/users -H "Content-Type: application/json" -d \'{"name":"John","email":"john@example.com"}\'')
+    print("   # RouterGroup auto-validation")
+    print('   curl -X POST http://localhost:8000/api/v1/users -H "Content-Type: application/json" -d \'{"name":"Jane","email":"jane@example.com"}\'')
+    print("   # Path parameter auto-validation")
+    print('   curl http://localhost:8000/api/v1/users/123')
+    print("   # Query parameter auto-validation")
+    print('   curl "http://localhost:8000/api/v2/users?page=2&limit=5"')
     print()
 
     app.listen(host="0.0.0.0", port=8000)

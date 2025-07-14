@@ -274,13 +274,17 @@ class CAcceleratedRouter:
         return len(self._routes)
 
     def include_routes(self, group) -> None:
-        """Include all routes from a RouterGroup"""
+        """Include all routes from a RouterGroup
+
+        Note: This method is kept for compatibility but auto-validation
+        should be handled by the main Catzilla app's include_routes method.
+        """
         from .routing import RouterGroup
 
         if not isinstance(group, RouterGroup):
             raise TypeError("Expected RouterGroup instance")
 
-        # Add all routes from the group
+        # Add all routes from the group (handlers should already be processed by main app)
         for method, path, handler, metadata in group.routes():
             # Get overwrite flag from metadata
             overwrite = metadata.get("overwrite", False)

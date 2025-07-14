@@ -9,6 +9,15 @@ from typing import Callable, Dict, List, Optional, Set, Tuple, Union
 
 from .types import RouteHandler
 
+# Import auto-validation system for RouterGroup support
+try:
+    from .auto_validation import create_auto_validated_handler
+
+    AUTO_VALIDATION_AVAILABLE = True
+except ImportError:
+    AUTO_VALIDATION_AVAILABLE = False
+    create_auto_validated_handler = None
+
 
 @dataclass
 class Route:
@@ -59,6 +68,10 @@ class RouterGroup:
             description: Description of this route group
             metadata: Additional metadata for the group
             **kwargs: Additional custom metadata fields
+
+        Note:
+            Auto-validation is controlled globally by the main Catzilla app's auto_validation setting.
+            RouterGroup routes will inherit the app's auto-validation configuration.
         """
         self.prefix = self._normalize_prefix(prefix)
         self.tags = tags or []
@@ -155,6 +168,12 @@ class RouterGroup:
         # Add middleware to metadata
         if middleware:
             route_metadata["middleware"] = middleware
+
+        # Note: Auto-validation is now applied by the main Catzilla app when routes are included
+        # This ensures consistent auto-validation behavior across all routes
+        route_metadata["auto_validation_applied"] = (
+            False  # Will be updated by app if enabled
+        )
 
         # Store the route for later registration
         self._routes.append((method, combined_path, handler, route_metadata))

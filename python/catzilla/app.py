@@ -1401,8 +1401,52 @@ class Catzilla:
 
         Args:
             group: RouterGroup instance containing routes to include
+
+        Note:
+            Auto-validation is applied here based on the app's global auto_validation setting,
+            ensuring consistent behavior across all routes (both app routes and RouterGroup routes).
         """
-        self.router.include_routes(group)
+        from .routing import RouterGroup
+
+        if not isinstance(group, RouterGroup):
+            raise TypeError("Expected RouterGroup instance")
+
+        # Process each route and apply auto-validation if enabled globally
+        for method, path, handler, metadata in group.routes():
+            # Apply auto-validation if enabled globally for the app
+            final_handler = handler
+            if self.auto_validation:
+                try:
+                    final_handler = create_auto_validated_handler(handler)
+                    metadata = metadata.copy()  # Don't modify original metadata
+                    metadata["auto_validation_applied"] = True
+                except Exception as e:
+                    # If auto-validation fails, use original handler
+                    import warnings
+
+                    warnings.warn(
+                        f"Auto-validation failed for RouterGroup route {method} {path}: {e}"
+                    )
+                    metadata = metadata.copy()
+                    metadata["auto_validation_applied"] = False
+            else:
+                metadata = metadata.copy()
+                metadata["auto_validation_applied"] = False
+
+            # Get overwrite flag from metadata
+            overwrite = metadata.pop("overwrite", False)
+
+            # Remove internal metadata before passing to router
+            clean_metadata = metadata.copy()
+
+            # Add the route with the potentially auto-validated handler
+            self.router.add_route(
+                method=method,
+                path=path,
+                handler=final_handler,
+                overwrite=overwrite,
+                **clean_metadata,
+            )
 
     def routes(self) -> List[Dict[str, str]]:
         """Get a list of all registered routes"""
