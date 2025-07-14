@@ -420,8 +420,16 @@ def auto_validate_request(
                     )
                 else:
                     # Simple header parameter
-                    if header_name in headers:
-                        validated_params[param_name] = headers[header_name]
+                    # Headers are stored in lowercase, so normalize for lookup
+                    header_name_lower = header_name.lower()
+                    if header_name_lower in headers:
+                        raw_value = headers[header_name_lower]
+                        converted_value = _convert_primitive_type(
+                            raw_value, param_spec.annotation
+                        )
+                        # Validate constraints
+                        _validate_constraints(converted_value, param_spec.default)
+                        validated_params[param_name] = converted_value
                     elif (
                         param_spec.default
                         and hasattr(param_spec.default, "default")

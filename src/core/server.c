@@ -43,6 +43,11 @@ typedef struct {
     bool keep_alive;  // Track if client wants keep-alive
     bool parsing_connection;  // Track if we're parsing Connection header
     bool has_connection_header;  // Track if Connection header was sent
+    // Header storage for all headers
+    catzilla_header_t headers[CATZILLA_MAX_HEADERS];
+    int header_count;
+    char* current_header_name;  // Buffer for header name being parsed
+    size_t current_header_name_len;
     char _padding[0];  // Add padding to ensure proper alignment
 } client_context_t;
 
@@ -98,6 +103,18 @@ static int on_header_field(llhttp_t* parser, const char* at, size_t length) {
     context->parsing_content_type = false;  // Reset flags by default
     context->parsing_connection = false;
 
+    // Store the header name for later use in on_header_value
+    if (context->current_header_name) {
+        catzilla_cache_free(context->current_header_name);
+    }
+    context->current_header_name = catzilla_cache_alloc(length + 1);
+    if (context->current_header_name) {
+        memcpy(context->current_header_name, at, length);
+        context->current_header_name[length] = '\0';
+        context->current_header_name_len = length;
+    }
+
+    // Check for specific headers that need special handling
     if (length == 12 && strncasecmp(at, "Content-Type", 12) == 0) {
         LOG_HTTP_DEBUG("Found Content-Type header");
         context->parsing_content_type = true;
@@ -164,6 +181,41 @@ static int on_header_value(llhttp_t* parser, const char* at, size_t length) {
 
         context->parsing_connection = false;
     }
+
+    // Store ALL headers in the headers array for later access from Python
+    if (context->current_header_name && context->header_count < CATZILLA_MAX_HEADERS) {
+        catzilla_header_t* header = &context->headers[context->header_count];
+
+        // Allocate and copy header name
+        header->name = catzilla_cache_alloc(context->current_header_name_len + 1);
+        if (header->name) {
+            strcpy(header->name, context->current_header_name);
+        }
+
+        // Allocate and copy header value
+        header->value = catzilla_cache_alloc(length + 1);
+        if (header->value) {
+            memcpy(header->value, at, length);
+            header->value[length] = '\0';
+        }
+
+        // Only increment if both allocations succeeded
+        if (header->name && header->value) {
+            context->header_count++;
+            LOG_HTTP_DEBUG("Stored header: %s = %s", header->name, header->value);
+        } else {
+            // Clean up failed allocation
+            if (header->name) {
+                catzilla_cache_free(header->name);
+                header->name = NULL;
+            }
+            if (header->value) {
+                catzilla_cache_free(header->value);
+                header->value = NULL;
+            }
+        }
+    }
+
     return 0;
 }
 
@@ -295,7 +347,8 @@ PyObject* handle_request_in_server(PyObject* callback,
     const char* method,
     const char* path,
     const char* body,
-    size_t body_length)
+    size_t body_length,
+    client_context_t* client_ctx)  // Renamed from context to client_ctx
 {
     if (!callback || !PyCallable_Check(callback)) {
         PyErr_SetString(PyExc_TypeError, "Callback is not callable");
@@ -309,6 +362,37 @@ PyObject* handle_request_in_server(PyObject* callback,
         return NULL;
     }
     memset(request, 0, sizeof(catzilla_request_t));
+
+    // Copy data into request
+    strncpy(request->method, method, CATZILLA_METHOD_MAX-1);
+    request->method[CATZILLA_METHOD_MAX-1] = '\0';
+    strncpy(request->path, path, CATZILLA_PATH_MAX-1);
+    request->path[CATZILLA_PATH_MAX-1] = '\0';
+
+    // Copy headers from context if available
+    if (client_ctx && client_ctx->header_count > 0) {
+        request->header_count = client_ctx->header_count < CATZILLA_MAX_HEADERS ?
+                               client_ctx->header_count : CATZILLA_MAX_HEADERS;
+
+        for (int i = 0; i < request->header_count; i++) {
+            if (client_ctx->headers[i].name) {
+                size_t name_len = strlen(client_ctx->headers[i].name);
+                request->headers[i].name = catzilla_cache_alloc(name_len + 1);
+                if (request->headers[i].name) {
+                    strcpy(request->headers[i].name, client_ctx->headers[i].name);
+                }
+            }
+
+            if (client_ctx->headers[i].value) {
+                size_t value_len = strlen(client_ctx->headers[i].value);
+                request->headers[i].value = catzilla_cache_alloc(value_len + 1);
+                if (request->headers[i].value) {
+                    strcpy(request->headers[i].value, client_ctx->headers[i].value);
+                }
+            }
+        }
+        LOG_HTTP_DEBUG("Copied %d headers from context to request", request->header_count);
+    }
 
     // Copy data into request
     strncpy(request->method, method, CATZILLA_METHOD_MAX-1);
@@ -1225,6 +1309,22 @@ static void on_close(uv_handle_t* handle) {
         if (ctx->content_type_header) {
             catzilla_cache_free(ctx->content_type_header);
         }
+
+        // Clean up current header name buffer
+        if (ctx->current_header_name) {
+            catzilla_cache_free(ctx->current_header_name);
+        }
+
+        // Clean up all stored headers
+        for (int i = 0; i < ctx->header_count; i++) {
+            if (ctx->headers[i].name) {
+                catzilla_cache_free(ctx->headers[i].name);
+            }
+            if (ctx->headers[i].value) {
+                catzilla_cache_free(ctx->headers[i].value);
+            }
+        }
+
         catzilla_cache_free(ctx);
     }
 }
@@ -1327,7 +1427,8 @@ static int on_message_complete(llhttp_t* parser) {
                 context->method,
                 context->url,
                 context->body ? context->body : "",  // Handle NULL body case
-                context->body_length
+                context->body_length,
+                context  // Pass context for headers
             );
             Py_XDECREF(result);
             Py_DECREF(client_capsule);

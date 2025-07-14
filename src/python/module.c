@@ -1506,6 +1506,31 @@ static PyObject* get_form_field(PyObject *self, PyObject *args) {
     return PyUnicode_FromString(value);
 }
 
+// Get header value from request
+static PyObject* get_header(PyObject *self, PyObject *args) {
+    catzilla_request_t* request;
+    PyObject* capsule;
+    const char* header_name;
+
+    if (!PyArg_ParseTuple(args, "Os", &capsule, &header_name))
+        return NULL;
+
+    request = (catzilla_request_t*)PyCapsule_GetPointer(capsule, "catzilla.request");
+    if (!request) {
+        PyErr_SetString(PyExc_TypeError, "Invalid request capsule");
+        return NULL;
+    }
+
+    // Search through headers array (case-insensitive)
+    for (int i = 0; i < request->header_count; i++) {
+        if (request->headers[i].name && strcasecmp(request->headers[i].name, header_name) == 0) {
+            return PyUnicode_FromString(request->headers[i].value ? request->headers[i].value : "");
+        }
+    }
+
+    Py_RETURN_NONE;
+}
+
 // Get content type from request
 static PyObject* get_content_type(PyObject* self, PyObject* args) {
     PyObject* capsule;
@@ -1993,7 +2018,7 @@ static PyObject* get_memory_stats(PyObject *self, PyObject *args)
         "active", (unsigned long long)stats.active,
         "metadata", (unsigned long long)stats.metadata,
         "resident", (unsigned long long)stats.resident,
-        "fragmentation_ratio", stats.fragmentation_ratio,
+               "fragmentation_ratio", stats.fragmentation_ratio,
         "allocation_count", (unsigned long long)stats.allocation_count,
         "deallocation_count", (unsigned long long)stats.deallocation_count,
         "memory_efficiency_score", stats.memory_efficiency_score,
@@ -2302,6 +2327,7 @@ static PyMethodDef module_methods[] = {
     {"get_json", get_json, METH_VARARGS, "Get parsed JSON from request"},
     {"parse_form", parse_form, METH_VARARGS, "Parse form data from request"},
     {"get_form_field", get_form_field, METH_VARARGS, "Get form field value"},
+    {"get_header", get_header, METH_VARARGS, "Get header value from request"},
     {"get_files", get_files, METH_VARARGS, "Get uploaded files from request"},
     {"get_content_type", get_content_type, METH_VARARGS, "Get content type from request"},
     {"get_query_param", get_query_param, METH_VARARGS, "Get query parameter value"},
