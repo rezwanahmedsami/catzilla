@@ -327,6 +327,19 @@ static void request_capsule_destructor(PyObject* capsule) {
     catzilla_request_t* request = PyCapsule_GetPointer(capsule, "catzilla.request");
     if (request) {
         if (request->json_doc) yyjson_doc_free(request->json_doc);
+
+        // Clean up copied headers
+        for (int i = 0; i < request->header_count; i++) {
+            if (request->headers[i].name) {
+                catzilla_cache_free(request->headers[i].name);
+                request->headers[i].name = NULL;
+            }
+            if (request->headers[i].value) {
+                catzilla_cache_free(request->headers[i].value);
+                request->headers[i].value = NULL;
+            }
+        }
+
         // Clean up uploaded files
         if (request->has_files) {
             for (int i = 0; i < request->file_count; i++) {
@@ -1599,6 +1612,26 @@ static int on_message_complete(llhttp_t* parser) {
             }
         }
     }
+
+    // Clean up headers from context for next request (keep-alive connections)
+    if (context->current_header_name) {
+        catzilla_cache_free(context->current_header_name);
+        context->current_header_name = NULL;
+        context->current_header_name_len = 0;
+    }
+
+    // Clean up stored headers for reuse of context
+    for (int i = 0; i < context->header_count; i++) {
+        if (context->headers[i].name) {
+            catzilla_cache_free(context->headers[i].name);
+            context->headers[i].name = NULL;
+        }
+        if (context->headers[i].value) {
+            catzilla_cache_free(context->headers[i].value);
+            context->headers[i].value = NULL;
+        }
+    }
+    context->header_count = 0;
 
     return 0;
 }

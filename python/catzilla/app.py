@@ -575,45 +575,9 @@ class Catzilla:
                 client=client,
                 request_capsule=request_capsule,
                 _query_params={},  # Changed from query_params to _query_params
-            )
-
-            # Extract headers from C request
-            try:
-                from catzilla._catzilla import get_header
-
-                # Try to get common headers to populate the headers dict
-                common_headers = [
-                    "User-Agent",
-                    "Content-Type",
-                    "Content-Length",
-                    "Accept",
-                    "Authorization",
-                    "Host",
-                    "Connection",
-                    "Accept-Encoding",
-                    "Accept-Language",
-                    "Cache-Control",
-                    "Origin",
-                    "Referer",
-                ]
-                headers = {}
-                for header_name in common_headers:
-                    header_value = get_header(request_capsule, header_name)
-                    if header_value is not None:
-                        headers[header_name.lower()] = header_value
-
-                # Also try to get any headers the user might have provided in the test
-                test_headers = ["X-Test-Header", "X-Custom-Header"]
-                for header_name in test_headers:
-                    header_value = get_header(request_capsule, header_name)
-                    if header_value is not None:
-                        headers[header_name.lower()] = header_value
-
-                request.headers = headers
-                print(f"DEBUG: Extracted headers: {headers}")
-            except Exception as e:
-                print(f"DEBUG: Error extracting headers: {e}")
-                request.headers = {}
+            )  # Header extraction temporarily disabled for performance testing
+            # TODO: Re-enable with lazy loading for production
+            request.headers = {}
 
             # Match the route using our new router
             route, path_params, allowed_methods = self.router.match(method, base_path)

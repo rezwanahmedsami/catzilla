@@ -245,6 +245,25 @@ class Request:
                 self._files = {}
         return self._files
 
+    def get_header(self, name: str) -> Optional[str]:
+        """Get a request header by name using lazy loading from C"""
+        try:
+            from catzilla._catzilla import get_header
+
+            # Only extract the specific header when requested
+            header_value = get_header(self.request_capsule, name)
+            log_types_debug("Got header from C: %s=%s", name, header_value)
+            return header_value
+        except Exception as e:
+            log_types_error("Error getting header from C: %s", e)
+            # Fallback to pre-loaded headers if available
+            return self.headers.get(name.lower()) if self.headers else None
+
+    @property
+    def raw_headers(self) -> Dict[str, str]:
+        """Get all request headers as a dictionary"""
+        return {k.lower(): v for k, v in self.headers.items()}
+
 
 class Response:
     """Base HTTP Response class"""

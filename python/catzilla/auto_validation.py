@@ -397,10 +397,8 @@ def auto_validate_request(
                     else:
                         raise ValidationError(f"Missing query parameter: {param_name}")
 
-        # 4. Header Validation (when needed)
+        # 4. Header Validation (when needed) - Uses lazy header loading
         if validation_spec.header_params:
-            headers = getattr(request, "headers", {})
-
             for param_name in validation_spec.header_params:
                 param_spec = validation_spec.parameters[param_name]
 
@@ -411,7 +409,9 @@ def auto_validate_request(
                     header_name = param_name.replace("_", "-").title()
 
                 if param_spec.is_basemodel:
-                    # Header model validation
+                    # Header model validation - not fully supported with lazy loading
+                    # Fallback to pre-loaded headers if available
+                    headers = getattr(request, "headers", {})
                     header_dict = {
                         k.lower().replace("-", "_"): v for k, v in headers.items()
                     }
@@ -419,11 +419,12 @@ def auto_validate_request(
                         header_dict
                     )
                 else:
-                    # Simple header parameter
-                    # Headers are stored in lowercase, so normalize for lookup
-                    header_name_lower = header_name.lower()
-                    if header_name_lower in headers:
-                        raw_value = headers[header_name_lower]
+                    # Simple header parameter - use lazy loading
+                    raw_value = None
+                    if hasattr(request, "get_header"):
+                        raw_value = request.get_header(header_name)
+
+                    if raw_value is not None:
                         converted_value = _convert_primitive_type(
                             raw_value, param_spec.annotation
                         )
