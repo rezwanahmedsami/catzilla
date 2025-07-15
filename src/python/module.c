@@ -2018,7 +2018,7 @@ static PyObject* get_memory_stats(PyObject *self, PyObject *args)
         "active", (unsigned long long)stats.active,
         "metadata", (unsigned long long)stats.metadata,
         "resident", (unsigned long long)stats.resident,
-               "fragmentation_ratio", stats.fragmentation_ratio,
+                             "fragmentation_ratio", stats.fragmentation_ratio,
         "allocation_count", (unsigned long long)stats.allocation_count,
         "deallocation_count", (unsigned long long)stats.deallocation_count,
         "memory_efficiency_score", stats.memory_efficiency_score,
@@ -2031,7 +2031,61 @@ static PyObject* get_memory_stats(PyObject *self, PyObject *args)
     );
 }
 
-// ============================================================================// VALIDATION ENGINE TYPE DEFINITIONS
+// Parse multipart form data from request
+static PyObject* multipart_parse(PyObject *self, PyObject *args) {
+    PyObject* manager_capsule = NULL;  // Not used for now, keep for compatibility
+    const char* content_type;
+    const char* data;
+    Py_ssize_t data_len;
+
+    if (!PyArg_ParseTuple(args, "Oss#", &manager_capsule, &content_type, &data, &data_len))
+        return NULL;
+
+    if (!content_type || !data) {
+        PyErr_SetString(PyExc_ValueError, "Invalid content type or data");
+        return NULL;
+    }
+
+    // Create a temporary request structure for parsing
+    catzilla_request_t temp_request = {0};
+    temp_request.content_type = CONTENT_TYPE_MULTIPART;
+    temp_request.body = (char*)data;
+    temp_request.body_length = data_len;
+
+    // Create a dummy client context for parsing with content type
+    struct {
+        const char* content_type_header;
+    } dummy_context;
+    dummy_context.content_type_header = content_type;
+
+    // Parse multipart data
+    int parse_result = catzilla_parse_multipart_with_context(&temp_request, &dummy_context);
+
+    PyObject* result_dict = PyDict_New();
+    if (!result_dict) {
+        return NULL;
+    }
+
+    if (parse_result == 0) {
+        // Extract form fields from parsed data
+        for (int i = 0; i < temp_request.form_field_count; i++) {
+            PyObject* key = PyUnicode_FromString(temp_request.form_fields[i]);
+            PyObject* value = PyUnicode_FromString(temp_request.form_values[i]);
+            if (key && value) {
+                PyDict_SetItem(result_dict, key, value);
+            }
+            Py_XDECREF(key);
+            Py_XDECREF(value);
+        }
+    }
+
+    // No need to cleanup allocated memory since we use the original content_type string
+
+    return result_dict;
+}
+
+// ============================================================================
+// VALIDATOR ENGINE TYPE DEFINITIONS
 // ============================================================================
 
 // Validator methods
@@ -2326,6 +2380,7 @@ static PyMethodDef module_methods[] = {
     {"parse_json", parse_json, METH_VARARGS, "Parse JSON from request"},
     {"get_json", get_json, METH_VARARGS, "Get parsed JSON from request"},
     {"parse_form", parse_form, METH_VARARGS, "Parse form data from request"},
+    {"multipart_parse", multipart_parse, METH_VARARGS, "Parse multipart form data"},
     {"get_form_field", get_form_field, METH_VARARGS, "Get form field value"},
     {"get_header", get_header, METH_VARARGS, "Get header value from request"},
     {"get_files", get_files, METH_VARARGS, "Get uploaded files from request"},

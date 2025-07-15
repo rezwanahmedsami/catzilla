@@ -126,15 +126,21 @@ class Request:
         """Parse body as form data"""
         if self._parsed_form is None:
             try:
-                from catzilla._catzilla import get_form_field, parse_form
+                from catzilla._catzilla import (
+                    get_form_field,
+                    multipart_parse,
+                    parse_form,
+                )
 
                 log_types_debug(
                     "Attempting to parse form data with content type: %s",
                     self.content_type,
                 )
+
+                self._parsed_form = {}
+
                 if self.content_type == "application/x-www-form-urlencoded":
-                    self._parsed_form = {}
-                    # Try to get form fields from already parsed data
+                    # Handle URL-encoded form data
                     if self.body:
                         for pair in self.body.split("&"):
                             if "=" in pair:
@@ -169,9 +175,88 @@ class Request:
                                             self._parsed_form[key] = value
                             else:
                                 log_types_debug("Failed to parse form data in C")
+
+                elif self.content_type and "multipart/form-data" in self.content_type:
+                    # Handle multipart form data by extracting text fields from files
+                    log_types_debug(
+                        "Parsing multipart form data by extracting text fields from files"
+                    )
+                    try:
+                        # Get files parsed by multipart parser
+                        files = self.files  # Property, not method
+                        log_types_debug("Got files dict: %s", files)
+                        if files and isinstance(files, dict):
+                            # Extract text fields (non-file uploads) from the files dict
+                            for field_name, file_info in files.items():
+                                log_types_debug(
+                                    "Processing file: %s -> %s", field_name, file_info
+                                )
+                                if isinstance(file_info, dict):
+                                    # Check if this is a text field (no real filename, small size)
+                                    filename = file_info.get("filename", "")
+                                    size = file_info.get("size", 0)
+                                    content_type = file_info.get("content_type", "")
+                                    content = file_info.get("content", "")
+
+                                    log_types_debug(
+                                        "Field %s: filename=%s, size=%d, content_type=%s, content_type=%s",
+                                        field_name,
+                                        filename,
+                                        size,
+                                        content_type,
+                                        type(content),
+                                    )
+
+                                    # Text fields typically have filename="unknown" or empty, and reasonable size
+                                    if (
+                                        filename in ["unknown", "", None]
+                                        and size < 1024
+                                        and content_type  # Less than 1KB - likely text field
+                                        in [
+                                            "application/octet-stream",
+                                            "text/plain",
+                                            "",
+                                        ]
+                                    ):
+
+                                        # Try to read the content as text
+                                        if isinstance(content, bytes):
+                                            content = content.decode(
+                                                "utf-8", errors="ignore"
+                                            )
+                                        elif isinstance(content, str):
+                                            pass  # Already a string
+                                        else:
+                                            content = str(content)
+
+                                        self._parsed_form[field_name] = content
+                                        log_types_debug(
+                                            "Extracted text field from multipart: %s=%s",
+                                            field_name,
+                                            content,
+                                        )
+
+                            log_types_debug(
+                                "Successfully extracted %d form fields from multipart data",
+                                len(self._parsed_form),
+                            )
+                        else:
+                            log_types_debug("No files found in multipart data")
+                    except Exception as multipart_error:
+                        log_types_error(
+                            "Multipart form field extraction failed: %s",
+                            multipart_error,
+                        )
+                        import traceback
+
+                        log_types_error("Traceback: %s", traceback.format_exc())
+                        # No fallback for multipart - it either works or doesn't
                 else:
-                    log_types_debug("Not form content type")
-                    self._parsed_form = {}
+                    log_types_debug(
+                        "Unsupported content type for form parsing: %s",
+                        self.content_type,
+                    )
+
             except Exception as e:
                 log_types_error("Form parsing error: %s", e)
                 self._parsed_form = {}

@@ -180,7 +180,7 @@ def contact_form(
     """Contact form with comprehensive form validation"""
 
     return JSONResponse({
-        "message": "Contact form submitted successfully",
+        "message": message,
         "contact": {
             "name": name,
             "email": email,

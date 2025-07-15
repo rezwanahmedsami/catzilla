@@ -409,15 +409,31 @@ def auto_validate_request(
                     header_name = param_name.replace("_", "-").title()
 
                 if param_spec.is_basemodel:
-                    # Header model validation - not fully supported with lazy loading
-                    # Fallback to pre-loaded headers if available
-                    headers = getattr(request, "headers", {})
-                    header_dict = {
-                        k.lower().replace("-", "_"): v for k, v in headers.items()
-                    }
-                    validated_params[param_name] = param_spec.annotation.validate(
-                        header_dict
-                    )
+                    # Enhanced BaseModel header validation with lazy loading
+                    model_class = param_spec.annotation
+                    model_fields = getattr(model_class, "__fields__", {})
+
+                    # Build header dict on-demand using lazy loading
+                    header_data = {}
+                    for field_name, field_info in model_fields.items():
+                        # Map model field to HTTP header name
+                        header_name_for_field = getattr(
+                            field_info, "alias", None
+                        ) or field_name.replace("_", "-")
+                        header_value = request.get_header(header_name_for_field)
+
+                        if header_value is not None:
+                            header_data[field_name] = header_value
+                        elif getattr(field_info, "required", True):
+                            raise ValidationError(
+                                f"Missing required header for model field: {field_name} (header: {header_name_for_field})"
+                            )
+
+                    # Validate the complete model
+                    try:
+                        validated_params[param_name] = model_class.validate(header_data)
+                    except ValidationError as e:
+                        raise ValidationError(f"Header model validation failed: {e}")
                 else:
                     # Simple header parameter - use lazy loading
                     raw_value = None
@@ -445,9 +461,34 @@ def auto_validate_request(
 
         # 5. Form Data Validation (when needed)
         if validation_spec.form_params:
-            # Note: Form data parsing would be implemented here
-            # For now, we'll raise a not implemented error
-            raise ValidationError("Form data validation not yet implemented")
+            # Parse form data using existing C functions
+            try:
+                form_data = request.form()  # This calls the C parser
+            except Exception as e:
+                raise ValidationError(f"Failed to parse form data: {e}")
+
+            for param_name in validation_spec.form_params:
+                param_spec = validation_spec.parameters[param_name]
+                field_name = param_spec.default.alias or param_name
+
+                if field_name in form_data:
+                    raw_value = form_data[field_name]
+                    try:
+                        converted_value = _convert_primitive_type(
+                            raw_value, param_spec.annotation
+                        )
+                        _validate_constraints(converted_value, param_spec.default)
+                        validated_params[param_name] = converted_value
+                    except (ValueError, TypeError) as e:
+                        raise ValidationError(f"Invalid {param_name}: {e}")
+                elif param_spec.default and param_spec.default.default is ...:
+                    raise ValidationError(f"Missing required form field: {field_name}")
+                else:
+                    # Use default value
+                    default_val = (
+                        param_spec.default.default if param_spec.default else None
+                    )
+                    validated_params[param_name] = default_val
 
         # 6. File Parameter Processing (multipart/form-data)
         if validation_spec.file_params:
@@ -585,12 +626,36 @@ def auto_validate_request(
 
 def _convert_primitive_type(value: str, target_type: Type) -> Any:
     """Convert string value to target primitive type"""
+    import typing
+
+    # Handle Optional types (Union[X, None])
+    if hasattr(typing, "get_origin") and hasattr(typing, "get_args"):
+        origin = typing.get_origin(target_type)
+        if origin is Union:
+            args = typing.get_args(target_type)
+            # Check if this is Optional[X] (Union[X, NoneType])
+            if len(args) == 2 and type(None) in args:
+                # Find the non-None type
+                actual_type = args[0] if args[1] is type(None) else args[1]
+                return _convert_primitive_type(value, actual_type)
+
     if target_type == str or target_type == Any:
         return value
     elif target_type == int:
         return int(value)
     elif target_type == float:
-        return float(value)
+        try:
+            # Handle scientific notation and edge cases
+            cleaned_value = value.strip().replace(",", ".")  # Handle EU decimals
+            if cleaned_value.lower() in ("inf", "infinity", "+inf", "+infinity"):
+                return float("inf")
+            elif cleaned_value.lower() in ("-inf", "-infinity"):
+                return float("-inf")
+            elif cleaned_value.lower() in ("nan", "na", "n/a"):
+                return float("nan")
+            return float(cleaned_value)
+        except ValueError:
+            raise ValidationError(f"Invalid float value: '{value}'")
     elif target_type == bool:
         return value.lower() in ("true", "1", "yes", "on")
     else:
