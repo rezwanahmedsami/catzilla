@@ -1,529 +1,480 @@
+#!/usr/bin/env python3
 """
-Service Factories Example
+🏭 Catzilla DI Factory Patterns Example
 
-This example demonstrates Catzilla's advanced service factory system
-for creating configurable and conditional services with DI.
+This example demonstrates advanced factory patterns in Catzilla's DI system.
+Shows how to create complex service instantiation patterns.
 
-Features demonstrated:
-- Service factories (Class, Function, Conditional)
-- Factory configuration and parameters
-- Conditional service creation based on environment
-- Factory registry and management
-- Service lifecycle management
+Features:
+- Simple factory functions
+- Builder pattern factories
+- Conditional factory resolution
+- Service factory abstraction
+- Advanced configuration-based factories
 """
 
-from catzilla import (
-    Catzilla, Request, Response, JSONResponse,
-    FactoryRegistry, ClassFactory, FunctionFactory, ConditionalFactory,
-    SingletonFactory, ConfigurableFactory, FactoryConfig,
-    create_class_factory, create_function_factory, create_conditional_factory,
-    factory, register_service, Depends
-)
-import os
-from typing import Dict, Any, Protocol, Optional
-from dataclasses import dataclass
+import time
+from datetime import datetime
+from typing import Dict, List, Optional, Any, Protocol
 from abc import ABC, abstractmethod
 
-# Initialize Catzilla with factory system
-app = Catzilla(
-    production=False,
-    show_banner=True,
-    log_requests=True,
-    enable_di=True
-)
+from catzilla import Catzilla, service, Depends, JSONResponse
+from catzilla.dependency_injection import set_default_container
 
-# Configuration classes
-@dataclass
-class EmailConfig:
-    """Email service configuration"""
-    provider: str
-    api_key: str
-    from_address: str
-    rate_limit: int = 100
+# ============================================================================
+# SETUP APPLICATION
+# ============================================================================
 
-@dataclass
-class StorageConfig:
-    """Storage service configuration"""
-    provider: str
-    bucket: str
-    region: str
-    max_file_size: int = 10485760  # 10MB
+app = Catzilla(enable_di=True)
+set_default_container(app.di_container)
 
-# Service interfaces
-class EmailService(ABC):
-    """Email service interface"""
+print("🏭 Catzilla DI Factory Patterns Example")
+print("=" * 50)
+
+# ============================================================================
+# 1. SIMPLE FACTORY FUNCTIONS
+# ============================================================================
+
+@service("config", scope="singleton")
+class Config:
+    """Application configuration"""
+
+    def __init__(self):
+        self.environment = "development"
+        self.debug = True
+        self.database_url = "postgresql://localhost:5432/app"
+        self.cache_ttl = 300
+        self.log_level = "INFO"
+        print(f"📋 Config initialized for {self.environment}")
+
+# Factory function for creating database connections
+def create_database_connection(config: Config) -> Dict[str, Any]:
+    """Factory function to create database connection"""
+    print(f"🔌 Creating database connection to {config.database_url}")
+
+    # Simulate database connection creation
+    time.sleep(0.1)
+
+    return {
+        "connection": f"Connection({config.database_url})",
+        "pool_size": 10,
+        "timeout": 30,
+        "created_at": datetime.now().isoformat()
+    }
+
+# Register factory function as service
+@service("database", scope="singleton")
+def database_service(config: Config = Depends("config")):
+    """Database service using factory function"""
+    return create_database_connection(config)
+
+# ============================================================================
+# 2. BUILDER PATTERN FACTORY
+# ============================================================================
+
+class CacheBuilder:
+    """Builder pattern for cache configuration"""
+
+    def __init__(self):
+        self._config = {
+            "type": "memory",
+            "max_size": 1000,
+            "ttl": 300,
+            "eviction_policy": "lru"
+        }
+
+    def with_type(self, cache_type: str):
+        self._config["type"] = cache_type
+        return self
+
+    def with_max_size(self, size: int):
+        self._config["max_size"] = size
+        return self
+
+    def with_ttl(self, ttl: int):
+        self._config["ttl"] = ttl
+        return self
+
+    def with_eviction_policy(self, policy: str):
+        self._config["eviction_policy"] = policy
+        return self
+
+    def build(self) -> Dict[str, Any]:
+        print(f"🏗️  Building cache with config: {self._config}")
+        return {
+            "cache_instance": f"Cache({self._config['type']})",
+            "config": self._config,
+            "created_at": datetime.now().isoformat()
+        }
+
+@service("cache", scope="singleton")
+def cache_service(config: Config = Depends("config")):
+    """Cache service using builder pattern"""
+    builder = CacheBuilder()
+
+    # Configure based on environment
+    if config.environment == "production":
+        builder = (builder
+                  .with_type("redis")
+                  .with_max_size(10000)
+                  .with_ttl(3600)
+                  .with_eviction_policy("lru"))
+    else:
+        builder = (builder
+                  .with_type("memory")
+                  .with_max_size(1000)
+                  .with_ttl(config.cache_ttl))
+
+    return builder.build()
+
+# ============================================================================
+# 3. CONDITIONAL FACTORY RESOLUTION
+# ============================================================================
+
+class Logger(ABC):
+    """Abstract logger interface"""
 
     @abstractmethod
-    def send_email(self, to: str, subject: str, body: str) -> Dict[str, Any]:
+    def log(self, message: str, level: str = "INFO"):
         pass
 
-    @abstractmethod
-    def get_service_info(self) -> Dict[str, Any]:
+class FileLogger(Logger):
+    """File-based logger implementation"""
+
+    def __init__(self, filename: str):
+        self.filename = filename
+        self.logs = []
+        print(f"📁 FileLogger initialized: {filename}")
+
+    def log(self, message: str, level: str = "INFO"):
+        entry = f"[{level}] {datetime.now().isoformat()}: {message}"
+        self.logs.append(entry)
+        print(f"FILE LOG: {entry}")
+
+class ConsoleLogger(Logger):
+    """Console-based logger implementation"""
+
+    def __init__(self):
+        self.logs = []
+        print("🖥️  ConsoleLogger initialized")
+
+    def log(self, message: str, level: str = "INFO"):
+        entry = f"[{level}] {datetime.now().isoformat()}: {message}"
+        self.logs.append(entry)
+        print(f"CONSOLE LOG: {entry}")
+
+# Conditional factory for logger
+@service("logger", scope="singleton")
+def logger_factory(config: Config = Depends("config")) -> Logger:
+    """Conditional factory for logger based on environment"""
+
+    if config.environment == "production":
+        return FileLogger("app.log")
+    else:
+        return ConsoleLogger()
+
+# ============================================================================
+# 4. ABSTRACT FACTORY PATTERN
+# ============================================================================
+
+class ServiceFactory(Protocol):
+    """Abstract factory interface"""
+
+    def create_user_service(self) -> Any:
+        """Create user service"""
         pass
 
-class StorageService(ABC):
-    """Storage service interface"""
-
-    @abstractmethod
-    def upload_file(self, filename: str, content: bytes) -> Dict[str, Any]:
+    def create_auth_service(self) -> Any:
+        """Create auth service"""
         pass
 
-    @abstractmethod
-    def get_service_info(self) -> Dict[str, Any]:
-        pass
+class DevelopmentServiceFactory:
+    """Development environment service factory"""
 
-# Concrete implementations
-class SMTPEmailService(EmailService):
-    """SMTP email service implementation"""
-
-    def __init__(self, config: EmailConfig):
+    def __init__(self, config: Config):
         self.config = config
-        self.sent_count = 0
-        print(f"📧 SMTP Email Service initialized: {config.provider}")
+        print("🧪 Development service factory initialized")
 
-    def send_email(self, to: str, subject: str, body: str) -> Dict[str, Any]:
-        self.sent_count += 1
+    def create_user_service(self):
         return {
-            "provider": "smtp",
-            "to": to,
-            "subject": subject,
-            "message_id": f"smtp_{self.sent_count}",
-            "status": "sent",
-            "from": self.config.from_address
+            "type": "MockUserService",
+            "data": ["user1", "user2", "user3"],
+            "config": self.config.environment
         }
 
-    def get_service_info(self) -> Dict[str, Any]:
+    def create_auth_service(self):
         return {
-            "type": "SMTPEmailService",
-            "provider": self.config.provider,
-            "from_address": self.config.from_address,
-            "rate_limit": self.config.rate_limit,
-            "sent_count": self.sent_count
+            "type": "MockAuthService",
+            "auth_required": False,
+            "config": self.config.environment
         }
 
-class SendGridEmailService(EmailService):
-    """SendGrid email service implementation"""
+class ProductionServiceFactory:
+    """Production environment service factory"""
 
-    def __init__(self, config: EmailConfig):
+    def __init__(self, config: Config):
         self.config = config
-        self.sent_count = 0
-        print(f"📧 SendGrid Email Service initialized: {config.provider}")
+        print("🏭 Production service factory initialized")
 
-    def send_email(self, to: str, subject: str, body: str) -> Dict[str, Any]:
-        self.sent_count += 1
+    def create_user_service(self):
         return {
-            "provider": "sendgrid",
-            "to": to,
-            "subject": subject,
-            "message_id": f"sg_{self.sent_count}",
-            "status": "sent",
-            "api_version": "v3"
+            "type": "RealUserService",
+            "connection": "postgresql://...",
+            "config": self.config.environment
         }
 
-    def get_service_info(self) -> Dict[str, Any]:
+    def create_auth_service(self):
         return {
-            "type": "SendGridEmailService",
-            "provider": self.config.provider,
-            "api_key": self.config.api_key[:8] + "***",
-            "rate_limit": self.config.rate_limit,
-            "sent_count": self.sent_count
+            "type": "RealAuthService",
+            "auth_required": True,
+            "jwt_secret": "secure_secret",
+            "config": self.config.environment
         }
 
-class LocalStorageService(StorageService):
-    """Local file storage service"""
+@service("service_factory", scope="singleton")
+def service_factory(config: Config = Depends("config")) -> ServiceFactory:
+    """Abstract factory for creating services"""
 
-    def __init__(self, config: StorageConfig):
+    if config.environment == "production":
+        return ProductionServiceFactory(config)
+    else:
+        return DevelopmentServiceFactory(config)
+
+# ============================================================================
+# 5. COMPLEX FACTORY WITH DEPENDENCIES
+# ============================================================================
+
+class ApplicationContext:
+    """Complex application context with multiple dependencies"""
+
+    def __init__(self, config: Config, database: Dict, cache: Dict, logger: Logger):
         self.config = config
-        self.uploaded_files = []
-        print(f"💾 Local Storage Service initialized: {config.provider}")
+        self.database = database
+        self.cache = cache
+        self.logger = logger
+        self.startup_time = datetime.now()
 
-    def upload_file(self, filename: str, content: bytes) -> Dict[str, Any]:
-        file_info = {
-            "filename": filename,
-            "size": len(content),
-            "provider": "local",
-            "path": f"/local/storage/{filename}",
-            "uploaded_at": "2024-01-15T10:30:00Z"
-        }
-        self.uploaded_files.append(file_info)
-        return file_info
+        print("🚀 Application context initialized")
+        logger.log("Application context created", "INFO")
 
-    def get_service_info(self) -> Dict[str, Any]:
+    def get_status(self) -> Dict[str, Any]:
+        """Get application status"""
         return {
-            "type": "LocalStorageService",
-            "provider": self.config.provider,
-            "max_file_size": self.config.max_file_size,
-            "uploaded_count": len(self.uploaded_files)
+            "environment": self.config.environment,
+            "database_status": "connected",
+            "cache_status": "active",
+            "uptime": (datetime.now() - self.startup_time).total_seconds(),
+            "log_entries": len(self.logger.logs)
         }
 
-class S3StorageService(StorageService):
-    """AWS S3 storage service"""
+@service("app_context", scope="singleton")
+def application_context_factory(
+    config: Config = Depends("config"),
+    database: Dict = Depends("database"),
+    cache: Dict = Depends("cache"),
+    logger: Logger = Depends("logger")
+) -> ApplicationContext:
+    """Factory for creating application context with all dependencies"""
 
-    def __init__(self, config: StorageConfig):
-        self.config = config
-        self.uploaded_files = []
-        print(f"☁️  S3 Storage Service initialized: {config.provider}")
+    return ApplicationContext(config, database, cache, logger)
 
-    def upload_file(self, filename: str, content: bytes) -> Dict[str, Any]:
-        file_info = {
-            "filename": filename,
-            "size": len(content),
-            "provider": "s3",
-            "bucket": self.config.bucket,
-            "region": self.config.region,
-            "url": f"https://{self.config.bucket}.s3.{self.config.region}.amazonaws.com/{filename}",
-            "uploaded_at": "2024-01-15T10:30:00Z"
-        }
-        self.uploaded_files.append(file_info)
-        return file_info
+# ============================================================================
+# 6. LAZY FACTORY PATTERN
+# ============================================================================
 
-    def get_service_info(self) -> Dict[str, Any]:
-        return {
-            "type": "S3StorageService",
-            "provider": self.config.provider,
-            "bucket": self.config.bucket,
-            "region": self.config.region,
-            "max_file_size": self.config.max_file_size,
-            "uploaded_count": len(self.uploaded_files)
-        }
+class LazyServiceWrapper:
+    """Wrapper for lazy service initialization"""
 
-# Factory functions
-def create_email_service(config: EmailConfig) -> EmailService:
-    """Factory function to create email service based on configuration"""
-    if config.provider == "sendgrid":
-        return SendGridEmailService(config)
-    else:
-        return SMTPEmailService(config)
+    def __init__(self, factory_func, *args, **kwargs):
+        self.factory_func = factory_func
+        self.args = args
+        self.kwargs = kwargs
+        self._instance = None
+        self._initialized = False
+        print("💤 Lazy service wrapper created")
 
-def create_storage_service(config: StorageConfig) -> StorageService:
-    """Factory function to create storage service based on configuration"""
-    if config.provider == "s3":
-        return S3StorageService(config)
-    else:
-        return LocalStorageService(config)
+    def get_instance(self):
+        """Get the service instance (lazy initialization)"""
+        if not self._initialized:
+            print("⚡ Lazy service being initialized...")
+            self._instance = self.factory_func(*self.args, **self.kwargs)
+            self._initialized = True
+        return self._instance
 
-# Environment-based service selection
-def get_email_config() -> EmailConfig:
-    """Get email configuration based on environment"""
-    env = os.getenv("ENV", "development")
+def create_expensive_service(config: Config) -> Dict[str, Any]:
+    """Simulate expensive service creation"""
+    print("💰 Creating expensive service...")
+    time.sleep(0.5)  # Simulate expensive operation
 
-    if env == "production":
-        return EmailConfig(
-            provider="sendgrid",
-            api_key=os.getenv("SENDGRID_API_KEY", "sg_test_key"),
-            from_address="noreply@catzilla.com",
-            rate_limit=1000
-        )
-    else:
-        return EmailConfig(
-            provider="smtp",
-            api_key="smtp_dev_key",
-            from_address="dev@catzilla.com",
-            rate_limit=10
-        )
+    return {
+        "type": "ExpensiveService",
+        "initialized": True,
+        "cost": "high",
+        "config": config.environment
+    }
 
-def get_storage_config() -> StorageConfig:
-    """Get storage configuration based on environment"""
-    env = os.getenv("ENV", "development")
+@service("expensive_service", scope="singleton")
+def expensive_service_factory(config: Config = Depends("config")) -> LazyServiceWrapper:
+    """Factory for lazy expensive service"""
 
-    if env == "production":
-        return StorageConfig(
-            provider="s3",
-            bucket="catzilla-prod",
-            region="us-east-1",
-            max_file_size=52428800  # 50MB
-        )
-    else:
-        return StorageConfig(
-            provider="local",
-            bucket="local-dev",
-            region="local",
-            max_file_size=10485760  # 10MB
-        )
+    return LazyServiceWrapper(create_expensive_service, config)
 
-# Setup factories
-@app.on_startup
-def setup_factories():
-    """Setup service factories"""
-    factory_registry = app.di_container.factory_registry
-
-    # Register configuration factories
-    factory_registry.register("email_config", create_function_factory(get_email_config))
-    factory_registry.register("storage_config", create_function_factory(get_storage_config))
-
-    # Register conditional service factories
-    email_factory = create_conditional_factory(
-        condition=lambda: get_email_config().provider == "sendgrid",
-        true_factory=create_class_factory(SendGridEmailService),
-        false_factory=create_class_factory(SMTPEmailService)
-    )
-    factory_registry.register("email_service", email_factory)
-
-    storage_factory = create_conditional_factory(
-        condition=lambda: get_storage_config().provider == "s3",
-        true_factory=create_class_factory(S3StorageService),
-        false_factory=create_class_factory(LocalStorageService)
-    )
-    factory_registry.register("storage_service", storage_factory)
-
-    # Register as singleton services
-    register_service(EmailConfig, factory="email_config", scope="singleton")
-    register_service(StorageConfig, factory="storage_config", scope="singleton")
-    register_service(EmailService, factory="email_service", scope="singleton")
-    register_service(StorageService, factory="storage_service", scope="singleton")
-
-    print("✅ Service factories registered")
+# ============================================================================
+# 7. ROUTE HANDLERS DEMONSTRATING FACTORY PATTERNS
+# ============================================================================
 
 @app.get("/")
-def home(request: Request) -> Response:
-    """Home endpoint with factory system info"""
+def home(request):
+    """Home page showing factory patterns"""
     return JSONResponse({
-        "message": "Catzilla Service Factories Example",
-        "features": [
-            "Service factories (Class, Function, Conditional)",
-            "Environment-based service selection",
-            "Factory configuration and parameters",
-            "Factory registry management",
-            "Conditional service creation"
-        ],
-        "environment": os.getenv("ENV", "development"),
-        "factory_types": [
-            "ClassFactory", "FunctionFactory", "ConditionalFactory",
-            "SingletonFactory", "ConfigurableFactory"
+        "message": "🏭 Catzilla DI Factory Patterns Demo",
+        "patterns": [
+            "Simple factory functions",
+            "Builder pattern factories",
+            "Conditional factory resolution",
+            "Abstract factory pattern",
+            "Complex factories with dependencies",
+            "Lazy initialization factories"
         ]
     })
 
-@app.post("/api/email/send")
-def send_email(
-    request: Request,
-    email_service: EmailService = Depends()
-) -> Response:
-    """Send email using factory-created service"""
-    try:
-        data = request.json()
-        to = data["to"]
-        subject = data["subject"]
-        body = data["body"]
+@app.get("/services/simple")
+def simple_factory_demo(request):
+    """Demonstrate simple factory pattern"""
 
-        result = email_service.send_email(to, subject, body)
-        service_info = email_service.get_service_info()
+    # Get services created by simple factories
+    database = app.di_container.resolve("database")
 
-        return JSONResponse({
-            "message": "Email sent successfully",
-            "result": result,
-            "service_info": service_info
-        })
-
-    except Exception as e:
-        return JSONResponse({
-            "error": "Failed to send email",
-            "details": str(e)
-        }, status_code=400)
-
-@app.post("/api/storage/upload")
-def upload_file(
-    request: Request,
-    storage_service: StorageService = Depends()
-) -> Response:
-    """Upload file using factory-created service"""
-    try:
-        data = request.json()
-        filename = data["filename"]
-        content = data["content"].encode()  # Simulate file content
-
-        result = storage_service.upload_file(filename, content)
-        service_info = storage_service.get_service_info()
-
-        return JSONResponse({
-            "message": "File uploaded successfully",
-            "result": result,
-            "service_info": service_info
-        })
-
-    except Exception as e:
-        return JSONResponse({
-            "error": "Failed to upload file",
-            "details": str(e)
-        }, status_code=400)
-
-@app.get("/api/services/info")
-def get_services_info(
-    request: Request,
-    email_service: EmailService = Depends(),
-    storage_service: StorageService = Depends(),
-    email_config: EmailConfig = Depends(),
-    storage_config: StorageConfig = Depends()
-) -> Response:
-    """Get information about factory-created services"""
     return JSONResponse({
-        "services": {
-            "email": email_service.get_service_info(),
-            "storage": storage_service.get_service_info()
-        },
-        "configurations": {
-            "email": {
-                "provider": email_config.provider,
-                "from_address": email_config.from_address,
-                "rate_limit": email_config.rate_limit
-            },
-            "storage": {
-                "provider": storage_config.provider,
-                "bucket": storage_config.bucket,
-                "region": storage_config.region,
-                "max_file_size": storage_config.max_file_size
-            }
-        },
-        "environment": os.getenv("ENV", "development"),
-        "factory_selection": {
-            "email": "conditional based on provider",
-            "storage": "conditional based on provider"
-        }
+        "pattern": "Simple Factory",
+        "database_service": database,
+        "description": "Services created by simple factory functions"
     })
 
-@app.get("/api/factories/registry")
-def get_factory_registry(request: Request) -> Response:
-    """Get factory registry information"""
-    factory_registry = app.di_container.factory_registry
+@app.get("/services/builder")
+def builder_pattern_demo(request):
+    """Demonstrate builder pattern"""
+
+    cache = app.di_container.resolve("cache")
 
     return JSONResponse({
-        "registered_factories": {
-            "email_config": "FunctionFactory(get_email_config)",
-            "storage_config": "FunctionFactory(get_storage_config)",
-            "email_service": "ConditionalFactory(SendGrid|SMTP)",
-            "storage_service": "ConditionalFactory(S3|Local)"
-        },
-        "factory_types": {
-            "ClassFactory": "Creates instances from class constructors",
-            "FunctionFactory": "Creates instances from factory functions",
-            "ConditionalFactory": "Selects factory based on condition",
-            "SingletonFactory": "Ensures single instance creation",
-            "ConfigurableFactory": "Creates instances with configuration"
-        },
-        "environment_conditions": {
-            "email": f"Provider: {get_email_config().provider}",
-            "storage": f"Provider: {get_storage_config().provider}"
-        }
+        "pattern": "Builder Pattern",
+        "cache_service": cache,
+        "description": "Service configured using builder pattern"
     })
 
-@app.post("/api/environment/switch")
-def switch_environment(request: Request) -> Response:
-    """Switch environment for testing factory conditions"""
-    try:
-        data = request.json()
-        new_env = data.get("environment", "development")
+@app.get("/services/conditional")
+def conditional_factory_demo(request):
+    """Demonstrate conditional factory"""
 
-        # Set environment variable
-        os.environ["ENV"] = new_env
+    logger = app.di_container.resolve("logger")
+    logger.log("Conditional factory demo accessed", "INFO")
 
-        # Get new configurations
-        email_config = get_email_config()
-        storage_config = get_storage_config()
-
-        return JSONResponse({
-            "message": f"Environment switched to {new_env}",
-            "new_configurations": {
-                "email": {
-                    "provider": email_config.provider,
-                    "from_address": email_config.from_address
-                },
-                "storage": {
-                    "provider": storage_config.provider,
-                    "bucket": storage_config.bucket
-                }
-            },
-            "note": "Restart required for changes to take effect in DI services"
-        })
-
-    except Exception as e:
-        return JSONResponse({
-            "error": "Failed to switch environment",
-            "details": str(e)
-        }, status_code=400)
-
-@app.get("/factories/examples")
-def get_factory_examples(request: Request) -> Response:
-    """Get examples for testing service factories"""
     return JSONResponse({
-        "examples": {
-            "send_email": {
-                "url": "/api/email/send",
-                "method": "POST",
-                "payload": {
-                    "to": "user@example.com",
-                    "subject": "Factory Test Email",
-                    "body": "This email was sent using a factory-created service!"
-                }
-            },
-            "upload_file": {
-                "url": "/api/storage/upload",
-                "method": "POST",
-                "payload": {
-                    "filename": "test.txt",
-                    "content": "Hello from factory-created storage service!"
-                }
-            },
-            "switch_environment": {
-                "url": "/api/environment/switch",
-                "method": "POST",
-                "payload": {
-                    "environment": "production"
-                }
-            }
-        },
-        "testing_scenarios": {
-            "development": {
-                "email": "SMTP service",
-                "storage": "Local storage"
-            },
-            "production": {
-                "email": "SendGrid service",
-                "storage": "S3 storage"
-            }
-        },
-        "factory_features": [
-            "Environment-based service selection",
-            "Conditional factory creation",
-            "Configuration-driven services",
-            "Factory registry management"
-        ]
+        "pattern": "Conditional Factory",
+        "logger_type": type(logger).__name__,
+        "recent_logs": logger.logs[-3:] if logger.logs else [],
+        "description": "Logger created based on environment condition"
+    })
+
+@app.get("/services/abstract")
+def abstract_factory_demo(request):
+    """Demonstrate abstract factory pattern"""
+
+    service_factory = app.di_container.resolve("service_factory")
+
+    user_service = service_factory.create_user_service()
+    auth_service = service_factory.create_auth_service()
+
+    return JSONResponse({
+        "pattern": "Abstract Factory",
+        "user_service": user_service,
+        "auth_service": auth_service,
+        "description": "Services created by abstract factory"
+    })
+
+@app.get("/services/complex")
+def complex_factory_demo(request):
+    """Demonstrate complex factory with dependencies"""
+
+    app_context = app.di_container.resolve("app_context")
+
+    return JSONResponse({
+        "pattern": "Complex Factory",
+        "app_status": app_context.get_status(),
+        "description": "Application context with multiple injected dependencies"
+    })
+
+@app.get("/services/lazy")
+def lazy_factory_demo(request):
+    """Demonstrate lazy factory pattern"""
+
+    lazy_wrapper = app.di_container.resolve("expensive_service")
+
+    # This will trigger lazy initialization
+    expensive_service = lazy_wrapper.get_instance()
+
+    return JSONResponse({
+        "pattern": "Lazy Factory",
+        "service": expensive_service,
+        "was_initialized": lazy_wrapper._initialized,
+        "description": "Service with lazy initialization"
     })
 
 @app.get("/health")
-def health_check(request: Request) -> Response:
-    """Health check with factory system status"""
+def health_check(request):
+    """Health check showing all factory-created services"""
+
+    # Resolve all services to check health
+    config = app.di_container.resolve("config")
+    database = app.di_container.resolve("database")
+    cache = app.di_container.resolve("cache")
+    logger = app.di_container.resolve("logger")
+    app_context = app.di_container.resolve("app_context")
+
+    logger.log("Health check performed", "INFO")
+
     return JSONResponse({
         "status": "healthy",
-        "factory_system": "enabled",
-        "framework": "Catzilla v0.2.0",
-        "environment": os.getenv("ENV", "development")
+        "timestamp": datetime.now().isoformat(),
+        "services": {
+            "config": {"environment": config.environment},
+            "database": {"status": "connected"},
+            "cache": {"type": cache["config"]["type"]},
+            "logger": {"type": type(logger).__name__},
+            "app_context": app_context.get_status()
+        },
+        "di_info": {
+            "container_type": "Catzilla DI Container",
+            "factory_patterns": "All patterns active"
+        }
     })
 
-if __name__ == "__main__":
-    print("🚨 Starting Catzilla Service Factories Example")
-    print("📝 Available endpoints:")
-    print("   GET  /                         - Home with factory system info")
-    print("   POST /api/email/send           - Send email using factory service")
-    print("   POST /api/storage/upload       - Upload file using factory service")
-    print("   GET  /api/services/info        - Get factory-created services info")
-    print("   GET  /api/factories/registry   - Get factory registry info")
-    print("   POST /api/environment/switch   - Switch environment for testing")
-    print("   GET  /factories/examples       - Get example requests")
-    print("   GET  /health                   - Health check")
-    print()
-    print("🎨 Features demonstrated:")
-    print("   • Service factories (Class, Function, Conditional)")
-    print("   • Environment-based service selection")
-    print("   • Factory configuration and parameters")
-    print("   • Conditional service creation")
-    print("   • Factory registry management")
-    print()
-    print("🧪 Try these examples:")
-    print("   curl http://localhost:8000/api/services/info")
-    print("   curl -X POST http://localhost:8000/api/email/send \\")
-    print("     -H 'Content-Type: application/json' \\")
-    print("     -d '{\"to\":\"test@example.com\",\"subject\":\"Test\",\"body\":\"Hello!\"}'")
-    print("   curl -X POST http://localhost:8000/api/environment/switch \\")
-    print("     -H 'Content-Type: application/json' -d '{\"environment\":\"production\"}'")
-    print()
+# ============================================================================
+# 8. APPLICATION STARTUP
+# ============================================================================
 
-    app.listen(host="0.0.0.0", port=8000)
+if __name__ == "__main__":
+    print("\n🎯 Starting Catzilla DI Factory Patterns Demo...")
+    print("\nAvailable endpoints:")
+    print("  GET  /                    - Home page")
+    print("  GET  /services/simple     - Simple factory demo")
+    print("  GET  /services/builder    - Builder pattern demo")
+    print("  GET  /services/conditional - Conditional factory demo")
+    print("  GET  /services/abstract   - Abstract factory demo")
+    print("  GET  /services/complex    - Complex factory demo")
+    print("  GET  /services/lazy       - Lazy factory demo")
+    print("  GET  /health              - Health check")
+
+    print("\n🏭 Factory Patterns:")
+    print("  ✅ Simple factory functions")
+    print("  ✅ Builder pattern factories")
+    print("  ✅ Conditional factory resolution")
+    print("  ✅ Abstract factory pattern")
+    print("  ✅ Complex factories with dependencies")
+    print("  ✅ Lazy initialization factories")
+
+    print(f"\n🚀 Server starting on http://localhost:8002")
+    print("   Try: curl http://localhost:8002/health")
+
+    app.listen(8002)

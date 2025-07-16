@@ -6,6 +6,9 @@ pytest>=8.0
 pytest-xdist
 pytest-asyncio
 
+# Mocking library for testing
+SQLAlchemy>=2.0
+
 # Code quality tools
 pre-commit
 flake8>=6.0.0

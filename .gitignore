@@ -71,3 +71,4 @@ benchmarks/results/temp_*
 wheelhouse/
 
 uploads/
+catzilla_example.db

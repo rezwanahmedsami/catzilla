@@ -1,477 +1,480 @@
+#!/usr/bin/env python3
 """
-Scoped Services Example
+🔄 Catzilla DI Scoped Services Example
 
 This example demonstrates Catzilla's revolutionary dependency injection system
-with different service scopes (singleton, request, session) and factories.
+with different service scopes (singleton, request, transient) and factories.
 
 Features demonstrated:
 - Service registration with different scopes
 - Singleton services (shared across all requests)
 - Request-scoped services (new instance per request)
-- Session-scoped services (shared within session)
+- Transient services (new instance every time)
 - Service factories and configuration
 - Dependency resolution performance
 """
 
-from catzilla import (
-    Catzilla, Request, Response, JSONResponse,
-    DIContainer, register_service, resolve_service,
-    service, inject, depends, Depends,
-    ScopeType, scoped_service
-)
 import time
 import uuid
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 
-# Initialize Catzilla with DI enabled
-app = Catzilla(
-    production=False,
-    show_banner=True,
-    log_requests=True,
-    enable_di=True  # Enable dependency injection
-)
+from catzilla import Catzilla, service, Depends, JSONResponse, Path
+from catzilla.dependency_injection import set_default_container
 
-# Service classes and interfaces
+# Initialize Catzilla with DI enabled
+app = Catzilla(enable_di=True)
+set_default_container(app.di_container)
+
+print("🔄 Catzilla DI Scoped Services Example")
+print("=" * 50)
+
+# ============================================================================
+# 1. SINGLETON SERVICES - Shared across all requests
+# ============================================================================
+
 @dataclass
 class DatabaseConfig:
-    """Database configuration"""
+    """Database configuration (singleton)"""
     host: str = "localhost"
     port: int = 5432
     database: str = "catzilla_db"
     username: str = "admin"
     max_connections: int = 10
 
+@service("db_config", scope="singleton")
+def database_config() -> DatabaseConfig:
+    """Database configuration factory"""
+    print("📋 Database config created (singleton)")
+    return DatabaseConfig()
+
+@service("database", scope="singleton")
 class DatabaseService:
     """Database service (singleton scope)"""
 
-    def __init__(self, config: DatabaseConfig):
+    def __init__(self, config: DatabaseConfig = Depends("db_config")):
         self.config = config
-        self.connection_id = f"db_conn_{uuid.uuid4().hex[:8]}"
-        self.created_at = datetime.now()
+        self.connection_id = str(uuid.uuid4())[:8]
         self.query_count = 0
-        print(f"🗄️  Database service created: {self.connection_id}")
+        self.connected_at = datetime.now()
+
+        print(f"💾 Database service created (singleton) - Connection: {self.connection_id}")
 
     def execute_query(self, query: str) -> Dict[str, Any]:
         """Execute a database query"""
         self.query_count += 1
         return {
-            "connection_id": self.connection_id,
             "query": query,
-            "result": f"Query executed successfully",
-            "execution_time": "15ms",
-            "query_number": self.query_count
+            "connection_id": self.connection_id,
+            "query_number": self.query_count,
+            "executed_at": datetime.now().isoformat()
         }
 
     def get_stats(self) -> Dict[str, Any]:
         """Get database statistics"""
         return {
             "connection_id": self.connection_id,
-            "created_at": self.created_at.isoformat(),
             "total_queries": self.query_count,
+            "uptime": (datetime.now() - self.connected_at).total_seconds(),
             "config": {
                 "host": self.config.host,
-                "port": self.config.port,
                 "database": self.config.database
             }
         }
 
+@service("cache", scope="singleton")
 class CacheService:
     """Cache service (singleton scope)"""
 
     def __init__(self):
-        self.cache_id = f"cache_{uuid.uuid4().hex[:8]}"
-        self.data: Dict[str, Any] = {}
+        self.cache = {}
         self.hit_count = 0
         self.miss_count = 0
-        self.created_at = datetime.now()
-        print(f"💾 Cache service created: {self.cache_id}")
+        self.instance_id = str(uuid.uuid4())[:8]
+
+        print(f"🗄️  Cache service created (singleton) - Instance: {self.instance_id}")
 
     def get(self, key: str) -> Optional[Any]:
         """Get value from cache"""
-        if key in self.data:
+        if key in self.cache:
             self.hit_count += 1
-            return self.data[key]
-        self.miss_count += 1
-        return None
+            return self.cache[key]
+        else:
+            self.miss_count += 1
+            return None
 
     def set(self, key: str, value: Any, ttl: int = 300) -> None:
         """Set value in cache"""
-        self.data[key] = {
+        self.cache[key] = {
             "value": value,
-            "expires_at": time.time() + ttl,
-            "created_at": time.time()
+            "stored_at": datetime.now().isoformat(),
+            "ttl": ttl
         }
 
     def get_stats(self) -> Dict[str, Any]:
         """Get cache statistics"""
-        total_requests = self.hit_count + self.miss_count
-        hit_rate = (self.hit_count / total_requests * 100) if total_requests > 0 else 0
+        total = self.hit_count + self.miss_count
+        hit_rate = (self.hit_count / total * 100) if total > 0 else 0
 
         return {
-            "cache_id": self.cache_id,
-            "created_at": self.created_at.isoformat(),
+            "instance_id": self.instance_id,
             "hit_count": self.hit_count,
             "miss_count": self.miss_count,
-            "hit_rate": round(hit_rate, 2),
-            "total_keys": len(self.data)
+            "hit_rate": f"{hit_rate:.1f}%",
+            "cache_size": len(self.cache)
         }
 
+# ============================================================================
+# 2. REQUEST-SCOPED SERVICES - New instance per request
+# ============================================================================
+
+@service("user_session", scope="request")
 class UserSession:
     """User session service (request scope)"""
 
-    def __init__(self, cache_service: CacheService):
-        self.session_id = f"session_{uuid.uuid4().hex[:8]}"
+    def __init__(self, cache_service: CacheService = Depends("cache")):
+        self.session_id = str(uuid.uuid4())
         self.cache_service = cache_service
         self.created_at = datetime.now()
-        self.request_count = 0
-        print(f"👤 User session created: {self.session_id}")
+        self.actions = []
+
+        print(f"👤 User session created (request-scoped) - Session: {self.session_id}")
 
     def get_user_data(self, user_id: str) -> Dict[str, Any]:
-        """Get user data from session/cache"""
-        self.request_count += 1
+        """Get user data with session tracking"""
+        self.actions.append(f"get_user_data:{user_id}")
 
         # Try cache first
-        cached_data = self.cache_service.get(f"user_{user_id}")
+        cached_data = self.cache_service.get(f"user:{user_id}")
         if cached_data:
-            return {
-                "user_id": user_id,
-                "data": cached_data["value"],
-                "source": "cache",
-                "session_id": self.session_id
-            }
+            return cached_data["value"]
 
-        # Simulate database lookup
+        # Simulate fetching from database
         user_data = {
-            "id": user_id,
+            "user_id": user_id,
             "name": f"User {user_id}",
-            "email": f"user{user_id}@example.com",
-            "last_login": datetime.now().isoformat()
+            "fetched_at": datetime.now().isoformat(),
+            "session_id": self.session_id
         }
 
         # Cache the result
-        self.cache_service.set(f"user_{user_id}", user_data)
+        self.cache_service.set(f"user:{user_id}", user_data)
 
-        return {
-            "user_id": user_id,
-            "data": user_data,
-            "source": "database",
-            "session_id": self.session_id
-        }
+        return user_data
 
     def get_session_info(self) -> Dict[str, Any]:
         """Get session information"""
         return {
             "session_id": self.session_id,
             "created_at": self.created_at.isoformat(),
-            "request_count": self.request_count,
-            "cache_service_id": self.cache_service.cache_id
+            "actions_count": len(self.actions),
+            "actions": self.actions,
+            "duration": (datetime.now() - self.created_at).total_seconds()
         }
 
+@service("request_logger", scope="request")
 class RequestLogger:
     """Request logger service (request scope)"""
 
     def __init__(self):
-        self.logger_id = f"logger_{uuid.uuid4().hex[:8]}"
-        self.created_at = datetime.now()
+        self.request_id = str(uuid.uuid4())[:8]
+        self.start_time = datetime.now()
         self.logs = []
-        print(f"📝 Request logger created: {self.logger_id}")
+
+        print(f"📝 Request logger created (request-scoped) - Request: {self.request_id}")
 
     def log(self, message: str, level: str = "INFO") -> None:
-        """Log a message"""
-        log_entry = {
-            "timestamp": datetime.now().isoformat(),
+        """Log a message with timestamp"""
+        timestamp = (datetime.now() - self.start_time).total_seconds()
+        entry = {
+            "timestamp": timestamp,
             "level": level,
             "message": message,
-            "logger_id": self.logger_id
+            "request_id": self.request_id
         }
-        self.logs.append(log_entry)
-        print(f"📝 {level}: {message}")
+        self.logs.append(entry)
 
     def get_logs(self) -> List[Dict[str, Any]]:
         """Get all logs for this request"""
         return self.logs
 
-# Register services with different scopes
-@app.on_startup
-def setup_services():
-    """Setup dependency injection services"""
+    def get_request_info(self) -> Dict[str, Any]:
+        """Get request information"""
+        return {
+            "request_id": self.request_id,
+            "start_time": self.start_time.isoformat(),
+            "duration": (datetime.now() - self.start_time).total_seconds(),
+            "log_count": len(self.logs)
+        }
 
-    # Register singleton services (shared across all requests)
-    register_service(DatabaseConfig, scope=ScopeType.SINGLETON)
-    register_service(DatabaseService, scope=ScopeType.SINGLETON)
-    register_service(CacheService, scope=ScopeType.SINGLETON)
+# ============================================================================
+# 3. TRANSIENT SERVICES - New instance every time
+# ============================================================================
 
-    # Register request-scoped services (new instance per request)
-    register_service(UserSession, scope=ScopeType.REQUEST)
-    register_service(RequestLogger, scope=ScopeType.REQUEST)
+@service("analytics", scope="transient")
+class AnalyticsService:
+    """Analytics service (transient scope)"""
 
-    print("✅ Dependency injection services registered")
+    def __init__(self):
+        self.instance_id = str(uuid.uuid4())[:8]
+        self.created_at = datetime.now()
+
+        print(f"📊 Analytics service created (transient) - Instance: {self.instance_id}")
+
+    def track_event(self, event_name: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Track an analytics event"""
+        return {
+            "event_name": event_name,
+            "data": data,
+            "instance_id": self.instance_id,
+            "tracked_at": datetime.now().isoformat(),
+            "created_at": self.created_at.isoformat()
+        }
+
+@service("temp_processor", scope="transient")
+class TempProcessor:
+    """Temporary processor service (transient scope)"""
+
+    def __init__(self):
+        self.instance_id = str(uuid.uuid4())[:8]
+        self.created_at = datetime.now()
+
+        print(f"⚡ Temp processor created (transient) - Instance: {self.instance_id}")
+
+    def process_data(self, data: Any) -> Dict[str, Any]:
+        """Process temporary data"""
+        return {
+            "processed_data": f"Processed: {data}",
+            "processor_id": self.instance_id,
+            "processed_at": datetime.now().isoformat(),
+            "processing_time": (datetime.now() - self.created_at).total_seconds()
+        }
+
+# ============================================================================
+# 4. ROUTE HANDLERS DEMONSTRATING SCOPED SERVICES
+# ============================================================================
 
 @app.get("/")
-def home(request: Request) -> Response:
-    """Home endpoint with DI system info"""
+def home(request):
+    """Home page showing scoped services"""
     return JSONResponse({
-        "message": "Catzilla Dependency Injection Example",
-        "features": [
-            "Revolutionary C-compiled DI system",
-            "Multiple service scopes (singleton, request, session)",
-            "Service factories and configuration",
-            "5-8x faster than traditional DI",
-            "FastAPI-style decorators"
-        ],
+        "message": "🔄 Catzilla DI Scoped Services Demo",
         "scopes": {
-            "singleton": "Shared across all requests",
-            "request": "New instance per request",
-            "session": "Shared within session"
+            "singleton": "Shared across all requests (database, cache)",
+            "request": "New instance per request (user_session, request_logger)",
+            "transient": "New instance every time (analytics, temp_processor)"
         }
     })
 
 @app.get("/api/user/{user_id}")
-def get_user(
-    request: Request,
-    user_session: UserSession = Depends(),
-    request_logger: RequestLogger = Depends()
-) -> Response:
-    """Get user data using injected services"""
-    user_id = request.path_params.get("user_id")
+def get_user(request, user_id: str = Path(...)):
+    """Get user data - demonstrates request-scoped services"""
 
-    request_logger.log(f"Fetching user data for ID: {user_id}")
+    # These will be the same instance within this request
+    session = app.di_container.resolve("user_session")
+    logger = app.di_container.resolve("request_logger")
 
-    try:
-        user_data = user_session.get_user_data(user_id)
-        request_logger.log(f"User data retrieved from {user_data['source']}")
+    # These are singleton services
+    database = app.di_container.resolve("database")
+    cache = app.di_container.resolve("cache")
 
-        return JSONResponse({
-            "user": user_data,
-            "session_info": user_session.get_session_info(),
-            "request_logs": request_logger.get_logs()
-        })
+    # These are new instances each time
+    analytics1 = app.di_container.resolve("analytics")
+    analytics2 = app.di_container.resolve("analytics")
 
-    except Exception as e:
-        request_logger.log(f"Error fetching user: {str(e)}", "ERROR")
-        return JSONResponse({
-            "error": "Failed to fetch user",
-            "details": str(e),
-            "request_logs": request_logger.get_logs()
-        }, status_code=500)
+    logger.log(f"Fetching user {user_id}")
 
-@app.get("/api/database/stats")
-def get_database_stats(
-    request: Request,
-    db_service: DatabaseService = Depends(),
-    request_logger: RequestLogger = Depends()
-) -> Response:
-    """Get database statistics using injected singleton service"""
-    request_logger.log("Fetching database statistics")
+    # Get user data through session
+    user_data = session.get_user_data(user_id)
 
-    # Execute a sample query
-    query_result = db_service.execute_query("SELECT COUNT(*) FROM users")
-    request_logger.log("Database query executed")
+    # Track analytics events
+    analytics1.track_event("user_fetch", {"user_id": user_id})
+    analytics2.track_event("user_view", {"user_id": user_id})
+
+    # Execute database query
+    db_result = database.execute_query(f"SELECT * FROM users WHERE id = '{user_id}'")
+
+    logger.log(f"User {user_id} data retrieved")
 
     return JSONResponse({
-        "database_stats": db_service.get_stats(),
-        "sample_query": query_result,
-        "request_logs": request_logger.get_logs()
+        "user": user_data,
+        "database_query": db_result,
+        "session_info": session.get_session_info(),
+        "request_logs": logger.get_logs(),
+        "analytics": {
+            "instance1": analytics1.instance_id,
+            "instance2": analytics2.instance_id,
+            "same_instance": analytics1.instance_id == analytics2.instance_id
+        },
+        "scope_demonstration": {
+            "session_id": session.session_id,
+            "logger_request_id": logger.request_id,
+            "db_connection_id": database.connection_id,
+            "cache_instance_id": cache.instance_id
+        }
+    })
+
+@app.get("/api/database/stats")
+def get_database_stats(request):
+    """Get database statistics - demonstrates singleton behavior"""
+
+    database = app.di_container.resolve("database")
+    logger = app.di_container.resolve("request_logger")
+
+    logger.log("Database stats requested")
+
+    stats = database.get_stats()
+
+    return JSONResponse({
+        "database_stats": stats,
+        "request_info": logger.get_request_info(),
+        "scope": "singleton - same instance across all requests"
     })
 
 @app.get("/api/cache/stats")
-def get_cache_stats(
-    request: Request,
-    cache_service: CacheService = Depends(),
-    request_logger: RequestLogger = Depends()
-) -> Response:
-    """Get cache statistics using injected singleton service"""
-    request_logger.log("Fetching cache statistics")
+def get_cache_stats(request):
+    """Get cache statistics - demonstrates singleton behavior"""
+
+    cache = app.di_container.resolve("cache")
+    logger = app.di_container.resolve("request_logger")
+
+    logger.log("Cache stats requested")
+
+    stats = cache.get_stats()
 
     return JSONResponse({
-        "cache_stats": cache_service.get_stats(),
-        "request_logs": request_logger.get_logs()
+        "cache_stats": stats,
+        "request_info": logger.get_request_info(),
+        "scope": "singleton - same instance across all requests"
     })
-
-@app.post("/api/cache/{key}")
-def set_cache_value(
-    request: Request,
-    cache_service: CacheService = Depends(),
-    request_logger: RequestLogger = Depends()
-) -> Response:
-    """Set cache value using injected service"""
-    key = request.path_params.get("key")
-    data = request.json()
-    value = data.get("value")
-    ttl = data.get("ttl", 300)
-
-    request_logger.log(f"Setting cache value for key: {key}")
-
-    cache_service.set(key, value, ttl)
-    request_logger.log(f"Cache value set with TTL: {ttl}s")
-
-    return JSONResponse({
-        "message": "Cache value set",
-        "key": key,
-        "ttl": ttl,
-        "cache_stats": cache_service.get_stats(),
-        "request_logs": request_logger.get_logs()
-    })
-
-@app.get("/api/cache/{key}")
-def get_cache_value(
-    request: Request,
-    cache_service: CacheService = Depends(),
-    request_logger: RequestLogger = Depends()
-) -> Response:
-    """Get cache value using injected service"""
-    key = request.path_params.get("key")
-
-    request_logger.log(f"Getting cache value for key: {key}")
-
-    value = cache_service.get(key)
-
-    if value:
-        request_logger.log("Cache hit")
-        return JSONResponse({
-            "key": key,
-            "value": value["value"],
-            "cached_at": value["created_at"],
-            "source": "cache",
-            "request_logs": request_logger.get_logs()
-        })
-    else:
-        request_logger.log("Cache miss")
-        return JSONResponse({
-            "key": key,
-            "value": None,
-            "source": "cache",
-            "status": "miss",
-            "request_logs": request_logger.get_logs()
-        }, status_code=404)
 
 @app.get("/api/services/status")
-def get_services_status(
-    request: Request,
-    db_service: DatabaseService = Depends(),
-    cache_service: CacheService = Depends(),
-    user_session: UserSession = Depends(),
-    request_logger: RequestLogger = Depends()
-) -> Response:
-    """Get status of all injected services"""
-    request_logger.log("Fetching all service statuses")
+def get_services_status(request):
+    """Get status of all services - demonstrates scope behavior"""
+
+    # Request-scoped services (same within request)
+    session = app.di_container.resolve("user_session")
+    logger = app.di_container.resolve("request_logger")
+
+    # Singleton services (same across all requests)
+    database = app.di_container.resolve("database")
+    cache = app.di_container.resolve("cache")
+
+    # Transient services (new each time)
+    analytics1 = app.di_container.resolve("analytics")
+    analytics2 = app.di_container.resolve("analytics")
+    processor1 = app.di_container.resolve("temp_processor")
+    processor2 = app.di_container.resolve("temp_processor")
+
+    logger.log("Service status check")
 
     return JSONResponse({
-        "services": {
-            "database": {
-                "scope": "singleton",
-                "stats": db_service.get_stats()
-            },
-            "cache": {
-                "scope": "singleton",
-                "stats": cache_service.get_stats()
-            },
-            "user_session": {
-                "scope": "request",
-                "info": user_session.get_session_info()
-            },
-            "request_logger": {
-                "scope": "request",
-                "logger_id": request_logger.logger_id,
-                "created_at": request_logger.created_at.isoformat()
-            }
-        },
-        "di_performance": {
-            "resolution_time": "< 1ms",
-            "memory_overhead": "minimal",
-            "compared_to_traditional": "5-8x faster"
-        },
-        "request_logs": request_logger.get_logs()
-    })
-
-@app.get("/di/examples")
-def get_di_examples(request: Request) -> Response:
-    """Get examples for testing dependency injection"""
-    return JSONResponse({
-        "examples": {
-            "get_user": {
-                "url": "/api/user/123",
-                "description": "Get user data using request-scoped services"
-            },
-            "database_stats": {
-                "url": "/api/database/stats",
-                "description": "Get database stats using singleton service"
-            },
-            "cache_operations": {
-                "set_value": {
-                    "url": "/api/cache/test_key",
-                    "method": "POST",
-                    "payload": {"value": "test_value", "ttl": 300}
+        "services_status": {
+            "singleton_services": {
+                "database": {
+                    "connection_id": database.connection_id,
+                    "stats": database.get_stats()
                 },
-                "get_value": {
-                    "url": "/api/cache/test_key",
-                    "method": "GET"
+                "cache": {
+                    "instance_id": cache.instance_id,
+                    "stats": cache.get_stats()
                 }
             },
-            "service_status": {
-                "url": "/api/services/status",
-                "description": "Get status of all injected services"
+            "request_scoped_services": {
+                "user_session": {
+                    "session_id": session.session_id,
+                    "info": session.get_session_info()
+                },
+                "request_logger": {
+                    "request_id": logger.request_id,
+                    "info": logger.get_request_info()
+                }
+            },
+            "transient_services": {
+                "analytics": {
+                    "instance1_id": analytics1.instance_id,
+                    "instance2_id": analytics2.instance_id,
+                    "same_instance": analytics1.instance_id == analytics2.instance_id
+                },
+                "temp_processor": {
+                    "instance1_id": processor1.instance_id,
+                    "instance2_id": processor2.instance_id,
+                    "same_instance": processor1.instance_id == processor2.instance_id
+                }
             }
         },
-        "service_scopes": {
-            "singleton": [
-                "DatabaseService - shared connection",
-                "CacheService - shared cache instance",
-                "DatabaseConfig - shared configuration"
-            ],
-            "request": [
-                "UserSession - new session per request",
-                "RequestLogger - new logger per request"
-            ]
-        },
-        "di_features": [
-            "C-compiled service resolution",
-            "FastAPI-style @Depends decorators",
-            "Multiple scope support",
-            "Automatic dependency graph resolution",
-            "5-8x faster than traditional DI systems"
-        ]
+        "scope_explanation": {
+            "singleton": "Same instance across all requests",
+            "request": "Same instance within a request, new for each request",
+            "transient": "New instance every time resolved"
+        }
     })
 
 @app.get("/health")
-def health_check(request: Request) -> Response:
-    """Health check with DI system status"""
+def health_check(request):
+    """Health check endpoint showing all service scopes"""
+
+    # Get all services
+    database = app.di_container.resolve("database")
+    cache = app.di_container.resolve("cache")
+    session = app.di_container.resolve("user_session")
+    logger = app.di_container.resolve("request_logger")
+    analytics = app.di_container.resolve("analytics")
+
+    logger.log("Health check performed")
+
     return JSONResponse({
         "status": "healthy",
-        "dependency_injection": "enabled",
-        "framework": "Catzilla v0.2.0",
-        "di_performance": "C-compiled resolution"
+        "timestamp": datetime.now().isoformat(),
+        "services": {
+            "singleton": {
+                "database": database.get_stats(),
+                "cache": cache.get_stats()
+            },
+            "request_scoped": {
+                "user_session": session.get_session_info(),
+                "request_logger": logger.get_request_info()
+            },
+            "transient": {
+                "analytics": {
+                    "instance_id": analytics.instance_id,
+                    "created_at": analytics.created_at.isoformat()
+                }
+            }
+        },
+        "di_system": {
+            "name": "Catzilla Revolutionary DI v0.2.0",
+            "scopes_supported": ["singleton", "request", "transient"],
+            "features": [
+                "Fast C-backed resolution",
+                "Automatic scope management",
+                "Hierarchical containers",
+                "Memory-optimized instances"
+            ]
+        }
     })
 
-if __name__ == "__main__":
-    print("🚨 Starting Catzilla Dependency Injection Example")
-    print("📝 Available endpoints:")
-    print("   GET  /                      - Home with DI system info")
-    print("   GET  /api/user/{user_id}    - Get user (request-scoped services)")
-    print("   GET  /api/database/stats    - Database stats (singleton service)")
-    print("   GET  /api/cache/stats       - Cache stats (singleton service)")
-    print("   POST /api/cache/{key}       - Set cache value")
-    print("   GET  /api/cache/{key}       - Get cache value")
-    print("   GET  /api/services/status   - All service statuses")
-    print("   GET  /di/examples           - Get example requests")
-    print("   GET  /health                - Health check")
-    print()
-    print("🎨 Features demonstrated:")
-    print("   • Revolutionary C-compiled DI system")
-    print("   • Service scopes: singleton, request, session")
-    print("   • FastAPI-style @Depends decorators")
-    print("   • Automatic dependency graph resolution")
-    print("   • 5-8x faster than traditional DI systems")
-    print()
-    print("🧪 Try these examples:")
-    print("   curl http://localhost:8000/api/user/123")
-    print("   curl http://localhost:8000/api/services/status")
-    print("   curl -X POST http://localhost:8000/api/cache/test \\")
-    print("     -H 'Content-Type: application/json' \\")
-    print("     -d '{\"value\": \"Hello DI!\", \"ttl\": 300}'")
-    print("   curl http://localhost:8000/api/cache/test")
-    print()
+# ============================================================================
+# 5. APPLICATION STARTUP
+# ============================================================================
 
-    app.listen(host="0.0.0.0", port=8000)
+if __name__ == "__main__":
+    print("\n🎯 Starting Catzilla DI Scoped Services Demo...")
+    print("\nAvailable endpoints:")
+    print("  GET  /                      - Home page")
+    print("  GET  /api/user/{user_id}    - Get user (request-scoped demo)")
+    print("  GET  /api/database/stats    - Database stats (singleton demo)")
+    print("  GET  /api/cache/stats       - Cache stats (singleton demo)")
+    print("  GET  /api/services/status   - All services status")
+    print("  GET  /health                - Health check")
+
+    print("\n🔄 Service Scopes:")
+    print("  🔗 Singleton: Database, Cache (shared across requests)")
+    print("  🔄 Request: UserSession, RequestLogger (per request)")
+    print("  ⚡ Transient: Analytics, TempProcessor (new each time)")
+
+    print(f"\n🚀 Server starting on http://localhost:8003")
+    print("   Try: curl http://localhost:8003/health")
+
+    app.listen(8003)
