@@ -310,6 +310,44 @@ class RouterGroup:
             **kwargs,
         )
 
+    def options(
+        self,
+        path: str,
+        *,
+        overwrite: bool = False,
+        tags: List[str] = None,
+        description: str = "",
+        **kwargs,
+    ):
+        """OPTIONS route decorator"""
+        return self.route(
+            path,
+            ["OPTIONS"],
+            overwrite=overwrite,
+            tags=tags,
+            description=description,
+            **kwargs,
+        )
+
+    def head(
+        self,
+        path: str,
+        *,
+        overwrite: bool = False,
+        tags: List[str] = None,
+        description: str = "",
+        **kwargs,
+    ):
+        """HEAD route decorator"""
+        return self.route(
+            path,
+            ["HEAD"],
+            overwrite=overwrite,
+            tags=tags,
+            description=description,
+            **kwargs,
+        )
+
     def routes(self) -> List[Tuple[str, str, RouteHandler, Dict[str, any]]]:
         """Get all routes registered in this group"""
         return self._routes.copy()
@@ -647,3 +685,15 @@ class Router:
     ):
         """PATCH route decorator with per-route middleware support"""
         return self.route(path, ["PATCH"], overwrite=overwrite, middleware=middleware)
+
+    def options(
+        self, path: str, *, overwrite: bool = False, middleware: List[Callable] = None
+    ):
+        """OPTIONS route decorator with per-route middleware support"""
+        return self.route(path, ["OPTIONS"], overwrite=overwrite, middleware=middleware)
+
+    def head(
+        self, path: str, *, overwrite: bool = False, middleware: List[Callable] = None
+    ):
+        """HEAD route decorator with per-route middleware support"""
+        return self.route(path, ["HEAD"], overwrite=overwrite, middleware=middleware)

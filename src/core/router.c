@@ -253,6 +253,9 @@ static void catzilla_router_build_allowed_methods(catzilla_route_node_t* node) {
     }
 
     node->has_handlers = (node->handler_count > 0);
+
+    // Debug: Print what allowed methods we built
+    LOG_ROUTER_DEBUG("Built allowed methods: '%s' (handler_count=%d)", node->allowed_methods, node->handler_count);
 }
 
 uint32_t catzilla_router_add_route(catzilla_router_t* router,
@@ -313,11 +316,16 @@ uint32_t catzilla_router_add_route_with_middleware(catzilla_router_t* router,
 
     memset(route, 0, sizeof(catzilla_route_t));
     strncpy(route->method, norm_method, CATZILLA_METHOD_MAX - 1);
+    route->method[CATZILLA_METHOD_MAX - 1] = '\0';  // Ensure null termination
     strncpy(route->path, norm_path, CATZILLA_PATH_MAX - 1);
+    route->path[CATZILLA_PATH_MAX - 1] = '\0';      // Ensure null termination
     route->handler = handler;
     route->user_data = user_data;
     route->overwrite = overwrite;
     route->id = router->next_route_id++;
+
+    // Debug: Print what we're storing
+    LOG_ROUTER_DEBUG("Storing route: method='%s', path='%s', id=%u", route->method, route->path, route->id);
 
     // Initialize per-route middleware chain
     route->middleware_chain = NULL;
@@ -546,6 +554,10 @@ static int catzilla_router_add_to_trie(catzilla_router_t* router, catzilla_route
     }
     strcpy(current->methods[current->handler_count], route->method);
     current->handler_count++;
+
+    // Debug: Print what we stored in trie
+    LOG_ROUTER_DEBUG("Stored in trie: method='%s', path='%s', handler_count=%d",
+                     current->methods[current->handler_count - 1], route->path, current->handler_count);
 
     catzilla_router_build_allowed_methods(current);
     return 0;

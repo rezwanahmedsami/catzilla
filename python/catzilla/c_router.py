@@ -378,3 +378,29 @@ class CAcceleratedRouter:
             return handler
 
         return decorator
+
+    def options(
+        self, path: str, *, overwrite: bool = False, middleware: List[Callable] = None
+    ):
+        """Decorator to register an OPTIONS route handler with optional per-route middleware"""
+
+        def decorator(handler: RouteHandler):
+            self.add_route(
+                "OPTIONS", path, handler, overwrite=overwrite, middleware=middleware
+            )
+            return handler
+
+        return decorator
+
+    def head(
+        self, path: str, *, overwrite: bool = False, middleware: List[Callable] = None
+    ):
+        """Decorator to register a HEAD route handler with optional per-route middleware"""
+
+        def decorator(handler: RouteHandler):
+            self.add_route(
+                "HEAD", path, handler, overwrite=overwrite, middleware=middleware
+            )
+            return handler
+
+        return decorator

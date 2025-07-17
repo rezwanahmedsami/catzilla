@@ -1090,6 +1090,64 @@ class Catzilla:
 
         return decorator
 
+    def options(
+        self,
+        path: str,
+        *,
+        overwrite: bool = False,
+        dependencies: Optional[List[str]] = None,
+        middleware: Optional[List[Callable]] = None,
+    ):
+        """Register an OPTIONS route handler with optional dependency injection and per-route middleware"""
+
+        def decorator(handler: RouteHandler):
+            # Apply dependency injection if enabled
+            if self.enable_di:
+                enhanced_handler = self.di_enhancer.enhance_route(handler, dependencies)
+            else:
+                enhanced_handler = handler
+
+            # Apply auto-validation if enabled
+            if self.auto_validation:
+                validated_handler = create_auto_validated_handler(enhanced_handler)
+            else:
+                validated_handler = enhanced_handler
+
+            return self.router.options(
+                path, overwrite=overwrite, middleware=middleware
+            )(validated_handler)
+
+        return decorator
+
+    def head(
+        self,
+        path: str,
+        *,
+        overwrite: bool = False,
+        dependencies: Optional[List[str]] = None,
+        middleware: Optional[List[Callable]] = None,
+    ):
+        """Register a HEAD route handler with optional dependency injection and per-route middleware"""
+
+        def decorator(handler: RouteHandler):
+            # Apply dependency injection if enabled
+            if self.enable_di:
+                enhanced_handler = self.di_enhancer.enhance_route(handler, dependencies)
+            else:
+                enhanced_handler = handler
+
+            # Apply auto-validation if enabled
+            if self.auto_validation:
+                validated_handler = create_auto_validated_handler(enhanced_handler)
+            else:
+                validated_handler = enhanced_handler
+
+            return self.router.head(path, overwrite=overwrite, middleware=middleware)(
+                validated_handler
+            )
+
+        return decorator
+
     def _call_c_extension(self, method_name: str, *args) -> Any:
         """Call C extension method with fallback handling"""
         try:

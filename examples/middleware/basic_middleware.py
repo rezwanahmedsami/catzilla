@@ -213,6 +213,32 @@ def home(request: Request) -> Response:
         "note": "OPTIONS requests are handled by built-in CORS middleware"
     })
 
+@app.head("/")
+def home_head(request: Request) -> Response:
+    """HEAD method for home endpoint"""
+    return JSONResponse({
+        "message": "🌪️ Catzilla Middleware Example",
+        "info": "This endpoint runs global middleware only",
+        "middleware_chain": [
+            "1. Request Logger (priority 10)",
+            "2. CORS Handler (priority 50)",
+            "3. Security Headers (priority 100)"
+        ],
+        "request_id": getattr(request, 'context', {}).get('request_id'),
+        "security": getattr(request, 'context', {}).get('security', {}),
+        "note": "HEAD method implemented"
+    })
+
+@app.options("/")
+def home_options(request: Request) -> Response:
+    """OPTIONS method for home endpoint"""
+    return JSONResponse({
+        "message": "🌪️ Catzilla OPTIONS Method",
+        "allowed_methods": ["GET", "HEAD", "OPTIONS"],
+        "cors_enabled": True,
+        "request_id": getattr(request, 'context', {}).get('request_id')
+    })
+
 @app.get("/public")
 def public_endpoint(request: Request) -> Response:
     """Public endpoint with rate limiting"""
@@ -261,6 +287,30 @@ def api_data(request: Request) -> Response:
             "4. Per-route: Auth Middleware",
             "5. Per-route: Rate Limit Middleware"
         ]
+    })
+
+@app.head("/api/data", middleware=[auth_middleware, rate_limit_middleware])
+def api_data_head(request: Request) -> Response:
+    """HEAD method for API endpoint with auth and rate limiting"""
+    user = getattr(request, 'context', {}).get('user', {})
+    rate_limit = getattr(request, 'context', {}).get('rate_limit', {})
+
+    return JSONResponse({
+        "message": "API data HEAD response",
+        "user": user,
+        "rate_limit": rate_limit,
+        "method": "HEAD"
+    })
+
+@app.options("/api/data")
+def api_data_options(request: Request) -> Response:
+    """OPTIONS method for API endpoint - no auth required for preflight"""
+    return JSONResponse({
+        "message": "API data OPTIONS response",
+        "allowed_methods": ["GET", "HEAD", "OPTIONS"],
+        "cors_enabled": True,
+        "auth_required": True,
+        "request_id": getattr(request, 'context', {}).get('request_id')
     })
 
 @app.post("/admin/users", middleware=[auth_middleware, admin_middleware])
