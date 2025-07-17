@@ -88,7 +88,7 @@ from .middleware import (
     ZeroAllocMiddleware,
 )
 from .response import ResponseBuilder, response
-from .routing import Router, RouterGroup
+from .router import RouterGroup
 from .scope import (
     ScopeContext,
     ScopedDIContainer,

@@ -4,7 +4,7 @@ This file tests the new RouterGroup auto-validation feature to ensure it works l
 """
 
 from catzilla import Catzilla, Request, Response, JSONResponse, BaseModel, Query, Path, Form, Header
-from catzilla.routing import RouterGroup
+from catzilla.router import RouterGroup
 
 # Test models
 class UserCreate(BaseModel):

@@ -20,7 +20,7 @@ from catzilla import (
     Catzilla, Request, Response, JSONResponse,
     Query, Header, Path, Form, ValidationError, BaseModel
 )
-from catzilla.routing import RouterGroup
+from catzilla.router import RouterGroup
 
 # Data models for auto-validation (works with both main app and RouterGroup)
 class UserCreate(BaseModel):
@@ -222,13 +222,13 @@ def admin_delete_user(request, user_id: int = Path(..., description="User ID", g
         "user_id": user_id
     })
 
+# Register nested group - admin_users under admin BEFORE registering admin with main app
+admin.include_group(admin_users)
+
 # Register router groups with the main app
 app.include_routes(api_v1)
 app.include_routes(api_v2)
 app.include_routes(admin)
-
-# Register nested group - admin_users under admin
-admin.include_group(admin_users)
 
 # Group information endpoint
 @app.get("/groups")

@@ -44,7 +44,6 @@ from .background_tasks import (
     TaskPriority,
     TaskResult,
 )
-from .c_router import CAcceleratedRouter
 from .decorators import (
     _clear_current_context,
     _get_current_context,
@@ -55,6 +54,7 @@ from .decorators import (
 from .dependency_injection import DIContainer, DIContext
 from .integration import DIMiddleware, DIRouteEnhancer
 from .middleware import ZeroAllocMiddleware
+from .router import CAcceleratedRouter
 from .types import HTMLResponse, JSONResponse, Request, Response, RouteHandler
 
 # Import logging system for beautiful startup banners and dev logging
@@ -1466,7 +1466,7 @@ class Catzilla:
             Auto-validation is applied here based on the app's global auto_validation setting,
             ensuring consistent behavior across all routes (both app routes and RouterGroup routes).
         """
-        from .routing import RouterGroup
+        from .router import RouterGroup
 
         if not isinstance(group, RouterGroup):
             raise TypeError("Expected RouterGroup instance")

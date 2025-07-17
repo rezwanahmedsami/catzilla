@@ -143,7 +143,7 @@ def test_route_groups():
 
     print("\n🧪 Testing RouterGroup OPTIONS and HEAD support...")
 
-    from catzilla.routing import RouterGroup
+    from catzilla.router import RouterGroup
 
     # Create router group
     api_v1 = RouterGroup("/api/v1")

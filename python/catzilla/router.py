@@ -6,10 +6,406 @@ router for route matching while maintaining Python's flexibility for route
 management and organization.
 """
 
+import re
+from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Set, Tuple, Union
 
-from .routing import Route, RouteHandler
-from .types import Request, Response
+from .types import Request, Response, RouteHandler
+
+# Import auto-validation system for RouterGroup support
+try:
+    from .auto_validation import create_auto_validated_handler
+
+    AUTO_VALIDATION_AVAILABLE = True
+except ImportError:
+    AUTO_VALIDATION_AVAILABLE = False
+    create_auto_validated_handler = None
+
+
+@dataclass
+class Route:
+    """Represents a route with its handler and metadata"""
+
+    method: str
+    path: str
+    handler: RouteHandler
+    param_names: List[str]  # Names of path parameters
+    pattern: re.Pattern  # Compiled regex pattern for matching
+    overwrite: bool = False  # Whether this route can overwrite existing ones
+    tags: List[str] = None  # Tags for API organization
+    description: str = ""  # Route description
+    metadata: Dict[str, any] = None  # Additional metadata
+    middleware: List[Callable] = None  # Per-route middleware (NEW!)
+
+
+class RouteNode:
+    """Node in the routing trie"""
+
+    def __init__(self):
+        self.children: Dict[str, RouteNode] = {}  # Static path segments
+        self.param_child: Optional[Tuple[str, RouteNode]] = (
+            None  # Dynamic parameter segment
+        )
+        self.handlers: Dict[str, Route] = {}  # HTTP method -> Route mapping
+        self.allowed_methods: Set[str] = set()  # All methods registered for this path
+
+
+class RouterGroup:
+    """Router group for organizing routes with shared prefix and metadata"""
+
+    def __init__(
+        self,
+        prefix: str = "",
+        *,
+        tags: List[str] = None,
+        description: str = "",
+        metadata: Dict[str, any] = None,
+        **kwargs,
+    ):
+        """
+        Initialize a RouterGroup
+
+        Args:
+            prefix: Common path prefix for all routes in this group
+            tags: Tags for API organization (e.g., ["users", "api"])
+            description: Description of this route group
+            metadata: Additional metadata for the group
+            **kwargs: Additional custom metadata fields
+
+        Note:
+            Auto-validation is controlled globally by the main Catzilla app's auto_validation setting.
+            RouterGroup routes will inherit the app's auto-validation configuration.
+        """
+        self.prefix = self._normalize_prefix(prefix)
+        self.tags = tags or []
+        self.description = description
+        self.metadata = metadata or {}
+        # Include any additional keyword arguments as metadata
+        self.metadata.update(kwargs)
+        self._routes: List[Tuple[str, str, RouteHandler, Dict[str, any]]] = []
+
+    def _normalize_prefix(self, prefix: str) -> str:
+        """Normalize route prefix"""
+        if not prefix or prefix == "/":
+            return ""
+
+        # Ensure prefix starts with / but doesn't end with / (unless it's root)
+        if not prefix.startswith("/"):
+            prefix = "/" + prefix
+        if len(prefix) > 1 and prefix.endswith("/"):
+            prefix = prefix.rstrip("/")
+
+        # Normalize double slashes
+        while "//" in prefix:
+            prefix = prefix.replace("//", "/")
+
+        return prefix
+
+    def _combine_path(self, path: str) -> str:
+        """Combine group prefix with route path"""
+        # Normalize the input path
+        if not path.startswith("/"):
+            path = "/" + path
+
+        # Clean up double slashes in the path
+        while "//" in path:
+            path = path.replace("//", "/")
+
+        # If no prefix, just return the normalized path
+        if not self.prefix:
+            return path
+
+        # Handle root path in group - just return the prefix
+        if path == "/":
+            return self.prefix
+
+        # Combine prefix and path
+        combined = self.prefix + path
+
+        # Normalize double slashes again after combination
+        while "//" in combined:
+            combined = combined.replace("//", "/")
+
+        # Remove trailing slash (except for root)
+        if len(combined) > 1 and combined.endswith("/"):
+            combined = combined.rstrip("/")
+
+        return combined
+
+    def _register_route(
+        self,
+        method: str,
+        path: str,
+        handler: RouteHandler,
+        *,
+        overwrite: bool = False,
+        tags: List[str] = None,
+        description: str = "",
+        middleware: List[Callable] = None,
+        **kwargs,
+    ) -> None:
+        """Register a route in this group"""
+        combined_path = self._combine_path(path)
+
+        # Special case: if this is a root route (/) in a group with a prefix,
+        # add a trailing slash to distinguish it from the prefix itself
+        if path == "/" and self.prefix and combined_path == self.prefix:
+            combined_path = self.prefix + "/"
+
+        # Combine group tags with route-specific tags
+        all_tags = self.tags.copy()
+        if tags:
+            all_tags.extend(tags)
+
+        # Combine group metadata with route-specific metadata
+        route_metadata = self.metadata.copy()
+        route_metadata.update(kwargs)
+        if description:
+            route_metadata["description"] = description
+        if all_tags:
+            route_metadata["tags"] = all_tags
+        route_metadata["overwrite"] = overwrite
+        route_metadata["group_prefix"] = self.prefix
+        route_metadata["group_description"] = self.description
+
+        # Add middleware to metadata
+        if middleware:
+            route_metadata["middleware"] = middleware
+
+        # Note: Auto-validation is now applied by the main Catzilla app when routes are included
+        # This ensures consistent auto-validation behavior across all routes
+        route_metadata["auto_validation_applied"] = (
+            False  # Will be updated by app if enabled
+        )
+
+        # Store the route for later registration
+        self._routes.append((method, combined_path, handler, route_metadata))
+
+    def route(
+        self,
+        path: str,
+        methods: List[str] = None,
+        *,
+        overwrite: bool = False,
+        tags: List[str] = None,
+        description: str = "",
+        middleware: List[Callable] = None,
+        **kwargs,
+    ):
+        """Route decorator that supports multiple HTTP methods and per-route middleware"""
+        if methods is None:
+            methods = ["GET"]
+
+        def decorator(handler: RouteHandler):
+            for method in methods:
+                self._register_route(
+                    method,
+                    path,
+                    handler,
+                    overwrite=overwrite,
+                    tags=tags,
+                    description=description,
+                    middleware=middleware,
+                    **kwargs,
+                )
+            return handler
+
+        return decorator
+
+    def get(
+        self,
+        path: str,
+        *,
+        overwrite: bool = False,
+        tags: List[str] = None,
+        description: str = "",
+        middleware: List[Callable] = None,
+        **kwargs,
+    ):
+        """GET route decorator with per-route middleware support"""
+        return self.route(
+            path,
+            ["GET"],
+            overwrite=overwrite,
+            tags=tags,
+            description=description,
+            middleware=middleware,
+            **kwargs,
+        )
+
+    def post(
+        self,
+        path: str,
+        *,
+        overwrite: bool = False,
+        tags: List[str] = None,
+        description: str = "",
+        middleware: List[Callable] = None,
+        **kwargs,
+    ):
+        """POST route decorator with per-route middleware support"""
+        return self.route(
+            path,
+            ["POST"],
+            overwrite=overwrite,
+            tags=tags,
+            description=description,
+            middleware=middleware,
+            **kwargs,
+        )
+
+    def put(
+        self,
+        path: str,
+        *,
+        overwrite: bool = False,
+        tags: List[str] = None,
+        description: str = "",
+        middleware: List[Callable] = None,
+        **kwargs,
+    ):
+        """PUT route decorator with per-route middleware support"""
+        return self.route(
+            path,
+            ["PUT"],
+            overwrite=overwrite,
+            tags=tags,
+            description=description,
+            middleware=middleware,
+            **kwargs,
+        )
+
+    def delete(
+        self,
+        path: str,
+        *,
+        overwrite: bool = False,
+        tags: List[str] = None,
+        description: str = "",
+        **kwargs,
+    ):
+        """DELETE route decorator"""
+        return self.route(
+            path,
+            ["DELETE"],
+            overwrite=overwrite,
+            tags=tags,
+            description=description,
+            **kwargs,
+        )
+
+    def patch(
+        self,
+        path: str,
+        *,
+        overwrite: bool = False,
+        tags: List[str] = None,
+        description: str = "",
+        middleware: List[Callable] = None,
+        **kwargs,
+    ):
+        """PATCH route decorator with per-route middleware support"""
+        return self.route(
+            path,
+            ["PATCH"],
+            overwrite=overwrite,
+            tags=tags,
+            description=description,
+            middleware=middleware,
+            **kwargs,
+        )
+
+    def options(
+        self,
+        path: str,
+        *,
+        overwrite: bool = False,
+        tags: List[str] = None,
+        description: str = "",
+        middleware: List[Callable] = None,
+        **kwargs,
+    ):
+        """OPTIONS route decorator with per-route middleware support"""
+        return self.route(
+            path,
+            ["OPTIONS"],
+            overwrite=overwrite,
+            tags=tags,
+            description=description,
+            middleware=middleware,
+            **kwargs,
+        )
+
+    def head(
+        self,
+        path: str,
+        *,
+        overwrite: bool = False,
+        tags: List[str] = None,
+        description: str = "",
+        middleware: List[Callable] = None,
+        **kwargs,
+    ):
+        """HEAD route decorator with per-route middleware support"""
+        return self.route(
+            path,
+            ["HEAD"],
+            overwrite=overwrite,
+            tags=tags,
+            description=description,
+            middleware=middleware,
+            **kwargs,
+        )
+
+    def routes(self) -> List[Tuple[str, str, RouteHandler, Dict[str, any]]]:
+        """Get all routes registered in this group"""
+        return self._routes.copy()
+
+    def include_group(self, other_group: "RouterGroup") -> None:
+        """Include routes from another RouterGroup into this one"""
+        for method, path, handler, metadata in other_group.routes():
+            # Remove the other group's prefix and add to this group
+            relative_path = path
+            if other_group.prefix and path.startswith(other_group.prefix):
+                # Get the part after the prefix
+                remaining_path = path[len(other_group.prefix) :]
+                # If nothing remains after removing prefix, it was a root route in that group
+                relative_path = remaining_path if remaining_path else "/"
+
+            # Merge metadata and track the full prefix chain
+            merged_metadata = metadata.copy()
+
+            # Build the full original prefix chain
+            existing_original_prefix = metadata.get("original_group_prefix", "")
+            if existing_original_prefix:
+                # This route was already included from another group, so build the chain
+                full_original_prefix = other_group.prefix + existing_original_prefix
+            else:
+                # This is the first inclusion, so the original prefix is just the other group's prefix
+                full_original_prefix = other_group.prefix
+
+            merged_metadata["original_group_prefix"] = full_original_prefix
+            merged_metadata["included_in_group"] = self.prefix
+
+            # Combine this group's prefix with the other group's prefix, then the relative path
+            # This ensures nested group prefixes are preserved
+            combined_prefix = (
+                self.prefix + other_group.prefix if other_group.prefix else self.prefix
+            )
+
+            # Special handling for root paths in group inclusion context
+            if relative_path == "/":
+                # For root paths from included groups, use the combined prefix
+                final_path = combined_prefix if combined_prefix else "/"
+                self._routes.append((method, final_path, handler, merged_metadata))
+            else:
+                # For non-root paths, combine the prefixes with the relative path
+                final_path = combined_prefix + relative_path
+                # Normalize double slashes
+                while "//" in final_path:
+                    final_path = final_path.replace("//", "/")
+                self._routes.append((method, final_path, handler, merged_metadata))
+
 
 try:
     from catzilla._catzilla import (
@@ -259,7 +655,7 @@ class CAcceleratedRouter:
             {
                 "method": route.method,
                 "path": route.path,
-                "handler": str(route.handler),
+                "handler_name": route.handler.__name__,
                 **{k: str(v) for k, v in route.metadata.items()},
             }
             for route in self._routes
@@ -279,8 +675,6 @@ class CAcceleratedRouter:
         Note: This method is kept for compatibility but auto-validation
         should be handled by the main Catzilla app's include_routes method.
         """
-        from .routing import RouterGroup
-
         if not isinstance(group, RouterGroup):
             raise TypeError("Expected RouterGroup instance")
 

@@ -26,8 +26,8 @@ from unittest.mock import Mock, patch, MagicMock
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from catzilla import Catzilla, Request, Response, JSONResponse
-from catzilla.routing import Route
-from catzilla.c_router import CAcceleratedRouter
+from catzilla.router import Route
+from catzilla.router import CAcceleratedRouter
 
 
 class TestPerRouteMiddlewareAPI:
