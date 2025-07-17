@@ -244,12 +244,30 @@ static void catzilla_router_build_allowed_methods(catzilla_route_node_t* node) {
     if (!node) return;
 
     node->allowed_methods[0] = '\0';
+    bool has_get = false;
+    bool has_head = false;
 
+    // First pass: build allowed methods and check for GET/HEAD
     for (int i = 0; i < node->handler_count; i++) {
         if (i > 0) {
             strcat(node->allowed_methods, ", ");
         }
         strcat(node->allowed_methods, node->methods[i]);
+
+        if (strcmp(node->methods[i], "GET") == 0) {
+            has_get = true;
+        }
+        if (strcmp(node->methods[i], "HEAD") == 0) {
+            has_head = true;
+        }
+    }
+
+    // Auto-HEAD: If we have GET but not explicit HEAD, add HEAD to allowed methods
+    if (has_get && !has_head) {
+        if (node->handler_count > 0) {
+            strcat(node->allowed_methods, ", ");
+        }
+        strcat(node->allowed_methods, "HEAD");
     }
 
     node->has_handlers = (node->handler_count > 0);
@@ -605,6 +623,17 @@ static int catzilla_router_match_recursive(catzilla_router_t* router, const char
                     match->route = node->handlers[i];
                     match->status_code = 200;
                     return 0; // Successful match
+                }
+            }
+
+            // Auto-HEAD: If HEAD request didn't find explicit HEAD handler, try GET
+            if (strcmp(method, "HEAD") == 0) {
+                for (int i = 0; i < node->handler_count; i++) {
+                    if (strcmp(node->methods[i], "GET") == 0) {
+                        match->route = node->handlers[i];
+                        match->status_code = 200;
+                        return 0; // Successful HEAD->GET fallback
+                    }
                 }
             }
 

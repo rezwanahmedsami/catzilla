@@ -7,6 +7,7 @@ The Catzilla v0.2.0 Memory Revolution provides 30-35% memory efficiency gains.
 """
 
 import functools
+import os
 import signal
 import sys
 import threading
@@ -298,16 +299,12 @@ class Catzilla:
         # Initialize Zero-Allocation Middleware System (after app is set up)
         self.middleware_system = ZeroAllocMiddleware(self)
 
-        # Only set up signal handlers in the main thread to prevent threading issues
-        try:
-            self._setup_signal_handlers()
-        except ValueError as e:
-            if "signal only works in main thread" in str(e):
-                # This is expected when creating Catzilla instances in worker threads
-                # Signal handling is only needed in the main thread anyway
-                pass
-            else:
-                raise
+        # Signal handling is now handled natively at the C level for better performance
+        # and integration. No Python signal handling overhead needed.
+        print(
+            f"[DEBUG-PY] Using native C signal handling for PID {os.getpid()}",
+            flush=True,
+        )
 
     def _init_memory_revolution(self):
         """Initialize the jemalloc memory revolution with advanced options"""
@@ -528,29 +525,6 @@ class Catzilla:
             "check_interval_seconds": self.memory_stats_interval,
             "total_checks": len(self._memory_stats_history),
         }
-
-    def _setup_signal_handlers(self):
-        """Setup signal handlers for graceful shutdown"""
-        self.original_sigint_handler = signal.getsignal(signal.SIGINT)
-        self.original_sigterm_handler = signal.getsignal(signal.SIGTERM)
-
-        def signal_handler(sig, frame):
-            print("\n[INFO-PY] Shutting down Catzilla server...")
-            self.stop()
-
-            # Restore original handlers
-            signal.signal(signal.SIGINT, self.original_sigint_handler)
-            signal.signal(signal.SIGTERM, self.original_sigterm_handler)
-
-            # If original handler was default, exit
-            if (
-                self.original_sigint_handler == signal.default_int_handler
-                and sig == signal.SIGINT
-            ):
-                sys.exit(0)
-
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
 
     def _handle_request(self, client, method, path, body, request_capsule):
         """Internal request handler that bridges C and Python"""
@@ -1719,6 +1693,8 @@ class Catzilla:
 
     def listen(self, port: int = 8000, host: str = "0.0.0.0"):
         """Start the server with beautiful startup banner"""
+
+        # Signal handlers are now handled natively at the C level for better integration
 
         # Show beautiful startup banner
         if self.banner_renderer and self.server_info_collector:

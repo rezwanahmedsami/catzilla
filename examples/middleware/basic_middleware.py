@@ -17,7 +17,7 @@ from catzilla import Catzilla, Request, Response, JSONResponse
 from typing import Optional
 import time
 
-# Initialize Catzilla
+# Initialize Catzilla - signal handling is now automatically native C for better performance
 app = Catzilla(
     production=False,
     show_banner=True,
@@ -210,33 +210,7 @@ def home(request: Request) -> Response:
         ],
         "request_id": getattr(request, 'context', {}).get('request_id'),
         "security": getattr(request, 'context', {}).get('security', {}),
-        "note": "OPTIONS requests are handled by built-in CORS middleware"
-    })
-
-@app.head("/")
-def home_head(request: Request) -> Response:
-    """HEAD method for home endpoint"""
-    return JSONResponse({
-        "message": "🌪️ Catzilla Middleware Example",
-        "info": "This endpoint runs global middleware only",
-        "middleware_chain": [
-            "1. Request Logger (priority 10)",
-            "2. CORS Handler (priority 50)",
-            "3. Security Headers (priority 100)"
-        ],
-        "request_id": getattr(request, 'context', {}).get('request_id'),
-        "security": getattr(request, 'context', {}).get('security', {}),
-        "note": "HEAD method implemented"
-    })
-
-@app.options("/")
-def home_options(request: Request) -> Response:
-    """OPTIONS method for home endpoint"""
-    return JSONResponse({
-        "message": "🌪️ Catzilla OPTIONS Method",
-        "allowed_methods": ["GET", "HEAD", "OPTIONS"],
-        "cors_enabled": True,
-        "request_id": getattr(request, 'context', {}).get('request_id')
+        "note": "HEAD and OPTIONS methods work automatically"
     })
 
 @app.get("/public")
@@ -286,31 +260,8 @@ def api_data(request: Request) -> Response:
             "3. Global: Security Headers",
             "4. Per-route: Auth Middleware",
             "5. Per-route: Rate Limit Middleware"
-        ]
-    })
-
-@app.head("/api/data", middleware=[auth_middleware, rate_limit_middleware])
-def api_data_head(request: Request) -> Response:
-    """HEAD method for API endpoint with auth and rate limiting"""
-    user = getattr(request, 'context', {}).get('user', {})
-    rate_limit = getattr(request, 'context', {}).get('rate_limit', {})
-
-    return JSONResponse({
-        "message": "API data HEAD response",
-        "user": user,
-        "rate_limit": rate_limit,
-        "method": "HEAD"
-    })
-
-@app.options("/api/data")
-def api_data_options(request: Request) -> Response:
-    """OPTIONS method for API endpoint - no auth required for preflight"""
-    return JSONResponse({
-        "message": "API data OPTIONS response",
-        "allowed_methods": ["GET", "HEAD", "OPTIONS"],
-        "cors_enabled": True,
-        "auth_required": True,
-        "request_id": getattr(request, 'context', {}).get('request_id')
+        ],
+        "note": "HEAD and OPTIONS methods work automatically via GET route"
     })
 
 @app.post("/admin/users", middleware=[auth_middleware, admin_middleware])
@@ -366,6 +317,7 @@ if __name__ == "__main__":
     print("  POST /admin/users        - Admin-only endpoint")
     print("  GET  /middleware/stats   - Middleware performance stats")
     print("  GET  /error              - Error endpoint for testing")
+    print("  Note: HEAD and OPTIONS methods work automatically for all GET routes!")
 
     print("\n🔧 Middleware Chain:")
     print("  Global Middleware (runs on all requests):")
@@ -382,20 +334,29 @@ if __name__ == "__main__":
     print("  # Public endpoint (global middleware only)")
     print("  curl http://localhost:8000/")
     print()
+    print("  # Test automatic HEAD method")
+    print("  curl -I http://localhost:8000/")
+    print()
+    print("  # Test automatic OPTIONS method")
+    print("  curl -X OPTIONS http://localhost:8000/")
+    print()
     print("  # Protected endpoint (will fail without auth)")
     print("  curl http://localhost:8000/protected")
     print()
     print("  # Protected endpoint with auth")
     print("  curl -H 'Authorization: Bearer my-token' http://localhost:8000/protected")
     print()
+    print("  # Test HEAD with auth")
+    print("  curl -I -H 'Authorization: Bearer my-token' http://localhost:8000/api/data")
+    print()
     print("  # Admin endpoint (requires admin token)")
     print("  curl -H 'Authorization: Bearer admin-token' -X POST http://localhost:8000/admin/users")
-    print()
-    print("  # CORS preflight (handled by built-in middleware)")
-    print("  curl -X OPTIONS http://localhost:8000/api/data")
     print()
     print("  # Middleware stats")
     print("  curl http://localhost:8000/middleware/stats")
 
     print(f"\n🚀 Server starting on http://localhost:8000")
+    print("Press Ctrl+C to stop the server")
+
+    # Catzilla now handles graceful shutdown automatically!
     app.listen(8000)

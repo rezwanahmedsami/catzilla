@@ -36,7 +36,8 @@ class TestHTTPResponseCodes:
         # Test 405 detection in router
         route, params, allowed_methods = app.router.match("PUT", "/api/data")
         assert route is None  # No route for PUT
-        assert allowed_methods == {"GET", "POST"}  # But these methods are allowed
+        # HEAD is automatically supported for GET routes
+        assert allowed_methods == {"GET", "HEAD", "POST"}  # But these methods are allowed
 
     def test_404_not_found(self):
         """Test 404 Not Found responses"""
@@ -330,7 +331,8 @@ class TestRouteValidation:
         # Test that all methods are detected as allowed
         route, params, allowed = app.router.match("PATCH", "/api/resource")
         assert route is None  # PATCH not registered
-        assert allowed == {"GET", "POST", "PUT", "DELETE"}
+        # HEAD is automatically supported for GET routes
+        assert allowed == {"GET", "HEAD", "POST", "PUT", "DELETE"}
 
 
 class TestIntegrationWithC:

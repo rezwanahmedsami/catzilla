@@ -955,6 +955,11 @@ int catzilla_server_init(catzilla_server_t* server) {
     if (rc) return rc;
     server->sig_handle.data = server;
 
+    // Initialize SIGTERM handler
+    rc = uv_signal_init(server->loop, &server->sigterm_handle);
+    if (rc) return rc;
+    server->sigterm_handle.data = server;
+
     // Initialize advanced router
     rc = catzilla_router_init(&server->router);
     if (rc) {
@@ -987,20 +992,11 @@ int catzilla_server_init(catzilla_server_t* server) {
 }
 
 void signal_handler(uv_signal_t* handle, int signum) {
-    LOG_SERVER_INFO("Signal %d received, stopping server...", signum);
     catzilla_server_t* server = (catzilla_server_t*)handle->data;
 
-    // Check if we're being called from Python and properly release GIL
-    // This prevents the "GIL must be held" error during shutdown
-    if (PyGILState_Check()) {
-        // We have the GIL, release it before stopping the server
-        // This allows Python to properly finalize without GIL conflicts
-        LOG_SERVER_INFO("Releasing Python GIL before server shutdown...");
-        Py_BEGIN_ALLOW_THREADS
-        catzilla_server_stop(server);
-        Py_END_ALLOW_THREADS
-    } else {
-        // We don't have the GIL, safe to proceed
+    LOG_SERVER_INFO("Signal %d received, initiating graceful shutdown...", signum);
+
+    if (server && server->is_running) {
         catzilla_server_stop(server);
     }
 }
@@ -1013,6 +1009,7 @@ void catzilla_server_cleanup(catzilla_server_t* server) {
 
     uv_close((uv_handle_t*)&server->server, NULL);
     uv_close((uv_handle_t*)&server->sig_handle, NULL);
+    uv_close((uv_handle_t*)&server->sigterm_handle, NULL);
     uv_run(server->loop, UV_RUN_DEFAULT);
     active_server = NULL;
 }
@@ -1041,7 +1038,22 @@ int catzilla_server_listen(catzilla_server_t* server, const char* host, int port
     // Set up signal handler for graceful shutdown
     rc = uv_signal_start(&server->sig_handle, signal_handler, SIGINT);
     if (rc) {
-        LOG_SERVER_ERROR("Failed to set up signal handler: %s", uv_strerror(rc));
+        LOG_SERVER_ERROR("Failed to set up SIGINT handler: %s", uv_strerror(rc));
+        return rc;
+    }
+
+    // Also handle SIGTERM for proper shutdown
+    uv_signal_t* sigterm_handle = &server->sigterm_handle;
+    rc = uv_signal_init(server->loop, sigterm_handle);
+    if (rc) {
+        LOG_SERVER_ERROR("Failed to initialize SIGTERM handler: %s", uv_strerror(rc));
+        return rc;
+    }
+    sigterm_handle->data = server;
+
+    rc = uv_signal_start(sigterm_handle, signal_handler, SIGTERM);
+    if (rc) {
+        LOG_SERVER_ERROR("Failed to set up SIGTERM handler: %s", uv_strerror(rc));
         return rc;
     }
 
@@ -1062,9 +1074,10 @@ void catzilla_server_stop(catzilla_server_t* server) {
     //  Stop the loop so the outer uv_run in listen() will exit
     uv_stop(server->loop);
 
-    // Stop the signal handler but don't close it yet
+    // Stop both signal handlers but don't close them yet
     uv_signal_stop(&server->sig_handle);
-    LOG_SERVER_INFO("Stopped signal handler...");
+    uv_signal_stop(&server->sigterm_handle);
+    LOG_SERVER_INFO("Stopped signal handlers...");
 
     // Walk and close all active handles
     // This will include server->server and server->sig_handle

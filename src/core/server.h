@@ -80,7 +80,8 @@ typedef struct catzilla_server_s {
     // libuv
     uv_loop_t* loop;
     uv_tcp_t server;
-    uv_signal_t sig_handle;  // For signal handling
+    uv_signal_t sig_handle;  // For SIGINT handling
+    uv_signal_t sigterm_handle;  // For SIGTERM handling
 
     // HTTP parser
     llhttp_settings_t parser_settings;

@@ -99,7 +99,8 @@ class TestDynamicRouting:
         route, params, methods = router.match("PUT", "/hello")
         assert route is None
         assert params == {}
-        assert methods == {"GET", "POST"}
+        # HEAD is automatically supported for GET routes
+        assert methods == {"GET", "HEAD", "POST"}
 
     def test_parameter_extraction_special_chars(self):
         """Test parameter extraction with special characters"""
