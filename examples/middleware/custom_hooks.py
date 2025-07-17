@@ -1,534 +1,546 @@
+#!/usr/bin/env python3
 """
-Custom Hooks and Zero-Allocation Example
+🌪️ Catzilla Advanced Middleware Features Example
 
-This example demonstrates Catzilla's zero-allocation middleware system
-with custom hooks, memory optimization, and performance monitoring.
+This example demonstrates advanced middleware features in Catzilla using
+the real middleware API, including performance monitoring, context passing,
+and middleware composition patterns.
 
 Features demonstrated:
-- Zero-allocation middleware design
-- Custom middleware hooks
-- Memory pool optimization
-- Performance measurement
-- Hook-based event system
+- Advanced middleware patterns
+- Performance monitoring
+- Context passing between middleware
+- Conditional middleware execution
+- Middleware composition
+- Error handling in middleware
 - Resource cleanup
+- Request/response transformation
 """
 
 from catzilla import Catzilla, Request, Response, JSONResponse
+from typing import Optional, Dict, Any, List, Callable
 import time
-import psutil
-import os
-from typing import Dict, Any, List, Optional, Callable
-from dataclasses import dataclass
+import json
+import uuid
+import asyncio
+from dataclasses import dataclass, asdict
+from contextlib import contextmanager
 
-# Initialize Catzilla with zero-allocation middleware
+# Initialize Catzilla
 app = Catzilla(
     production=False,
     show_banner=True,
-    log_requests=True,
-    enable_middleware=True,
-    memory_profiling=True  # Enable memory profiling
+    log_requests=True
 )
 
-# Memory and performance tracking
+print("🌪️ Catzilla Advanced Middleware Features Example")
+print("=" * 55)
+
+# ============================================================================
+# 1. PERFORMANCE MONITORING SYSTEM
+# ============================================================================
+
 @dataclass
 class PerformanceMetrics:
     """Performance metrics for middleware"""
     total_executions: int = 0
-    total_time_ns: int = 0
-    min_time_ns: int = float('inf')
-    max_time_ns: int = 0
-    memory_usage_bytes: int = 0
-    allocations_count: int = 0
+    total_time_ms: float = 0.0
+    min_time_ms: float = float('inf')
+    max_time_ms: float = 0.0
+    error_count: int = 0
+    success_count: int = 0
 
 # Global metrics storage
 middleware_metrics: Dict[str, PerformanceMetrics] = {}
-hook_executions: List[Dict[str, Any]] = []
+request_contexts: Dict[str, Dict[str, Any]] = {}
 
-class ZeroAllocMiddleware:
-    """Base class for zero-allocation middleware"""
+def get_or_create_metrics(name: str) -> PerformanceMetrics:
+    """Get or create performance metrics for a middleware"""
+    if name not in middleware_metrics:
+        middleware_metrics[name] = PerformanceMetrics()
+    return middleware_metrics[name]
 
-    def __init__(self, name: str):
-        self.name = name
-        self.metrics = PerformanceMetrics()
-        middleware_metrics[name] = self.metrics
-        self.hooks: Dict[str, List[Callable]] = {
-            'before_request': [],
-            'after_request': [],
-            'before_response': [],
-            'after_response': [],
-            'on_error': [],
-            'on_cleanup': []
+@contextmanager
+def measure_performance(middleware_name: str):
+    """Context manager for measuring middleware performance"""
+    start_time = time.time()
+    metrics = get_or_create_metrics(middleware_name)
+    metrics.total_executions += 1
+
+    try:
+        yield metrics
+        # Success case
+        execution_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+        metrics.total_time_ms += execution_time
+        metrics.min_time_ms = min(metrics.min_time_ms, execution_time)
+        metrics.max_time_ms = max(metrics.max_time_ms, execution_time)
+        metrics.success_count += 1
+
+    except Exception as e:
+        # Error case
+        metrics.error_count += 1
+        raise
+
+# ============================================================================
+# 2. CONTEXT MANAGEMENT MIDDLEWARE
+# ============================================================================
+
+@app.middleware(priority=5, pre_route=True, name="context_manager")
+def context_manager(request: Request) -> Optional[Response]:
+    """Initialize and manage request context"""
+    with measure_performance("context_manager"):
+        print("🔧 Context Manager: Setting up request context")
+
+        # Initialize request context
+        request_id = str(uuid.uuid4())
+        request.context = {
+            'request_id': request_id,
+            'start_time': time.time(),
+            'features': set(),
+            'middleware_chain': ["context_manager"],
+            'user_data': {},
+            'performance_marks': {},
+            'cleanup_tasks': []
         }
 
-    def add_hook(self, event: str, callback: Callable):
-        """Add a custom hook for an event"""
-        if event in self.hooks:
-            self.hooks[event].append(callback)
+        # Store in global context for cleanup
+        request_contexts[request_id] = request.context
 
-    def execute_hooks(self, event: str, **kwargs) -> List[Any]:
-        """Execute all hooks for an event"""
-        results = []
-        for hook in self.hooks[event]:
-            try:
-                start_time = time.perf_counter_ns()
-                result = hook(**kwargs)
-                end_time = time.perf_counter_ns()
-
-                hook_executions.append({
-                    "middleware": self.name,
-                    "event": event,
-                    "hook": hook.__name__,
-                    "execution_time_ns": end_time - start_time,
-                    "timestamp": time.time()
-                })
-
-                results.append(result)
-            except Exception as e:
-                print(f"❌ Hook {hook.__name__} failed: {e}")
-        return results
-
-    def process_request(self, request: Request) -> Optional[Response]:
-        """Process request with zero-allocation design"""
-        start_time = time.perf_counter_ns()
-        start_memory = psutil.Process().memory_info().rss
-
-        try:
-            # Execute before_request hooks
-            self.execute_hooks('before_request', request=request, middleware=self)
-
-            # Main middleware logic (to be implemented by subclasses)
-            result = self._process_request_impl(request)
-
-            # Execute after_request hooks
-            self.execute_hooks('after_request', request=request, response=result, middleware=self)
-
-            return result
-
-        except Exception as e:
-            # Execute error hooks
-            self.execute_hooks('on_error', request=request, error=e, middleware=self)
-            raise
-        finally:
-            # Update metrics
-            end_time = time.perf_counter_ns()
-            end_memory = psutil.Process().memory_info().rss
-
-            execution_time = end_time - start_time
-            memory_diff = end_memory - start_memory
-
-            self.metrics.total_executions += 1
-            self.metrics.total_time_ns += execution_time
-            self.metrics.min_time_ns = min(self.metrics.min_time_ns, execution_time)
-            self.metrics.max_time_ns = max(self.metrics.max_time_ns, execution_time)
-            self.metrics.memory_usage_bytes += max(0, memory_diff)
-
-            # Execute cleanup hooks
-            self.execute_hooks('on_cleanup', request=request, middleware=self)
-
-    def _process_request_impl(self, request: Request) -> Optional[Response]:
-        """Implement actual middleware logic (override in subclasses)"""
+        print(f"✅ Context Manager: Request {request_id[:8]} initialized")
         return None
 
-    def process_response(self, request: Request, response: Response) -> Response:
-        """Process response with zero-allocation design"""
-        start_time = time.perf_counter_ns()
+# ============================================================================
+# 3. FEATURE TOGGLE MIDDLEWARE
+# ============================================================================
 
-        try:
-            # Execute before_response hooks
-            self.execute_hooks('before_response', request=request, response=response, middleware=self)
+@app.middleware(priority=15, pre_route=True, name="feature_toggle")
+def feature_toggle(request: Request) -> Optional[Response]:
+    """Manage feature toggles and conditional functionality"""
+    with measure_performance("feature_toggle"):
+        print("🎛️ Feature Toggle: Checking feature flags")
 
-            # Main response processing
-            result = self._process_response_impl(request, response)
+        # Add to middleware chain
+        if hasattr(request, 'context'):
+            request.context['middleware_chain'].append("feature_toggle")
 
-            # Execute after_response hooks
-            self.execute_hooks('after_response', request=request, response=result, middleware=self)
+        # Feature flags (in real app, load from config/database)
+        features = {
+            'rate_limiting': True,
+            'advanced_auth': False,
+            'request_logging': True,
+            'response_caching': True,
+            'compression': False
+        }
 
-            return result
+        # Check for feature override headers
+        for feature, enabled in features.items():
+            header_key = f"x-feature-{feature.replace('_', '-')}"
+            if header_key in request.headers:
+                override = request.headers[header_key].lower() == 'true'
+                features[feature] = override
+                print(f"🔄 Feature Toggle: {feature} overridden to {override}")
 
-        finally:
-            end_time = time.perf_counter_ns()
-            execution_time = end_time - start_time
-            self.metrics.total_time_ns += execution_time
+        # Store enabled features in context
+        request.context['features'] = {k for k, v in features.items() if v}
 
-    def _process_response_impl(self, request: Request, response: Response) -> Response:
-        """Implement actual response processing (override in subclasses)"""
-        return response
+        print(f"✅ Feature Toggle: Enabled features: {list(request.context['features'])}")
+        return None
 
-class MemoryOptimizedCacheMiddleware(ZeroAllocMiddleware):
-    """Memory-optimized caching middleware"""
+# ============================================================================
+# 4. AUTHENTICATION WITH CONTEXT
+# ============================================================================
 
-    def __init__(self):
-        super().__init__("MemoryOptimizedCache")
-        self.cache: Dict[str, Any] = {}
-        self.cache_hits = 0
-        self.cache_misses = 0
+@app.middleware(priority=20, pre_route=True, name="advanced_auth")
+def advanced_auth(request: Request) -> Optional[Response]:
+    """Advanced authentication with context sharing"""
+    with measure_performance("advanced_auth"):
+        print("🔐 Advanced Auth: Processing authentication")
 
-        # Add custom hooks
-        self.add_hook('before_request', self._log_cache_access)
-        self.add_hook('after_response', self._cleanup_expired_cache)
+        # Add to middleware chain
+        if hasattr(request, 'context'):
+            request.context['middleware_chain'].append("advanced_auth")
 
-    def _log_cache_access(self, request: Request, **kwargs):
-        """Hook to log cache access"""
-        cache_key = self._get_cache_key(request)
-        hit = cache_key in self.cache
-        print(f"💾 Cache {'HIT' if hit else 'MISS'} for {cache_key}")
-
-    def _cleanup_expired_cache(self, **kwargs):
-        """Hook to cleanup expired cache entries"""
-        current_time = time.time()
-        expired_keys = [
-            key for key, data in self.cache.items()
-            if current_time > data.get('expires_at', float('inf'))
-        ]
-
-        for key in expired_keys:
-            del self.cache[key]
-
-        if expired_keys:
-            print(f"🧹 Cleaned up {len(expired_keys)} expired cache entries")
-
-    def _get_cache_key(self, request: Request) -> str:
-        """Generate cache key from request"""
-        return f"{request.method}:{request.url.path}:{str(sorted(request.query_params.items()))}"
-
-    def _process_request_impl(self, request: Request) -> Optional[Response]:
-        """Check cache for GET requests"""
-        if request.method != "GET":
+        # Skip auth if feature is disabled
+        if 'advanced_auth' not in request.context.get('features', set()):
+            print("⏭️ Advanced Auth: Skipped (feature disabled)")
             return None
 
-        cache_key = self._get_cache_key(request)
+        # Check authentication
+        auth_header = request.headers.get("authorization")
 
-        if cache_key in self.cache:
-            cached_data = self.cache[cache_key]
+        if "/protected" in request.path or "/admin" in request.path:
+            if not auth_header:
+                return JSONResponse({
+                    "error": "Authentication required",
+                    "feature": "advanced_auth",
+                    "request_id": request.context.get('request_id')
+                }, status_code=401)
 
-            # Check expiration
-            if time.time() < cached_data.get('expires_at', float('inf')):
-                self.cache_hits += 1
+            if not auth_header.startswith("Bearer "):
+                return JSONResponse({
+                    "error": "Invalid authorization format",
+                    "expected": "Bearer <token>",
+                    "feature": "advanced_auth"
+                }, status_code=401)
 
-                # Return cached response
-                return JSONResponse(
-                    cached_data['data'],
-                    headers={
-                        "X-Cache-Status": "HIT",
-                        "X-Cache-Key": cache_key,
-                        "X-Cache-Age": str(int(time.time() - cached_data['cached_at']))
-                    }
-                )
-            else:
-                # Expired, remove from cache
-                del self.cache[cache_key]
+            token = auth_header[7:]
 
-        self.cache_misses += 1
-        return None
-
-    def _process_response_impl(self, request: Request, response: Response) -> Response:
-        """Cache GET responses"""
-        if request.method == "GET" and response.status_code == 200:
-            cache_key = self._get_cache_key(request)
-
-            # Cache for 5 minutes
-            self.cache[cache_key] = {
-                'data': response.body if isinstance(response.body, dict) else {"cached": True},
-                'cached_at': time.time(),
-                'expires_at': time.time() + 300,
-                'headers': dict(response.headers)
+            # Simulate token validation
+            user_data = {
+                "id": "user123",
+                "email": "user@example.com",
+                "roles": ["user", "admin"] if token == "admin-token" else ["user"],
+                "token": token,
+                "authenticated_at": time.time()
             }
 
-        # Add cache headers
-        response.headers["X-Cache-Status"] = "MISS"
-        response.headers["X-Cache-Hits"] = str(self.cache_hits)
-        response.headers["X-Cache-Misses"] = str(self.cache_misses)
+            request.context['user_data'] = user_data
+            print(f"✅ Advanced Auth: User {user_data['id']} authenticated")
 
-        return response
-
-class PerformanceMonitoringMiddleware(ZeroAllocMiddleware):
-    """Performance monitoring middleware with zero allocations"""
-
-    def __init__(self):
-        super().__init__("PerformanceMonitoring")
-        self.request_times: List[float] = []
-        self.slow_requests: List[Dict[str, Any]] = []
-
-        # Add hooks for detailed monitoring
-        self.add_hook('before_request', self._start_monitoring)
-        self.add_hook('after_response', self._end_monitoring)
-
-    def _start_monitoring(self, request: Request, **kwargs):
-        """Start performance monitoring"""
-        request.perf_start_time = time.perf_counter()
-        request.perf_start_memory = psutil.Process().memory_info().rss
-
-    def _end_monitoring(self, request: Request, response: Response, **kwargs):
-        """End performance monitoring and collect metrics"""
-        if hasattr(request, 'perf_start_time'):
-            end_time = time.perf_counter()
-            response_time = end_time - request.perf_start_time
-
-            self.request_times.append(response_time)
-
-            # Track slow requests (> 100ms)
-            if response_time > 0.1:
-                self.slow_requests.append({
-                    "method": request.method,
-                    "path": request.url.path,
-                    "response_time": response_time,
-                    "status_code": response.status_code,
-                    "timestamp": time.time()
-                })
-
-    def _process_response_impl(self, request: Request, response: Response) -> Response:
-        """Add performance headers"""
-        if hasattr(request, 'perf_start_time'):
-            response_time = (time.perf_counter() - request.perf_start_time) * 1000
-            memory_usage = psutil.Process().memory_info().rss
-
-            response.headers["X-Response-Time"] = f"{response_time:.2f}ms"
-            response.headers["X-Memory-Usage"] = f"{memory_usage // 1024 // 1024}MB"
-            response.headers["X-Performance-Monitored"] = "true"
-
-        return response
-
-class ResourceCleanupMiddleware(ZeroAllocMiddleware):
-    """Resource cleanup middleware for zero-allocation design"""
-
-    def __init__(self):
-        super().__init__("ResourceCleanup")
-        self.active_resources: Dict[str, Any] = {}
-
-        # Add cleanup hooks
-        self.add_hook('on_cleanup', self._cleanup_request_resources)
-        self.add_hook('on_error', self._emergency_cleanup)
-
-    def _cleanup_request_resources(self, request: Request, **kwargs):
-        """Clean up resources allocated for this request"""
-        request_id = getattr(request, 'request_id', None)
-        if request_id and request_id in self.active_resources:
-            resources = self.active_resources[request_id]
-            print(f"🧹 Cleaning up {len(resources)} resources for request {request_id}")
-            del self.active_resources[request_id]
-
-    def _emergency_cleanup(self, request: Request, error: Exception, **kwargs):
-        """Emergency cleanup on errors"""
-        print(f"🚨 Emergency cleanup triggered by error: {error}")
-        # Force cleanup of all resources for this request
-        self._cleanup_request_resources(request)
-
-    def _process_request_impl(self, request: Request) -> Optional[Response]:
-        """Track resources for this request"""
-        request.request_id = str(time.time_ns())
-        self.active_resources[request.request_id] = []
         return None
 
-# Register middleware
-cache_middleware = MemoryOptimizedCacheMiddleware()
-perf_middleware = PerformanceMonitoringMiddleware()
-cleanup_middleware = ResourceCleanupMiddleware()
+# ============================================================================
+# 5. PERFORMANCE MONITORING MIDDLEWARE
+# ============================================================================
 
-app.add_middleware(cleanup_middleware)  # First - resource tracking
-app.add_middleware(perf_middleware)     # Second - performance monitoring
-app.add_middleware(cache_middleware)    # Third - caching
+@app.middleware(priority=30, pre_route=True, name="performance_monitor")
+def performance_monitor(request: Request) -> Optional[Response]:
+    """Monitor request performance and add marks"""
+    with measure_performance("performance_monitor"):
+        print("📊 Performance Monitor: Adding performance marks")
+
+        # Add to middleware chain
+        if hasattr(request, 'context'):
+            request.context['middleware_chain'].append("performance_monitor")
+
+        # Add performance marks
+        current_time = time.time()
+        request.context['performance_marks'] = {
+            'middleware_start': current_time,
+            'request_received': request.context.get('start_time', current_time)
+        }
+
+        # Log middleware execution time so far
+        middleware_time = (current_time - request.context['start_time']) * 1000
+        print(f"📈 Performance Monitor: Middleware execution time: {middleware_time:.2f}ms")
+
+        return None
+
+# ============================================================================
+# 6. REQUEST TRANSFORMATION MIDDLEWARE
+# ============================================================================
+
+@app.middleware(priority=40, pre_route=True, name="request_transformer")
+def request_transformer(request: Request) -> Optional[Response]:
+    """Transform and enrich request data"""
+    with measure_performance("request_transformer"):
+        print("🔄 Request Transformer: Processing request data")
+
+        # Add to middleware chain
+        if hasattr(request, 'context'):
+            request.context['middleware_chain'].append("request_transformer")
+
+        # Add request metadata
+        request.context['request_metadata'] = {
+            'method': request.method,
+            'path': request.path,
+            'user_agent': request.headers.get('user-agent', 'unknown'),
+            'content_type': request.headers.get('content-type', 'unknown'),
+            'content_length': request.headers.get('content-length', 0),
+            'client_ip': request.headers.get('x-forwarded-for', '127.0.0.1')
+        }
+
+        # Add performance mark
+        request.context['performance_marks']['request_transformed'] = time.time()
+
+        print("✅ Request Transformer: Request metadata added")
+        return None
+
+# ============================================================================
+# 7. RESPONSE PROCESSING MIDDLEWARE
+# ============================================================================
+
+@app.middleware(priority=10, pre_route=False, post_route=True, name="response_processor")
+def response_processor(request: Request) -> Optional[Response]:
+    """Process and enhance responses"""
+    with measure_performance("response_processor"):
+        print("📤 Response Processor: Processing response")
+
+        # Calculate total request time
+        end_time = time.time()
+        start_time = request.context.get('start_time', end_time)
+        total_time = (end_time - start_time) * 1000
+
+        # Add final performance mark
+        request.context['performance_marks']['response_processed'] = end_time
+
+        print(f"⏱️ Response Processor: Total request time: {total_time:.2f}ms")
+
+        # Schedule cleanup
+        request_id = request.context.get('request_id')
+        if request_id:
+            cleanup_task = lambda: cleanup_request_context(request_id)
+            # In real app, you'd schedule this for later execution
+            request.context['cleanup_tasks'].append(cleanup_task)
+
+        return None
+
+# ============================================================================
+# 8. CLEANUP FUNCTION
+# ============================================================================
+
+def cleanup_request_context(request_id: str):
+    """Clean up request context after processing"""
+    if request_id in request_contexts:
+        del request_contexts[request_id]
+        print(f"🧹 Cleanup: Request context {request_id[:8]} cleaned up")
+
+# ============================================================================
+# 9. PER-ROUTE MIDDLEWARE FUNCTIONS
+# ============================================================================
+
+def rate_limit_middleware(request: Request) -> Optional[Response]:
+    """Advanced rate limiting with context"""
+    with measure_performance("rate_limit_middleware"):
+        print("⏱️ Rate Limit: Checking advanced rate limits")
+
+        # Add to middleware chain
+        if hasattr(request, 'context'):
+            request.context['middleware_chain'].append("rate_limit_middleware")
+
+        # Check if rate limiting is enabled
+        if 'rate_limiting' not in request.context.get('features', set()):
+            print("⏭️ Rate Limit: Skipped (feature disabled)")
+            return None
+
+        # Get client info from context
+        client_ip = request.context.get('request_metadata', {}).get('client_ip', '127.0.0.1')
+
+        # Simple rate limiting logic
+        print(f"✅ Rate Limit: Client {client_ip} - OK")
+        return None
+
+def admin_validation_middleware(request: Request) -> Optional[Response]:
+    """Validate admin access with context"""
+    with measure_performance("admin_validation_middleware"):
+        print("👑 Admin Validation: Checking admin access")
+
+        # Add to middleware chain
+        if hasattr(request, 'context'):
+            request.context['middleware_chain'].append("admin_validation_middleware")
+
+        # Check user data from context
+        user_data = request.context.get('user_data', {})
+
+        if not user_data:
+            return JSONResponse({
+                "error": "Authentication required for admin access",
+                "middleware": "admin_validation_middleware"
+            }, status_code=401)
+
+        # Check admin role
+        if 'admin' not in user_data.get('roles', []):
+            return JSONResponse({
+                "error": "Admin privileges required",
+                "user_id": user_data.get('id'),
+                "middleware": "admin_validation_middleware"
+            }, status_code=403)
+
+        print(f"✅ Admin Validation: Admin access granted for user {user_data.get('id')}")
+        return None
+
+def caching_middleware(request: Request) -> Optional[Response]:
+    """Response caching middleware"""
+    with measure_performance("caching_middleware"):
+        print("💾 Caching: Checking cache")
+
+        # Add to middleware chain
+        if hasattr(request, 'context'):
+            request.context['middleware_chain'].append("caching_middleware")
+
+        # Check if caching is enabled
+        if 'response_caching' not in request.context.get('features', set()):
+            print("⏭️ Caching: Skipped (feature disabled)")
+            return None
+
+        # In real app, check cache here
+        print("✅ Caching: Cache miss - continuing to handler")
+        return None
+
+# ============================================================================
+# 10. ROUTE HANDLERS
+# ============================================================================
 
 @app.get("/")
 def home(request: Request) -> Response:
-    """Home endpoint with zero-allocation info"""
+    """Home endpoint demonstrating context usage"""
+    context = request.context
+
     return JSONResponse({
-        "message": "Catzilla Zero-Allocation Middleware Example",
-        "features": [
-            "Zero-allocation middleware design",
-            "Custom middleware hooks",
-            "Memory pool optimization",
-            "Performance monitoring",
-            "Resource cleanup automation"
-        ],
-        "middleware_chain": [
-            "ResourceCleanup - Resource tracking and cleanup",
-            "PerformanceMonitoring - Request timing and metrics",
-            "MemoryOptimizedCache - Zero-allocation caching"
-        ]
+        "message": "🌪️ Catzilla Advanced Middleware Features",
+        "request_id": context.get('request_id'),
+        "middleware_chain": context.get('middleware_chain', []),
+        "enabled_features": list(context.get('features', set())),
+        "performance_marks": context.get('performance_marks', {}),
+        "request_metadata": context.get('request_metadata', {}),
+        "total_middleware": len(context.get('middleware_chain', []))
     })
 
-@app.get("/api/data/{item_id}")
-def get_data_item(request: Request) -> Response:
-    """Get data item (cacheable endpoint)"""
-    item_id = request.path_params.get("item_id")
+@app.get("/protected")
+def protected_endpoint(request: Request) -> Response:
+    """Protected endpoint using context data"""
+    context = request.context
+    user_data = context.get('user_data', {})
+
+    return JSONResponse({
+        "message": "🔐 Protected endpoint accessed",
+        "user": user_data,
+        "request_id": context.get('request_id'),
+        "middleware_chain": context.get('middleware_chain', []),
+        "features_used": list(context.get('features', set()))
+    })
+
+@app.get("/api/data", middleware=[rate_limit_middleware, caching_middleware])
+def api_data(request: Request) -> Response:
+    """API endpoint with multiple per-route middleware"""
+    context = request.context
 
     # Simulate some processing time
-    import asyncio
-    time.sleep(0.05)  # 50ms processing
+    time.sleep(0.01)
 
     return JSONResponse({
-        "item_id": item_id,
-        "name": f"Item {item_id}",
-        "description": f"This is item number {item_id}",
-        "processed_at": time.time(),
-        "processing_time": "50ms"
+        "message": "📊 API data with advanced middleware",
+        "data": {"items": [1, 2, 3, 4, 5], "total": 5},
+        "request_id": context.get('request_id'),
+        "middleware_chain": context.get('middleware_chain', []),
+        "cache_enabled": 'response_caching' in context.get('features', set()),
+        "rate_limit_enabled": 'rate_limiting' in context.get('features', set())
     })
 
-@app.get("/api/heavy-computation")
-def heavy_computation(request: Request) -> Response:
-    """Heavy computation endpoint for performance testing"""
-    import asyncio
-
-    # Simulate heavy computation
-    time.sleep(0.2)  # 200ms computation
-
-    # Create some temporary data
-    data = list(range(1000))
-    result = sum(x * x for x in data)
+@app.post("/admin/action", middleware=[admin_validation_middleware])
+def admin_action(request: Request) -> Response:
+    """Admin endpoint with validation middleware"""
+    context = request.context
+    user_data = context.get('user_data', {})
 
     return JSONResponse({
-        "computation_result": result,
-        "data_points": len(data),
-        "computed_at": time.time(),
-        "note": "This endpoint tests performance monitoring"
+        "message": "👑 Admin action executed",
+        "action": "data_updated",
+        "admin_user": user_data.get('id'),
+        "request_id": context.get('request_id'),
+        "middleware_chain": context.get('middleware_chain', []),
+        "timestamp": time.time()
     })
 
-@app.get("/middleware/metrics")
-def get_middleware_metrics(request: Request) -> Response:
-    """Get detailed middleware performance metrics"""
+@app.get("/performance/metrics")
+def get_performance_metrics(request: Request) -> Response:
+    """Get middleware performance metrics"""
+    context = request.context
+
+    # Calculate average times
     metrics_data = {}
-
     for name, metrics in middleware_metrics.items():
-        avg_time_ns = metrics.total_time_ns / max(1, metrics.total_executions)
-
+        avg_time = metrics.total_time_ms / metrics.total_executions if metrics.total_executions > 0 else 0
         metrics_data[name] = {
-            "total_executions": metrics.total_executions,
-            "average_time_ns": avg_time_ns,
-            "average_time_ms": avg_time_ns / 1_000_000,
-            "min_time_ms": metrics.min_time_ns / 1_000_000,
-            "max_time_ms": metrics.max_time_ns / 1_000_000,
-            "total_memory_bytes": metrics.memory_usage_bytes,
-            "allocations_count": metrics.allocations_count
+            "executions": metrics.total_executions,
+            "avg_time_ms": round(avg_time, 2),
+            "min_time_ms": round(metrics.min_time_ms, 2) if metrics.min_time_ms != float('inf') else 0,
+            "max_time_ms": round(metrics.max_time_ms, 2),
+            "success_rate": round(metrics.success_count / metrics.total_executions * 100, 2) if metrics.total_executions > 0 else 0,
+            "error_count": metrics.error_count
         }
 
     return JSONResponse({
-        "middleware_metrics": metrics_data,
-        "system_metrics": {
-            "current_memory_mb": psutil.Process().memory_info().rss // 1024 // 1024,
-            "cpu_percent": psutil.Process().cpu_percent()
+        "message": "📈 Middleware performance metrics",
+        "metrics": metrics_data,
+        "active_contexts": len(request_contexts),
+        "request_id": context.get('request_id')
+    })
+
+@app.get("/context/info")
+def get_context_info(request: Request) -> Response:
+    """Get detailed context information"""
+    context = request.context
+
+    return JSONResponse({
+        "message": "🔍 Request context information",
+        "context": {
+            "request_id": context.get('request_id'),
+            "middleware_chain": context.get('middleware_chain', []),
+            "enabled_features": list(context.get('features', set())),
+            "performance_marks": context.get('performance_marks', {}),
+            "request_metadata": context.get('request_metadata', {}),
+            "user_data": context.get('user_data', {}),
+            "cleanup_tasks": len(context.get('cleanup_tasks', []))
+        },
+        "global_stats": {
+            "total_active_contexts": len(request_contexts),
+            "total_middleware_metrics": len(middleware_metrics)
         }
     })
 
-@app.get("/middleware/hooks")
-def get_hook_executions(request: Request) -> Response:
-    """Get hook execution history"""
-    recent_hooks = hook_executions[-50:]  # Last 50 hook executions
+@app.post("/performance/reset")
+def reset_performance_metrics(request: Request) -> Response:
+    """Reset all performance metrics"""
+    global middleware_metrics, request_contexts
 
-    hook_stats = {}
-    for execution in hook_executions:
-        key = f"{execution['middleware']}.{execution['event']}.{execution['hook']}"
-        if key not in hook_stats:
-            hook_stats[key] = {
-                "count": 0,
-                "total_time_ns": 0,
-                "avg_time_ns": 0
-            }
-
-        hook_stats[key]["count"] += 1
-        hook_stats[key]["total_time_ns"] += execution["execution_time_ns"]
-        hook_stats[key]["avg_time_ns"] = hook_stats[key]["total_time_ns"] / hook_stats[key]["count"]
+    middleware_metrics.clear()
+    request_contexts.clear()
 
     return JSONResponse({
-        "recent_hook_executions": recent_hooks,
-        "hook_statistics": hook_stats,
-        "total_hook_executions": len(hook_executions)
+        "message": "📊 Performance metrics reset",
+        "reset_timestamp": time.time()
     })
 
-@app.get("/middleware/cache-stats")
-def get_cache_stats(request: Request) -> Response:
-    """Get caching middleware statistics"""
-    total_requests = cache_middleware.cache_hits + cache_middleware.cache_misses
-    hit_rate = (cache_middleware.cache_hits / max(1, total_requests)) * 100
-
-    return JSONResponse({
-        "cache_statistics": {
-            "cache_hits": cache_middleware.cache_hits,
-            "cache_misses": cache_middleware.cache_misses,
-            "hit_rate_percent": round(hit_rate, 2),
-            "total_requests": total_requests,
-            "cached_entries": len(cache_middleware.cache)
-        },
-        "cache_entries": list(cache_middleware.cache.keys())
-    })
-
-@app.get("/middleware/performance-stats")
-def get_performance_stats(request: Request) -> Response:
-    """Get performance monitoring statistics"""
-    request_times = perf_middleware.request_times
-
-    if request_times:
-        avg_time = sum(request_times) / len(request_times)
-        min_time = min(request_times)
-        max_time = max(request_times)
-    else:
-        avg_time = min_time = max_time = 0
-
-    return JSONResponse({
-        "performance_statistics": {
-            "total_requests": len(request_times),
-            "average_response_time_ms": round(avg_time * 1000, 2),
-            "min_response_time_ms": round(min_time * 1000, 2),
-            "max_response_time_ms": round(max_time * 1000, 2),
-            "slow_requests_count": len(perf_middleware.slow_requests)
-        },
-        "slow_requests": perf_middleware.slow_requests[-10:]  # Last 10 slow requests
-    })
-
-@app.post("/middleware/clear-cache")
-def clear_cache(request: Request) -> Response:
-    """Clear the middleware cache"""
-    cache_count = len(cache_middleware.cache)
-    cache_middleware.cache.clear()
-
-    return JSONResponse({
-        "message": "Cache cleared",
-        "entries_removed": cache_count,
-        "cache_hits_reset": cache_middleware.cache_hits,
-        "cache_misses_reset": cache_middleware.cache_misses
-    })
-
-@app.get("/health")
-def health_check(request: Request) -> Response:
-    """Health check with zero-allocation middleware status"""
-    return JSONResponse({
-        "status": "healthy",
-        "zero_allocation_middleware": "enabled",
-        "framework": "Catzilla v0.2.0",
-        "active_middleware": ["ResourceCleanup", "PerformanceMonitoring", "MemoryOptimizedCache"],
-        "memory_usage_mb": psutil.Process().memory_info().rss // 1024 // 1024
-    })
+# ============================================================================
+# 11. APPLICATION STARTUP
+# ============================================================================
 
 if __name__ == "__main__":
-    print("🚨 Starting Catzilla Zero-Allocation Middleware Example")
-    print("📝 Available endpoints:")
-    print("   GET  /                          - Home with zero-allocation info")
-    print("   GET  /api/data/{item_id}        - Cacheable data endpoint")
-    print("   GET  /api/heavy-computation     - Heavy computation (performance test)")
-    print("   GET  /middleware/metrics        - Detailed performance metrics")
-    print("   GET  /middleware/hooks          - Hook execution history")
-    print("   GET  /middleware/cache-stats    - Cache statistics")
-    print("   GET  /middleware/performance-stats - Performance statistics")
-    print("   POST /middleware/clear-cache    - Clear cache")
-    print("   GET  /health                    - Health check")
-    print()
-    print("🎨 Features demonstrated:")
-    print("   • Zero-allocation middleware design")
-    print("   • Custom middleware hooks system")
-    print("   • Memory pool optimization")
-    print("   • Performance monitoring and metrics")
-    print("   • Automatic resource cleanup")
-    print()
-    print("🧪 Try these examples:")
-    print("   # Test caching (first request will be slow, second fast)")
-    print("   curl http://localhost:8000/api/data/123")
-    print("   curl http://localhost:8000/api/data/123")
-    print()
-    print("   # Test performance monitoring")
-    print("   curl http://localhost:8000/api/heavy-computation")
-    print("   curl http://localhost:8000/middleware/performance-stats")
-    print()
-    print("   # View cache statistics")
-    print("   curl http://localhost:8000/middleware/cache-stats")
-    print()
+    print("\n🎯 Starting Catzilla Advanced Middleware Features Example...")
+    print("\nGlobal Middleware Chain:")
+    print("  1. context_manager (priority 5) - Initialize context")
+    print("  2. feature_toggle (priority 15) - Manage feature flags")
+    print("  3. advanced_auth (priority 20) - Authentication")
+    print("  4. performance_monitor (priority 30) - Performance tracking")
+    print("  5. request_transformer (priority 40) - Request enrichment")
+    print("  6. response_processor (priority 10, post-route) - Response processing")
 
-    app.listen(host="0.0.0.0", port=8000)
+    print("\nAdvanced Features:")
+    print("  - Context sharing between middleware")
+    print("  - Performance monitoring and metrics")
+    print("  - Feature toggles and conditional execution")
+    print("  - Request/response transformation")
+    print("  - Resource cleanup")
+    print("  - Per-route middleware composition")
+
+    print("\nAvailable endpoints:")
+    print("  GET  /                      - Home (context demo)")
+    print("  GET  /protected             - Protected endpoint")
+    print("  GET  /api/data              - API with per-route middleware")
+    print("  POST /admin/action          - Admin endpoint")
+    print("  GET  /performance/metrics   - Performance metrics")
+    print("  GET  /context/info          - Context information")
+    print("  POST /performance/reset     - Reset metrics")
+
+    print("\n🧪 Try these examples:")
+    print("  # Normal request with context")
+    print("  curl http://localhost:8000/")
+    print()
+    print("  # Protected endpoint with auth")
+    print("  curl -H 'Authorization: Bearer test-token' http://localhost:8000/protected")
+    print()
+    print("  # API with feature toggles")
+    print("  curl -H 'x-feature-rate-limiting: false' http://localhost:8000/api/data")
+    print()
+    print("  # Admin endpoint")
+    print("  curl -H 'Authorization: Bearer admin-token' -X POST http://localhost:8000/admin/action")
+    print()
+    print("  # Performance metrics")
+    print("  curl http://localhost:8000/performance/metrics")
+    print()
+    print("  # Context information")
+    print("  curl http://localhost:8000/context/info")
+
+    print(f"\n🚀 Server starting on http://localhost:8000")
+    app.listen(8000)

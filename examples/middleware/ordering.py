@@ -1,533 +1,406 @@
+#!/usr/bin/env python3
 """
-Middleware Ordering Example
+🌪️ Catzilla Middleware Ordering Example
 
-This example demonstrates Catzilla's zero-allocation middleware system
-with priority-based ordering and execution control.
+This example demonstrates how Catzilla's middleware system handles priority-based
+ordering and execution flow using the real Catzilla middleware API.
 
 Features demonstrated:
-- Middleware ordering with priorities
-- Zero-allocation middleware execution
-- Global and per-route middleware
+- Priority-based middleware ordering
+- Global middleware execution
+- Per-route middleware execution
 - Middleware short-circuiting
-- Custom middleware hooks
-- Performance monitoring
+- Request/response processing
+- Execution tracking and analytics
 """
 
-from catzilla import Catzilla, Request, Response, JSONResponse, ZeroAllocMiddleware
+from catzilla import Catzilla, Request, Response, JSONResponse
+from typing import Optional, Dict, Any, List
 import time
 import uuid
-from typing import Dict, Any, List, Optional, Callable
 
-# Initialize Catzilla with middleware system
+# Initialize Catzilla
 app = Catzilla(
     production=False,
     show_banner=True,
-    log_requests=True,
-    enable_middleware=True
+    log_requests=True
 )
+
+print("🌪️ Catzilla Middleware Ordering Example")
+print("=" * 50)
 
 # Middleware execution tracking
 middleware_execution_log: List[Dict[str, Any]] = []
 
-class AuthenticationMiddleware(ZeroAllocMiddleware):
-    """Authentication middleware with priority 100"""
+# ============================================================================
+# 1. GLOBAL MIDDLEWARE WITH DIFFERENT PRIORITIES
+# ============================================================================
 
-    priority = 100  # Higher priority = earlier execution
+@app.middleware(priority=10, pre_route=True, name="first_middleware")
+def first_middleware(request: Request) -> Optional[Response]:
+    """First middleware to run (highest priority)"""
+    execution_time = time.time()
 
-    def __init__(self):
-        self.name = "Authentication"
-        self.executions = 0
+    middleware_execution_log.append({
+        "middleware": "first_middleware",
+        "phase": "request",
+        "timestamp": execution_time,
+        "priority": 10
+    })
 
-    def process_request(self, request: Request) -> Optional[Response]:
-        """Process request - runs before route handler"""
-        self.executions += 1
-        start_time = time.time()
+    print("1️⃣ First Middleware: Running first (priority 10)")
 
-        # Log execution
-        middleware_execution_log.append({
-            "middleware": self.name,
-            "phase": "request",
-            "timestamp": time.time(),
-            "priority": self.priority
-        })
+    # Initialize request context
+    if not hasattr(request, 'context'):
+        request.context = {}
+    request.context['request_id'] = str(uuid.uuid4())
+    request.context['start_time'] = execution_time
+    request.context['middleware_chain'] = ["first_middleware"]
 
-        # Check for authorization header
-        auth_header = request.headers.get("authorization")
+    return None  # Continue to next middleware
 
+@app.middleware(priority=50, pre_route=True, name="second_middleware")
+def second_middleware(request: Request) -> Optional[Response]:
+    """Second middleware to run (medium priority)"""
+    execution_time = time.time()
+
+    middleware_execution_log.append({
+        "middleware": "second_middleware",
+        "phase": "request",
+        "timestamp": execution_time,
+        "priority": 50
+    })
+
+    print("2️⃣ Second Middleware: Running second (priority 50)")
+
+    # Add to middleware chain
+    if hasattr(request, 'context') and 'middleware_chain' in request.context:
+        request.context['middleware_chain'].append("second_middleware")
+
+    return None  # Continue to next middleware
+
+@app.middleware(priority=100, pre_route=True, name="third_middleware")
+def third_middleware(request: Request) -> Optional[Response]:
+    """Third middleware to run (lowest priority)"""
+    execution_time = time.time()
+
+    middleware_execution_log.append({
+        "middleware": "third_middleware",
+        "phase": "request",
+        "timestamp": execution_time,
+        "priority": 100
+    })
+
+    print("3️⃣ Third Middleware: Running third (priority 100)")
+
+    # Add to middleware chain
+    if hasattr(request, 'context') and 'middleware_chain' in request.context:
+        request.context['middleware_chain'].append("third_middleware")
+
+    return None  # Continue to next middleware
+
+# ============================================================================
+# 2. AUTHENTICATION MIDDLEWARE WITH SHORT-CIRCUITING
+# ============================================================================
+
+@app.middleware(priority=25, pre_route=True, name="auth_middleware")
+def auth_middleware(request: Request) -> Optional[Response]:
+    """Authentication middleware that can short-circuit"""
+    execution_time = time.time()
+
+    middleware_execution_log.append({
+        "middleware": "auth_middleware",
+        "phase": "request",
+        "timestamp": execution_time,
+        "priority": 25
+    })
+
+    print("🔐 Auth Middleware: Checking authentication (priority 25)")
+
+    # Check for auth header
+    auth_header = request.headers.get("authorization")
+
+    # For /protected routes, enforce authentication
+    if "/protected" in request.path:
         if not auth_header:
-            # Return 401 response (short-circuit)
+            print("❌ Auth Middleware: SHORT-CIRCUITING - No auth header")
             return JSONResponse({
                 "error": "Authentication required",
-                "middleware": self.name,
-                "execution_time": f"{(time.time() - start_time) * 1000:.2f}ms"
+                "middleware": "auth_middleware",
+                "execution_order": len(middleware_execution_log),
+                "short_circuited": True
             }, status_code=401)
 
         if not auth_header.startswith("Bearer "):
+            print("❌ Auth Middleware: SHORT-CIRCUITING - Invalid auth format")
             return JSONResponse({
                 "error": "Invalid authorization format",
-                "middleware": self.name,
-                "expected": "Bearer <token>"
+                "middleware": "auth_middleware",
+                "short_circuited": True
             }, status_code=401)
 
-        # Extract and validate token
-        token = auth_header[7:]  # Remove "Bearer "
-        if token == "invalid":
-            return JSONResponse({
-                "error": "Invalid token",
-                "middleware": self.name
-            }, status_code=401)
+    # Add user info if authenticated
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        if hasattr(request, 'context'):
+            request.context['user'] = {
+                "token": token,
+                "authenticated": True,
+                "authenticated_at": execution_time
+            }
+            request.context['middleware_chain'].append("auth_middleware")
 
-        # Add user info to request context
-        request.context = getattr(request, 'context', {})
-        request.context['user'] = {
-            "id": "user123",
-            "name": "John Doe",
-            "token": token
-        }
+    print("✅ Auth Middleware: Continuing to next middleware")
+    return None  # Continue to next middleware
 
-        print(f"🔐 Authentication middleware: User authenticated")
-        return None  # Continue to next middleware
+# ============================================================================
+# 3. POST-ROUTE MIDDLEWARE (RESPONSE PROCESSING)
+# ============================================================================
 
-    def process_response(self, request: Request, response: Response) -> Response:
-        """Process response - runs after route handler"""
-        execution_time = time.time()
+@app.middleware(priority=10, pre_route=False, post_route=True, name="response_logger")
+def response_logger(request: Request) -> Optional[Response]:
+    """Response logging middleware"""
+    execution_time = time.time()
 
-        middleware_execution_log.append({
-            "middleware": self.name,
-            "phase": "response",
-            "timestamp": execution_time,
-            "priority": self.priority
-        })
+    middleware_execution_log.append({
+        "middleware": "response_logger",
+        "phase": "response",
+        "timestamp": execution_time,
+        "priority": 10
+    })
 
-        # Add authentication info to response headers
-        response.headers["X-Auth-Middleware"] = "processed"
-        response.headers["X-User-ID"] = request.context.get('user', {}).get('id', 'unknown')
+    # Calculate total request time
+    start_time = getattr(request, 'context', {}).get('start_time', execution_time)
+    total_time = (execution_time - start_time) * 1000  # Convert to milliseconds
 
-        print(f"🔐 Authentication middleware: Response processed")
-        return response
+    print(f"📊 Response Logger: Request completed in {total_time:.2f}ms")
 
-class CORSMiddleware(ZeroAllocMiddleware):
-    """CORS middleware with priority 200"""
+    return None  # Don't modify response
 
-    priority = 200  # Lower priority = later execution
+@app.middleware(priority=50, pre_route=False, post_route=True, name="cors_response")
+def cors_response(request: Request) -> Optional[Response]:
+    """CORS response headers middleware"""
+    execution_time = time.time()
 
-    def __init__(self):
-        self.name = "CORS"
-        self.executions = 0
+    middleware_execution_log.append({
+        "middleware": "cors_response",
+        "phase": "response",
+        "timestamp": execution_time,
+        "priority": 50
+    })
 
-    def process_request(self, request: Request) -> Optional[Response]:
-        """Process request - handle preflight"""
-        self.executions += 1
+    print("🌍 CORS Response: Adding CORS headers to response")
 
-        middleware_execution_log.append({
-            "middleware": self.name,
-            "phase": "request",
-            "timestamp": time.time(),
-            "priority": self.priority
-        })
+    return None  # Don't modify response (headers would be added in real implementation)
 
-        # Handle preflight OPTIONS request
-        if request.method == "OPTIONS":
-            return JSONResponse({
-                "message": "CORS preflight handled",
-                "middleware": self.name
-            }, headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                "Access-Control-Allow-Headers": "Authorization, Content-Type",
-                "Access-Control-Max-Age": "3600"
-            })
+# ============================================================================
+# 4. PER-ROUTE MIDDLEWARE
+# ============================================================================
 
-        print(f"🌍 CORS middleware: Request processed")
-        return None
+def rate_limit_middleware(request: Request) -> Optional[Response]:
+    """Per-route rate limiting middleware"""
+    print("⏱️ Rate Limit Middleware: Checking rate limits")
 
-    def process_response(self, request: Request, response: Response) -> Response:
-        """Process response - add CORS headers"""
-        middleware_execution_log.append({
-            "middleware": self.name,
-            "phase": "response",
-            "timestamp": time.time(),
-            "priority": self.priority
-        })
+    # Add to middleware chain
+    if hasattr(request, 'context') and 'middleware_chain' in request.context:
+        request.context['middleware_chain'].append("rate_limit_middleware")
 
-        # Add CORS headers
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["X-CORS-Middleware"] = "processed"
+    # Simple rate limit check (in real app, use Redis or similar)
+    client_ip = request.headers.get("x-forwarded-for", "127.0.0.1")
 
-        print(f"🌍 CORS middleware: CORS headers added")
-        return response
+    # For demo, allow all requests
+    print(f"✅ Rate Limit Middleware: IP {client_ip} - OK")
 
-class RateLimitMiddleware(ZeroAllocMiddleware):
-    """Rate limiting middleware with priority 50"""
+    return None  # Continue to route handler
 
-    priority = 50  # Highest priority = earliest execution
+def admin_middleware(request: Request) -> Optional[Response]:
+    """Per-route admin middleware"""
+    print("👑 Admin Middleware: Checking admin privileges")
 
-    def __init__(self):
-        self.name = "RateLimit"
-        self.executions = 0
-        self.request_counts: Dict[str, List[float]] = {}
-        self.rate_limit = 10  # 10 requests per minute
-        self.time_window = 60  # 60 seconds
+    # Add to middleware chain
+    if hasattr(request, 'context') and 'middleware_chain' in request.context:
+        request.context['middleware_chain'].append("admin_middleware")
 
-    def process_request(self, request: Request) -> Optional[Response]:
-        """Process request - check rate limits"""
-        self.executions += 1
+    # Check if user is authenticated
+    user = getattr(request, 'context', {}).get('user')
+    if not user:
+        return JSONResponse({
+            "error": "Authentication required for admin access",
+            "middleware": "admin_middleware"
+        }, status_code=401)
 
-        middleware_execution_log.append({
-            "middleware": self.name,
-            "phase": "request",
-            "timestamp": time.time(),
-            "priority": self.priority
-        })
+    # Check admin token
+    if user.get('token') != 'admin-token':
+        return JSONResponse({
+            "error": "Admin privileges required",
+            "middleware": "admin_middleware"
+        }, status_code=403)
 
-        # Get client IP (simplified)
-        client_ip = request.headers.get("x-forwarded-for", "127.0.0.1")
-        current_time = time.time()
+    print("✅ Admin Middleware: Admin access granted")
+    return None  # Continue to route handler
 
-        # Initialize tracking for new IPs
-        if client_ip not in self.request_counts:
-            self.request_counts[client_ip] = []
-
-        # Clean old requests outside time window
-        self.request_counts[client_ip] = [
-            req_time for req_time in self.request_counts[client_ip]
-            if current_time - req_time < self.time_window
-        ]
-
-        # Check rate limit
-        if len(self.request_counts[client_ip]) >= self.rate_limit:
-            return JSONResponse({
-                "error": "Rate limit exceeded",
-                "middleware": self.name,
-                "limit": self.rate_limit,
-                "window": f"{self.time_window}s",
-                "retry_after": 60
-            }, status_code=429, headers={
-                "X-RateLimit-Limit": str(self.rate_limit),
-                "X-RateLimit-Remaining": "0",
-                "X-RateLimit-Reset": str(int(current_time + self.time_window)),
-                "Retry-After": "60"
-            })
-
-        # Record this request
-        self.request_counts[client_ip].append(current_time)
-
-        print(f"⏱️  Rate limit middleware: {len(self.request_counts[client_ip])}/{self.rate_limit} requests")
-        return None
-
-    def process_response(self, request: Request, response: Response) -> Response:
-        """Process response - add rate limit headers"""
-        middleware_execution_log.append({
-            "middleware": self.name,
-            "phase": "response",
-            "timestamp": time.time(),
-            "priority": self.priority
-        })
-
-        client_ip = request.headers.get("x-forwarded-for", "127.0.0.1")
-        remaining = max(0, self.rate_limit - len(self.request_counts.get(client_ip, [])))
-
-        response.headers["X-RateLimit-Limit"] = str(self.rate_limit)
-        response.headers["X-RateLimit-Remaining"] = str(remaining)
-        response.headers["X-RateLimit-Middleware"] = "processed"
-
-        print(f"⏱️  Rate limit middleware: Response headers added")
-        return response
-
-class LoggingMiddleware(ZeroAllocMiddleware):
-    """Request logging middleware with priority 300"""
-
-    priority = 300  # Lowest priority = latest execution
-
-    def __init__(self):
-        self.name = "Logging"
-        self.executions = 0
-        self.request_logs: List[Dict[str, Any]] = []
-
-    def process_request(self, request: Request) -> Optional[Response]:
-        """Process request - log request details"""
-        self.executions += 1
-        start_time = time.time()
-
-        middleware_execution_log.append({
-            "middleware": self.name,
-            "phase": "request",
-            "timestamp": start_time,
-            "priority": self.priority
-        })
-
-        # Store request start time
-        request.context = getattr(request, 'context', {})
-        request.context['start_time'] = start_time
-        request.context['request_id'] = str(uuid.uuid4())
-
-        # Log request
-        request_log = {
-            "request_id": request.context['request_id'],
-            "method": request.method,
-            "path": request.url.path,
-            "query_params": dict(request.query_params),
-            "headers": dict(request.headers),
-            "started_at": start_time
-        }
-        self.request_logs.append(request_log)
-
-        print(f"📝 Logging middleware: Request logged - {request.method} {request.url.path}")
-        return None
-
-    def process_response(self, request: Request, response: Response) -> Response:
-        """Process response - log response details"""
-        end_time = time.time()
-
-        middleware_execution_log.append({
-            "middleware": self.name,
-            "phase": "response",
-            "timestamp": end_time,
-            "priority": self.priority
-        })
-
-        # Calculate response time
-        start_time = request.context.get('start_time', end_time)
-        response_time = (end_time - start_time) * 1000  # milliseconds
-
-        # Add response timing headers
-        response.headers["X-Response-Time"] = f"{response_time:.2f}ms"
-        response.headers["X-Request-ID"] = request.context.get('request_id', 'unknown')
-        response.headers["X-Logging-Middleware"] = "processed"
-
-        # Update request log with response info
-        request_id = request.context.get('request_id')
-        for log in self.request_logs:
-            if log["request_id"] == request_id:
-                log.update({
-                    "status_code": response.status_code,
-                    "response_time_ms": response_time,
-                    "completed_at": end_time
-                })
-                break
-
-        print(f"📝 Logging middleware: Response logged - {response.status_code} ({response_time:.2f}ms)")
-        return response
-
-# Register middleware with the app
-auth_middleware = AuthenticationMiddleware()
-cors_middleware = CORSMiddleware()
-rate_limit_middleware = RateLimitMiddleware()
-logging_middleware = LoggingMiddleware()
-
-app.add_middleware(auth_middleware)
-app.add_middleware(cors_middleware)
-app.add_middleware(rate_limit_middleware)
-app.add_middleware(logging_middleware)
+# ============================================================================
+# 5. ROUTE HANDLERS
+# ============================================================================
 
 @app.get("/")
 def home(request: Request) -> Response:
-    """Home endpoint showing middleware ordering"""
+    """Home endpoint - demonstrates global middleware ordering"""
+    context = getattr(request, 'context', {})
+
     return JSONResponse({
-        "message": "Catzilla Zero-Allocation Middleware Example",
-        "middleware_order": [
-            "1. RateLimit (priority 50) - First to check limits",
-            "2. Authentication (priority 100) - Second to authenticate",
-            "3. CORS (priority 200) - Third to handle CORS",
-            "4. Logging (priority 300) - Last to log everything"
+        "message": "🌪️ Catzilla Middleware Ordering Example",
+        "middleware_execution_order": [
+            "1. first_middleware (priority 10)",
+            "2. auth_middleware (priority 25)",
+            "3. second_middleware (priority 50)",
+            "4. third_middleware (priority 100)"
         ],
-        "features": [
-            "Zero-allocation middleware execution",
-            "Priority-based ordering",
-            "Short-circuiting capability",
-            "Per-route middleware support"
-        ]
+        "request_id": context.get('request_id'),
+        "middleware_chain": context.get('middleware_chain', []),
+        "total_global_middleware": len(context.get('middleware_chain', [])),
+        "note": "Lower priority numbers execute first"
     })
 
-@app.get("/api/protected")
+@app.get("/protected")
 def protected_endpoint(request: Request) -> Response:
-    """Protected endpoint requiring authentication"""
-    user = request.context.get('user', {})
+    """Protected endpoint - demonstrates auth middleware short-circuiting"""
+    context = getattr(request, 'context', {})
+    user = context.get('user', {})
 
     return JSONResponse({
-        "message": "Access granted to protected resource",
+        "message": "🔐 Protected endpoint accessed",
         "user": user,
-        "accessed_at": time.time(),
-        "middleware_chain": "completed successfully"
+        "middleware_chain": context.get('middleware_chain', []),
+        "request_id": context.get('request_id'),
+        "note": "This endpoint requires authentication"
     })
 
-@app.get("/api/public")
-def public_endpoint(request: Request) -> Response:
-    """Public endpoint (still goes through middleware)"""
+@app.get("/api/data", middleware=[rate_limit_middleware])
+def api_data(request: Request) -> Response:
+    """API endpoint with per-route middleware"""
+    context = getattr(request, 'context', {})
+
     return JSONResponse({
-        "message": "Public endpoint accessed",
-        "no_auth_required": True,
-        "request_id": request.context.get('request_id', 'unknown'),
-        "middleware_processed": True
+        "message": "📊 API data endpoint",
+        "data": {"items": [1, 2, 3], "total": 3},
+        "middleware_chain": context.get('middleware_chain', []),
+        "request_id": context.get('request_id'),
+        "note": "Global middleware + per-route rate limiting"
+    })
+
+@app.post("/admin/action", middleware=[admin_middleware])
+def admin_action(request: Request) -> Response:
+    """Admin endpoint with multiple middleware layers"""
+    context = getattr(request, 'context', {})
+    user = context.get('user', {})
+
+    return JSONResponse({
+        "message": "👑 Admin action executed",
+        "user": user,
+        "middleware_chain": context.get('middleware_chain', []),
+        "request_id": context.get('request_id'),
+        "note": "Global middleware + admin middleware"
     })
 
 @app.get("/middleware/execution-log")
-def get_middleware_execution_log(request: Request) -> Response:
+def get_execution_log(request: Request) -> Response:
     """Get middleware execution log"""
-    # Group by request processing
-    recent_executions = middleware_execution_log[-20:]  # Last 20 executions
+    context = getattr(request, 'context', {})
+
+    # Get recent executions
+    recent_executions = middleware_execution_log[-20:]
 
     return JSONResponse({
-        "middleware_executions": recent_executions,
-        "execution_summary": {
-            "total_executions": len(middleware_execution_log),
-            "recent_count": len(recent_executions)
-        },
-        "middleware_stats": {
-            "authentication": auth_middleware.executions,
-            "cors": cors_middleware.executions,
-            "rate_limit": rate_limit_middleware.executions,
-            "logging": logging_middleware.executions
-        }
+        "message": "Middleware execution log",
+        "recent_executions": recent_executions,
+        "total_executions": len(middleware_execution_log),
+        "request_id": context.get('request_id'),
+        "middleware_chain": context.get('middleware_chain', [])
     })
 
-@app.get("/middleware/performance")
-def get_middleware_performance(request: Request) -> Response:
-    """Get middleware performance metrics"""
+@app.get("/middleware/stats")
+def get_middleware_stats(request: Request) -> Response:
+    """Get middleware performance statistics"""
+    context = getattr(request, 'context', {})
+
+    # Get app middleware stats
+    app_stats = app.get_middleware_stats()
+
     return JSONResponse({
-        "performance_metrics": {
-            "zero_allocation": True,
-            "execution_overhead": "< 1ms per middleware",
-            "memory_usage": "constant O(1)",
-            "priority_ordering": "automatic"
-        },
-        "middleware_chain": [
-            {
-                "name": "RateLimit",
-                "priority": rate_limit_middleware.priority,
-                "executions": rate_limit_middleware.executions,
-                "type": "pre-authentication"
-            },
-            {
-                "name": "Authentication",
-                "priority": auth_middleware.priority,
-                "executions": auth_middleware.executions,
-                "type": "security"
-            },
-            {
-                "name": "CORS",
-                "priority": cors_middleware.priority,
-                "executions": cors_middleware.executions,
-                "type": "cross-origin"
-            },
-            {
-                "name": "Logging",
-                "priority": logging_middleware.priority,
-                "executions": logging_middleware.executions,
-                "type": "observability"
-            }
-        ]
+        "message": "Middleware performance statistics",
+        "app_stats": app_stats,
+        "execution_log_size": len(middleware_execution_log),
+        "request_id": context.get('request_id'),
+        "middleware_chain": context.get('middleware_chain', [])
     })
 
-@app.get("/middleware/request-logs")
-def get_request_logs(request: Request) -> Response:
-    """Get request logs from logging middleware"""
-    return JSONResponse({
-        "request_logs": logging_middleware.request_logs[-10:],  # Last 10 requests
-        "total_requests": len(logging_middleware.request_logs)
-    })
-
-@app.post("/middleware/clear-logs")
-def clear_middleware_logs(request: Request) -> Response:
-    """Clear middleware execution and request logs"""
+@app.post("/middleware/clear-log")
+def clear_execution_log(request: Request) -> Response:
+    """Clear middleware execution log"""
     global middleware_execution_log
     middleware_execution_log.clear()
-    logging_middleware.request_logs.clear()
 
     return JSONResponse({
-        "message": "Middleware logs cleared",
-        "execution_log_cleared": True,
-        "request_logs_cleared": True
+        "message": "Middleware execution log cleared",
+        "new_log_size": len(middleware_execution_log)
     })
 
-@app.get("/middleware/examples")
-def get_middleware_examples(request: Request) -> Response:
-    """Get examples for testing middleware"""
-    return JSONResponse({
-        "examples": {
-            "authenticated_request": {
-                "url": "/api/protected",
-                "headers": {"Authorization": "Bearer valid_token"},
-                "description": "Successful authentication"
-            },
-            "unauthenticated_request": {
-                "url": "/api/protected",
-                "headers": {},
-                "description": "Missing authorization (401 response)"
-            },
-            "invalid_token": {
-                "url": "/api/protected",
-                "headers": {"Authorization": "Bearer invalid"},
-                "description": "Invalid token (401 response)"
-            },
-            "cors_preflight": {
-                "url": "/api/protected",
-                "method": "OPTIONS",
-                "description": "CORS preflight request"
-            },
-            "rate_limit_test": {
-                "description": "Make 11+ requests quickly to trigger rate limit",
-                "url": "/api/public",
-                "note": "Rate limit: 10 requests per minute"
-            }
-        },
-        "middleware_features": [
-            "Priority-based execution order",
-            "Zero-allocation design",
-            "Short-circuiting on errors",
-            "Request/response processing phases",
-            "Performance monitoring"
-        ]
-    })
+# ============================================================================
+# 6. ERROR DEMONSTRATION
+# ============================================================================
 
-@app.get("/health")
-def health_check(request: Request) -> Response:
-    """Health check with middleware status"""
-    return JSONResponse({
-        "status": "healthy",
-        "middleware_system": "enabled",
-        "framework": "Catzilla v0.2.0",
-        "active_middleware": [
-            "RateLimit", "Authentication", "CORS", "Logging"
-        ]
-    })
+@app.get("/error")
+def error_endpoint(request: Request) -> Response:
+    """Endpoint that triggers an error"""
+    context = getattr(request, 'context', {})
+
+    # This will trigger an error to show middleware behavior
+    raise ValueError("Test error - middleware should still execute")
+
+# ============================================================================
+# 7. APPLICATION STARTUP
+# ============================================================================
 
 if __name__ == "__main__":
-    print("🚨 Starting Catzilla Middleware Ordering Example")
-    print("📝 Available endpoints:")
-    print("   GET  /                          - Home with middleware info")
-    print("   GET  /api/protected             - Protected endpoint (requires auth)")
-    print("   GET  /api/public                - Public endpoint")
-    print("   GET  /middleware/execution-log  - Get middleware execution log")
-    print("   GET  /middleware/performance    - Get performance metrics")
-    print("   GET  /middleware/request-logs   - Get request logs")
-    print("   POST /middleware/clear-logs     - Clear all logs")
-    print("   GET  /middleware/examples       - Get test examples")
-    print("   GET  /health                    - Health check")
-    print()
-    print("🎨 Features demonstrated:")
-    print("   • Zero-allocation middleware execution")
-    print("   • Priority-based middleware ordering")
-    print("   • Middleware short-circuiting")
-    print("   • Request/response processing phases")
-    print("   • Performance monitoring")
-    print()
-    print("⚡ Middleware Execution Order (by priority):")
-    print("   1. RateLimit (50) - Check rate limits first")
-    print("   2. Authentication (100) - Authenticate users")
-    print("   3. CORS (200) - Handle cross-origin requests")
-    print("   4. Logging (300) - Log all requests/responses")
-    print()
-    print("🧪 Try these examples:")
-    print("   # Successful request")
-    print("   curl -H 'Authorization: Bearer valid_token' http://localhost:8000/api/protected")
-    print()
-    print("   # Missing authentication")
-    print("   curl http://localhost:8000/api/protected")
-    print()
-    print("   # Rate limit test")
-    print("   for i in {1..12}; do curl http://localhost:8000/api/public; done")
-    print()
+    print("\n🎯 Starting Catzilla Middleware Ordering Example...")
+    print("\nGlobal Middleware Execution Order:")
+    print("  1. first_middleware (priority 10) - Runs first")
+    print("  2. auth_middleware (priority 25) - Can short-circuit")
+    print("  3. second_middleware (priority 50) - Runs third")
+    print("  4. third_middleware (priority 100) - Runs last")
+    print("\nPost-Route Middleware:")
+    print("  1. response_logger (priority 10) - Logs response")
+    print("  2. cors_response (priority 50) - Adds CORS headers")
 
-    app.listen(host="0.0.0.0", port=8000)
+    print("\nAvailable endpoints:")
+    print("  GET  /                        - Home (global middleware only)")
+    print("  GET  /protected               - Protected endpoint (auth required)")
+    print("  GET  /api/data                - API with rate limiting")
+    print("  POST /admin/action            - Admin-only endpoint")
+    print("  GET  /middleware/execution-log - View execution log")
+    print("  GET  /middleware/stats        - Performance statistics")
+    print("  POST /middleware/clear-log    - Clear execution log")
+    print("  GET  /error                   - Error endpoint")
+
+    print("\n🧪 Try these examples:")
+    print("  # Normal request (all global middleware)")
+    print("  curl http://localhost:8000/")
+    print()
+    print("  # Protected endpoint without auth (short-circuit)")
+    print("  curl http://localhost:8000/protected")
+    print()
+    print("  # Protected endpoint with auth")
+    print("  curl -H 'Authorization: Bearer test-token' http://localhost:8000/protected")
+    print()
+    print("  # Admin endpoint with admin token")
+    print("  curl -H 'Authorization: Bearer admin-token' -X POST http://localhost:8000/admin/action")
+    print()
+    print("  # View execution log")
+    print("  curl http://localhost:8000/middleware/execution-log")
+    print()
+    print("  # Performance stats")
+    print("  curl http://localhost:8000/middleware/stats")
+
+    print(f"\n🚀 Server starting on http://localhost:8000")
+    app.listen(8000)
