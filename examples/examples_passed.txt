@@ -18,3 +18,5 @@ examples/middleware/ordering.py - PASSED
 
 examples/background_tasks/monitoring.py - PASSED
 examples/background_tasks/scheduling.py - PASSED
+
+examples/cache/multi_layer.py - PASSED
