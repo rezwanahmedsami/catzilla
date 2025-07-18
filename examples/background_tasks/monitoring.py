@@ -13,22 +13,27 @@ Features demonstrated:
 """
 
 from catzilla import Catzilla, Request, Response, JSONResponse
-import asyncio
+from catzilla.background_tasks import TaskPriority
 import time
 import signal
 import os
-import psutil
 from datetime import datetime, timedelta
 from typing import Dict, Any, List
 import threading
+import uuid
 
 # Initialize Catzilla with monitoring enabled
 app = Catzilla(
     production=False,
     show_banner=True,
-    log_requests=True,
-    enable_background_tasks=True,
-    graceful_shutdown_timeout=30  # Wait up to 30 seconds for tasks to complete
+    log_requests=True
+)
+
+# Enable background task system
+app.enable_background_tasks(
+    workers=4,
+    enable_profiling=True,
+    memory_pool_mb=500
 )
 
 # Global task monitoring data
@@ -53,9 +58,14 @@ system_metrics = {
 # Task monitoring lock for thread safety
 metrics_lock = threading.Lock()
 
+# Global shutdown flag
+shutdown_requested = False
+
 def long_running_task(task_id: str, duration: int):
     """Simulate a long-running task for monitoring"""
     start_time = time.time()
+
+    print(f"🔄 Starting long-running task {task_id} for {duration} seconds")
 
     with metrics_lock:
         task_metrics["total_scheduled"] += 1
@@ -72,7 +82,7 @@ def long_running_task(task_id: str, duration: int):
     try:
         for i in range(duration):
             # Check for shutdown signal
-            if app.is_shutting_down:
+            if shutdown_requested:
                 print(f"⏹️  Task {task_id} received shutdown signal, cleaning up...")
                 break
 
@@ -115,6 +125,7 @@ def long_running_task(task_id: str, duration: int):
             task_metrics["last_update"] = datetime.now()
 
         print(f"✅ Task {task_id} completed in {completion_time:.2f} seconds")
+        return f"Task {task_id} completed successfully"
 
     except Exception as e:
         # Task failed
@@ -133,6 +144,92 @@ def long_running_task(task_id: str, duration: int):
             task_metrics["last_update"] = datetime.now()
 
         print(f"❌ Task {task_id} failed: {e}")
+        raise
+
+def memory_intensive_task(task_id: str, memory_mb: int):
+    """Simulate a memory-intensive task"""
+    start_time = time.time()
+
+    print(f"💾 Starting memory-intensive task {task_id} with {memory_mb}MB allocation")
+
+    with metrics_lock:
+        task_metrics["total_scheduled"] += 1
+        task_metrics["current_running"] += 1
+        active_tasks[task_id] = {
+            "id": task_id,
+            "type": "memory_intensive",
+            "status": "running",
+            "start_time": start_time,
+            "memory_mb": memory_mb,
+            "progress": 0
+        }
+
+    try:
+        # Simulate memory allocation
+        data_chunks = []
+        chunk_size = 1024 * 1024  # 1MB chunks
+
+        for i in range(memory_mb):
+            if shutdown_requested:
+                print(f"⏹️  Memory task {task_id} received shutdown signal, cleaning up...")
+                break
+
+            # Allocate 1MB chunk
+            chunk = bytearray(chunk_size)
+            data_chunks.append(chunk)
+
+            # Update progress
+            with metrics_lock:
+                if task_id in active_tasks:
+                    active_tasks[task_id]["progress"] = int(((i + 1) / memory_mb) * 100)
+
+            print(f"💾 Task {task_id} allocated {i + 1}MB / {memory_mb}MB")
+            time.sleep(0.1)  # Small delay to simulate work
+
+        # Hold memory for a bit
+        if not shutdown_requested:
+            print(f"🔄 Task {task_id} holding {memory_mb}MB for 3 seconds...")
+            time.sleep(3)
+
+        # Release memory
+        data_chunks.clear()
+
+        completion_time = time.time() - start_time
+
+        with metrics_lock:
+            task_metrics["current_running"] -= 1
+            task_metrics["total_completed"] += 1
+
+            if task_id in active_tasks:
+                task_info = active_tasks[task_id]
+                task_info["status"] = "completed"
+                task_info["completion_time"] = completion_time
+                task_info["completed_at"] = datetime.now()
+                completed_tasks.append(task_info)
+                del active_tasks[task_id]
+
+            task_metrics["last_update"] = datetime.now()
+
+        print(f"✅ Memory task {task_id} completed, memory released")
+        return f"Memory task {task_id} completed with {memory_mb}MB allocation"
+
+    except Exception as e:
+        with metrics_lock:
+            task_metrics["current_running"] -= 1
+            task_metrics["total_failed"] += 1
+
+            if task_id in active_tasks:
+                task_info = active_tasks[task_id]
+                task_info["status"] = "failed"
+                task_info["error"] = str(e)
+                task_info["failed_at"] = datetime.now()
+                completed_tasks.append(task_info)
+                del active_tasks[task_id]
+
+            task_metrics["last_update"] = datetime.now()
+
+        print(f"❌ Memory task {task_id} failed: {e}")
+        raise
 
 def memory_intensive_task(task_id: str, memory_mb: int):
     """Simulate a memory-intensive task"""
@@ -156,7 +253,7 @@ def memory_intensive_task(task_id: str, memory_mb: int):
         chunk_size = memory_mb // 10  # Allocate in chunks
 
         for i in range(10):
-            if app.is_shutting_down:
+            if shutdown_requested:
                 break
 
             # Allocate memory chunk
@@ -213,27 +310,32 @@ def memory_intensive_task(task_id: str, memory_mb: int):
 
 def update_system_metrics():
     """Update system metrics periodically"""
-    while not app.is_shutting_down:
+    while not shutdown_requested:
         try:
-            process = psutil.Process(os.getpid())
-
+            import resource
+            # Get basic system metrics using resource module
             with metrics_lock:
-                system_metrics["cpu_usage"] = process.cpu_percent()
-                system_metrics["memory_usage"] = process.memory_info().rss / 1024 / 1024  # MB
+                mem_usage = resource.getrusage(resource.RUSAGE_SELF)
+                system_metrics["memory_usage"] = mem_usage.ru_maxrss / 1024  # KB to MB on Linux, already MB on macOS
                 system_metrics["task_queue_size"] = len(active_tasks)
+                # CPU usage not easily available without psutil, so we'll skip it
 
         except Exception as e:
             print(f"❌ Error updating system metrics: {e}")
 
         time.sleep(5)  # Update every 5 seconds
 
-# Start system metrics monitoring
-app.add_background_task(update_system_metrics)
+# Start system metrics monitoring in a separate thread
+import threading
+metrics_thread = threading.Thread(target=update_system_metrics, daemon=True)
+metrics_thread.start()
 
-# Graceful shutdown handler
-def graceful_shutdown():
-    """Handle graceful shutdown"""
+# Signal handler for graceful shutdown
+def signal_handler(signum, frame):
+    """Handle shutdown signals"""
+    global shutdown_requested
     print("🛑 Received shutdown signal, waiting for tasks to complete...")
+    shutdown_requested = True
 
     start_time = time.time()
     timeout = 30  # 30 seconds timeout
@@ -255,8 +357,9 @@ def graceful_shutdown():
     else:
         print("✅ All tasks completed successfully")
 
-# Register shutdown handler
-app.add_shutdown_handler(graceful_shutdown)
+# Register signal handlers
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 
 @app.get("/")
 def home(request: Request) -> Response:
@@ -291,12 +394,18 @@ def start_long_running_task(request: Request) -> Response:
 
         task_id = f"long_{int(time.time())}_{len(active_tasks)}"
 
-        # Schedule the task
-        app.add_background_task(long_running_task, task_id, duration)
+        # Schedule the task using Catzilla's background task system
+        task_result = app.add_task(
+            long_running_task,
+            task_id,
+            duration,
+            priority=TaskPriority.NORMAL
+        )
 
         return JSONResponse({
             "message": "Long-running task started",
             "task_id": task_id,
+            "catzilla_task_id": task_result.task_id,
             "duration": duration,
             "status": "scheduled"
         }, status_code=202)
@@ -322,12 +431,18 @@ def start_memory_intensive_task(request: Request) -> Response:
 
         task_id = f"memory_{int(time.time())}_{len(active_tasks)}"
 
-        # Schedule the task
-        app.add_background_task(memory_intensive_task, task_id, memory_mb)
+        # Schedule the task using Catzilla's background task system
+        task_result = app.add_task(
+            memory_intensive_task,
+            task_id,
+            memory_mb,
+            priority=TaskPriority.HIGH
+        )
 
         return JSONResponse({
             "message": "Memory-intensive task started",
             "task_id": task_id,
+            "catzilla_task_id": task_result.task_id,
             "memory_mb": memory_mb,
             "status": "scheduled"
         }, status_code=202)
@@ -337,6 +452,77 @@ def start_memory_intensive_task(request: Request) -> Response:
             "error": "Failed to start task",
             "details": str(e)
         }, status_code=400)
+
+@app.get("/monitoring/catzilla-stats")
+def get_catzilla_task_stats(request: Request) -> Response:
+    """Get real-time Catzilla background task system statistics"""
+    try:
+        # Get stats from the actual Catzilla background task system
+        stats = app.get_task_stats()
+
+        return JSONResponse({
+            "message": "Catzilla Background Task System Statistics",
+            "engine_stats": {
+                "queue_metrics": {
+                    "critical_queue_size": stats.critical_queue_size,
+                    "high_queue_size": stats.high_queue_size,
+                    "normal_queue_size": stats.normal_queue_size,
+                    "low_queue_size": stats.low_queue_size,
+                    "total_queued": stats.total_queued,
+                    "queue_pressure": stats.queue_pressure
+                },
+                "worker_metrics": {
+                    "active_workers": stats.active_workers,
+                    "idle_workers": stats.idle_workers,
+                    "total_workers": stats.total_workers,
+                    "avg_worker_utilization": stats.avg_worker_utilization,
+                    "worker_cpu_usage": stats.worker_cpu_usage,
+                    "worker_memory_usage": stats.worker_memory_usage
+                },
+                "performance_metrics": {
+                    "tasks_per_second": stats.tasks_per_second,
+                    "avg_execution_time_ms": stats.avg_execution_time_ms,
+                    "p95_execution_time_ms": stats.p95_execution_time_ms,
+                    "p99_execution_time_ms": stats.p99_execution_time_ms,
+                    "memory_usage_mb": stats.memory_usage_mb,
+                    "memory_efficiency": stats.memory_efficiency
+                },
+                "error_metrics": {
+                    "failed_tasks": stats.failed_tasks,
+                    "retry_count": stats.retry_count,
+                    "timeout_count": stats.timeout_count,
+                    "error_rate": stats.error_rate
+                },
+                "engine_metrics": {
+                    "uptime_seconds": stats.uptime_seconds,
+                    "total_tasks_processed": stats.total_tasks_processed,
+                    "engine_cpu_usage": stats.engine_cpu_usage,
+                    "engine_memory_usage": stats.engine_memory_usage
+                }
+            },
+            "system_status": {
+                "enabled": True,
+                "configuration": {
+                    "workers": 4,
+                    "memory_pool_mb": 500,
+                    "profiling_enabled": True
+                }
+            },
+            "timestamp": datetime.now().isoformat()
+        })
+
+    except Exception as e:
+        return JSONResponse({
+            "error": "Failed to get Catzilla task stats",
+            "details": str(e),
+            "fallback_stats": {
+                "local_monitoring": {
+                    "active_tasks": len(active_tasks),
+                    "completed_tasks": task_metrics["total_completed"],
+                    "failed_tasks": task_metrics["total_failed"]
+                }
+            }
+        }, status_code=500)
 
 @app.get("/monitoring/tasks")
 def get_task_monitoring(request: Request) -> Response:
@@ -348,10 +534,23 @@ def get_task_monitoring(request: Request) -> Response:
             task_copy["running_time"] = time.time() - task_info["start_time"]
             current_active.append(task_copy)
 
-        recent_completed = completed_tasks[-10:]  # Last 10 completed tasks
+        recent_completed = []
+        for task_info in completed_tasks[-10:]:  # Last 10 completed tasks
+            task_copy = task_info.copy()
+            # Convert datetime objects to ISO strings
+            if "completed_at" in task_copy and hasattr(task_copy["completed_at"], "isoformat"):
+                task_copy["completed_at"] = task_copy["completed_at"].isoformat()
+            if "failed_at" in task_copy and hasattr(task_copy["failed_at"], "isoformat"):
+                task_copy["failed_at"] = task_copy["failed_at"].isoformat()
+            recent_completed.append(task_copy)
+
+        # Convert datetime in metrics to ISO string
+        metrics_copy = task_metrics.copy()
+        if "last_update" in metrics_copy and hasattr(metrics_copy["last_update"], "isoformat"):
+            metrics_copy["last_update"] = metrics_copy["last_update"].isoformat()
 
         return JSONResponse({
-            "metrics": task_metrics.copy(),
+            "metrics": metrics_copy,
             "active_tasks": current_active,
             "recent_completed": recent_completed,
             "system_metrics": system_metrics.copy(),
@@ -362,15 +561,14 @@ def get_task_monitoring(request: Request) -> Response:
 def get_system_monitoring(request: Request) -> Response:
     """Get system resource monitoring data"""
     try:
-        process = psutil.Process(os.getpid())
+        import resource
+        mem_usage = resource.getrusage(resource.RUSAGE_SELF)
 
         return JSONResponse({
             "system_resources": {
-                "cpu_percent": process.cpu_percent(),
-                "memory_mb": process.memory_info().rss / 1024 / 1024,
-                "memory_percent": process.memory_percent(),
-                "num_threads": process.num_threads(),
-                "num_fds": process.num_fds() if hasattr(process, 'num_fds') else 0
+                "memory_mb": mem_usage.ru_maxrss / 1024,  # Convert to MB
+                "num_threads": threading.active_count(),
+                "uptime_seconds": time.time() - app.start_time if hasattr(app, 'start_time') else 0
             },
             "task_stats": {
                 "active_count": len(active_tasks),
@@ -379,7 +577,11 @@ def get_system_monitoring(request: Request) -> Response:
                 "total_completed": task_metrics["total_completed"],
                 "total_failed": task_metrics["total_failed"]
             },
-            "uptime_seconds": time.time() - app.start_time if hasattr(app, 'start_time') else 0,
+            "background_task_system": {
+                "enabled": app._task_system_enabled if hasattr(app, '_task_system_enabled') else False,
+                "workers": 4,  # From our configuration
+                "memory_pool_mb": 500  # From our configuration
+            },
             "timestamp": datetime.now().isoformat()
         })
 
@@ -433,12 +635,13 @@ def get_task_health(request: Request) -> Response:
 @app.post("/monitoring/shutdown")
 def trigger_graceful_shutdown(request: Request) -> Response:
     """Trigger graceful shutdown (for testing)"""
-    app.add_background_task(graceful_shutdown)
+    global shutdown_requested
+    shutdown_requested = True
 
     return JSONResponse({
         "message": "Graceful shutdown initiated",
         "active_tasks": len(active_tasks),
-        "estimated_completion_time": "30 seconds"
+        "status": "shutting_down"
     })
 
 @app.get("/health")
@@ -462,6 +665,7 @@ if __name__ == "__main__":
     print("   POST /tasks/long-running       - Start long-running task")
     print("   POST /tasks/memory-intensive   - Start memory-intensive task")
     print("   GET  /monitoring/tasks         - Real-time task monitoring")
+    print("   GET  /monitoring/catzilla-stats - Catzilla background task system stats")
     print("   GET  /monitoring/system        - System resource monitoring")
     print("   GET  /monitoring/health        - Task system health check")
     print("   POST /monitoring/shutdown      - Trigger graceful shutdown")
@@ -469,6 +673,7 @@ if __name__ == "__main__":
     print()
     print("🎨 Features demonstrated:")
     print("   • Real-time task monitoring with metrics")
+    print("   • Catzilla background task system integration")
     print("   • System resource usage tracking")
     print("   • Task health checking and failure detection")
     print("   • Graceful shutdown with task completion waiting")
@@ -477,6 +682,7 @@ if __name__ == "__main__":
     print("🧪 Try these examples:")
     print("   curl -X POST http://localhost:8000/tasks/long-running \\")
     print("     -H 'Content-Type: application/json' -d '{\"duration\": 15}'")
+    print("   curl http://localhost:8000/monitoring/catzilla-stats")
     print("   curl http://localhost:8000/monitoring/tasks")
     print("   curl http://localhost:8000/monitoring/system")
     print()

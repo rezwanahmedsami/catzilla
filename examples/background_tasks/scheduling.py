@@ -27,6 +27,13 @@ app = Catzilla(
     log_requests=True
 )
 
+# Enable background task system
+app.enable_background_tasks(
+    workers=4,
+    enable_profiling=True,
+    memory_pool_mb=500
+)
+
 # Data models for auto-validation
 class EmailTask(BaseModel):
     """Email task creation model"""
@@ -79,7 +86,7 @@ def send_email_task(task_id: str, email: str, subject: str, body: str):
         task_storage[task_id]["failed_at"] = datetime.now().isoformat()
         print(f"❌ Email failed to {email}: {e}")
 
-def process_data_task(task_id: str, data: List[Dict], operation: str):
+def process_data_task(task_id: str, data: List[str], operation: str):
     """Simulate data processing"""
     task_storage[task_id]["status"] = "running"
     task_storage[task_id]["started_at"] = datetime.now().isoformat()
@@ -95,7 +102,7 @@ def process_data_task(task_id: str, data: List[Dict], operation: str):
 
             # Simulate data transformation
             processed_item = {
-                "id": item.get("id", i),
+                "id": i,
                 "original": item,
                 "processed": True,
                 "operation": operation,
@@ -213,7 +220,7 @@ def schedule_email_task(request: Request, email_task: EmailTask) -> Response:
     }
 
     # Schedule the background task
-    app.add_background_task(send_email_task, task_id, email_task.email, email_task.subject, email_task.body)
+    app.add_task(send_email_task, task_id, email_task.email, email_task.subject, email_task.body)
 
     return JSONResponse({
         "message": "Email task scheduled",
@@ -238,7 +245,7 @@ def schedule_data_processing_task(request: Request, data_task: DataProcessingTas
     }
 
     # Schedule the background task
-    app.add_background_task(process_data_task, task_id, data_task.data, data_task.operation)
+    app.add_task(process_data_task, task_id, data_task.data, data_task.operation)
 
     return JSONResponse({
         "message": "Data processing task scheduled",
@@ -271,7 +278,7 @@ def schedule_report_generation_task(request: Request, report_task: ReportGenerat
     }
 
     # Schedule the background task
-    app.add_background_task(generate_report_task, task_id, report_task.type, parameters)
+    app.add_task(generate_report_task, task_id, report_task.type, parameters)
 
     return JSONResponse({
         "message": "Report generation task scheduled",
