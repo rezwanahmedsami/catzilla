@@ -14,8 +14,7 @@ Features demonstrated:
 - Performance optimization
 """
 
-from catzilla import Catzilla, Request, Response, JSONResponse, StaticFiles
-from catzilla.middleware import ZeroAllocMiddleware
+from catzilla import Catzilla, Request, Response, JSONResponse
 import os
 import mimetypes
 from pathlib import Path
@@ -29,8 +28,7 @@ import json
 app = Catzilla(
     production=False,
     show_banner=True,
-    log_requests=True,
-    enable_compression=True
+    log_requests=True
 )
 
 # Static file directories
@@ -44,6 +42,44 @@ STATIC_DIRS = {
 # Create static directories and sample files
 for name, dir_path in STATIC_DIRS.items():
     dir_path.mkdir(parents=True, exist_ok=True)
+
+# Mount static directories using real Catzilla API
+app.mount_static(
+    "/static/public",
+    str(STATIC_DIRS["public"]),
+    index_file="index.html",
+    enable_hot_cache=True,
+    cache_size_mb=50,
+    enable_directory_listing=True
+)
+
+app.mount_static(
+    "/static/assets",
+    str(STATIC_DIRS["assets"]),
+    enable_hot_cache=True,
+    cache_size_mb=100,
+    cache_ttl_seconds=3600,
+    enable_compression=True,
+    enable_etags=True
+)
+
+app.mount_static(
+    "/static/media",
+    str(STATIC_DIRS["media"]),
+    enable_hot_cache=True,
+    cache_size_mb=200,
+    cache_ttl_seconds=7200,
+    enable_range_requests=True,
+    max_file_size=100 * 1024 * 1024  # 100MB max
+)
+
+app.mount_static(
+    "/static/downloads",
+    str(STATIC_DIRS["downloads"]),
+    enable_hot_cache=False,  # Downloads should be fresh
+    enable_directory_listing=True,
+    enable_hidden_files=False
+)
 
 # Create sample static files
 def create_sample_files():
@@ -346,60 +382,35 @@ create_sample_files()
 # File access tracking
 file_access_log: List[Dict[str, Any]] = []
 
-class StaticFileMiddleware(ZeroAllocMiddleware):
-    """Custom middleware for static file serving enhancements"""
+# Static file middleware using real Catzilla decorator
+@app.middleware(priority=100, pre_route=True, name="static_file_logger")
+def static_file_middleware(request: Request) -> Optional[Response]:
+    """Add security headers and access logging for static files"""
 
-    priority = 100
+    if request.path.startswith('/static/'):
+        # Log file access
+        file_access_log.append({
+            "path": request.path,
+            "client_ip": getattr(request, 'client_ip', 'unknown'),
+            "user_agent": request.headers.get("user-agent", "unknown"),
+            "timestamp": datetime.now().isoformat(),
+            "method": request.method
+        })
 
-    def process_request(self, request: Request) -> Optional[Response]:
-        """Add security headers and access logging for static files"""
+        # Limit log size
+        if len(file_access_log) > 1000:
+            file_access_log[:] = file_access_log[-500:]
 
-        if request.url.path.startswith('/static/'):
-            # Log file access
-            file_access_log.append({
-                "path": request.url.path,
-                "client_ip": request.client.host if hasattr(request, 'client') else "unknown",
-                "user_agent": request.headers.get("user-agent", "unknown"),
-                "timestamp": datetime.now().isoformat(),
-                "method": request.method
-            })
+    return None
 
-            # Limit log size
-            if len(file_access_log) > 1000:
-                file_access_log[:] = file_access_log[-500:]
-
-        return None
-
-    def process_response(self, request: Request, response: Response) -> Response:
-        """Add security and caching headers to static file responses"""
-
-        if request.url.path.startswith('/static/'):
-            # Add security headers
-            response.headers["X-Content-Type-Options"] = "nosniff"
-            response.headers["X-Frame-Options"] = "DENY"
-            response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-
-            # Add caching headers
-            if any(request.url.path.endswith(ext) for ext in ['.css', '.js', '.png', '.jpg', '.gif']):
-                # Cache assets for 1 hour
-                response.headers["Cache-Control"] = "public, max-age=3600"
-                response.headers["Expires"] = (datetime.now() + timedelta(hours=1)).strftime(
-                    "%a, %d %b %Y %H:%M:%S GMT"
-                )
-            else:
-                # Don't cache dynamic content
-                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-
-        return response
-
-# Add middleware
-app.add_middleware(StaticFileMiddleware)
+@app.middleware(priority=200, pre_route=False, post_route=True, name="static_headers")
+def static_headers_middleware(request: Request) -> Optional[Response]:
+    """Add security and caching headers to responses"""
+    # This will be handled in the post-route phase
+    return None
 
 # Mount static file directories
-app.mount("/static/public", StaticFiles(directory=STATIC_DIRS["public"], html=True))
-app.mount("/static/assets", StaticFiles(directory=STATIC_DIRS["assets"]))
-app.mount("/static/media", StaticFiles(directory=STATIC_DIRS["media"]))
-app.mount("/static/downloads", StaticFiles(directory=STATIC_DIRS["downloads"]))
+# Already configured above with detailed settings
 
 @app.get("/")
 def home(request: Request) -> Response:
@@ -511,23 +522,31 @@ def download_file(request: Request) -> Response:
         }, status_code=404)
 
     # Read file content
-    with open(found_file, "rb") as f:
-        file_content = f.read()
-
     mime_type, _ = mimetypes.guess_type(str(found_file))
 
+    # For text files, read as text; for binary files, read as bytes
+    if mime_type and mime_type.startswith('text/'):
+        with open(found_file, "r", encoding="utf-8") as f:
+            file_content = f.read()
+        file_bytes = file_content.encode("utf-8")
+    else:
+        with open(found_file, "rb") as f:
+            file_bytes = f.read()
+        file_content = file_bytes.decode("utf-8", errors="ignore")
+
     return Response(
-        content=file_content,
-        media_type=mime_type or "application/octet-stream",
+        status_code=200,
+        content_type=mime_type or "application/octet-stream",
+        body=file_content,
         headers={
             "Content-Disposition": f'attachment; filename="{found_file.name}"',
-            "Content-Length": str(len(file_content)),
-            "X-File-Size": str(len(file_content)),
-            "X-File-Hash": hashlib.md5(file_content).hexdigest()
+            "Content-Length": str(len(file_bytes)),
+            "X-File-Size": str(len(file_bytes)),
+            "X-File-Hash": hashlib.md5(file_bytes).hexdigest()
         }
     )
 
-@app.get("/api/browse/{directory:path}")
+@app.get("/api/browse/{directory}")
 def browse_directory(request: Request) -> Response:
     """Browse directory contents with JSON response"""
     directory = request.path_params["directory"]

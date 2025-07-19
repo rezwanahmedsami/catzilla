@@ -1,0 +1,28 @@
+{
+  "demo": "Catzilla Static Files",
+  "version": "0.2.0",
+  "features": [
+    "Static file serving",
+    "Directory browsing",
+    "File caching",
+    "Compression",
+    "Range requests",
+    "Security headers"
+  ],
+  "files": {
+    "css": [
+      "style.css"
+    ],
+    "js": [
+      "app.js"
+    ],
+    "html": [
+      "demo.html",
+      "index.html"
+    ],
+    "data": [
+      "sample.json"
+    ]
+  },
+  "generated_at": "2025-07-20T01:32:56.401375"
+}

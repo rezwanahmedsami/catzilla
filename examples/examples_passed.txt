@@ -21,3 +21,5 @@ examples/background_tasks/scheduling.py - PASSED
 
 examples/cache/multi_layer.py - PASSED
 examples/cache/performance_optimization.py - PASSED
+
+examples/files/static_serving.py - PASSED

@@ -1,0 +1,79 @@
+
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>🌪️ Catzilla Static Files Demo</title>
+        <link rel="stylesheet" href="/static/assets/style.css">
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🌪️ Catzilla Static Files Demo</h1>
+                <p>High-performance static file serving with advanced features</p>
+            </div>
+
+            <div class="features">
+                <h2>Features Demonstrated</h2>
+                <ul>
+                    <li>✅ Static file serving with automatic MIME type detection</li>
+                    <li>✅ Directory browsing with custom templates</li>
+                    <li>✅ File caching and compression</li>
+                    <li>✅ Range requests for video/audio streaming</li>
+                    <li>✅ Security headers and access control</li>
+                    <li>✅ Custom error pages</li>
+                    <li>✅ Performance optimization</li>
+                </ul>
+            </div>
+
+            <div class="file-sections">
+                <h2>Available Files</h2>
+
+                <div class="file-grid">
+                    <div class="file-card">
+                        <div class="file-icon">🎨</div>
+                        <h3>CSS Assets</h3>
+                        <p>Stylesheets and design files</p>
+                        <a href="/static/assets/" class="download-btn">Browse Assets</a>
+                    </div>
+
+                    <div class="file-card">
+                        <div class="file-icon">📁</div>
+                        <h3>Public Files</h3>
+                        <p>Publicly accessible files</p>
+                        <a href="/static/public/" class="download-btn">Browse Public</a>
+                    </div>
+
+                    <div class="file-card">
+                        <div class="file-icon">🎵</div>
+                        <h3>Media Files</h3>
+                        <p>Images, videos, and audio</p>
+                        <a href="/static/media/" class="download-btn">Browse Media</a>
+                    </div>
+
+                    <div class="file-card">
+                        <div class="file-icon">📦</div>
+                        <h3>Downloads</h3>
+                        <p>Downloadable files and archives</p>
+                        <a href="/static/downloads/" class="download-btn">Browse Downloads</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="api-info">
+                <h2>Static File API</h2>
+                <p>Access files programmatically:</p>
+                <pre>
+    GET /static/assets/style.css     - CSS file
+    GET /static/public/demo.html     - HTML file
+    GET /static/media/image.jpg      - Image file
+    GET /files/info/{filename}       - File information
+    GET /files/download/{filename}   - Force download
+                </pre>
+            </div>
+        </div>
+
+        <script src="/static/assets/app.js"></script>
+    </body>
+    </html>
