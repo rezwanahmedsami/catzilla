@@ -15,8 +15,6 @@ Features demonstrated:
 """
 
 from catzilla import Catzilla, Request, Response, JSONResponse
-from catzilla.cache import MemoryCache, CacheOptimizer
-from catzilla.middleware import ZeroAllocMiddleware
 import asyncio
 import time
 import json
@@ -27,16 +25,106 @@ from dataclasses import dataclass, field
 from collections import defaultdict, deque
 import heapq
 import threading
-import psutil
+
+# Try to import psutil, make it optional
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    print("Warning: psutil not available, system metrics will be disabled")
+    PSUTIL_AVAILABLE = False
 
 # Initialize Catzilla with performance optimization
 app = Catzilla(
     production=False,
     show_banner=True,
-    log_requests=True,
-    enable_caching=True,
-    cache_optimization=True
+    log_requests=True
 )
+
+# Simple in-memory cache implementation
+class SimpleMemoryCache:
+    """Simple in-memory cache with size limits"""
+
+    def __init__(self, max_size: int = 100 * 1024 * 1024):  # 100MB
+        self.max_size = max_size
+        self._cache = {}
+        self._expiry = {}
+        self._access_order = deque()
+        self._current_size = 0
+
+    def get(self, key: str) -> Optional[Any]:
+        """Get value from cache"""
+        # Check if expired
+        if key in self._expiry and time.time() > self._expiry[key]:
+            self.delete(key)
+            return None
+
+        if key in self._cache:
+            # Update access order for LRU
+            if key in self._access_order:
+                self._access_order.remove(key)
+            self._access_order.append(key)
+            return self._cache[key]
+        return None
+
+    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        """Set value in cache with optional TTL"""
+        try:
+            # Calculate size
+            value_size = len(json.dumps(value).encode()) if value else 0
+
+            # Remove old value if exists
+            if key in self._cache:
+                self.delete(key)
+
+            # Check if we need to evict items
+            while self._current_size + value_size > self.max_size and self._access_order:
+                oldest_key = self._access_order.popleft()
+                self.delete(oldest_key)
+
+            # Set new value
+            self._cache[key] = value
+            self._current_size += value_size
+            self._access_order.append(key)
+
+            if ttl:
+                self._expiry[key] = time.time() + ttl
+
+            return True
+        except Exception:
+            return False
+
+    def delete(self, key: str) -> bool:
+        """Delete key from cache"""
+        deleted = False
+        if key in self._cache:
+            value_size = len(json.dumps(self._cache[key]).encode())
+            del self._cache[key]
+            self._current_size -= value_size
+            deleted = True
+
+        if key in self._expiry:
+            del self._expiry[key]
+
+        if key in self._access_order:
+            self._access_order.remove(key)
+
+        return deleted
+
+    def clear(self):
+        """Clear all cache"""
+        self._cache.clear()
+        self._expiry.clear()
+        self._access_order.clear()
+        self._current_size = 0
+
+    def info(self) -> Dict[str, Any]:
+        """Get cache info"""
+        return {
+            "size": len(self._cache),
+            "memory_usage": self._current_size,
+            "max_size": self.max_size
+        }
 
 @dataclass
 class CacheAccessPattern:
@@ -55,7 +143,7 @@ class PerformanceOptimizedCache:
     """High-performance cache with intelligent optimization"""
 
     def __init__(self, max_size: int = 100 * 1024 * 1024):  # 100MB
-        self.cache = MemoryCache(max_size=max_size)
+        self.cache = SimpleMemoryCache(max_size=max_size)
         self.access_patterns: Dict[str, CacheAccessPattern] = {}
         self.access_history = deque(maxlen=10000)  # Recent access history
         self.performance_metrics = {
@@ -72,8 +160,9 @@ class PerformanceOptimizedCache:
         self.min_access_count_for_priority = 5
         self.memory_pressure_threshold = 0.85  # 85% memory usage
 
-        # Start optimization background task
-        self.optimization_task = asyncio.create_task(self._optimization_loop())
+        # Start optimization background task in a thread since we don't have async loop
+        self.optimization_thread = threading.Thread(target=self._optimization_loop, daemon=True)
+        self.optimization_thread.start()
 
     def get(self, key: str) -> Optional[Any]:
         """Get value with performance tracking"""
@@ -186,11 +275,20 @@ class PerformanceOptimizedCache:
     def _should_optimize(self) -> bool:
         """Determine if cache optimization should run"""
         # Check memory pressure
-        memory_usage = psutil.Process().memory_info().rss / (1024 * 1024 * 1024)  # GB
-        system_memory = psutil.virtual_memory()
-        memory_pressure = memory_usage / (system_memory.total / (1024 * 1024 * 1024))
+        if PSUTIL_AVAILABLE:
+            try:
+                memory_usage = psutil.Process().memory_info().rss / (1024 * 1024 * 1024)  # GB
+                system_memory = psutil.virtual_memory()
+                memory_pressure = memory_usage / (system_memory.total / (1024 * 1024 * 1024))
+                return memory_pressure > self.memory_pressure_threshold
+            except Exception:
+                pass
 
-        return memory_pressure > self.memory_pressure_threshold
+        # Fallback: check cache size
+        cache_info = self.cache.info()
+        current_size = cache_info.get("memory_usage", 0)
+        max_size = cache_info.get("max_size", 1)
+        return current_size / max_size > self.memory_pressure_threshold
 
     def _optimize_cache(self):
         """Optimize cache based on access patterns"""
@@ -232,8 +330,6 @@ class PerformanceOptimizedCache:
             try:
                 time.sleep(self.optimization_interval)
                 self._run_optimization_cycle()
-            except asyncio.CancelledError:
-                break
             except Exception as e:
                 print(f"Error in optimization loop: {e}")
 
@@ -307,7 +403,14 @@ class PerformanceOptimizedCache:
         hit_ratio = self.performance_metrics["cache_hits"] / total_requests
 
         # Memory efficiency (hit ratio per MB used)
-        memory_usage_mb = psutil.Process().memory_info().rss / (1024 * 1024)
+        if PSUTIL_AVAILABLE:
+            try:
+                memory_usage_mb = psutil.Process().memory_info().rss / (1024 * 1024)
+            except Exception:
+                memory_usage_mb = 1
+        else:
+            memory_usage_mb = self.cache.info().get("memory_usage", 1) / (1024 * 1024)
+
         memory_efficiency = hit_ratio / max(memory_usage_mb, 1)
 
         self.performance_metrics["hit_ratio"] = hit_ratio
@@ -357,61 +460,32 @@ class PerformanceOptimizedCache:
 # Global optimized cache
 optimized_cache = PerformanceOptimizedCache()
 
-class CacheOptimizationMiddleware(ZeroAllocMiddleware):
+# Use real Catzilla middleware decorator instead of the non-existent ZeroAllocMiddleware
+@app.middleware(priority=40, pre_route=True, name="cache_optimization")
+def cache_optimization_middleware(request: Request) -> Optional[Response]:
     """Middleware for automatic cache optimization"""
-
-    priority = 40
-
-    def process_request(self, request: Request) -> Optional[Response]:
-        """Check optimized cache for responses"""
-        if request.method != "GET":
-            return None
-
-        cache_key = f"response:{request.url.path}:{request.url.query}"
-        cached_response = optimized_cache.get(cache_key)
-
-        if cached_response:
-            return JSONResponse(
-                cached_response["data"],
-                headers={
-                    "X-Cache": "HIT",
-                    "X-Cache-Optimized": "true",
-                    "X-Cache-Key": cache_key
-                }
-            )
-
+    if request.method != "GET":
         return None
 
-    def process_response(self, request: Request, response: Response) -> Response:
-        """Cache responses with performance tracking"""
-        if request.method != "GET" or response.status_code != 200:
-            return response
+    # Use path only for now since query_string may not be available in this form
+    cache_key = f"response:{request.path}"
+    cached_response = optimized_cache.get(cache_key)
 
-        # Calculate compute time (rough estimate)
-        compute_time = getattr(request.state, "compute_time_ms", 0)
-
-        cache_key = f"response:{request.url.path}:{request.url.query}"
-
-        # Cache with performance tracking
-        response_data = {
-            "data": json.loads(response.body) if isinstance(response.body, (str, bytes)) else response.body,
-            "cached_at": datetime.now().isoformat()
-        }
-
-        optimized_cache.set(
-            cache_key,
-            response_data,
-            ttl=300,  # 5 minutes
-            compute_time_ms=compute_time
-        )
-
-        response.headers["X-Cache"] = "MISS"
+    if cached_response:
+        response = JSONResponse(cached_response["data"])
+        response.headers["X-Cache"] = "HIT"
         response.headers["X-Cache-Optimized"] = "true"
-
+        response.headers["X-Cache-Key"] = cache_key
         return response
 
-# Add optimization middleware
-app.add_middleware(CacheOptimizationMiddleware)
+    return None
+
+@app.middleware(priority=50, pre_route=False, post_route=True, name="cache_response")
+def cache_response_middleware(request: Request) -> Optional[Response]:
+    """Cache responses for future requests"""
+    # This would typically be implemented in post-route processing
+    # For now, we'll handle caching in the route handlers directly
+    return None
 
 # Sample computation functions for demonstrating optimization
 def expensive_computation(complexity: int = 1) -> Dict[str, Any]:
@@ -554,13 +628,23 @@ def get_optimization_report(request: Request) -> Response:
 @app.get("/cache/optimization/metrics")
 def get_optimization_metrics(request: Request) -> Response:
     """Get current optimization metrics"""
+    # System metrics with psutil fallback
+    system_metrics = {}
+    if PSUTIL_AVAILABLE:
+        try:
+            system_metrics = {
+                "memory_usage_mb": psutil.Process().memory_info().rss / (1024 * 1024),
+                "cpu_percent": psutil.cpu_percent(),
+                "available_memory_gb": psutil.virtual_memory().available / (1024**3)
+            }
+        except Exception as e:
+            system_metrics = {"error": f"Failed to get system metrics: {e}"}
+    else:
+        system_metrics = {"info": "System metrics disabled (psutil not available)"}
+
     return JSONResponse({
         "performance_metrics": optimized_cache.performance_metrics,
-        "system_metrics": {
-            "memory_usage_mb": psutil.Process().memory_info().rss / (1024 * 1024),
-            "cpu_percent": psutil.cpu_percent(),
-            "available_memory_gb": psutil.virtual_memory().available / (1024**3)
-        },
+        "system_metrics": system_metrics,
         "cache_stats": {
             "total_patterns": len(optimized_cache.access_patterns),
             "recent_access_count": len(optimized_cache.access_history)
