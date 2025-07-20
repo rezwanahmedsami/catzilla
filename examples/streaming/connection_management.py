@@ -14,25 +14,22 @@ Features demonstrated:
 """
 
 from catzilla import Catzilla, Request, Response, JSONResponse, StreamingResponse
-import asyncio
 import json
 import time
 import weakref
-from typing import AsyncGenerator, Dict, Any, List, Optional, Set
+from typing import Generator, Dict, Any, List, Optional, Set
 from datetime import datetime, timedelta
 import uuid
 import logging
 from dataclasses import dataclass
 from enum import Enum
+import threading
 
 # Initialize Catzilla with connection management
 app = Catzilla(
     production=False,
     show_banner=True,
-    log_requests=True,
-    enable_streaming=True,
-    max_connections=1000,  # Maximum concurrent connections
-    connection_timeout=300  # 5 minutes timeout
+    log_requests=True
 )
 
 # Connection states
@@ -72,22 +69,23 @@ class ConnectionManager:
         }
         self.cleanup_interval = 60  # seconds
         self.max_idle_time = 300  # 5 minutes
-        self._cleanup_task: Optional[asyncio.Task] = None
-        self._start_cleanup_task()
+        self._cleanup_thread: Optional[threading.Thread] = None
+        self._stop_cleanup = threading.Event()
+        self._start_cleanup_thread()
 
-    def _start_cleanup_task(self):
-        """Start background cleanup task"""
-        if self._cleanup_task is None or self._cleanup_task.done():
-            self._cleanup_task = asyncio.create_task(self._cleanup_connections())
+    def _start_cleanup_thread(self):
+        """Start background cleanup thread"""
+        if self._cleanup_thread is None or not self._cleanup_thread.is_alive():
+            self._cleanup_thread = threading.Thread(target=self._cleanup_connections, daemon=True)
+            self._cleanup_thread.start()
 
     def _cleanup_connections(self):
-        """Background task to cleanup idle connections"""
-        while True:
+        """Background thread to cleanup idle connections"""
+        while not self._stop_cleanup.is_set():
             try:
-                time.sleep(self.cleanup_interval)
-                self._cleanup_idle_connections()
-            except asyncio.CancelledError:
-                break
+                self._stop_cleanup.wait(self.cleanup_interval)
+                if not self._stop_cleanup.is_set():
+                    self._cleanup_idle_connections()
             except Exception as e:
                 logging.error(f"Error in connection cleanup: {e}")
 
@@ -202,7 +200,7 @@ class ConnectionManager:
 # Global connection manager instance
 connection_manager = ConnectionManager()
 
-def managed_realtime_stream(connection_id: str) -> AsyncGenerator[str, None]:
+def managed_realtime_stream(connection_id: str) -> Generator[str, None, None]:
     """Managed real-time data stream with connection tracking"""
     try:
         connection_manager.update_connection_state(connection_id, ConnectionState.STREAMING)
@@ -243,7 +241,7 @@ def managed_realtime_stream(connection_id: str) -> AsyncGenerator[str, None]:
     finally:
         connection_manager.close_connection(connection_id)
 
-def managed_event_stream(connection_id: str) -> AsyncGenerator[str, None]:
+def managed_event_stream(connection_id: str) -> Generator[str, None, None]:
     """Managed event stream with heartbeat and error handling"""
     try:
         connection_manager.update_connection_state(connection_id, ConnectionState.STREAMING)
@@ -326,7 +324,7 @@ def managed_event_stream(connection_id: str) -> AsyncGenerator[str, None]:
 
         connection_manager.close_connection(connection_id)
 
-def managed_monitoring_stream(connection_id: str) -> AsyncGenerator[str, None]:
+def managed_monitoring_stream(connection_id: str) -> Generator[str, None, None]:
     """Stream connection monitoring data"""
     try:
         connection_manager.update_connection_state(connection_id, ConnectionState.STREAMING)
@@ -399,8 +397,12 @@ def home(request: Request) -> Response:
 def connect_realtime_stream(request: Request) -> Response:
     """Connect to managed real-time stream"""
     try:
-        # Get client info
-        client_ip = request.client.host if hasattr(request, 'client') else "unknown"
+        # Get client info safely
+        try:
+            client_ip = getattr(request.client, 'host', 'unknown') if hasattr(request, 'client') else "unknown"
+        except:
+            client_ip = "unknown"
+
         user_agent = request.headers.get("user-agent", "unknown")
 
         # Create connection
@@ -414,7 +416,7 @@ def connect_realtime_stream(request: Request) -> Response:
 
         return StreamingResponse(
             managed_realtime_stream(connection_id),
-            media_type="text/plain",
+            content_type="text/plain",
             headers={
                 "X-Connection-ID": connection_id,
                 "X-Stream-Type": "realtime",
@@ -433,8 +435,12 @@ def connect_realtime_stream(request: Request) -> Response:
 def connect_event_stream(request: Request) -> Response:
     """Connect to managed event stream"""
     try:
-        # Get client info
-        client_ip = request.client.host if hasattr(request, 'client') else "unknown"
+        # Get client info safely
+        try:
+            client_ip = getattr(request.client, 'host', 'unknown') if hasattr(request, 'client') else "unknown"
+        except:
+            client_ip = "unknown"
+
         user_agent = request.headers.get("user-agent", "unknown")
 
         # Create connection
@@ -448,7 +454,7 @@ def connect_event_stream(request: Request) -> Response:
 
         return StreamingResponse(
             managed_event_stream(connection_id),
-            media_type="text/event-stream",
+            content_type="text/event-stream",
             headers={
                 "X-Connection-ID": connection_id,
                 "X-Stream-Type": "events",
@@ -468,8 +474,12 @@ def connect_event_stream(request: Request) -> Response:
 def connect_monitoring_stream(request: Request) -> Response:
     """Connect to connection monitoring stream"""
     try:
-        # Get client info
-        client_ip = request.client.host if hasattr(request, 'client') else "unknown"
+        # Get client info safely
+        try:
+            client_ip = getattr(request.client, 'host', 'unknown') if hasattr(request, 'client') else "unknown"
+        except:
+            client_ip = "unknown"
+
         user_agent = request.headers.get("user-agent", "unknown")
 
         # Create connection
@@ -483,7 +493,7 @@ def connect_monitoring_stream(request: Request) -> Response:
 
         return StreamingResponse(
             managed_monitoring_stream(connection_id),
-            media_type="text/plain",
+            content_type="text/plain",
             headers={
                 "X-Connection-ID": connection_id,
                 "X-Stream-Type": "monitoring",
