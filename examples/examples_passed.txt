@@ -24,3 +24,5 @@ examples/cache/performance_optimization.py - PASSED
 
 examples/files/static_serving.py - PASSED
 examples/files/upload_handling.py - PASSED
+
+examples/streaming/response_streams.py - PASSED

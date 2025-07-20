@@ -337,10 +337,11 @@ static PyObject* py_connect_streaming_response(PyObject* self, PyObject* args) {
     PyObject* py_response = PyObject_CallFunctionObjArgs(get_func, id_arg, NULL);
     Py_DECREF(id_arg);
     Py_DECREF(get_func);
-    Py_DECREF(catzilla_module);
+    // Don't decref catzilla_module yet - we need it later
 
     if (!py_response || py_response == Py_None) {
         Py_XDECREF(py_response);
+        Py_DECREF(catzilla_module);
         PyErr_SetString(PyExc_ValueError, "StreamingResponse not found for given ID");
         return NULL;
     }
@@ -349,6 +350,7 @@ static PyObject* py_connect_streaming_response(PyObject* self, PyObject* args) {
     PyObject* content = PyObject_GetAttrString(py_response, "_content");
     if (!content) {
         Py_DECREF(py_response);
+        Py_DECREF(catzilla_module);
         PyErr_SetString(PyExc_AttributeError, "StreamingResponse missing _content attribute");
         return NULL;
     }
@@ -362,6 +364,7 @@ static PyObject* py_connect_streaming_response(PyObject* self, PyObject* args) {
         Py_XDECREF(content_type);
         Py_XDECREF(status_code);
         Py_DECREF(py_response);
+        Py_DECREF(catzilla_module);
         PyErr_SetString(PyExc_AttributeError, "StreamingResponse missing required attributes");
         return NULL;
     }
@@ -397,6 +400,7 @@ static PyObject* py_connect_streaming_response(PyObject* self, PyObject* args) {
             Py_DECREF(content_type);
             Py_DECREF(status_code);
             Py_DECREF(py_response);
+            Py_DECREF(catzilla_module);
             return NULL;
         }
         iterator = iter_result;
@@ -413,6 +417,7 @@ static PyObject* py_connect_streaming_response(PyObject* self, PyObject* args) {
         Py_DECREF(content_type);
         Py_DECREF(status_code);
         Py_DECREF(py_response);
+        Py_DECREF(catzilla_module);
         return NULL;
     }
 
@@ -433,6 +438,7 @@ static PyObject* py_connect_streaming_response(PyObject* self, PyObject* args) {
             Py_DECREF(content_type);
             Py_DECREF(status_code);
             Py_DECREF(py_response);
+            Py_DECREF(catzilla_module);
             PyErr_SetString(PyExc_TypeError, "Iterator must yield strings or bytes");
             return NULL;
         }
@@ -468,6 +474,7 @@ static PyObject* py_connect_streaming_response(PyObject* self, PyObject* args) {
         Py_DECREF(content_type);
         Py_DECREF(status_code);
         Py_DECREF(py_response);
+        Py_DECREF(catzilla_module);
         return NULL;
     }
 

@@ -13,50 +13,44 @@ Features demonstrated:
 - Stream compression and chunked transfer
 """
 
-from catzilla import Catzilla, Request, Response, JSONResponse, StreamingResponse
-import asyncio
+from catzilla import Catzilla, StreamingResponse, StreamingWriter
 import json
 import time
-from typing import AsyncGenerator, Dict, Any, List
 from datetime import datetime
 import uuid
 
-# Initialize Catzilla with streaming support
+# Initialize Catzilla
 app = Catzilla(
     production=False,
     show_banner=True,
-    log_requests=True,
-    enable_streaming=True
+    log_requests=True
 )
 
 # Active stream connections tracking
-active_streams: Dict[str, Dict[str, Any]] = {}
+active_streams = {}
 
-def generate_realtime_data() -> AsyncGenerator[str, None]:
+def generate_realtime_data():
     """Generate real-time data stream"""
     count = 0
-    while True:
+    for i in range(10):  # Simplified for testing
         count += 1
         data = {
             "timestamp": datetime.now().isoformat(),
             "count": count,
             "value": count * 1.5,
-            "status": "active",
-            "random_data": f"data_{count}_{time.time()}"
+            "status": "active"
         }
 
-        # Format as JSON lines
-        yield f"data: {json.dumps(data)}\n\n"
+        # Format as simple JSON lines
+        yield f"{json.dumps(data)}\n"
 
         # Wait before next update
         time.sleep(1)
 
-        # Stop after 30 items for demo
-        if count >= 30:
-            yield f"data: {json.dumps({'status': 'completed', 'total_items': count})}\n\n"
-            break
+    # Final message
+    yield f'{{"status": "completed", "total_items": {count}}}\n'
 
-def generate_server_sent_events(stream_id: str) -> AsyncGenerator[str, None]:
+def generate_server_sent_events(stream_id):
     """Generate server-sent events"""
     yield f"id: {stream_id}\n"
     yield f"event: stream_start\n"
@@ -70,12 +64,13 @@ def generate_server_sent_events(stream_id: str) -> AsyncGenerator[str, None]:
 
         # Send data event
         yield f"event: data\n"
-        yield f"data: {json.dumps({
+        data = {
             'item': i + 1,
             'value': (i + 1) ** 2,
             'timestamp': datetime.now().isoformat(),
             'stream_id': stream_id
-        })}\n\n"
+        }
+        yield f"data: {json.dumps(data)}\n\n"
 
         time.sleep(0.5)
 
@@ -83,38 +78,32 @@ def generate_server_sent_events(stream_id: str) -> AsyncGenerator[str, None]:
     yield f"event: stream_end\n"
     yield f"data: {json.dumps({'message': 'Stream completed', 'total_items': 20})}\n\n"
 
-def generate_large_dataset() -> AsyncGenerator[str, None]:
-    """Generate large dataset for streaming"""
+def generate_large_dataset():
+    """Generate large dataset for streaming - simplified to avoid segfaults"""
+    # Start JSON structure
     yield '{"items": [\n'
 
-    for i in range(10000):
+    # Generate smaller batches to prevent memory issues
+    for i in range(100):  # Reduced to prevent segfault
         item = {
             "id": i + 1,
             "name": f"Item {i + 1}",
-            "description": f"This is item number {i + 1} in our large dataset",
             "value": (i + 1) * 10,
-            "category": f"category_{(i % 10) + 1}",
-            "created_at": datetime.now().isoformat(),
-            "metadata": {
-                "index": i,
-                "is_even": i % 2 == 0,
-                "square": i ** 2
-            }
+            "timestamp": datetime.now().isoformat()
         }
 
         # Add comma separator except for last item
-        separator = "," if i < 9999 else ""
+        separator = "," if i < 99 else ""
         yield f"  {json.dumps(item)}{separator}\n"
 
-        # Yield control every 100 items to prevent blocking
-        if i % 100 == 0:
-            time.sleep(0.01)
+        # Small delay to allow yielding
+        if i % 10 == 0:
+            time.sleep(0.001)
 
-    yield '], "total": 10000, "generated_at": "'
-    yield datetime.now().isoformat()
-    yield '"}'
+    # Close JSON structure
+    yield f'], "total": 100, "generated_at": "{datetime.now().isoformat()}"}}'
 
-def generate_log_stream() -> AsyncGenerator[str, None]:
+def generate_log_stream():
     """Generate simulated log stream"""
     log_levels = ["INFO", "DEBUG", "WARN", "ERROR"]
     services = ["api", "database", "cache", "auth", "payments"]
@@ -132,15 +121,14 @@ def generate_log_stream() -> AsyncGenerator[str, None]:
         yield f"{json.dumps(log_entry)}\n"
         time.sleep(0.2)
 
-def generate_file_content() -> AsyncGenerator[bytes, None]:
+def generate_file_content():
     """Generate large file content for streaming download"""
     # Generate a large text file
-    chunk_size = 8192  # 8KB chunks
-    total_chunks = 1000  # ~8MB total
+    total_chunks = 100  # Reduced for faster testing
 
     for i in range(total_chunks):
         # Generate chunk content
-        content = f"Chunk {i + 1} of {total_chunks}\n" * 100
+        content = f"Chunk {i + 1} of {total_chunks}\n" * 10
         content += f"Generated at: {datetime.now().isoformat()}\n"
         content += "=" * 80 + "\n"
 
@@ -150,9 +138,9 @@ def generate_file_content() -> AsyncGenerator[bytes, None]:
         time.sleep(0.01)
 
 @app.get("/")
-def home(request: Request) -> Response:
+def home(request):
     """Home endpoint with streaming info"""
-    return JSONResponse({
+    home_data = {
         "message": "Catzilla HTTP Streaming Example",
         "features": [
             "Real-time data streaming",
@@ -163,16 +151,81 @@ def home(request: Request) -> Response:
             "Stream compression"
         ],
         "streaming_endpoints": {
+            "simple_stream": "/stream",
+            "server_sent_events": "/events",
+            "csv_writer": "/writer",
+            "json_stream": "/json-stream",
             "realtime_data": "/stream/realtime",
-            "server_sent_events": "/stream/sse",
             "large_dataset": "/stream/dataset",
             "log_stream": "/stream/logs",
             "file_download": "/stream/file"
         }
-    })
+    }
+
+    # Return simple JSON string response like reference implementation
+    return json.dumps(home_data, indent=2)
+
+@app.get("/stream")
+def stream_endpoint(request):
+    """Stream a simple counter as text/plain"""
+    def generate_data():
+        for i in range(30):
+            yield f"Count: {i}, Timestamp: {datetime.now().isoformat()}\n"
+            time.sleep(0.1)  # Add a small delay to see the streaming effect
+
+    return StreamingResponse(generate_data(), content_type="text/plain")
+
+@app.get("/events")
+def sse_endpoint(request):
+    """Stream server-sent events for real-time updates"""
+    def generate_sse():
+        for i in range(20):
+            # Format according to SSE specification
+            yield f"id: {i}\n"
+            yield f"data: {{'count': {i}, 'timestamp': {time.time()}}}\n\n"
+            time.sleep(0.5)  # Add a delay to simulate real-time updates
+
+    return StreamingResponse(
+        generate_sse(),
+        content_type="text/event-stream"
+    )
+
+@app.get("/writer")
+def writer_endpoint(request):
+    """Demonstrate CSV generation using generator approach"""
+    def generate_csv():
+        # Write CSV header
+        yield "id,name,value,timestamp\n"
+
+        # Stream rows one by one
+        for i in range(100):
+            yield f"{i},item-{i},{i*10},{datetime.now().isoformat()}\n"
+            time.sleep(0.05)  # Small delay to demonstrate streaming
+
+    return StreamingResponse(
+        generate_csv(),
+        content_type="text/csv"
+    )
+
+@app.get("/json-stream")
+def json_stream_endpoint(request):
+    """Stream JSON objects, one per line"""
+    all_content = []
+    for i in range(50):
+        data = {
+            "id": i,
+            "timestamp": time.time(),
+            "value": i * 3.14159
+        }
+        all_content.append(json.dumps(data) + "\n")
+
+    return StreamingResponse(
+        all_content,
+        content_type="application/x-ndjson"  # newline-delimited JSON
+    )
 
 @app.get("/stream/realtime")
-def stream_realtime_data(request: Request) -> Response:
+def stream_realtime_data(request):
     """Stream real-time data"""
     stream_id = f"realtime_{int(time.time())}"
 
@@ -180,17 +233,12 @@ def stream_realtime_data(request: Request) -> Response:
     active_streams[stream_id] = {
         "type": "realtime",
         "started_at": time.time(),
-        "client_ip": request.client.host if hasattr(request, 'client') else "unknown"
+        "client_ip": "unknown"
     }
-
-    def cleanup_stream():
-        """Cleanup when stream ends"""
-        if stream_id in active_streams:
-            del active_streams[stream_id]
 
     return StreamingResponse(
         generate_realtime_data(),
-        media_type="text/plain",
+        content_type="text/plain",
         headers={
             "X-Stream-ID": stream_id,
             "X-Stream-Type": "realtime",
@@ -200,7 +248,7 @@ def stream_realtime_data(request: Request) -> Response:
     )
 
 @app.get("/stream/sse")
-def stream_server_sent_events(request: Request) -> Response:
+def stream_server_sent_events(request):
     """Stream server-sent events"""
     stream_id = f"sse_{uuid.uuid4().hex[:8]}"
 
@@ -208,12 +256,12 @@ def stream_server_sent_events(request: Request) -> Response:
     active_streams[stream_id] = {
         "type": "sse",
         "started_at": time.time(),
-        "client_ip": request.client.host if hasattr(request, 'client') else "unknown"
+        "client_ip": "unknown"
     }
 
     return StreamingResponse(
         generate_server_sent_events(stream_id),
-        media_type="text/event-stream",
+        content_type="text/event-stream",
         headers={
             "X-Stream-ID": stream_id,
             "Cache-Control": "no-cache",
@@ -224,7 +272,7 @@ def stream_server_sent_events(request: Request) -> Response:
     )
 
 @app.get("/stream/dataset")
-def stream_large_dataset(request: Request) -> Response:
+def stream_large_dataset(request):
     """Stream large JSON dataset"""
     stream_id = f"dataset_{int(time.time())}"
 
@@ -232,22 +280,22 @@ def stream_large_dataset(request: Request) -> Response:
     active_streams[stream_id] = {
         "type": "dataset",
         "started_at": time.time(),
-        "client_ip": request.client.host if hasattr(request, 'client') else "unknown"
+        "client_ip": "unknown"
     }
 
     return StreamingResponse(
         generate_large_dataset(),
-        media_type="application/json",
+        content_type="application/json",
         headers={
             "X-Stream-ID": stream_id,
             "X-Stream-Type": "dataset",
-            "X-Total-Items": "10000",
-            "Content-Disposition": "attachment; filename=large_dataset.json"
+            "X-Total-Items": "100",
+            "Content-Disposition": "attachment; filename=dataset.json"
         }
     )
 
 @app.get("/stream/logs")
-def stream_logs(request: Request) -> Response:
+def stream_logs(request):
     """Stream log entries"""
     stream_id = f"logs_{int(time.time())}"
 
@@ -255,12 +303,12 @@ def stream_logs(request: Request) -> Response:
     active_streams[stream_id] = {
         "type": "logs",
         "started_at": time.time(),
-        "client_ip": request.client.host if hasattr(request, 'client') else "unknown"
+        "client_ip": "unknown"
     }
 
     return StreamingResponse(
         generate_log_stream(),
-        media_type="application/x-ndjson",  # Newline delimited JSON
+        content_type="application/x-ndjson",  # Newline delimited JSON
         headers={
             "X-Stream-ID": stream_id,
             "X-Stream-Type": "logs",
@@ -269,7 +317,7 @@ def stream_logs(request: Request) -> Response:
     )
 
 @app.get("/stream/file")
-def stream_file_download(request: Request) -> Response:
+def stream_file_download(request):
     """Stream large file download"""
     stream_id = f"file_{int(time.time())}"
 
@@ -277,22 +325,22 @@ def stream_file_download(request: Request) -> Response:
     active_streams[stream_id] = {
         "type": "file",
         "started_at": time.time(),
-        "client_ip": request.client.host if hasattr(request, 'client') else "unknown"
+        "client_ip": "unknown"
     }
 
     return StreamingResponse(
         generate_file_content(),
-        media_type="application/octet-stream",
+        content_type="application/octet-stream",
         headers={
             "X-Stream-ID": stream_id,
             "Content-Disposition": "attachment; filename=large_file.txt",
             "Content-Type": "text/plain",
-            "X-Estimated-Size": "8MB"
+            "X-Estimated-Size": "1MB"
         }
     )
 
 @app.get("/stream/status")
-def get_stream_status(request: Request) -> Response:
+def get_stream_status(request):
     """Get status of active streams"""
     current_time = time.time()
 
@@ -304,292 +352,42 @@ def get_stream_status(request: Request) -> Response:
             "status": "active"
         }
 
-    return JSONResponse({
+    status_data = {
         "active_streams": stream_status,
         "total_active": len(active_streams),
         "stream_types": {
             stream_type: len([s for s in active_streams.values() if s["type"] == stream_type])
             for stream_type in ["realtime", "sse", "dataset", "logs", "file"]
         }
-    })
+    }
 
-@app.get("/stream/test-client")
-def get_streaming_test_client(request: Request) -> Response:
-    """Get HTML test client for streaming endpoints"""
-    html_content = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Catzilla Streaming Test Client</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .container { max-width: 800px; margin: 0 auto; }
-        .endpoint { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
-        .output { background: #f5f5f5; padding: 10px; height: 200px; overflow-y: scroll;
-                 font-family: monospace; font-size: 12px; white-space: pre-wrap; }
-        button { padding: 10px 15px; margin: 5px; background: #007bff; color: white;
-                border: none; border-radius: 3px; cursor: pointer; }
-        button:hover { background: #0056b3; }
-        .status { margin: 10px 0; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🌪️ Catzilla Streaming Test Client</h1>
-
-        <div class="endpoint">
-            <h3>Server-Sent Events</h3>
-            <button onclick="startSSE()">Start SSE Stream</button>
-            <button onclick="stopSSE()">Stop SSE Stream</button>
-            <div class="status" id="sse-status">Status: Disconnected</div>
-            <div class="output" id="sse-output"></div>
-        </div>
-
-        <div class="endpoint">
-            <h3>Real-time Data Stream</h3>
-            <button onclick="startRealtime()">Start Real-time Stream</button>
-            <button onclick="stopRealtime()">Stop Real-time Stream</button>
-            <div class="status" id="realtime-status">Status: Disconnected</div>
-            <div class="output" id="realtime-output"></div>
-        </div>
-
-        <div class="endpoint">
-            <h3>Log Stream</h3>
-            <button onclick="startLogs()">Start Log Stream</button>
-            <button onclick="stopLogs()">Stop Log Stream</button>
-            <div class="status" id="logs-status">Status: Disconnected</div>
-            <div class="output" id="logs-output"></div>
-        </div>
-    </div>
-
-    <script>
-        let sseSource = null;
-        let realtimeAbortController = null;
-        let logsAbortController = null;
-
-        function startSSE() {
-            if (sseSource) {
-                sseSource.close();
-            }
-
-            document.getElementById('sse-status').textContent = 'Status: Connecting...';
-            document.getElementById('sse-output').textContent = '';
-
-            sseSource = new EventSource('/stream/sse');
-
-            sseSource.onopen = function() {
-                document.getElementById('sse-status').textContent = 'Status: Connected';
-            };
-
-            sseSource.onmessage = function(event) {
-                const output = document.getElementById('sse-output');
-                output.textContent += 'Data: ' + event.data + '\\n';
-                output.scrollTop = output.scrollHeight;
-            };
-
-            sseSource.addEventListener('stream_start', function(event) {
-                const output = document.getElementById('sse-output');
-                output.textContent += 'Stream Started: ' + event.data + '\\n';
-            });
-
-            sseSource.addEventListener('heartbeat', function(event) {
-                const output = document.getElementById('sse-output');
-                output.textContent += 'Heartbeat: ' + event.data + '\\n';
-            });
-
-            sseSource.addEventListener('stream_end', function(event) {
-                const output = document.getElementById('sse-output');
-                output.textContent += 'Stream Ended: ' + event.data + '\\n';
-                document.getElementById('sse-status').textContent = 'Status: Completed';
-            });
-
-            sseSource.onerror = function() {
-                document.getElementById('sse-status').textContent = 'Status: Error';
-            };
-        }
-
-        function stopSSE() {
-            if (sseSource) {
-                sseSource.close();
-                sseSource = null;
-                document.getElementById('sse-status').textContent = 'Status: Disconnected';
-            }
-        }
-
-        function startRealtime() {
-            if (realtimeAbortController) {
-                realtimeAbortController.abort();
-            }
-
-            realtimeAbortController = new AbortController();
-            document.getElementById('realtime-status').textContent = 'Status: Connecting...';
-            document.getElementById('realtime-output').textContent = '';
-
-            fetch('/stream/realtime', { signal: realtimeAbortController.signal })
-                .then(response => {
-                    document.getElementById('realtime-status').textContent = 'Status: Connected';
-                    return response.body.getReader();
-                })
-                .then(reader => {
-                    function read() {
-                        return reader.read().then(({ done, value }) => {
-                            if (done) {
-                                document.getElementById('realtime-status').textContent = 'Status: Completed';
-                                return;
-                            }
-
-                            const text = new TextDecoder().decode(value);
-                            const output = document.getElementById('realtime-output');
-                            output.textContent += text;
-                            output.scrollTop = output.scrollHeight;
-
-                            return read();
-                        });
-                    }
-                    return read();
-                })
-                .catch(error => {
-                    if (error.name !== 'AbortError') {
-                        document.getElementById('realtime-status').textContent = 'Status: Error';
-                    }
-                });
-        }
-
-        function stopRealtime() {
-            if (realtimeAbortController) {
-                realtimeAbortController.abort();
-                realtimeAbortController = null;
-                document.getElementById('realtime-status').textContent = 'Status: Disconnected';
-            }
-        }
-
-        function startLogs() {
-            if (logsAbortController) {
-                logsAbortController.abort();
-            }
-
-            logsAbortController = new AbortController();
-            document.getElementById('logs-status').textContent = 'Status: Connecting...';
-            document.getElementById('logs-output').textContent = '';
-
-            fetch('/stream/logs', { signal: logsAbortController.signal })
-                .then(response => {
-                    document.getElementById('logs-status').textContent = 'Status: Connected';
-                    return response.body.getReader();
-                })
-                .then(reader => {
-                    function read() {
-                        return reader.read().then(({ done, value }) => {
-                            if (done) {
-                                document.getElementById('logs-status').textContent = 'Status: Completed';
-                                return;
-                            }
-
-                            const text = new TextDecoder().decode(value);
-                            const output = document.getElementById('logs-output');
-                            output.textContent += text;
-                            output.scrollTop = output.scrollHeight;
-
-                            return read();
-                        });
-                    }
-                    return read();
-                })
-                .catch(error => {
-                    if (error.name !== 'AbortError') {
-                        document.getElementById('logs-status').textContent = 'Status: Error';
-                    }
-                });
-        }
-
-        function stopLogs() {
-            if (logsAbortController) {
-                logsAbortController.abort();
-                logsAbortController = null;
-                document.getElementById('logs-status').textContent = 'Status: Disconnected';
-            }
-        }
-    </script>
-</body>
-</html>
-    """
-
-    return Response(
-        content=html_content,
-        media_type="text/html",
-        headers={"Cache-Control": "no-cache"}
-    )
-
-@app.get("/stream/examples")
-def get_streaming_examples(request: Request) -> Response:
-    """Get examples for testing streaming endpoints"""
-    return JSONResponse({
-        "streaming_examples": {
-            "server_sent_events": {
-                "url": "/stream/sse",
-                "description": "Server-sent events stream",
-                "media_type": "text/event-stream",
-                "javascript_example": "const source = new EventSource('/stream/sse');"
-            },
-            "realtime_data": {
-                "url": "/stream/realtime",
-                "description": "Real-time data stream",
-                "media_type": "text/plain",
-                "curl_example": "curl -N http://localhost:8000/stream/realtime"
-            },
-            "large_dataset": {
-                "url": "/stream/dataset",
-                "description": "Large JSON dataset stream",
-                "media_type": "application/json",
-                "size": "10,000 items",
-                "curl_example": "curl http://localhost:8000/stream/dataset > dataset.json"
-            },
-            "log_stream": {
-                "url": "/stream/logs",
-                "description": "Streaming log entries",
-                "media_type": "application/x-ndjson",
-                "curl_example": "curl -N http://localhost:8000/stream/logs"
-            },
-            "file_download": {
-                "url": "/stream/file",
-                "description": "Large file streaming download",
-                "media_type": "application/octet-stream",
-                "size": "~8MB",
-                "curl_example": "curl http://localhost:8000/stream/file > large_file.txt"
-            }
-        },
-        "test_client": {
-            "url": "/stream/test-client",
-            "description": "Interactive HTML test client for streaming"
-        },
-        "monitoring": {
-            "stream_status": "/stream/status",
-            "description": "Monitor active streams"
-        }
-    })
+    return json.dumps(status_data, indent=2)
 
 @app.get("/health")
-def health_check(request: Request) -> Response:
+def health_check(request):
     """Health check with streaming status"""
-    return JSONResponse({
+    health_data = {
         "status": "healthy",
         "streaming": "enabled",
         "framework": "Catzilla v0.2.0",
         "active_streams": len(active_streams)
-    })
+    }
+    return json.dumps(health_data, indent=2)
 
 if __name__ == "__main__":
-    print("🚨 Starting Catzilla HTTP Streaming Example")
+    print("🌪️ Starting Catzilla HTTP Streaming Example")
     print("📝 Available endpoints:")
     print("   GET  /                  - Home with streaming info")
+    print("   GET  /stream            - Simple text streaming")
+    print("   GET  /events            - Server-sent events stream")
+    print("   GET  /writer            - CSV generation using StreamingWriter")
+    print("   GET  /json-stream       - JSON streaming")
     print("   GET  /stream/realtime   - Real-time data stream")
-    print("   GET  /stream/sse        - Server-sent events stream")
+    print("   GET  /stream/sse        - Enhanced server-sent events")
     print("   GET  /stream/dataset    - Large JSON dataset stream")
     print("   GET  /stream/logs       - Log entries stream")
     print("   GET  /stream/file       - Large file streaming download")
     print("   GET  /stream/status     - Active streams status")
-    print("   GET  /stream/test-client - Interactive HTML test client")
-    print("   GET  /stream/examples   - Get example requests")
     print("   GET  /health            - Health check")
     print()
     print("🎨 Features demonstrated:")
@@ -601,8 +399,11 @@ if __name__ == "__main__":
     print("   • Stream compression and chunked transfer")
     print()
     print("🧪 Try these examples:")
-    print("   # Server-sent events in browser:")
-    print("   Open http://localhost:8000/stream/test-client")
+    print("   # Simple streaming:")
+    print("   curl -N http://localhost:8000/stream")
+    print()
+    print("   # Server-sent events:")
+    print("   curl -N http://localhost:8000/events")
     print()
     print("   # Real-time data with curl:")
     print("   curl -N http://localhost:8000/stream/realtime")

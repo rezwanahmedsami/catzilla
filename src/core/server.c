@@ -1219,12 +1219,12 @@ void catzilla_send_response(uv_stream_t* client,
             // This will start the streaming process immediately
             PyGILState_STATE gstate = PyGILState_Ensure();
 
-            PyObject* streaming_module = PyImport_ImportModule("catzilla._streaming");
+            PyObject* streaming_module = PyImport_ImportModule("catzilla._catzilla._streaming");
             if (streaming_module) {
                 PyObject* connect_func = PyObject_GetAttrString(streaming_module, "connect_streaming_response");
                 if (connect_func) {
                     // Create a client capsule
-                    PyObject* client_capsule = PyCapsule_New(client, "uv_stream_t", NULL);
+                    PyObject* client_capsule = PyCapsule_New(client, "catzilla.client", NULL);
                     if (client_capsule) {
                         // Call the connect function
                         PyObject* args = Py_BuildValue("(Os)", client_capsule, streaming_id);
