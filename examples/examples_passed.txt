@@ -23,4 +23,4 @@ examples/cache/multi_layer.py - PASSED
 examples/cache/performance_optimization.py - PASSED
 
 examples/files/static_serving.py - PASSED
-examples/files/upload_handling.py - TESTING
+examples/files/upload_handling.py - PASSED
