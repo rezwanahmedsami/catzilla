@@ -9,13 +9,11 @@ Catzilla is designed for maximum performance with:
 - **Zero-allocation middleware** system for minimal overhead
 - **Built-in async operations** handled by libuv in C (no `async def` needed!)
 - **Multi-layer caching** with memory, Redis, and disk support
-- **Real-time WebSocket** communication
 - **Advanced validation** and data modeling
-- **Microservices architecture** patterns
 
 ## 📁 Examples Structure
 
-This directory contains **20 comprehensive examples** organized into **10 categories**, each demonstrating different aspects of the Catzilla framework:
+This directory contains **18 comprehensive examples** organized into **9 categories**, each demonstrating different aspects of the Catzilla framework:
 
 ### 🏗️ Core Examples (`core/`)
 Essential framework features and basic patterns.
@@ -88,14 +86,6 @@ Common patterns and real-world solutions.
 |------|-------------|--------------|
 | **`rest_api_patterns.py`** | Complete REST API with CRUD operations | REST patterns, CRUD operations, pagination, filtering, error handling |
 | **`auth_patterns.py`** | Authentication & authorization patterns | JWT auth, API keys, RBAC, rate limiting, session management |
-
-### 🔬 Advanced Examples (`advanced/`)
-Complex features and enterprise patterns.
-
-| File | Description | Key Features |
-|------|-------------|--------------|
-| **`websocket_realtime.py`** | Real-time WebSocket communication | WebSocket handling, real-time chat, room management, heartbeat |
-| **`microservices_architecture.py`** | API Gateway and service discovery | Service registry, load balancing, circuit breakers, health checks |
 
 ## 🚀 Getting Started
 
@@ -214,10 +204,10 @@ Production-ready patterns for common use cases.
 Complex features for large-scale applications.
 
 **Enterprise needs:**
-- WebSocket communication
-- Microservices architecture
-- Service discovery
-- Load balancing
+- Real-time streaming
+- Connection management
+- Background task coordination
+- Performance monitoring
 
 ## 📚 Learning Path
 
@@ -249,9 +239,7 @@ streaming/response_streams.py
 ↓
 background_tasks/scheduling.py
 ↓
-advanced/websocket_realtime.py
-↓
-advanced/microservices_architecture.py
+streaming/connection_management.py
 ```
 
 ## 🎯 Key Features by Example
@@ -260,16 +248,13 @@ advanced/microservices_architecture.py
 - **JWT Authentication**: `recipes/auth_patterns.py`
 - **API Key Management**: `recipes/auth_patterns.py`
 - **Role-based Access Control**: `recipes/auth_patterns.py`
-- **Rate Limiting**: `recipes/auth_patterns.py`, `advanced/microservices_architecture.py`
+- **Rate Limiting**: `recipes/auth_patterns.py`
 
 ### Performance Optimization
 - **Caching Strategies**: `cache/multi_layer.py`, `cache/performance_optimization.py`
 - **Connection Pooling**: `streaming/connection_management.py`
-- **Load Balancing**: `advanced/microservices_architecture.py`
-- **Circuit Breakers**: `advanced/microservices_architecture.py`
 
 ### Real-time Features
-- **WebSocket Communication**: `advanced/websocket_realtime.py`
 - **Server-sent Events**: `streaming/response_streams.py`
 - **Live Data Streaming**: `streaming/response_streams.py`
 
@@ -280,8 +265,6 @@ advanced/microservices_architecture.py
 - **Background Tasks**: `background_tasks/scheduling.py`, `background_tasks/monitoring.py`
 
 ### Enterprise Patterns
-- **Microservices**: `advanced/microservices_architecture.py`
-- **Service Discovery**: `advanced/microservices_architecture.py`
 - **Health Monitoring**: `background_tasks/monitoring.py`
 - **Distributed Tracing**: `core/debug_logging.py`
 
