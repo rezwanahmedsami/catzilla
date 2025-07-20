@@ -15,12 +15,12 @@ Features demonstrated:
 """
 
 from catzilla import Catzilla, Request, Response, JSONResponse, UploadFile, Form, File
-from catzilla.validation import BaseModel, Field
-import asyncio
+from catzilla.exceptions import FileSizeError, MimeTypeError, format_upload_error
 import os
 import uuid
 import mimetypes
 import hashlib
+import time
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -32,9 +32,7 @@ import shutil
 app = Catzilla(
     production=False,
     show_banner=True,
-    log_requests=True,
-    max_upload_size=100 * 1024 * 1024,  # 100MB max upload
-    upload_temp_dir="/tmp/catzilla_uploads"
+    log_requests=True
 )
 
 # Create upload directories
@@ -53,87 +51,21 @@ for dir_path in UPLOAD_DIRS.values():
 # File upload tracking
 upload_tracking: Dict[str, Dict[str, Any]] = {}
 
-# Validation models
-class FileUploadRequest(BaseModel):
-    """File upload request validation"""
-    description: str = Field(max_length=500, default="")
-    category: str = Field(regex=r"^(image|document|video|other)$", default="other")
-    tags: List[str] = Field(max_items=10, default=[])
-    public: bool = Field(default=False)
-
-class FileInfo(BaseModel):
-    """File information model"""
-    filename: str
-    size: int
-    content_type: str
-    upload_id: str
-    category: str
-    description: str
-    tags: List[str]
-    public: bool
-    uploaded_at: datetime
-    checksum: str
-
 # Allowed file types by category
 ALLOWED_TYPES = {
-    "image": {
-        "image/jpeg", "image/png", "image/gif", "image/webp",
-        "image/bmp", "image/tiff", "image/svg+xml"
-    },
-    "document": {
-        "application/pdf", "text/plain", "text/csv",
-        "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/json", "application/xml", "text/html"
-    },
-    "video": {
-        "video/mp4", "video/avi", "video/mov", "video/wmv",
-        "video/flv", "video/webm", "video/mkv"
-    }
+    "image": ["image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp"],
+    "document": ["application/pdf", "text/plain", "text/csv", "application/json"],
+    "video": ["video/mp4", "video/avi", "video/mov", "video/webm"],
+    "other": []  # Allow any type for "other" category
 }
 
-# Maximum file sizes by category (bytes)
+# Maximum file sizes by category
 MAX_SIZES = {
-    "image": 10 * 1024 * 1024,    # 10MB
-    "document": 50 * 1024 * 1024, # 50MB
-    "video": 100 * 1024 * 1024,   # 100MB
-    "other": 25 * 1024 * 1024     # 25MB
+    "image": "10MB",
+    "document": "50MB",
+    "video": "100MB",
+    "other": "25MB"
 }
-
-def validate_file(file: UploadFile, category: str) -> Dict[str, Any]:
-    """Validate uploaded file"""
-    errors = []
-    warnings = []
-
-    # Check file size
-    max_size = MAX_SIZES.get(category, MAX_SIZES["other"])
-    if file.size > max_size:
-        errors.append(f"File size {file.size} exceeds maximum {max_size} bytes for {category}")
-
-    # Check content type
-    allowed_types = ALLOWED_TYPES.get(category, set())
-    if allowed_types and file.content_type not in allowed_types:
-        errors.append(f"Content type {file.content_type} not allowed for {category}")
-
-    # Check filename
-    if not file.filename or len(file.filename) > 255:
-        errors.append("Invalid filename")
-
-    # Check for potentially dangerous files
-    dangerous_extensions = {".exe", ".bat", ".cmd", ".com", ".scr", ".pif", ".js", ".vbs"}
-    file_ext = Path(file.filename).suffix.lower()
-    if file_ext in dangerous_extensions:
-        errors.append(f"File extension {file_ext} is not allowed for security reasons")
-
-    # Size warnings
-    if file.size > 50 * 1024 * 1024:  # 50MB
-        warnings.append("Large file upload may take significant time")
-
-    return {
-        "valid": len(errors) == 0,
-        "errors": errors,
-        "warnings": warnings
-    }
 
 def generate_safe_filename(original_filename: str, upload_id: str) -> str:
     """Generate safe filename with unique identifier"""
@@ -146,117 +78,6 @@ def generate_safe_filename(original_filename: str, upload_id: str) -> str:
 
     # Add upload ID for uniqueness
     return f"{safe_name}_{upload_id[:8]}{file_ext}"
-
-def calculate_file_checksum(file_path: Path) -> str:
-    """Calculate SHA256 checksum of file"""
-    sha256_hash = hashlib.sha256()
-
-    with open(file_path, "rb") as f:
-        # Read in chunks to handle large files
-        for chunk in iter(lambda: f.read(4096), b""):
-            sha256_hash.update(chunk)
-
-    return sha256_hash.hexdigest()
-
-def process_image_file(file_path: Path, upload_id: str) -> Dict[str, Any]:
-    """Process uploaded image file (placeholder for image processing)"""
-    try:
-        # This would typically use PIL/Pillow for image processing
-        # For demo purposes, we'll just return metadata
-
-        processing_info = {
-            "processed": True,
-            "thumbnails_created": ["150x150", "300x300", "800x600"],
-            "optimized": True,
-            "format_converted": False,
-            "processing_time_ms": 150
-        }
-
-        # Simulate processing time
-        time.sleep(0.1)
-
-        return processing_info
-
-    except Exception as e:
-        return {
-            "processed": False,
-            "error": str(e)
-        }
-
-def save_uploaded_file(
-    file: UploadFile,
-    upload_id: str,
-    category: str,
-    description: str = "",
-    tags: List[str] = None
-) -> Dict[str, Any]:
-    """Save uploaded file with processing"""
-    tags = tags or []
-
-    try:
-        # Generate safe filename
-        safe_filename = generate_safe_filename(file.filename, upload_id)
-
-        # Determine storage directory
-        storage_dir = UPLOAD_DIRS.get(category, UPLOAD_DIRS["temp"])
-        file_path = storage_dir / safe_filename
-
-        # Save file
-        with open(file_path, "wb") as f:
-            # Read and write in chunks for memory efficiency
-            while chunk := file.read(8192):
-                f.write(chunk)
-
-        # Calculate checksum
-        checksum = calculate_file_checksum(file_path)
-
-        # Create file info
-        file_info = FileInfo(
-            filename=safe_filename,
-            size=file.size,
-            content_type=file.content_type,
-            upload_id=upload_id,
-            category=category,
-            description=description,
-            tags=tags,
-            public=False,
-            uploaded_at=datetime.now(),
-            checksum=checksum
-        )
-
-        # Process based on file type
-        processing_info = {}
-        if category == "image":
-            processing_info = process_image_file(file_path, upload_id)
-
-        # Store upload tracking info
-        upload_tracking[upload_id] = {
-            "file_info": file_info.dict(),
-            "file_path": str(file_path),
-            "processing_info": processing_info,
-            "status": "completed"
-        }
-
-        return {
-            "success": True,
-            "upload_id": upload_id,
-            "file_info": file_info.dict(),
-            "processing_info": processing_info,
-            "file_path": str(file_path)
-        }
-
-    except Exception as e:
-        upload_tracking[upload_id] = {
-            "status": "failed",
-            "error": str(e),
-            "uploaded_at": datetime.now().isoformat()
-        }
-
-        return {
-            "success": False,
-            "upload_id": upload_id,
-            "error": str(e)
-        }
 
 @app.get("/")
 def home(request: Request) -> Response:
@@ -282,18 +103,18 @@ def home(request: Request) -> Response:
             "list_uploads": "GET /uploads"
         },
         "supported_categories": list(ALLOWED_TYPES.keys()) + ["other"],
-        "max_file_sizes": {k: f"{v // (1024*1024)}MB" for k, v in MAX_SIZES.items()}
+        "max_file_sizes": MAX_SIZES
     })
 
 @app.post("/upload/single")
 def upload_single_file(
     request: Request,
-    file: UploadFile = File(...),
+    file: UploadFile = File(max_size="50MB"),
     category: str = Form("other"),
     description: str = Form(""),
     tags: str = Form("")  # JSON string of tags
 ) -> Response:
-    """Upload single file with metadata"""
+    """Upload single file with metadata using real Catzilla API"""
 
     # Parse tags
     try:
@@ -306,74 +127,169 @@ def upload_single_file(
     # Generate upload ID
     upload_id = str(uuid.uuid4())
 
-    # Validate file
-    validation_result = validate_file(file, category)
-    if not validation_result["valid"]:
+    try:
+        # Validate category and set appropriate constraints
+        allowed_types = ALLOWED_TYPES.get(category, [])
+        max_size = MAX_SIZES.get(category, "25MB")
+
+        # Additional validation for specific categories
+        if category != "other" and allowed_types and file.content_type not in allowed_types:
+            return JSONResponse({
+                "success": False,
+                "upload_id": upload_id,
+                "error": f"Content type {file.content_type} not allowed for {category}",
+                "allowed_types": allowed_types
+            }, status_code=415)
+
+        # Save file using Catzilla's save_to method
+        storage_dir = UPLOAD_DIRS.get(category, UPLOAD_DIRS["temp"])
+        saved_path = file.save_to(str(storage_dir), stream=True)
+
+        # Get file content for checksum
+        file_content = file.read()
+        checksum = hashlib.sha256(file_content).hexdigest()
+
+        # Create file info
+        file_info = {
+            "filename": file.filename,
+            "original_filename": file.filename,
+            "size": file.size,
+            "content_type": file.content_type,
+            "upload_id": upload_id,
+            "category": category,
+            "description": description,
+            "tags": tag_list,
+            "public": False,
+            "uploaded_at": datetime.now().isoformat(),
+            "checksum": checksum
+        }
+
+        # Store upload tracking info
+        upload_tracking[upload_id] = {
+            "file_info": file_info,
+            "file_path": saved_path,
+            "status": "completed",
+            "upload_speed": getattr(file, 'upload_speed_mbps', 0)
+        }
+
+        return JSONResponse({
+            "success": True,
+            "upload_id": upload_id,
+            "file_info": file_info,
+            "file_path": saved_path,
+            "performance": {
+                "upload_speed_mbps": getattr(file, 'upload_speed_mbps', 0),
+                "chunks_processed": getattr(file, 'chunks_count', 0)
+            }
+        })
+
+    except FileSizeError as e:
         return JSONResponse({
             "success": False,
             "upload_id": upload_id,
-            "errors": validation_result["errors"],
-            "warnings": validation_result["warnings"]
-        }, status_code=400)
-
-    # Save file
-    result = save_uploaded_file(
-        file=file,
-        upload_id=upload_id,
-        category=category,
-        description=description,
-        tags=tag_list
-    )
-
-    if validation_result["warnings"]:
-        result["warnings"] = validation_result["warnings"]
-
-    return JSONResponse(result)
+            "error": "file_too_large",
+            "message": str(e)
+        }, status_code=413)
+    except MimeTypeError as e:
+        return JSONResponse({
+            "success": False,
+            "upload_id": upload_id,
+            "error": "invalid_file_type",
+            "message": str(e)
+        }, status_code=415)
+    except Exception as e:
+        upload_tracking[upload_id] = {
+            "status": "failed",
+            "error": str(e),
+            "uploaded_at": datetime.now().isoformat()
+        }
+        return JSONResponse({
+            "success": False,
+            "upload_id": upload_id,
+            "error": str(e)
+        }, status_code=500)
 
 @app.post("/upload/multiple")
 def upload_multiple_files(
     request: Request,
-    files: List[UploadFile] = File(...),
+    files: List[UploadFile] = File(max_files=10, max_size="50MB"),
     category: str = Form("other"),
     description: str = Form("")
 ) -> Response:
-    """Upload multiple files"""
+    """Upload multiple files using real Catzilla API"""
 
-    if len(files) > 10:  # Limit number of files
+    # Convert to list if needed and check length
+    if not isinstance(files, list):
+        files = [files]
+
+    if len(files) > 10:  # Additional safety check
         return JSONResponse({
             "success": False,
             "error": "Maximum 10 files allowed per upload"
         }, status_code=400)
 
     results = []
+    allowed_types = ALLOWED_TYPES.get(category, [])
 
     for file in files:
         # Generate upload ID for each file
         upload_id = str(uuid.uuid4())
 
-        # Validate file
-        validation_result = validate_file(file, category)
-        if not validation_result["valid"]:
+        try:
+            # Validate file type for category
+            if category != "other" and allowed_types and file.content_type not in allowed_types:
+                results.append({
+                    "filename": file.filename,
+                    "upload_id": upload_id,
+                    "success": False,
+                    "error": f"Content type {file.content_type} not allowed for {category}"
+                })
+                continue
+
+            # Save file using Catzilla's save_to method
+            storage_dir = UPLOAD_DIRS.get(category, UPLOAD_DIRS["temp"])
+            saved_path = file.save_to(str(storage_dir), stream=True)
+
+            # Get file content for checksum
+            file_content = file.read()
+            checksum = hashlib.sha256(file_content).hexdigest()
+
+            # Create file info
+            file_info = {
+                "filename": file.filename,
+                "size": file.size,
+                "content_type": file.content_type,
+                "upload_id": upload_id,
+                "category": category,
+                "description": f"{description} (batch upload)",
+                "tags": [],
+                "uploaded_at": datetime.now().isoformat(),
+                "checksum": checksum
+            }
+
+            # Store upload tracking info
+            upload_tracking[upload_id] = {
+                "file_info": file_info,
+                "file_path": saved_path,
+                "status": "completed",
+                "upload_speed": getattr(file, 'upload_speed_mbps', 0)
+            }
+
+            results.append({
+                "filename": file.filename,
+                "upload_id": upload_id,
+                "success": True,
+                "file_info": file_info,
+                "file_path": saved_path
+            })
+
+        except Exception as e:
             results.append({
                 "filename": file.filename,
                 "upload_id": upload_id,
                 "success": False,
-                "errors": validation_result["errors"]
+                "error": str(e)
             })
-            continue
-
-        # Save file
-        result = save_uploaded_file(
-            file=file,
-            upload_id=upload_id,
-            category=category,
-            description=f"{description} (batch upload)"
-        )
-
-        results.append({
-            "filename": file.filename,
-            **result
-        })
 
     successful_uploads = sum(1 for r in results if r.get("success", False))
 
@@ -387,33 +303,88 @@ def upload_multiple_files(
 @app.post("/upload/form")
 def upload_with_form_data(
     request: Request,
-    upload_request: FileUploadRequest,
-    file: UploadFile = File(...)
+    file: UploadFile = File(max_size="50MB"),
+    category: str = Form("other"),
+    description: str = Form(""),
+    tags: str = Form(""),
+    public: bool = Form(False)
 ) -> Response:
-    """Upload file with structured form data"""
+    """Upload file with structured form data using real Catzilla API"""
+
+    # Parse tags
+    try:
+        tag_list = json.loads(tags) if tags else []
+        if not isinstance(tag_list, list):
+            tag_list = []
+    except:
+        tag_list = []
 
     # Generate upload ID
     upload_id = str(uuid.uuid4())
 
-    # Validate file
-    validation_result = validate_file(file, upload_request.category)
-    if not validation_result["valid"]:
+    try:
+        # Validate category and file type
+        allowed_types = ALLOWED_TYPES.get(category, [])
+        if category != "other" and allowed_types and file.content_type not in allowed_types:
+            return JSONResponse({
+                "success": False,
+                "upload_id": upload_id,
+                "error": f"Content type {file.content_type} not allowed for {category}",
+                "allowed_types": allowed_types
+            }, status_code=415)
+
+        # Save file using Catzilla's save_to method
+        storage_dir = UPLOAD_DIRS.get(category, UPLOAD_DIRS["temp"])
+        saved_path = file.save_to(str(storage_dir), stream=True)
+
+        # Get file content for checksum
+        file_content = file.read()
+        checksum = hashlib.sha256(file_content).hexdigest()
+
+        # Create file info
+        file_info = {
+            "filename": file.filename,
+            "size": file.size,
+            "content_type": file.content_type,
+            "upload_id": upload_id,
+            "category": category,
+            "description": description,
+            "tags": tag_list,
+            "public": public,
+            "uploaded_at": datetime.now().isoformat(),
+            "checksum": checksum
+        }
+
+        # Store upload tracking info
+        upload_tracking[upload_id] = {
+            "file_info": file_info,
+            "file_path": saved_path,
+            "status": "completed",
+            "upload_speed": getattr(file, 'upload_speed_mbps', 0)
+        }
+
+        return JSONResponse({
+            "success": True,
+            "upload_id": upload_id,
+            "file_info": file_info,
+            "file_path": saved_path,
+            "performance": {
+                "upload_speed_mbps": getattr(file, 'upload_speed_mbps', 0),
+                "chunks_processed": getattr(file, 'chunks_count', 0)
+            }
+        })
+
+    except Exception as e:
+        upload_tracking[upload_id] = {
+            "status": "failed",
+            "error": str(e),
+            "uploaded_at": datetime.now().isoformat()
+        }
         return JSONResponse({
             "success": False,
             "upload_id": upload_id,
-            "errors": validation_result["errors"]
-        }, status_code=400)
-
-    # Save file
-    result = save_uploaded_file(
-        file=file,
-        upload_id=upload_id,
-        category=upload_request.category,
-        description=upload_request.description,
-        tags=upload_request.tags
-    )
-
-    return JSONResponse(result)
+            "error": str(e)
+        }, status_code=500)
 
 @app.get("/upload/{upload_id}")
 def get_upload_info(request: Request) -> Response:
@@ -457,29 +428,38 @@ def download_file(request: Request) -> Response:
         }, status_code=404)
 
     # Read file content
-    with open(file_path, "rb") as f:
-        file_content = f.read()
-
     file_info = upload_info["file_info"]
 
+    # Handle text vs binary files
+    mime_type = file_info["content_type"]
+    if mime_type.startswith('text/') or mime_type == 'application/json':
+        with open(file_path, "r", encoding="utf-8") as f:
+            file_content = f.read()
+        file_bytes = file_content.encode("utf-8")
+    else:
+        with open(file_path, "rb") as f:
+            file_bytes = f.read()
+        file_content = file_bytes.decode("utf-8", errors="ignore")
+
     return Response(
-        content=file_content,
-        media_type=file_info["content_type"],
+        status_code=200,
+        content_type=mime_type,
+        body=file_content,
         headers={
             "Content-Disposition": f'attachment; filename="{file_info["filename"]}"',
-            "Content-Length": str(len(file_content)),
+            "Content-Length": str(len(file_bytes)),
             "X-Upload-ID": upload_id,
             "X-File-Checksum": file_info["checksum"]
         }
     )
 
 @app.get("/uploads")
-def list_uploads(
-    request: Request,
-    category: Optional[str] = None,
-    limit: int = 50
-) -> Response:
+def list_uploads(request: Request) -> Response:
     """List uploaded files with filtering"""
+
+    # Get query parameters
+    category = request.query_params.get("category")
+    limit = int(request.query_params.get("limit", 50))
 
     uploads = []
 
@@ -500,7 +480,7 @@ def list_uploads(
             "content_type": file_info["content_type"],
             "category": file_info["category"],
             "description": file_info["description"],
-            "tags": file_info["tags"],
+            "tags": file_info.get("tags", []),
             "uploaded_at": file_info["uploaded_at"],
             "status": upload_info["status"]
         })
