@@ -8,6 +8,7 @@ pytest-asyncio
 
 # Mocking library for testing
 SQLAlchemy>=2.0
+PyJWT>=2.10.1
 
 # Code quality tools
 pre-commit

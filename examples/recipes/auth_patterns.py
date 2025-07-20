@@ -16,11 +16,14 @@ Features demonstrated:
 """
 
 from catzilla import Catzilla, Request, Response, JSONResponse
-from catzilla.validation import ValidationMiddleware, Field, Model
+from catzilla.validation import BaseModel
 from catzilla.middleware import ZeroAllocMiddleware
-from catzilla.cache import MemoryCache
 import json
-import jwt
+try:
+    import jwt
+except ImportError:
+    jwt = None
+    print("Warning: PyJWT not installed. JWT functionality will be disabled.")
 import hashlib
 import hmac
 import secrets
@@ -36,12 +39,8 @@ import base64
 app = Catzilla(
     production=False,
     show_banner=True,
-    log_requests=True,
-    enable_validation=True
+    log_requests=True
 )
-
-# Add validation middleware
-app.add_middleware(ValidationMiddleware)
 
 # Security configuration
 AUTH_CONFIG = {
@@ -92,22 +91,22 @@ ROLE_PERMISSIONS = {
 }
 
 # Data models
-class LoginModel(Model):
+class LoginModel(BaseModel):
     """Login request model"""
-    email: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$', description="Valid email address")
-    password: str = Field(min_length=6, description="Password (min 6 characters)")
+    email: str
+    password: str
 
-class RegisterModel(Model):
+class RegisterModel(BaseModel):
     """User registration model"""
-    name: str = Field(min_length=2, max_length=100, description="Full name")
-    email: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$', description="Valid email address")
-    password: str = Field(min_length=8, description="Password (min 8 characters)")
-    role: UserRole = Field(default=UserRole.USER, description="User role")
+    name: str
+    email: str
+    password: str
+    role: UserRole = UserRole.USER
 
-class ChangePasswordModel(Model):
+class ChangePasswordModel(BaseModel):
     """Change password model"""
-    current_password: str = Field(min_length=6, description="Current password")
-    new_password: str = Field(min_length=8, description="New password (min 8 characters)")
+    current_password: str
+    new_password: str
 
 # Database models
 @dataclass
@@ -154,8 +153,8 @@ tokens_db: Dict[str, AuthToken] = {}
 api_keys_db: Dict[str, str] = {}  # api_key -> user_id
 rate_limits: Dict[str, RateLimitInfo] = {}
 
-# Memory cache for sessions
-session_cache = MemoryCache(max_size=10*1024*1024, max_items=10000, default_ttl=3600)
+# Memory cache for sessions (simplified for demo)
+session_cache = {}
 
 # Utility functions
 def hash_password(password: str) -> str:
@@ -175,6 +174,19 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 def generate_jwt(user: User) -> str:
     """Generate JWT token for user"""
+    if jwt is None:
+        # Simple fallback token for demo (not secure for production)
+        payload = {
+            'user_id': user.id,
+            'email': user.email,
+            'role': user.role.value,
+            'permissions': [p.value for p in ROLE_PERMISSIONS.get(user.role, [])],
+            'exp': (datetime.utcnow() + timedelta(hours=AUTH_CONFIG["jwt_expiry_hours"])).timestamp(),
+            'iat': datetime.utcnow().timestamp()
+        }
+        import base64
+        return base64.b64encode(json.dumps(payload).encode()).decode()
+
     payload = {
         'user_id': user.id,
         'email': user.email,
@@ -187,6 +199,18 @@ def generate_jwt(user: User) -> str:
 
 def verify_jwt(token: str) -> Optional[Dict[str, Any]]:
     """Verify and decode JWT token"""
+    if jwt is None:
+        # Simple fallback for demo
+        try:
+            import base64
+            payload = json.loads(base64.b64decode(token.encode()).decode())
+            # Check expiration
+            if payload.get('exp') and payload['exp'] < datetime.utcnow().timestamp():
+                return None
+            return payload
+        except:
+            return None
+
     try:
         payload = jwt.decode(token, AUTH_CONFIG["jwt_secret"], algorithms=[AUTH_CONFIG["jwt_algorithm"]])
         return payload
@@ -232,99 +256,80 @@ def has_permission(user: User, permission: Permission) -> bool:
     return permission in get_user_permissions(user)
 
 # Authentication middleware
-class AuthenticationMiddleware(ZeroAllocMiddleware):
+@app.middleware(priority=20, pre_route=True, name="authentication")
+def authentication_middleware(request: Request) -> Optional[Response]:
     """JWT and API key authentication middleware"""
 
-    priority = 20
+    # Public paths that don't require auth
+    public_paths = {'/', '/docs', '/health', '/auth/login', '/auth/register'}
 
-    def __init__(self):
-        self.public_paths = {
-            '/', '/docs', '/health', '/auth/login', '/auth/register'
-        }
-
-    def _is_public_path(self, path: str) -> bool:
-        """Check if path is public (doesn't require auth)"""
-        return any(path.startswith(public) for public in self.public_paths)
-
-    def _extract_token(self, request: Request) -> Optional[str]:
-        """Extract JWT token from Authorization header"""
-        auth_header = request.headers.get('Authorization', '')
-        if auth_header.startswith('Bearer '):
-            return auth_header[7:]
+    if request.path in public_paths:
         return None
 
-    def _extract_api_key(self, request: Request) -> Optional[str]:
-        """Extract API key from header or query parameter"""
-        # Check header first
-        api_key = request.headers.get('X-API-Key')
-        if api_key:
-            return api_key
+    # Rate limiting check
+    client_ip = request.headers.get('X-Forwarded-For', request.headers.get('X-Real-IP', 'unknown'))
+    if not check_rate_limit(client_ip):
+        return JSONResponse(
+            {"error": "Rate limit exceeded", "retry_after": AUTH_CONFIG["rate_limit_window_minutes"] * 60},
+            status_code=429,
+            headers={"Retry-After": str(AUTH_CONFIG["rate_limit_window_minutes"] * 60)}
+        )
 
-        # Check query parameter
-        return request.query_params.get('api_key')
+    # Try JWT authentication first
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        token = auth_header[7:]
+        payload = verify_jwt(token)
+        if payload:
+            user_id = payload['user_id']
+            if user_id in users_db:
+                user = users_db[user_id]
+                if user.is_active:
+                    # Attach user to request
+                    if not hasattr(request, 'context'):
+                        request.context = {}
+                    request.context['user'] = user
+                    request.context['auth_payload'] = payload
+                    return None
+                else:
+                    return JSONResponse({"error": "Account deactivated"}, status_code=403)
 
-    def process_request(self, request: Request) -> Optional[Response]:
-        """Authenticate request"""
-        # Skip authentication for public paths
-        if self._is_public_path(request.url.path):
-            return None
+        return JSONResponse({"error": "Invalid or expired token"}, status_code=401)
 
-        # Rate limiting check
-        client_ip = request.headers.get('X-Forwarded-For', request.headers.get('X-Real-IP', 'unknown'))
-        if not check_rate_limit(client_ip):
-            return JSONResponse(
-                {"error": "Rate limit exceeded", "retry_after": AUTH_CONFIG["rate_limit_window_minutes"] * 60},
-                status_code=429,
-                headers={"Retry-After": str(AUTH_CONFIG["rate_limit_window_minutes"] * 60)}
-            )
+    # Try API key authentication
+    api_key = request.headers.get('X-API-Key')
+    if not api_key:
+        api_key = request.query_params.get('api_key') if hasattr(request, 'query_params') else None
 
-        # Try JWT authentication first
-        token = self._extract_token(request)
-        if token:
-            payload = verify_jwt(token)
-            if payload:
-                user_id = payload['user_id']
-                if user_id in users_db:
-                    user = users_db[user_id]
-                    if user.is_active:
-                        # Attach user to request
-                        request.user = user
-                        request.auth_payload = payload
-                        return None
-                    else:
-                        return JSONResponse({"error": "Account deactivated"}, status_code=403)
+    if api_key:
+        if api_key in api_keys_db:
+            user_id = api_keys_db[api_key]
+            if user_id in users_db:
+                user = users_db[user_id]
+                if user.is_active:
+                    # Attach user to request
+                    if not hasattr(request, 'context'):
+                        request.context = {}
+                    request.context['user'] = user
+                    request.context['auth_type'] = 'api_key'
+                    return None
+                else:
+                    return JSONResponse({"error": "Account deactivated"}, status_code=403)
 
-            return JSONResponse({"error": "Invalid or expired token"}, status_code=401)
+        return JSONResponse({"error": "Invalid API key"}, status_code=401)
 
-        # Try API key authentication
-        api_key = self._extract_api_key(request)
-        if api_key:
-            if api_key in api_keys_db:
-                user_id = api_keys_db[api_key]
-                if user_id in users_db:
-                    user = users_db[user_id]
-                    if user.is_active:
-                        # Attach user to request
-                        request.user = user
-                        request.auth_type = 'api_key'
-                        return None
-                    else:
-                        return JSONResponse({"error": "Account deactivated"}, status_code=403)
-
-            return JSONResponse({"error": "Invalid API key"}, status_code=401)
-
-        # No authentication provided
-        return JSONResponse({"error": "Authentication required"}, status_code=401)
+    # No authentication provided
+    return JSONResponse({"error": "Authentication required"}, status_code=401)
 
 # Authorization decorator
 def require_permission(permission: Permission):
     """Decorator to require specific permission"""
     def decorator(func: Callable) -> Callable:
-        def wrapper(request: Request) -> Response:
-            if not hasattr(request, 'user'):
+        def wrapper(request) -> Response:
+            user = getattr(request, 'context', {}).get('user')
+            if not user:
                 return JSONResponse({"error": "Authentication required"}, status_code=401)
 
-            user = request.user
             if not has_permission(user, permission):
                 return JSONResponse(
                     {"error": f"Permission '{permission.value}' required"},
@@ -338,11 +343,11 @@ def require_permission(permission: Permission):
 def require_role(role: UserRole):
     """Decorator to require specific role"""
     def decorator(func: Callable) -> Callable:
-        def wrapper(request: Request) -> Response:
-            if not hasattr(request, 'user'):
+        def wrapper(request) -> Response:
+            user = getattr(request, 'context', {}).get('user')
+            if not user:
                 return JSONResponse({"error": "Authentication required"}, status_code=401)
 
-            user = request.user
             if user.role != role:
                 return JSONResponse(
                     {"error": f"Role '{role.value}' required"},
@@ -353,11 +358,8 @@ def require_role(role: UserRole):
         return wrapper
     return decorator
 
-# Add authentication middleware
-app.add_middleware(AuthenticationMiddleware)
-
 @app.get("/")
-def home(request: Request) -> Response:
+def home(request) -> Response:
     """API documentation"""
     return JSONResponse({
         "message": "Catzilla Authentication & Authorization Example",
@@ -401,10 +403,10 @@ def home(request: Request) -> Response:
 
 # Authentication endpoints
 @app.post("/auth/register")
-def register(request: Request) -> Response:
+def register(request) -> Response:
     """Register new user"""
     try:
-        user_data = RegisterModel.validate(request.json())
+        user_data = RegisterModel(**request.json())
 
         # Check if email already exists
         for user in users_db.values():
@@ -449,10 +451,10 @@ def register(request: Request) -> Response:
         return JSONResponse({"error": "Internal server error", "details": str(e)}, status_code=500)
 
 @app.post("/auth/login")
-def login(request: Request) -> Response:
+def login(request) -> Response:
     """Login user"""
     try:
-        login_data = LoginModel.validate(request.json())
+        login_data = LoginModel(**request.json())
 
         # Find user by email
         user = None
@@ -515,16 +517,16 @@ def login(request: Request) -> Response:
         return JSONResponse({"error": "Internal server error", "details": str(e)}, status_code=500)
 
 @app.post("/auth/logout")
-def logout(request: Request) -> Response:
+def logout(request) -> Response:
     """Logout user (invalidate token)"""
     # In a real application, you'd maintain a blacklist of invalidated tokens
     # For this example, we'll just return success
     return JSONResponse({"message": "Logged out successfully"})
 
 @app.get("/auth/profile")
-def get_profile(request: Request) -> Response:
+def get_profile(request) -> Response:
     """Get user profile"""
-    user = request.user
+    user = getattr(request, 'context', {}).get('user')
     return JSONResponse({
         "id": user.id,
         "name": user.name,
@@ -537,11 +539,11 @@ def get_profile(request: Request) -> Response:
     })
 
 @app.post("/auth/change-password")
-def change_password(request: Request) -> Response:
+def change_password(request) -> Response:
     """Change user password"""
     try:
-        password_data = ChangePasswordModel.validate(request.json())
-        user = request.user
+        password_data = ChangePasswordModel(**request.json())
+        user = getattr(request, 'context', {}).get('user')
 
         # Verify current password
         if not verify_password(password_data.current_password, user.password_hash):
@@ -559,9 +561,9 @@ def change_password(request: Request) -> Response:
 
 # API Key management
 @app.post("/auth/api-keys")
-def generate_new_api_key(request: Request) -> Response:
+def generate_new_api_key(request) -> Response:
     """Generate new API key for user"""
-    user = request.user
+    user = getattr(request, 'context', {}).get('user')
 
     # Revoke old API key
     if user.api_key and user.api_key in api_keys_db:
@@ -579,9 +581,9 @@ def generate_new_api_key(request: Request) -> Response:
     })
 
 @app.get("/auth/api-keys")
-def list_api_keys(request: Request) -> Response:
+def list_api_keys(request) -> Response:
     """List user's API key info (without showing the key)"""
-    user = request.user
+    user = getattr(request, 'context', {}).get('user')
 
     if user.api_key:
         return JSONResponse({
@@ -593,9 +595,9 @@ def list_api_keys(request: Request) -> Response:
         return JSONResponse({"api_key_exists": False})
 
 @app.delete("/auth/api-keys")
-def revoke_api_key(request: Request) -> Response:
+def revoke_api_key(request) -> Response:
     """Revoke user's API key"""
-    user = request.user
+    user = getattr(request, 'context', {}).get('user')
 
     if user.api_key and user.api_key in api_keys_db:
         del api_keys_db[user.api_key]
@@ -607,7 +609,7 @@ def revoke_api_key(request: Request) -> Response:
 # Protected endpoints demonstrating authorization
 @app.get("/api/users")
 @require_permission(Permission.READ_USERS)
-def list_users(request: Request) -> Response:
+def list_users(request) -> Response:
     """List all users - requires read:users permission"""
     users_list = []
     for user in users_db.values():
@@ -620,19 +622,21 @@ def list_users(request: Request) -> Response:
             "created_at": user.created_at.isoformat()
         })
 
+    current_user = getattr(request, 'context', {}).get('user')
     return JSONResponse({
         "users": users_list,
         "total": len(users_list),
         "requester": {
-            "id": request.user.id,
-            "role": request.user.role.value
+            "id": current_user.id,
+            "role": current_user.role.value
         }
     })
 
 @app.get("/api/admin")
 @require_role(UserRole.ADMIN)
-def admin_panel(request: Request) -> Response:
+def admin_panel(request) -> Response:
     """Admin panel - requires admin role"""
+    current_user = getattr(request, 'context', {}).get('user')
     return JSONResponse({
         "message": "Welcome to admin panel",
         "system_stats": {
@@ -641,24 +645,25 @@ def admin_panel(request: Request) -> Response:
             "total_tokens": len(tokens_db),
             "total_api_keys": len(api_keys_db)
         },
-        "permissions": [p.value for p in get_user_permissions(request.user)]
+        "permissions": [p.value for p in get_user_permissions(current_user)]
     })
 
 @app.post("/api/moderate")
 @require_permission(Permission.MODERATE_CONTENT)
-def moderate_content(request: Request) -> Response:
+def moderate_content(request) -> Response:
     """Content moderation - requires moderate:content permission"""
     try:
         data = request.json()
         action = data.get("action", "review")
         content_id = data.get("content_id")
 
+        current_user = getattr(request, 'context', {}).get('user')
         return JSONResponse({
             "message": f"Content {content_id} marked for {action}",
             "moderator": {
-                "id": request.user.id,
-                "name": request.user.name,
-                "role": request.user.role.value
+                "id": current_user.id,
+                "name": current_user.name,
+                "role": current_user.role.value
             },
             "timestamp": datetime.now().isoformat()
         })
@@ -667,14 +672,14 @@ def moderate_content(request: Request) -> Response:
         return JSONResponse({"error": "Invalid request", "details": str(e)}, status_code=400)
 
 @app.get("/health")
-def health_check(request: Request) -> Response:
+def health_check(request) -> Response:
     """Health check endpoint"""
     return JSONResponse({
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "auth": {
             "total_users": len(users_db),
-            "active_sessions": len(session_cache._cache) if hasattr(session_cache, '_cache') else 0,
+            "active_sessions": len(session_cache),
             "api_keys_issued": len(api_keys_db)
         }
     })

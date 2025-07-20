@@ -14,9 +14,8 @@ Features demonstrated:
 - Resource relationships and nested endpoints
 """
 
-from catzilla import Catzilla, Request, Response, JSONResponse
-from catzilla.validation import ValidationMiddleware, Field, Model
-from catzilla.middleware import ZeroAllocMiddleware
+from catzilla import Catzilla, Request, Response, JSONResponse, BaseModel, Query, Path
+from typing import Any, Dict, List, Optional, Union
 import json
 import time
 from typing import Any, Dict, List, Optional, Union
@@ -29,12 +28,8 @@ from enum import Enum
 app = Catzilla(
     production=False,
     show_banner=True,
-    log_requests=True,
-    enable_validation=True
+    log_requests=True
 )
-
-# Add validation middleware
-app.add_middleware(ValidationMiddleware)
 
 # Data models for REST API
 class UserStatus(str, Enum):
@@ -42,30 +37,30 @@ class UserStatus(str, Enum):
     INACTIVE = "inactive"
     SUSPENDED = "suspended"
 
-class UserModel(Model):
+class UserModel(BaseModel):
     """User data model with validation"""
-    name: str = Field(min_length=2, max_length=100, description="User's full name")
-    email: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$', description="Valid email address")
-    age: Optional[int] = Field(ge=13, le=120, description="User age (13-120)")
-    status: UserStatus = Field(default=UserStatus.ACTIVE, description="User account status")
-    bio: Optional[str] = Field(max_length=500, description="User biography")
-    tags: List[str] = Field(default_factory=list, description="User tags")
+    name: str = "Unknown"
+    email: str = "user@example.com"
+    age: Optional[int] = None
+    status: UserStatus = UserStatus.ACTIVE
+    bio: Optional[str] = None
+    tags: List[str] = []
 
-class UserUpdateModel(Model):
+class UserUpdateModel(BaseModel):
     """User update model - all fields optional"""
-    name: Optional[str] = Field(min_length=2, max_length=100)
-    email: Optional[str] = Field(regex=r'^[^@]+@[^@]+\.[^@]+$')
-    age: Optional[int] = Field(ge=13, le=120)
+    name: Optional[str] = None
+    email: Optional[str] = None
+    age: Optional[int] = None
     status: Optional[UserStatus] = None
-    bio: Optional[str] = Field(max_length=500)
+    bio: Optional[str] = None
     tags: Optional[List[str]] = None
 
-class PostModel(Model):
+class PostModel(BaseModel):
     """Post data model"""
-    title: str = Field(min_length=5, max_length=200, description="Post title")
-    content: str = Field(min_length=10, description="Post content")
-    tags: List[str] = Field(default_factory=list, description="Post tags")
-    published: bool = Field(default=False, description="Publication status")
+    title: str = "Untitled"
+    content: str = "No content"
+    tags: List[str] = []
+    published: bool = False
 
 # In-memory database simulation
 @dataclass
@@ -163,25 +158,11 @@ def validate_user_exists(user_id: str) -> User:
         raise ValueError(f"User with id '{user_id}' not found")
     return users_db[user_id]
 
-# Error handling middleware
-class ErrorHandlingMiddleware(ZeroAllocMiddleware):
-    """Global error handling for REST API"""
-
-    priority = 10
-
-    def process_response(self, request: Request, response: Response) -> Response:
-        """Add CORS headers and error formatting"""
-        # Add CORS headers
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-
-        return response
-
-app.add_middleware(ErrorHandlingMiddleware)
+# CORS headers are handled directly in responses
+# Catzilla has built-in performance optimizations
 
 @app.get("/")
-def home(request: Request) -> Response:
+def home(request) -> Response:
     """API documentation and available endpoints"""
     return JSONResponse({
         "message": "Catzilla REST API Patterns Example",
@@ -229,10 +210,10 @@ def home(request: Request) -> Response:
         }
     })
 
-# OPTIONS handler for CORS preflight
-@app.options("/api/v1/{path:.*}")
-def handle_cors_preflight(request: Request) -> Response:
-    """Handle CORS preflight requests"""
+# OPTIONS handler for CORS preflight (simplified)
+@app.options("/api/v1/users")
+def handle_cors_users(request) -> Response:
+    """Handle CORS preflight for users endpoint"""
     return Response(
         content="",
         status_code=200,
@@ -246,24 +227,18 @@ def handle_cors_preflight(request: Request) -> Response:
 
 # Users Resource CRUD Operations
 @app.get("/api/v1/users")
-def list_users(request: Request) -> Response:
+def list_users(request,
+               page: int = Query(1, ge=1, description="Page number"),
+               per_page: int = Query(10, ge=1, le=100, description="Items per page"),
+               status: Optional[str] = Query(None, description="Filter by status"),
+               search: Optional[str] = Query(None, description="Search in name and email"),
+               tags: Optional[str] = Query(None, description="Filter by tags (comma-separated)")) -> Response:
     """
     List users with pagination and filtering
-
-    Query parameters:
-    - page: Page number (default: 1)
-    - per_page: Items per page (default: 10, max: 100)
-    - status: Filter by status (active, inactive, suspended)
-    - tags: Filter by tags (comma-separated)
-    - search: Search in name and email
     """
     try:
-        # Parse query parameters
-        page = int(request.query_params.get("page", 1))
-        per_page = min(int(request.query_params.get("per_page", 10)), 100)
-        status_filter = request.query_params.get("status")
-        tags_filter = request.query_params.get("tags", "").split(",") if request.query_params.get("tags") else []
-        search = request.query_params.get("search", "").lower()
+        # Parse tags filter
+        tags_filter = tags.split(",") if tags else []
 
         # Get all users
         all_users = list(users_db.values())
@@ -272,7 +247,7 @@ def list_users(request: Request) -> Response:
         filtered_users = []
         for user in all_users:
             # Status filter
-            if status_filter and user.status.value != status_filter:
+            if status and user.status.value != status:
                 continue
 
             # Tags filter
@@ -280,7 +255,7 @@ def list_users(request: Request) -> Response:
                 continue
 
             # Search filter
-            if search and search not in user.name.lower() and search not in user.email.lower():
+            if search and search.lower() not in user.name.lower() and search.lower() not in user.email.lower():
                 continue
 
             filtered_users.append(serialize_user(user))
@@ -299,12 +274,9 @@ def list_users(request: Request) -> Response:
         return JSONResponse({"error": "Internal server error", "details": str(e)}, status_code=500)
 
 @app.post("/api/v1/users")
-def create_user(request: Request) -> Response:
+def create_user(request, user_data: UserModel) -> Response:
     """Create a new user"""
     try:
-        # Validate request body
-        user_data = UserModel.validate(request.json())
-
         # Check if email already exists
         for existing_user in users_db.values():
             if existing_user.email == user_data.email:
@@ -333,16 +305,35 @@ def create_user(request: Request) -> Response:
             headers={"Location": f"/api/v1/users/{user_id}"}
         )
 
+        # Create new user
+        user_id = str(uuid.uuid4())
+        user = User(
+            id=user_id,
+            name=user_data["name"],
+            email=user_data["email"],
+            age=user_data.get("age"),
+            status=UserStatus(user_data.get("status", "active")),
+            bio=user_data.get("bio"),
+            tags=user_data.get("tags", [])
+        )
+
+        users_db[user_id] = user
+
+        return JSONResponse(
+            serialize_user(user),
+            status_code=201,
+            headers={"Location": f"/api/v1/users/{user_id}"}
+        )
+
     except ValueError as e:
         return JSONResponse({"error": "Validation failed", "details": str(e)}, status_code=400)
     except Exception as e:
         return JSONResponse({"error": "Internal server error", "details": str(e)}, status_code=500)
 
 @app.get("/api/v1/users/{user_id}")
-def get_user(request: Request) -> Response:
+def get_user(request, user_id: str = Path(..., description="User ID")) -> Response:
     """Get user by ID"""
     try:
-        user_id = request.path_params["user_id"]
         user = validate_user_exists(user_id)
 
         return JSONResponse(serialize_user(user))
@@ -353,10 +344,9 @@ def get_user(request: Request) -> Response:
         return JSONResponse({"error": "Internal server error", "details": str(e)}, status_code=500)
 
 @app.put("/api/v1/users/{user_id}")
-def update_user(request: Request) -> Response:
+def update_user(request, user_id: str = Path(..., description="User ID")) -> Response:
     """Update user (full replacement)"""
     try:
-        user_id = request.path_params["user_id"]
         user = validate_user_exists(user_id)
 
         # Validate request body
@@ -389,10 +379,9 @@ def update_user(request: Request) -> Response:
         return JSONResponse({"error": "Internal server error", "details": str(e)}, status_code=500)
 
 @app.patch("/api/v1/users/{user_id}")
-def partial_update_user(request: Request) -> Response:
+def partial_update_user(request, user_id: str = Path(..., description="User ID")) -> Response:
     """Partially update user"""
     try:
-        user_id = request.path_params["user_id"]
         user = validate_user_exists(user_id)
 
         # Validate request body (partial update)
@@ -433,10 +422,9 @@ def partial_update_user(request: Request) -> Response:
         return JSONResponse({"error": "Internal server error", "details": str(e)}, status_code=500)
 
 @app.delete("/api/v1/users/{user_id}")
-def delete_user(request: Request) -> Response:
+def delete_user(request, user_id: str = Path(..., description="User ID")) -> Response:
     """Delete user"""
     try:
-        user_id = request.path_params["user_id"]
         user = validate_user_exists(user_id)
 
         # Delete user's posts first
@@ -459,15 +447,15 @@ def delete_user(request: Request) -> Response:
 
 # Posts Resource CRUD Operations
 @app.get("/api/v1/posts")
-def list_posts(request: Request) -> Response:
+def list_posts(request,
+              page: int = Query(1, ge=1, description="Page number"),
+              per_page: int = Query(10, ge=1, le=100, description="Items per page"),
+              user_id: str = Query(None, description="Filter by user ID"),
+              published: str = Query(None, description="Filter by published status (true/false)"),
+              tags: str = Query(None, description="Filter by tags (comma-separated)")) -> Response:
     """List posts with pagination and filtering"""
     try:
-        # Parse query parameters
-        page = int(request.query_params.get("page", 1))
-        per_page = min(int(request.query_params.get("per_page", 10)), 100)
-        user_id = request.query_params.get("user_id")
-        published = request.query_params.get("published")
-        tags_filter = request.query_params.get("tags", "").split(",") if request.query_params.get("tags") else []
+        tags_filter = tags.split(",") if tags else []
 
         # Get all posts
         all_posts = list(posts_db.values())
@@ -505,7 +493,7 @@ def list_posts(request: Request) -> Response:
         return JSONResponse({"error": "Internal server error", "details": str(e)}, status_code=500)
 
 @app.post("/api/v1/posts")
-def create_post(request: Request) -> Response:
+def create_post(request) -> Response:
     """Create a new post"""
     try:
         # Validate request body
@@ -546,11 +534,9 @@ def create_post(request: Request) -> Response:
         return JSONResponse({"error": "Internal server error", "details": str(e)}, status_code=500)
 
 @app.get("/api/v1/posts/{post_id}")
-def get_post(request: Request) -> Response:
+def get_post(request, post_id: str = Path(..., description="Post ID")) -> Response:
     """Get post by ID"""
     try:
-        post_id = request.path_params["post_id"]
-
         if post_id not in posts_db:
             return JSONResponse({"error": f"Post with id '{post_id}' not found"}, status_code=404)
 
@@ -561,11 +547,9 @@ def get_post(request: Request) -> Response:
         return JSONResponse({"error": "Internal server error", "details": str(e)}, status_code=500)
 
 @app.put("/api/v1/posts/{post_id}")
-def update_post(request: Request) -> Response:
+def update_post(request, post_id: str = Path(..., description="Post ID")) -> Response:
     """Update post"""
     try:
-        post_id = request.path_params["post_id"]
-
         if post_id not in posts_db:
             return JSONResponse({"error": f"Post with id '{post_id}' not found"}, status_code=404)
 
@@ -589,11 +573,9 @@ def update_post(request: Request) -> Response:
         return JSONResponse({"error": "Internal server error", "details": str(e)}, status_code=500)
 
 @app.delete("/api/v1/posts/{post_id}")
-def delete_post(request: Request) -> Response:
+def delete_post(request, post_id: str = Path(..., description="Post ID")) -> Response:
     """Delete post"""
     try:
-        post_id = request.path_params["post_id"]
-
         if post_id not in posts_db:
             return JSONResponse({"error": f"Post with id '{post_id}' not found"}, status_code=404)
 
@@ -607,18 +589,14 @@ def delete_post(request: Request) -> Response:
 
 # Nested resource: User's posts
 @app.get("/api/v1/users/{user_id}/posts")
-def get_user_posts(request: Request) -> Response:
+def get_user_posts(request, user_id: str = Path(..., description="User ID"),
+                  page: int = Query(1, ge=1, description="Page number"),
+                  per_page: int = Query(10, ge=1, le=100, description="Items per page"),
+                  published: str = Query(None, description="Filter by published status (true/false)")) -> Response:
     """Get posts for a specific user"""
     try:
-        user_id = request.path_params["user_id"]
-
         # Validate user exists
         validate_user_exists(user_id)
-
-        # Parse query parameters
-        page = int(request.query_params.get("page", 1))
-        per_page = min(int(request.query_params.get("per_page", 10)), 100)
-        published = request.query_params.get("published")
 
         # Get user's posts
         user_posts = []
@@ -649,7 +627,7 @@ def get_user_posts(request: Request) -> Response:
 
 # Health and status endpoints
 @app.get("/health")
-def health_check(request: Request) -> Response:
+def health_check(request) -> Response:
     """Health check endpoint"""
     return JSONResponse({
         "status": "healthy",
