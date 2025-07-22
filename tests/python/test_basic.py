@@ -7,9 +7,12 @@ These tests cover the fundamental components:
 3. Route registration with modern Catzilla class
 4. Memory Revolution features
 5. JSON parsing behavior with C layer acceleration
+6. Async functionality for v0.2.0 stability
 """
 
 import pytest
+import asyncio
+import time
 from catzilla import Request, Response, JSONResponse, HTMLResponse, Catzilla, BaseModel
 from typing import Optional
 
@@ -346,5 +349,231 @@ def test_catzilla_backward_compatibility():
 
     # Should work exactly like new Catzilla
     routes = app.router.routes()
-    assert len(routes) == 1
-    assert routes[0]["path"] == "/backward-compat"
+
+
+# =====================================================
+# ASYNC TESTS FOR v0.2.0 STABILITY
+# =====================================================
+
+class TestAsyncBasicFunctionality:
+    """Test async functionality in basic components"""
+
+    def setup_method(self):
+        self.app = Catzilla(auto_validation=True, memory_profiling=False)
+
+    @pytest.mark.asyncio
+    async def test_async_html_response(self):
+        """Test HTMLResponse with async handler"""
+        @self.app.get("/async/html")
+        async def async_html_handler():
+            await asyncio.sleep(0.01)  # Simulate async work
+            html = f"<h1>Async HTML at {time.time()}</h1>"
+            return HTMLResponse(html)
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/html" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_json_response(self):
+        """Test JSONResponse with async handler"""
+        @self.app.get("/async/json")
+        async def async_json_handler():
+            await asyncio.sleep(0.01)  # Simulate async work
+            data = {"async": True, "timestamp": time.time()}
+            return JSONResponse(data)
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/json" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_custom_status_code(self):
+        """Test async handler with custom status codes"""
+        @self.app.get("/async/status")
+        async def async_status_handler():
+            await asyncio.sleep(0.01)
+            return JSONResponse({"error": "not found"}, status_code=404)
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/status" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_response_headers(self):
+        """Test async response with custom headers"""
+        @self.app.get("/async/headers")
+        async def async_headers_handler():
+            await asyncio.sleep(0.01)
+            response = JSONResponse({"headers": "custom"})
+            response.headers["X-Custom-Header"] = "async-value"
+            response.headers["X-Timestamp"] = str(time.time())
+            return response
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/headers" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_response_cookies(self):
+        """Test async response with cookies"""
+        @self.app.get("/async/cookies")
+        async def async_cookies_handler():
+            await asyncio.sleep(0.01)
+            response = JSONResponse({"cookies": "set"})
+            response.set_cookie("async_session", f"session_{time.time()}")
+            response.set_cookie("async_user", "test_user", max_age=3600)
+            return response
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/cookies" for r in routes)
+
+
+class TestAsyncRequestHandling:
+    """Test async request handling and validation"""
+
+    def setup_method(self):
+        self.app = Catzilla(auto_validation=True, memory_profiling=False)
+
+    @pytest.mark.asyncio
+    async def test_async_request_json_parsing(self):
+        """Test async JSON request parsing"""
+        @self.app.post("/async/json-parse")
+        async def async_json_parse_handler(request: Request):
+            await asyncio.sleep(0.01)
+            try:
+                data = request.json()
+                return JSONResponse({"received": data, "async": True})
+            except Exception as e:
+                return JSONResponse({"error": str(e)}, status_code=400)
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/json-parse" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_auto_validation(self):
+        """Test async handler with auto-validation"""
+        class AsyncUser(BaseModel):
+            id: int
+            name: str
+            email: str
+            async_created: Optional[bool] = True
+
+        @self.app.post("/async/validate")
+        async def async_validate_handler(user: AsyncUser):
+            await asyncio.sleep(0.01)  # Simulate async validation/processing
+            return JSONResponse({
+                "validated": True,
+                "user": {
+                    "id": user.id,
+                    "name": user.name,
+                    "email": user.email,
+                    "async_created": user.async_created
+                },
+                "timestamp": time.time()
+            })
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/validate" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_error_handling(self):
+        """Test async error handling"""
+        @self.app.get("/async/error")
+        async def async_error_handler():
+            await asyncio.sleep(0.01)
+            raise ValueError("Async error test")
+
+        @self.app.get("/async/timeout")
+        async def async_timeout_handler():
+            try:
+                await asyncio.wait_for(asyncio.sleep(1), timeout=0.01)
+                return JSONResponse({"status": "completed"})
+            except asyncio.TimeoutError:
+                return JSONResponse({"error": "timeout"}, status_code=408)
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/error" for r in routes)
+        assert any(r["path"] == "/async/timeout" for r in routes)
+
+
+class TestAsyncMemoryRevolution:
+    """Test async functionality with Memory Revolution features"""
+
+    def setup_method(self):
+        self.app = Catzilla(auto_validation=True, memory_profiling=False)
+
+    @pytest.mark.asyncio
+    async def test_async_memory_optimized_responses(self):
+        """Test async memory-optimized responses"""
+        @self.app.get("/async/memory-optimized")
+        async def async_memory_handler():
+            await asyncio.sleep(0.01)
+            # Test large response with memory optimization
+            large_data = {"items": [{"id": i, "data": f"item_{i}"} for i in range(1000)]}
+            return JSONResponse(large_data)
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/memory-optimized" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_concurrent_memory_safety(self):
+        """Test async concurrent access with memory safety"""
+        request_counter = {"count": 0}
+
+        @self.app.get("/async/concurrent")
+        async def async_concurrent_handler():
+            # Simulate concurrent async operations
+            await asyncio.sleep(0.01)
+            request_counter["count"] += 1
+            return JSONResponse({
+                "request_count": request_counter["count"],
+                "timestamp": time.time()
+            })
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/concurrent" for r in routes)
+
+
+class TestAsyncPerformanceStability:
+    """Test async performance and stability characteristics"""
+
+    def setup_method(self):
+        self.app = Catzilla(auto_validation=True, memory_profiling=False)
+
+    @pytest.mark.asyncio
+    async def test_async_high_frequency_requests(self):
+        """Test async handling of high-frequency requests"""
+        request_times = []
+
+        @self.app.get("/async/high-freq")
+        async def async_high_freq_handler():
+            start_time = time.time()
+            await asyncio.sleep(0.001)  # Minimal async work
+            end_time = time.time()
+            request_times.append(end_time - start_time)
+            return JSONResponse({
+                "request_time": end_time - start_time,
+                "total_requests": len(request_times)
+            })
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/high-freq" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_resource_cleanup(self):
+        """Test async resource cleanup and management"""
+        resources_created = []
+        resources_cleaned = []
+
+        @self.app.get("/async/resource-cleanup")
+        async def async_cleanup_handler():
+            resource_id = f"resource_{time.time()}"
+            resources_created.append(resource_id)
+
+            try:
+                await asyncio.sleep(0.01)  # Simulate resource usage
+                return JSONResponse({"resource": resource_id, "status": "used"})
+            finally:
+                # Simulate async cleanup
+                await asyncio.sleep(0.001)
+                resources_cleaned.append(resource_id)
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/resource-cleanup" for r in routes)

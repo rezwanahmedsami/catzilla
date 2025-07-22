@@ -775,6 +775,7 @@ endif()
 add_library(_catzilla SHARED
   src/python/module.c
   src/python/streaming.c
+  src/python/async_bridge.c
 )
 
 # Apply feature test macros only to Python extension (not third-party libs)

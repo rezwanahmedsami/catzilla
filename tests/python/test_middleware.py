@@ -9,9 +9,11 @@ Comprehensive tests for the Python middleware integration, including:
 - Performance benchmarks
 - Error handling and edge cases
 - Integration with DI system
+- Async middleware for v0.2.0 stability
 """
 
 import pytest
+import asyncio
 import sys
 import os
 import time
@@ -1232,6 +1234,364 @@ class TestGlobalAndPerRouteMiddlewareIntegration:
         assert len(self.app.routes()) == 3  # Three routes
 
 
+# =====================================================
+# ASYNC MIDDLEWARE TESTS FOR v0.2.0 STABILITY
+# =====================================================
+
+class TestAsyncMiddleware:
+    """Test async middleware functionality"""
+
+    def setup_method(self):
+        self.app = Catzilla(use_jemalloc=False, memory_profiling=False)
+        self.execution_order = []
+
+    @pytest.mark.asyncio
+    async def test_async_middleware_basic(self):
+        """Test basic async middleware registration and execution"""
+        @self.app.middleware(priority=100, pre_route=True, name="async_test_middleware")
+        async def async_test_middleware(request):
+            await asyncio.sleep(0.01)
+            self.execution_order.append("async_middleware")
+            return None
+
+        @self.app.get("/async/test")
+        async def async_handler(request):
+            await asyncio.sleep(0.01)
+            self.execution_order.append("async_handler")
+            return JSONResponse({"async": True})
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/test" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_middleware_chain(self):
+        """Test async middleware chain execution"""
+        @self.app.middleware(priority=200, pre_route=True, name="async_auth")
+        async def async_auth_middleware(request):
+            await asyncio.sleep(0.005)
+            self.execution_order.append("async_auth_start")
+            # Simulate async auth check
+            return None
+
+        @self.app.middleware(priority=150, pre_route=True, name="async_logging")
+        async def async_logging_middleware(request):
+            await asyncio.sleep(0.005)
+            self.execution_order.append("async_logging_start")
+            # Simulate async logging
+            return None
+
+        @self.app.middleware(priority=50, pre_route=False, name="async_response")
+        async def async_response_middleware(request, response):
+            await asyncio.sleep(0.005)
+            self.execution_order.append("async_response_end")
+            return response
+
+        @self.app.get("/async/chain")
+        async def async_chain_handler(request):
+            await asyncio.sleep(0.01)
+            self.execution_order.append("async_chain_handler")
+            return JSONResponse({"chain": "async", "order": self.execution_order})
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/chain" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_middleware_early_return(self):
+        """Test async middleware early return (short-circuiting)"""
+        @self.app.middleware(priority=200, pre_route=True, name="async_gate")
+        async def async_gate_middleware(request):
+            await asyncio.sleep(0.01)
+            # Simulate async authorization check that fails
+            if request.path == "/async/protected":
+                return JSONResponse({"error": "async unauthorized"}, status_code=401)
+            return None
+
+        @self.app.get("/async/protected")
+        async def async_protected_handler(request):
+            # This should never be called due to middleware early return
+            self.execution_order.append("protected_handler")
+            return JSONResponse({"protected": "data"})
+
+        @self.app.get("/async/public")
+        async def async_public_handler(request):
+            self.execution_order.append("public_handler")
+            return JSONResponse({"public": "data"})
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/protected" for r in routes)
+        assert any(r["path"] == "/async/public" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_middleware_error_handling(self):
+        """Test async middleware error handling"""
+        @self.app.middleware(priority=100, pre_route=True, name="async_error_middleware")
+        async def async_error_middleware(request):
+            await asyncio.sleep(0.01)
+            if request.path == "/async/error":
+                raise ValueError("Async middleware error")
+            return None
+
+        @self.app.get("/async/error")
+        async def async_error_handler(request):
+            return JSONResponse({"should": "not reach here"})
+
+        @self.app.get("/async/normal")
+        async def async_normal_handler(request):
+            return JSONResponse({"status": "normal"})
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/error" for r in routes)
+        assert any(r["path"] == "/async/normal" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_middleware_with_context(self):
+        """Test async middleware with request context manipulation"""
+        @self.app.middleware(priority=100, pre_route=True, name="async_context")
+        async def async_context_middleware(request):
+            await asyncio.sleep(0.01)
+            # Initialize context if not exists
+            if not hasattr(request, '_context'):
+                request._context = {}
+
+            # Simulate async context enrichment (e.g., user lookup)
+            request._context['user_id'] = 123
+            request._context['async_timestamp'] = time.time()
+            return None
+
+        @self.app.get("/async/context")
+        async def async_context_handler(request):
+            await asyncio.sleep(0.01)
+            context = getattr(request, '_context', {})
+            return JSONResponse({
+                "context": context,
+                "has_user": 'user_id' in context
+            })
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/context" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_middleware_resource_management(self):
+        """Test async middleware with resource management"""
+        resources_acquired = []
+        resources_released = []
+
+        @self.app.middleware(priority=100, pre_route=True, name="async_resource")
+        async def async_resource_middleware(request):
+            # Simulate async resource acquisition
+            await asyncio.sleep(0.005)
+            resource_id = f"resource_{time.time()}"
+            resources_acquired.append(resource_id)
+
+            if not hasattr(request, '_context'):
+                request._context = {}
+            request._context['resource_id'] = resource_id
+            return None
+
+        @self.app.middleware(priority=50, pre_route=False, name="async_cleanup")
+        async def async_cleanup_middleware(request, response):
+            # Simulate async resource cleanup
+            await asyncio.sleep(0.005)
+            context = getattr(request, '_context', {})
+            if 'resource_id' in context:
+                resources_released.append(context['resource_id'])
+            return response
+
+        @self.app.get("/async/resource")
+        async def async_resource_handler(request):
+            await asyncio.sleep(0.01)
+            context = getattr(request, '_context', {})
+            return JSONResponse({
+                "resource_id": context.get('resource_id'),
+                "acquired_count": len(resources_acquired),
+                "released_count": len(resources_released)
+            })
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/resource" for r in routes)
+
+
+class TestAsyncMiddlewarePerformance:
+    """Test async middleware performance characteristics"""
+
+    def setup_method(self):
+        self.app = Catzilla(use_jemalloc=False, memory_profiling=False)
+
+    @pytest.mark.asyncio
+    async def test_async_middleware_performance(self):
+        """Test async middleware performance"""
+        execution_times = []
+
+        @self.app.middleware(priority=100, pre_route=True, name="async_perf")
+        async def async_perf_middleware(request):
+            start_time = time.time()
+            await asyncio.sleep(0.001)  # Minimal async work
+            end_time = time.time()
+            execution_times.append(end_time - start_time)
+            return None
+
+        @self.app.get("/async/perf")
+        async def async_perf_handler(request):
+            await asyncio.sleep(0.001)
+            return JSONResponse({
+                "middleware_executions": len(execution_times),
+                "avg_time": sum(execution_times) / len(execution_times) if execution_times else 0
+            })
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/perf" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_middleware_concurrent_safety(self):
+        """Test async middleware concurrent safety"""
+        shared_counter = {"value": 0}
+        lock = asyncio.Lock()
+
+        @self.app.middleware(priority=100, pre_route=True, name="async_concurrent")
+        async def async_concurrent_middleware(request):
+            async with lock:
+                current = shared_counter["value"]
+                await asyncio.sleep(0.001)  # Simulate async work
+                shared_counter["value"] = current + 1
+            return None
+
+        @self.app.get("/async/concurrent")
+        async def async_concurrent_handler(request):
+            return JSONResponse({
+                "counter": shared_counter["value"],
+                "timestamp": time.time()
+            })
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/concurrent" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_middleware_memory_efficiency(self):
+        """Test async middleware memory efficiency"""
+        memory_usage = []
+
+        @self.app.middleware(priority=100, pre_route=True, name="async_memory")
+        async def async_memory_middleware(request):
+            # Simulate memory-intensive async operations
+            data = []
+            for i in range(100):
+                await asyncio.sleep(0.0001)
+                data.append({"id": i, "data": f"async_data_{i}"})
+
+            # Clean up immediately
+            del data
+            return None
+
+        @self.app.get("/async/memory")
+        async def async_memory_handler(request):
+            return JSONResponse({"memory_test": "completed"})
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/memory" for r in routes)
+
+
+class TestAsyncMiddlewareMixedMode:
+    """Test mixed async/sync middleware scenarios"""
+
+    def setup_method(self):
+        self.app = Catzilla(use_jemalloc=False, memory_profiling=False)
+        self.execution_order = []
+
+    @pytest.mark.asyncio
+    async def test_mixed_async_sync_middleware(self):
+        """Test mixing async and sync middleware"""
+        @self.app.middleware(priority=200, pre_route=True, name="sync_middleware")
+        def sync_middleware(request):
+            time.sleep(0.01)  # Blocking sync work
+            self.execution_order.append("sync_middleware")
+            return None
+
+        @self.app.middleware(priority=150, pre_route=True, name="async_middleware")
+        async def async_middleware(request):
+            await asyncio.sleep(0.01)  # Non-blocking async work
+            self.execution_order.append("async_middleware")
+            return None
+
+        @self.app.get("/mixed/middleware")
+        async def mixed_handler(request):
+            await asyncio.sleep(0.01)
+            self.execution_order.append("mixed_handler")
+            return JSONResponse({
+                "execution_order": self.execution_order,
+                "mixed": True
+            })
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/mixed/middleware" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_middleware_with_sync_handler(self):
+        """Test async middleware with sync handler"""
+        @self.app.middleware(priority=100, pre_route=True, name="async_with_sync")
+        async def async_middleware_sync_handler(request):
+            await asyncio.sleep(0.01)
+            self.execution_order.append("async_middleware")
+            return None
+
+        @self.app.get("/async-middleware/sync-handler")
+        def sync_handler_with_async_middleware(request):
+            time.sleep(0.01)  # Blocking sync work
+            self.execution_order.append("sync_handler")
+            return JSONResponse({
+                "execution_order": self.execution_order,
+                "handler_type": "sync",
+                "middleware_type": "async"
+            })
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async-middleware/sync-handler" for r in routes)
+
+
+class TestAsyncMiddlewareErrorRecovery:
+    """Test async middleware error recovery and resilience"""
+
+    def setup_method(self):
+        self.app = Catzilla(use_jemalloc=False, memory_profiling=False)
+
+    @pytest.mark.asyncio
+    async def test_async_middleware_timeout_handling(self):
+        """Test async middleware timeout handling"""
+        @self.app.middleware(priority=100, pre_route=True, name="async_timeout")
+        async def async_timeout_middleware(request):
+            try:
+                # This will timeout
+                await asyncio.wait_for(asyncio.sleep(1), timeout=0.01)
+                return None
+            except asyncio.TimeoutError:
+                return JSONResponse({"error": "middleware timeout"}, status_code=408)
+
+        @self.app.get("/async/timeout-test")
+        async def timeout_handler(request):
+            return JSONResponse({"should": "not reach here"})
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/timeout-test" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_middleware_cancellation_handling(self):
+        """Test async middleware cancellation handling"""
+        @self.app.middleware(priority=100, pre_route=True, name="async_cancellation")
+        async def async_cancellation_middleware(request):
+            try:
+                await asyncio.sleep(0.1)
+                return None
+            except asyncio.CancelledError:
+                # Graceful cleanup on cancellation
+                return JSONResponse({"error": "request cancelled"}, status_code=499)
+
+        @self.app.get("/async/cancellation-test")
+        async def cancellation_handler(request):
+            return JSONResponse({"status": "completed"})
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/cancellation-test" for r in routes)
+
+
 # Performance test that prints results
 def test_middleware_performance_summary(capsys):
     """Print middleware performance summary"""
@@ -1243,4 +1603,6 @@ def test_middleware_performance_summary(capsys):
     print("✅ Concurrent access handling verified")
     print("✅ Memory integration working correctly")
     print("✅ Error handling robust")
+    print("✅ Async middleware functionality stable")
+    print("✅ Mixed async/sync middleware working")
     print("="*60)

@@ -730,37 +730,79 @@ def create_auto_validated_handler(handler: Callable) -> Callable:
     if not validation_spec.parameters:
         return handler
 
-    def auto_validated_wrapper(request, *args, **kwargs):
-        """Ultra-fast auto-validation wrapper (total overhead: ~53μs)"""
-        try:
-            # Perform ultra-fast validation
-            validated_params = auto_validate_request(request, validation_spec)
+    # Check if the original handler is async
+    import asyncio
 
-            # Merge validated parameters with existing kwargs
-            kwargs.update(validated_params)
+    is_async_handler = asyncio.iscoroutinefunction(handler)
 
-            # Call original handler with validated parameters
-            return handler(request, *args, **kwargs)
+    if is_async_handler:
+        # Create async wrapper for async handlers
+        async def auto_validated_wrapper(request, *args, **kwargs):
+            """Ultra-fast auto-validation wrapper for async handlers (total overhead: ~53μs)"""
+            try:
+                # Perform ultra-fast validation
+                validated_params = auto_validate_request(request, validation_spec)
 
-        except ValidationError as e:
-            # Return clean validation error response
-            from .types import JSONResponse
+                # Merge validated parameters with existing kwargs
+                kwargs.update(validated_params)
 
-            return JSONResponse(
-                {"error": "Validation Error", "detail": str(e)}, status_code=422
-            )
-        except Exception as e:
-            # Return clean error response
-            from .types import JSONResponse
+                # Call original async handler with validated parameters
+                return await handler(request, *args, **kwargs)
 
-            return JSONResponse(
-                {"error": "Internal Server Error", "detail": str(e)}, status_code=500
-            )
+            except ValidationError as e:
+                # Return clean validation error response
+                from .types import JSONResponse
+
+                return JSONResponse(
+                    {"error": "Validation Error", "detail": str(e)}, status_code=422
+                )
+            except Exception as e:
+                # Return clean error response
+                from .types import JSONResponse
+
+                return JSONResponse(
+                    {"error": "Internal Server Error", "detail": str(e)},
+                    status_code=500,
+                )
+
+    else:
+        # Create sync wrapper for sync handlers
+        def auto_validated_wrapper(request, *args, **kwargs):
+            """Ultra-fast auto-validation wrapper for sync handlers (total overhead: ~53μs)"""
+            try:
+                # Perform ultra-fast validation
+                validated_params = auto_validate_request(request, validation_spec)
+
+                # Merge validated parameters with existing kwargs
+                kwargs.update(validated_params)
+
+                # Call original handler with validated parameters
+                return handler(request, *args, **kwargs)
+
+            except ValidationError as e:
+                # Return clean validation error response
+                from .types import JSONResponse
+
+                return JSONResponse(
+                    {"error": "Validation Error", "detail": str(e)}, status_code=422
+                )
+            except Exception as e:
+                # Return clean error response
+                from .types import JSONResponse
+
+                return JSONResponse(
+                    {"error": "Internal Server Error", "detail": str(e)},
+                    status_code=500,
+                )
 
     # Preserve original function metadata
     auto_validated_wrapper.__name__ = handler.__name__
     auto_validated_wrapper.__doc__ = handler.__doc__
+    auto_validated_wrapper.__wrapped__ = handler  # For async detection
     auto_validated_wrapper._original_handler = handler
+    auto_validated_wrapper._catzilla_original_handler = (
+        handler  # For Catzilla async detection
+    )
     auto_validated_wrapper._validation_spec = validation_spec
 
     return auto_validated_wrapper

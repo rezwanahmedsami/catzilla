@@ -386,3 +386,327 @@ class TestIntegrationWithC:
         methods = {r["method"] for r in routes}
         # All should be normalized to uppercase (or whatever the C code expects)
         assert len(methods) <= 2  # Should be normalized
+
+
+# =====================================================
+# ASYNC HTTP RESPONSE TESTS
+# =====================================================
+
+class TestAsyncHTTPResponses:
+    """Test async HTTP response handling"""
+
+    def setup_method(self):
+        self.app = Catzilla(auto_validation=True, memory_profiling=False)
+
+    @pytest.mark.asyncio
+    async def test_async_json_response(self):
+        """Test async JSON response generation"""
+        @self.app.get("/async/json")
+        async def async_json_handler():
+            import asyncio
+            await asyncio.sleep(0.01)  # Simulate async work
+
+            return JSONResponse({
+                "async": True,
+                "timestamp": asyncio.get_event_loop().time(),
+                "data": {"key": "async_value"}
+            })
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/json" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_custom_status_codes(self):
+        """Test async handlers with custom status codes"""
+        @self.app.get("/async/created")
+        async def async_created():
+            import asyncio
+            await asyncio.sleep(0.01)
+            return JSONResponse({"created": "async"}, status_code=201)
+
+        @self.app.get("/async/not-found")
+        async def async_not_found():
+            import asyncio
+            await asyncio.sleep(0.01)
+            return JSONResponse({"error": "async not found"}, status_code=404)
+
+        @self.app.get("/async/server-error")
+        async def async_server_error():
+            import asyncio
+            await asyncio.sleep(0.01)
+            return JSONResponse({"error": "async server error"}, status_code=500)
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/created" for r in routes)
+        assert any(r["path"] == "/async/not-found" for r in routes)
+        assert any(r["path"] == "/async/server-error" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_response_headers(self):
+        """Test async responses with custom headers"""
+        @self.app.get("/async/headers")
+        async def async_headers():
+            import asyncio
+            await asyncio.sleep(0.01)
+
+            response = JSONResponse({"async_headers": True})
+            response.headers["X-Async-Handler"] = "true"
+            response.headers["X-Processing-Time"] = "0.01"
+            response.headers["Cache-Control"] = "no-cache"
+
+            return response
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/headers" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_error_responses(self):
+        """Test async error response handling"""
+        @self.app.get("/async/validation-error")
+        async def async_validation_error():
+            import asyncio
+            await asyncio.sleep(0.01)
+
+            return JSONResponse({
+                "error": "validation_failed",
+                "message": "Async validation error",
+                "details": {
+                    "field": "email",
+                    "reason": "invalid_format"
+                }
+            }, status_code=422)
+
+        @self.app.get("/async/auth-error")
+        async def async_auth_error():
+            import asyncio
+            await asyncio.sleep(0.01)
+
+            return JSONResponse({
+                "error": "unauthorized",
+                "message": "Async authentication required"
+            }, status_code=401)
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/validation-error" for r in routes)
+        assert any(r["path"] == "/async/auth-error" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_content_negotiation(self):
+        """Test async content negotiation"""
+        @self.app.get("/async/content/{format}")
+        async def async_content_negotiation(format: str):
+            import asyncio
+            await asyncio.sleep(0.01)
+
+            data = {
+                "async": True,
+                "content_type": format,
+                "timestamp": asyncio.get_event_loop().time()
+            }
+
+            if format == "json":
+                return JSONResponse(data)
+            elif format == "text":
+                return Response(
+                    content=f"Async: {data['async']}, Time: {data['timestamp']}",
+                    content_type="text/plain"
+                )
+            else:
+                return JSONResponse(
+                    {"error": "unsupported_format", "format": format},
+                    status_code=415
+                )
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/content/{format}" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_response_streaming_headers(self):
+        """Test async response with streaming-compatible headers"""
+        @self.app.get("/async/stream-headers")
+        async def async_stream_headers():
+            import asyncio
+            await asyncio.sleep(0.01)
+
+            response = JSONResponse({
+                "streaming": True,
+                "async": True,
+                "chunks": 5
+            })
+
+            # Headers that indicate streaming capability
+            response.headers["Transfer-Encoding"] = "chunked"
+            response.headers["X-Async-Stream"] = "true"
+            response.headers["Connection"] = "keep-alive"
+
+            return response
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/stream-headers" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_cors_headers(self):
+        """Test async responses with CORS headers"""
+        @self.app.get("/async/cors")
+        async def async_cors():
+            import asyncio
+            await asyncio.sleep(0.01)
+
+            response = JSONResponse({
+                "cors_enabled": True,
+                "async": True
+            })
+
+            # CORS headers
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+            response.headers["Access-Control-Max-Age"] = "3600"
+
+            return response
+
+        @self.app.options("/async/cors")
+        async def async_cors_preflight():
+            import asyncio
+            await asyncio.sleep(0.005)  # Faster preflight
+
+            response = Response(content="", status_code=200)
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+
+            return response
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/cors" and r["method"] == "GET" for r in routes)
+        assert any(r["path"] == "/async/cors" and r["method"] == "OPTIONS" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_response_cookies(self):
+        """Test async responses with cookies"""
+        @self.app.get("/async/cookies")
+        async def async_set_cookies():
+            import asyncio
+            await asyncio.sleep(0.01)
+
+            response = JSONResponse({
+                "cookies_set": True,
+                "async": True
+            })
+
+            # Set various types of cookies
+            response.set_cookie("async_session", "async_session_123", max_age=3600)
+            response.set_cookie("async_user", "async_user_456", httponly=True)
+            response.set_cookie("async_preferences", "theme=dark", secure=True)
+
+            return response
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/cookies" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_response_performance_headers(self):
+        """Test async responses with performance monitoring headers"""
+        @self.app.get("/async/performance")
+        async def async_performance():
+            import asyncio
+            start_time = asyncio.get_event_loop().time()
+
+            await asyncio.sleep(0.02)  # Simulate work
+
+            end_time = asyncio.get_event_loop().time()
+            processing_time = end_time - start_time
+
+            response = JSONResponse({
+                "performance_test": True,
+                "processing_time": processing_time,
+                "async": True
+            })
+
+            # Performance headers
+            response.headers["X-Processing-Time"] = f"{processing_time:.4f}"
+            response.headers["X-Async-Handler"] = "true"
+            response.headers["X-Server-Timing"] = f"async;dur={processing_time * 1000:.2f}"
+
+            return response
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/performance" for r in routes)
+
+
+class TestAsyncResponseValidation:
+    """Test async response validation and error handling"""
+
+    def setup_method(self):
+        self.app = Catzilla(auto_validation=True, memory_profiling=False)
+
+    @pytest.mark.asyncio
+    async def test_async_response_validation_success(self):
+        """Test successful async response validation"""
+        class AsyncResponseModel(BaseModel):
+            success: bool
+            data: dict
+            timestamp: float
+
+        @self.app.get("/async/validated")
+        async def async_validated_response():
+            import asyncio
+            await asyncio.sleep(0.01)
+
+            # Return data that matches the model
+            return JSONResponse({
+                "success": True,
+                "data": {"key": "value"},
+                "timestamp": asyncio.get_event_loop().time()
+            })
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/validated" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_response_timeout_handling(self):
+        """Test async response timeout handling"""
+        @self.app.get("/async/timeout")
+        async def async_timeout_handler():
+            import asyncio
+
+            try:
+                # Simulate a long-running operation that might timeout
+                await asyncio.wait_for(asyncio.sleep(0.1), timeout=0.05)
+                return JSONResponse({"completed": True})
+            except asyncio.TimeoutError:
+                return JSONResponse({
+                    "error": "timeout",
+                    "message": "Async operation timed out"
+                }, status_code=408)
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/timeout" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_concurrent_response_generation(self):
+        """Test concurrent async response generation"""
+        import asyncio
+
+        async def generate_async_response(response_id):
+            await asyncio.sleep(0.01)
+            return {
+                "response_id": response_id,
+                "generated_at": asyncio.get_event_loop().time(),
+                "async": True
+            }
+
+        @self.app.get("/async/concurrent/{count}")
+        async def async_concurrent_responses(count: int):
+            # Generate multiple responses concurrently
+            tasks = [generate_async_response(i) for i in range(min(count, 10))]
+            responses = await asyncio.gather(*tasks)
+
+            return JSONResponse({
+                "concurrent_responses": responses,
+                "total_generated": len(responses),
+                "async": True
+            })
+
+        routes = self.app.router.routes()
+        assert any(r["path"] == "/async/concurrent/{count}" for r in routes)

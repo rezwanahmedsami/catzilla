@@ -177,6 +177,7 @@ testpaths = ["tests/python"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 python_classes = ["Test*"]
+asyncio_mode = "auto"
 addopts = [
     "--strict-markers",
     "--strict-config",

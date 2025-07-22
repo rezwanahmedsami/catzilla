@@ -211,8 +211,9 @@ signal.signal(signal.SIGINT, signal_handler)
 if __name__ == "__main__":
     try:
         print(f"Starting error test server on port {port}", flush=True)
-        # Add delay for proper initialization
-        time.sleep(0.5)
+        # Add longer delay for proper initialization in test suites
+        time.sleep(1.0)
+        print("Server initialization complete, starting listener...", flush=True)
         app.listen(port={port})
     except KeyboardInterrupt:
         print("Error test server stopped by keyboard interrupt")
@@ -633,6 +634,11 @@ def db_stats(request, db: DatabaseService = Depends("database_service")):
 
     def test_resource_exhaustion_scenarios(self):
         """CRITICAL: Test behavior under resource exhaustion"""
+        # Force cleanup before starting this critical test
+        import gc
+        gc.collect()
+        time.sleep(0.5)
+
         port = self.get_next_port()
 
         app_code = '''
@@ -643,7 +649,10 @@ import threading
 import gc
 import queue
 
+# Ensure clean DI state
 clear_default_container()
+time.sleep(0.1)  # Small delay for cleanup
+
 app = Catzilla(enable_di=True)
 set_default_container(app.di_container)
 
@@ -778,8 +787,41 @@ def gc_collect(request):
         try:
             print("Testing resource exhaustion scenarios...")
 
+            # Additional health check before starting tests
+            print("Performing comprehensive server validation...")
+            health_response = requests.get(f"http://localhost:{port}/health", timeout=5)
+            print(f"Pre-test health check: {health_response.status_code}")
+
+            # Verify DI container is working
+            stats_response = requests.get(f"http://localhost:{port}/resource_stats", timeout=5)
+            print(f"DI validation (resource_stats): {stats_response.status_code}")
+            if stats_response.status_code == 200:
+                print(f"Initial resource stats: {stats_response.json()}")
+            else:
+                print(f"DI validation failed: {stats_response.text}")
+
+            # Verify allocate_memory endpoint exists
+            try:
+                options_response = requests.options(f"http://localhost:{port}/allocate_memory", timeout=5)
+                print(f"Allocate memory endpoint check: {options_response.status_code}")
+            except Exception as e:
+                print(f"Endpoint check error: {e}")
+
             # Test normal resource allocation
+            print(f"Making request to: http://localhost:{port}/allocate_memory?size=5")
             response = requests.get(f"http://localhost:{port}/allocate_memory?size=5", timeout=10)
+            print(f"Response status: {response.status_code}")
+            if response.status_code != 200:
+                print(f"Response content: {response.text}")
+                print("Checking if server is still alive...")
+                try:
+                    health_check = requests.get(f"http://localhost:{port}/health", timeout=3)
+                    print(f"Health check after failure: {health_check.status_code}")
+                    # Check if DI is still working
+                    di_check = requests.get(f"http://localhost:{port}/resource_stats", timeout=3)
+                    print(f"DI check after failure: {di_check.status_code}")
+                except Exception as e:
+                    print(f"Post-failure checks failed: {e}")
             assert response.status_code == 200
             data = response.json()
             assert data["success"] is True

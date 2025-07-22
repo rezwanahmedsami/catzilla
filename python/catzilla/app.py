@@ -6,6 +6,7 @@ as the sole routing option, leveraging C-based matching for maximum performance.
 The Catzilla v0.2.0 Memory Revolution provides 30-35% memory efficiency gains.
 """
 
+import asyncio
 import functools
 import os
 import signal
@@ -35,6 +36,8 @@ def _safe_print(message: str):
         print(safe_message)
 
 
+# Import async/sync hybrid execution system
+from .async_detector import AsyncHandlerDetector, is_async_handler
 from .auto_validation import create_auto_validated_handler
 
 # Import revolutionary Background Task System
@@ -53,6 +56,7 @@ from .decorators import (
 
 # Import DI system for Phase 3 integration
 from .dependency_injection import DIContainer, DIContext
+from .hybrid_executor import ExecutionError, ExecutorConfig, HybridExecutor
 from .integration import DIMiddleware, DIRouteEnhancer
 from .middleware import ZeroAllocMiddleware
 from .router import CAcceleratedRouter
@@ -291,6 +295,19 @@ class Catzilla:
         self.router = CAcceleratedRouter()
         self._router_type = "CAcceleratedRouter"
 
+        # Initialize Hybrid Async/Sync Execution System
+        self.async_detector = AsyncHandlerDetector()
+        executor_config = ExecutorConfig(
+            max_sync_threads=10,  # Configurable in future versions
+            sync_thread_timeout=30.0,
+            async_timeout=30.0,
+            enable_performance_monitoring=not production,
+            thread_name_prefix="catzilla-sync",
+            enable_context_vars=True,
+        )
+        self.hybrid_executor = HybridExecutor(executor_config)
+        self._async_enabled = True  # Track if async support is enabled
+
         # Error handling configuration
         self._exception_handlers: Dict[type, Callable] = {}
         self._not_found_handler: Optional[Callable] = None
@@ -526,6 +543,75 @@ class Catzilla:
             "total_checks": len(self._memory_stats_history),
         }
 
+    def get_async_performance_stats(self) -> dict:
+        """Get async/sync handler performance statistics"""
+        if not self._async_enabled:
+            return {"error": "Async support not enabled"}
+
+        # Get stats from both the detector and executor
+        detector_stats = self.async_detector.get_statistics()
+        executor_stats = self.hybrid_executor.get_performance_stats()
+
+        return {
+            "async_support_enabled": True,
+            "handler_detection": detector_stats,
+            "execution_performance": executor_stats,
+            "hybrid_executor_config": {
+                "max_sync_threads": self.hybrid_executor.config.max_sync_threads,
+                "sync_timeout": self.hybrid_executor.config.sync_thread_timeout,
+                "async_timeout": self.hybrid_executor.config.async_timeout,
+                "monitoring_enabled": self.hybrid_executor.config.enable_performance_monitoring,
+            },
+        }
+
+    def _execute_handler_hybrid(self, handler: Callable, request: Request) -> Any:
+        """
+        Execute a handler using the hybrid async/sync system.
+
+        This method automatically detects whether the handler is sync or async
+        and executes it in the appropriate context while maintaining optimal
+        performance and thread safety.
+
+        Args:
+            handler: The handler function to execute
+            request: The request object to pass to the handler
+
+        Returns:
+            The result from the handler execution
+
+        Raises:
+            ExecutionError: If handler execution fails
+        """
+        try:
+            # Check if async support is enabled
+            if not self._async_enabled:
+                # Fallback to synchronous execution
+                return handler(request)
+
+            # Detect handler type
+            handler_type = self.async_detector.get_handler_type(handler)
+
+            if handler_type == "async":
+                # Handler is async - need to run in event loop
+                try:
+                    # Check if we're already in an event loop
+                    loop = asyncio.get_running_loop()
+                    # We're in an async context - this shouldn't happen in normal request handling
+                    # For now, just run the handler directly since we're already async
+                    import asyncio
+
+                    return asyncio.run(handler(request))
+
+                except RuntimeError:
+                    # No running event loop - create one for this execution
+                    return asyncio.run(handler(request))
+            else:
+                # Handler is sync - execute directly for optimal performance
+                return handler(request)
+
+        except Exception as e:
+            raise ExecutionError(f"Handler execution failed: {e}") from e
+
     def _handle_request(self, client, method, path, body, request_capsule):
         """Internal request handler that bridges C and Python"""
         import time
@@ -694,18 +780,20 @@ class Catzilla:
                                 error_resp.send(client)
                                 return
 
-                    # Call the handler with DI context management
+                    # Call the handler with hybrid async/sync execution
                     if self.enable_di:
                         # Create DI context for this request
                         with self.di_container.resolution_context() as di_context:
                             _set_current_context(di_context)
                             try:
-                                response = route.handler(request)
+                                response = self._execute_handler_hybrid(
+                                    route.handler, request
+                                )
                             finally:
                                 _clear_current_context()
                     else:
-                        # No DI - call handler directly
-                        response = route.handler(request)
+                        # No DI - call handler directly with hybrid execution
+                        response = self._execute_handler_hybrid(route.handler, request)
 
                     # Normalize response based on return type
                     if isinstance(response, Response):
@@ -1881,3 +1969,58 @@ class Catzilla:
                 "error": str(e),
                 "status": "error",
             }
+
+    async def shutdown_async_support(self, timeout: float = 30.0) -> None:
+        """
+        Gracefully shutdown the async/sync support system.
+
+        This method ensures that all active handlers complete execution
+        and resources are properly cleaned up.
+
+        Args:
+            timeout: Maximum time to wait for active handlers to complete
+        """
+        if self._async_enabled and self.hybrid_executor:
+            try:
+                await self.hybrid_executor.shutdown(timeout)
+                self._async_enabled = False
+                print(
+                    f"[DEBUG-PY] Async support shutdown completed for PID {os.getpid()}"
+                )
+            except Exception as e:
+                print(f"[WARNING-PY] Async support shutdown error: {e}")
+
+    def shutdown_async_support_sync(self, timeout: float = 30.0) -> None:
+        """
+        Synchronous wrapper for async support shutdown.
+
+        This method can be called from non-async contexts.
+
+        Args:
+            timeout: Maximum time to wait for active handlers to complete
+        """
+        if self._async_enabled and self.hybrid_executor:
+            try:
+                # Check if we're in an async context
+                try:
+                    loop = asyncio.get_running_loop()
+                    # Create a task for shutdown
+                    task = loop.create_task(self.shutdown_async_support(timeout))
+                    # Note: We can't wait for it here since we're in sync context
+                    print(
+                        f"[DEBUG-PY] Async support shutdown initiated for PID {os.getpid()}"
+                    )
+                except RuntimeError:
+                    # No running loop - run shutdown in new loop
+                    asyncio.run(self.shutdown_async_support(timeout))
+            except Exception as e:
+                print(f"[WARNING-PY] Async support shutdown error: {e}")
+
+    def __del__(self):
+        """Cleanup when the Catzilla instance is destroyed."""
+        try:
+            if hasattr(self, "_async_enabled") and self._async_enabled:
+                self.shutdown_async_support_sync()
+        except Exception:
+            # Silent cleanup - don't raise exceptions in destructor
+            pass

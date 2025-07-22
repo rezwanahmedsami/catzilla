@@ -37,6 +37,9 @@
 // Forward declarations for submodules
 PyObject* init_streaming(void);
 
+// Include async bridge for hybrid sync/async execution
+#include "async_bridge.h"
+
 // Structure to hold Python callback and routing table
 typedef struct {
     PyObject *callback;
@@ -104,6 +107,9 @@ static void safe_module_cleanup(void) {
             catzilla_router_cleanup(&global_router);
             global_router_initialized = false;
         }
+
+        // Cleanup async bridge system
+        catzilla_async_bridge_shutdown();
     }
 }
 
@@ -2517,6 +2523,14 @@ PyMODINIT_FUNC PyInit__catzilla(void)
     } else {
         // Log warning but don't fail - streaming is an optional feature
         LOG_WARN("Module", "Failed to initialize streaming module");
+    }
+
+    // Initialize async bridge system for hybrid sync/async execution
+    if (catzilla_async_bridge_init(uv_default_loop()) < 0) {
+        LOG_ERROR("Module", "Failed to initialize async bridge system");
+        // Don't fail the module init - async support is optional
+    } else {
+        LOG_INFO("Module", "Async bridge system initialized successfully");
     }
 
     return m;

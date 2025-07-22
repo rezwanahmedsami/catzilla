@@ -10,9 +10,11 @@ Tests cover:
 6. Performance characteristics
 7. Thread safety
 8. Container lifecycle management
+9. Async dependency injection for v0.2.0 stability
 """
 
 import pytest
+import asyncio
 import time
 import threading
 from unittest.mock import Mock, patch
@@ -705,6 +707,293 @@ def test_di_performance_benchmark():
     assert avg_time_microseconds < 200, f"DI resolution too slow: {avg_time_microseconds:.1f}μs"
 
     clear_default_container()
+
+
+# =====================================================
+# ASYNC DEPENDENCY INJECTION TESTS FOR v0.2.0
+# =====================================================
+
+class TestAsyncDependencyInjection:
+    """Test async dependency injection functionality"""
+
+    def setup_method(self):
+        clear_default_container()
+
+    def teardown_method(self):
+        clear_default_container()
+
+    @pytest.mark.asyncio
+    async def test_async_service_registration(self):
+        """Test async service registration and resolution"""
+        app = Catzilla(enable_di=True)
+        set_default_container(app.di_container)
+
+        @service("async_service")
+        class AsyncService:
+            async def get_data(self):
+                await asyncio.sleep(0.01)
+                return {"data": "async_result", "timestamp": time.time()}
+
+        @app.get("/async/di/test")
+        async def async_di_handler(async_svc: AsyncService = Depends("async_service")):
+            data = await async_svc.get_data()
+            return JSONResponse(data)
+
+        routes = app.router.routes()
+        assert any(r["path"] == "/async/di/test" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_dependency_chains(self):
+        """Test async dependency chains"""
+        app = Catzilla(enable_di=True)
+        set_default_container(app.di_container)
+
+        @service("async_db")
+        class AsyncDatabase:
+            async def query(self, sql: str):
+                await asyncio.sleep(0.01)
+                return {"sql": sql, "result": "async_data"}
+
+        @service("async_user_service")
+        class AsyncUserService:
+            def __init__(self, db: AsyncDatabase = Depends("async_db")):
+                self.db = db
+
+            async def get_user(self, user_id: int):
+                result = await self.db.query(f"SELECT * FROM users WHERE id = {user_id}")
+                return {"user_id": user_id, "db_result": result}
+
+        @app.get("/async/di/users/{user_id}")
+        async def get_user_async(user_id: int, user_service: AsyncUserService = Depends("async_user_service")):
+            user = await user_service.get_user(user_id)
+            return JSONResponse(user)
+
+        routes = app.router.routes()
+        assert any(r["path"] == "/async/di/users/{user_id}" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_service_scopes(self):
+        """Test async service scopes (singleton, request, transient)"""
+        app = Catzilla(enable_di=True)
+        set_default_container(app.di_container)
+
+        @service("async_singleton", scope="singleton")
+        class AsyncSingletonService:
+            def __init__(self):
+                self.created_at = time.time()
+                self.call_count = 0
+
+            async def increment(self):
+                await asyncio.sleep(0.001)
+                self.call_count += 1
+                return self.call_count
+
+        @service("async_transient", scope="transient")
+        class AsyncTransientService:
+            def __init__(self):
+                self.created_at = time.time()
+
+            async def get_timestamp(self):
+                await asyncio.sleep(0.001)
+                return self.created_at
+
+        @app.get("/async/di/singleton")
+        async def singleton_test(svc: AsyncSingletonService = Depends("async_singleton")):
+            count = await svc.increment()
+            return JSONResponse({"count": count, "created_at": svc.created_at})
+
+        @app.get("/async/di/transient")
+        async def transient_test(svc: AsyncTransientService = Depends("async_transient")):
+            timestamp = await svc.get_timestamp()
+            return JSONResponse({"timestamp": timestamp})
+
+        routes = app.router.routes()
+        assert any(r["path"] == "/async/di/singleton" for r in routes)
+        assert any(r["path"] == "/async/di/transient" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_error_handling_in_di(self):
+        """Test async error handling in dependency injection"""
+        app = Catzilla(enable_di=True)
+        set_default_container(app.di_container)
+
+        @service("async_failing_service")
+        class AsyncFailingService:
+            async def failing_operation(self):
+                await asyncio.sleep(0.01)
+                raise ValueError("Async service failure")
+
+            async def timeout_operation(self):
+                await asyncio.sleep(1)  # Will timeout
+                return "completed"
+
+        @app.get("/async/di/error")
+        async def error_handler(svc: AsyncFailingService = Depends("async_failing_service")):
+            try:
+                await svc.failing_operation()
+                return JSONResponse({"error": "should not reach here"})
+            except ValueError as e:
+                return JSONResponse({"error": str(e)}, status_code=500)
+
+        @app.get("/async/di/timeout")
+        async def timeout_handler(svc: AsyncFailingService = Depends("async_failing_service")):
+            try:
+                result = await asyncio.wait_for(svc.timeout_operation(), timeout=0.01)
+                return JSONResponse({"result": result})
+            except asyncio.TimeoutError:
+                return JSONResponse({"error": "timeout"}, status_code=408)
+
+        routes = app.router.routes()
+        assert any(r["path"] == "/async/di/error" for r in routes)
+        assert any(r["path"] == "/async/di/timeout" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_concurrent_di_access(self):
+        """Test concurrent async access to DI services"""
+        app = Catzilla(enable_di=True)
+        set_default_container(app.di_container)
+
+        @service("async_concurrent_service")
+        class AsyncConcurrentService:
+            def __init__(self):
+                self.access_count = 0
+                self.lock = asyncio.Lock()
+
+            async def safe_increment(self):
+                async with self.lock:
+                    current = self.access_count
+                    await asyncio.sleep(0.001)  # Simulate async work
+                    self.access_count = current + 1
+                    return self.access_count
+
+            async def unsafe_increment(self):
+                current = self.access_count
+                await asyncio.sleep(0.001)  # Simulate async work without lock
+                self.access_count = current + 1
+                return self.access_count
+
+        @app.get("/async/di/concurrent/safe")
+        async def safe_concurrent_handler(svc: AsyncConcurrentService = Depends("async_concurrent_service")):
+            count = await svc.safe_increment()
+            return JSONResponse({"safe_count": count})
+
+        @app.get("/async/di/concurrent/unsafe")
+        async def unsafe_concurrent_handler(svc: AsyncConcurrentService = Depends("async_concurrent_service")):
+            count = await svc.unsafe_increment()
+            return JSONResponse({"unsafe_count": count})
+
+        routes = app.router.routes()
+        assert any(r["path"] == "/async/di/concurrent/safe" for r in routes)
+        assert any(r["path"] == "/async/di/concurrent/unsafe" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_context_managers_in_di(self):
+        """Test async context managers in dependency injection"""
+        app = Catzilla(enable_di=True)
+        set_default_container(app.di_container)
+
+        @service("async_context_service")
+        class AsyncContextService:
+            async def __aenter__(self):
+                await asyncio.sleep(0.001)
+                self.connected = True
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                await asyncio.sleep(0.001)
+                self.connected = False
+
+            async def perform_operation(self):
+                if not hasattr(self, 'connected') or not self.connected:
+                    raise RuntimeError("Service not properly initialized")
+                await asyncio.sleep(0.01)
+                return {"operation": "completed", "connected": self.connected}
+
+        @app.get("/async/di/context")
+        async def context_handler(svc: AsyncContextService = Depends("async_context_service")):
+            async with svc:
+                result = await svc.perform_operation()
+                return JSONResponse(result)
+
+        routes = app.router.routes()
+        assert any(r["path"] == "/async/di/context" for r in routes)
+
+
+class TestAsyncDIPerformance:
+    """Test async dependency injection performance"""
+
+    def setup_method(self):
+        clear_default_container()
+
+    def teardown_method(self):
+        clear_default_container()
+
+    @pytest.mark.asyncio
+    async def test_async_di_resolution_performance(self):
+        """Test async DI resolution performance"""
+        app = Catzilla(enable_di=True)
+        set_default_container(app.di_container)
+
+        @service("async_perf_service")
+        class AsyncPerfService:
+            async def fast_operation(self):
+                await asyncio.sleep(0.0001)  # Very fast async operation
+                return {"result": "fast"}
+
+        start_time = time.time()
+        iterations = 100
+
+        @app.get("/async/di/perf")
+        async def perf_handler(svc: AsyncPerfService = Depends("async_perf_service")):
+            result = await svc.fast_operation()
+            return JSONResponse(result)
+
+        # Simulate multiple resolutions
+        for _ in range(iterations):
+            resolved_service = app.di_container.resolve("async_perf_service")
+            await resolved_service.fast_operation()
+
+        end_time = time.time()
+        total_time = end_time - start_time
+        avg_time_microseconds = (total_time / iterations) * 1_000_000
+
+        # Performance assertion - should be faster than 2000μs per resolution (including async work)
+        # Very relaxed threshold for CI environments and slower systems
+        assert avg_time_microseconds < 2000, f"Async DI resolution too slow: {avg_time_microseconds:.1f}μs"
+
+    @pytest.mark.asyncio
+    async def test_async_di_concurrent_performance(self):
+        """Test async DI performance under concurrent load"""
+        app = Catzilla(enable_di=True)
+        set_default_container(app.di_container)
+
+        @service("async_concurrent_perf_service")
+        class AsyncConcurrentPerfService:
+            def __init__(self):
+                self.operation_count = 0
+
+            async def concurrent_operation(self):
+                await asyncio.sleep(0.001)
+                self.operation_count += 1
+                return self.operation_count
+
+        async def concurrent_test():
+            svc = app.di_container.resolve("async_concurrent_perf_service")
+            return await svc.concurrent_operation()
+
+        start_time = time.time()
+
+        # Run 50 concurrent operations
+        tasks = [concurrent_test() for _ in range(50)]
+        results = await asyncio.gather(*tasks)
+
+        end_time = time.time()
+        total_time = end_time - start_time
+
+        # All operations should complete
+        assert len(results) == 50
+        # Should complete within reasonable time (concurrent, so much faster than sequential)
+        assert total_time < 1.0, f"Concurrent async DI operations too slow: {total_time:.3f}s"
 
 
 if __name__ == "__main__":
