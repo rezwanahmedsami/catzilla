@@ -713,14 +713,31 @@ def test_di_performance_benchmark():
 # ASYNC DEPENDENCY INJECTION TESTS FOR v0.2.0
 # =====================================================
 
+@pytest.mark.asyncio
 class TestAsyncDependencyInjection:
     """Test async dependency injection functionality"""
 
     def setup_method(self):
+        # Ensure we have a clean event loop for this test
+        try:
+            import asyncio
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+        except RuntimeError:
+            # No event loop exists, create one
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
         clear_default_container()
 
     def teardown_method(self):
         clear_default_container()
+        # Simple cleanup with longer delay to help with async resource cleanup
+        import time
+        time.sleep(0.05)
 
     @pytest.mark.asyncio
     async def test_async_service_registration(self):
@@ -919,14 +936,31 @@ class TestAsyncDependencyInjection:
         assert any(r["path"] == "/async/di/context" for r in routes)
 
 
+@pytest.mark.asyncio
 class TestAsyncDIPerformance:
     """Test async dependency injection performance"""
 
     def setup_method(self):
+        # Ensure we have a clean event loop for this test
+        try:
+            import asyncio
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+        except RuntimeError:
+            # No event loop exists, create one
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
         clear_default_container()
 
     def teardown_method(self):
         clear_default_container()
+        # Simple cleanup with longer delay to help with async resource cleanup
+        import time
+        time.sleep(0.05)
 
     @pytest.mark.asyncio
     async def test_async_di_resolution_performance(self):

@@ -355,17 +355,67 @@ def test_catzilla_backward_compatibility():
 # ASYNC TESTS FOR v0.2.0 STABILITY
 # =====================================================
 
+@pytest.mark.asyncio
 class TestAsyncBasicFunctionality:
     """Test async functionality in basic components"""
 
     def setup_method(self):
-        # Use the event_loop fixture - no manual event loop management needed
+        # Ensure we have a clean event loop for this test with extra robust cleanup for mixed test scenarios
+        import asyncio
+        import time
+
+        # Extra delay when this is the first async test after sync tests
+        time.sleep(0.05)  # Allow previous test cleanup to complete
+
+        # Very aggressive event loop cleanup for mixed sync/async scenarios
+        try:
+            # First, try to close any existing loop completely
+            try:
+                existing_loop = asyncio.get_event_loop()
+                if existing_loop and not existing_loop.is_closed():
+                    # Cancel all tasks
+                    pending = asyncio.all_tasks(existing_loop)
+                    for task in pending:
+                        if not task.done():
+                            task.cancel()
+                    if pending:
+                        try:
+                            existing_loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                        except Exception:
+                            pass
+                    existing_loop.close()
+            except RuntimeError:
+                pass  # No existing loop
+
+            # Clear event loop reference
+            asyncio.set_event_loop(None)
+            time.sleep(0.01)  # Small delay after clearing
+
+        except Exception:
+            pass  # Ignore cleanup errors
+
+        # Create a fresh event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        # Verify the loop is properly set
+        try:
+            test_loop = asyncio.get_event_loop()
+            assert test_loop is loop, "Event loop not properly set"
+        except Exception:
+            # Fallback: create another loop
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
         self.app = Catzilla(auto_validation=True, memory_profiling=False)
 
     def teardown_method(self):
-        # Simple cleanup - event loop is managed by fixture
+        # More aggressive cleanup with longer delay to help with async resource cleanup
         if hasattr(self, 'app'):
             self.app = None
+            # Longer delay to allow C extension async cleanup to complete in CI
+            import time
+            time.sleep(0.1)  # Increased delay
 
     @pytest.mark.asyncio
     async def test_async_html_response(self):
@@ -431,11 +481,24 @@ class TestAsyncBasicFunctionality:
         assert any(r["path"] == "/async/cookies" for r in routes)
 
 
+@pytest.mark.asyncio
 class TestAsyncRequestHandling:
     """Test async request handling and validation"""
 
     def setup_method(self):
-        # Use the event_loop fixture - no manual event loop management needed
+        # Ensure we have a clean event loop for this test
+        try:
+            import asyncio
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+        except RuntimeError:
+            # No event loop exists, create one
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
         self.app = Catzilla(auto_validation=True, memory_profiling=False)
 
     def teardown_method(self):
@@ -506,17 +569,33 @@ class TestAsyncRequestHandling:
         assert any(r["path"] == "/async/timeout" for r in routes)
 
 
+@pytest.mark.asyncio
 class TestAsyncMemoryRevolution:
     """Test async functionality with Memory Revolution features"""
 
     def setup_method(self):
-        # Use the event_loop fixture - no manual event loop management needed
+        # Ensure we have a clean event loop for this test
+        try:
+            import asyncio
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+        except RuntimeError:
+            # No event loop exists, create one
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
         self.app = Catzilla(auto_validation=True, memory_profiling=False)
 
     def teardown_method(self):
-        # Simple cleanup - event loop is managed by fixture
+        # Simple cleanup with longer delay to help with async resource cleanup
         if hasattr(self, 'app'):
             self.app = None
+            # Longer delay to allow C extension async cleanup to complete in CI
+            import time
+            time.sleep(0.05)
 
     @pytest.mark.asyncio
     async def test_async_memory_optimized_responses(self):
@@ -550,17 +629,33 @@ class TestAsyncMemoryRevolution:
         assert any(r["path"] == "/async/concurrent" for r in routes)
 
 
+@pytest.mark.asyncio
 class TestAsyncPerformanceStability:
     """Test async performance and stability characteristics"""
 
     def setup_method(self):
-        # Use the event_loop fixture - no manual event loop management needed
+        # Ensure we have a clean event loop for this test
+        try:
+            import asyncio
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+        except RuntimeError:
+            # No event loop exists, create one
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
         self.app = Catzilla(auto_validation=True, memory_profiling=False)
 
     def teardown_method(self):
-        # Simple cleanup - event loop is managed by fixture
+        # Simple cleanup with longer delay to help with async resource cleanup
         if hasattr(self, 'app'):
             self.app = None
+            # Longer delay to allow C extension async cleanup to complete in CI
+            import time
+            time.sleep(0.05)
 
     @pytest.mark.asyncio
     async def test_async_high_frequency_requests(self):

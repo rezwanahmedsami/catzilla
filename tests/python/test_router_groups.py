@@ -1268,11 +1268,24 @@ class TestModernRouterGroupFeatures:
 # ASYNC ROUTER GROUP TESTS FOR v0.2.0 STABILITY
 # =====================================================
 
+@pytest.mark.asyncio
 class TestAsyncRouterGroups:
     """Test async router group functionality"""
 
     def setup_method(self):
-        # Use the event_loop fixture - no manual event loop management needed
+        # Ensure we have a clean event loop for this test
+        try:
+            import asyncio
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+        except RuntimeError:
+            # No event loop exists, create one
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
         self.app = Catzilla(auto_validation=True, memory_profiling=False)
 
     def teardown_method(self):
@@ -1549,10 +1562,24 @@ class TestAsyncRouterGroups:
         assert "/mixed/sync" in paths
 
 
+@pytest.mark.asyncio
 class TestAsyncRouterGroupIntegration:
     """Test async router group integration scenarios"""
 
     def setup_method(self):
+        # Ensure we have a clean event loop for this test
+        try:
+            import asyncio
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+        except RuntimeError:
+            # No event loop exists, create one
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
         self.app = Catzilla(auto_validation=True, memory_profiling=False)
 
     def teardown_method(self):
