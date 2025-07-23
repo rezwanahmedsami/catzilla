@@ -1238,6 +1238,7 @@ class TestGlobalAndPerRouteMiddlewareIntegration:
 # ASYNC MIDDLEWARE TESTS FOR v0.2.0 STABILITY
 # =====================================================
 
+@pytest.mark.asyncio
 class TestAsyncMiddleware:
     """Test async middleware functionality"""
 
@@ -1245,7 +1246,6 @@ class TestAsyncMiddleware:
         self.app = Catzilla(use_jemalloc=False, memory_profiling=False)
         self.execution_order = []
 
-    @pytest.mark.asyncio
     async def test_async_middleware_basic(self):
         """Test basic async middleware registration and execution"""
         @self.app.middleware(priority=100, pre_route=True, name="async_test_middleware")
@@ -1263,7 +1263,7 @@ class TestAsyncMiddleware:
         routes = self.app.router.routes()
         assert any(r["path"] == "/async/test" for r in routes)
 
-    @pytest.mark.asyncio
+
     async def test_async_middleware_chain(self):
         """Test async middleware chain execution"""
         @self.app.middleware(priority=200, pre_route=True, name="async_auth")
@@ -1295,7 +1295,7 @@ class TestAsyncMiddleware:
         routes = self.app.router.routes()
         assert any(r["path"] == "/async/chain" for r in routes)
 
-    @pytest.mark.asyncio
+
     async def test_async_middleware_early_return(self):
         """Test async middleware early return (short-circuiting)"""
         @self.app.middleware(priority=200, pre_route=True, name="async_gate")
@@ -1321,7 +1321,7 @@ class TestAsyncMiddleware:
         assert any(r["path"] == "/async/protected" for r in routes)
         assert any(r["path"] == "/async/public" for r in routes)
 
-    @pytest.mark.asyncio
+
     async def test_async_middleware_error_handling(self):
         """Test async middleware error handling"""
         @self.app.middleware(priority=100, pre_route=True, name="async_error_middleware")
@@ -1343,7 +1343,7 @@ class TestAsyncMiddleware:
         assert any(r["path"] == "/async/error" for r in routes)
         assert any(r["path"] == "/async/normal" for r in routes)
 
-    @pytest.mark.asyncio
+
     async def test_async_middleware_with_context(self):
         """Test async middleware with request context manipulation"""
         @self.app.middleware(priority=100, pre_route=True, name="async_context")
@@ -1370,7 +1370,7 @@ class TestAsyncMiddleware:
         routes = self.app.router.routes()
         assert any(r["path"] == "/async/context" for r in routes)
 
-    @pytest.mark.asyncio
+
     async def test_async_middleware_resource_management(self):
         """Test async middleware with resource management"""
         resources_acquired = []
@@ -1417,7 +1417,7 @@ class TestAsyncMiddlewarePerformance:
     def setup_method(self):
         self.app = Catzilla(use_jemalloc=False, memory_profiling=False)
 
-    @pytest.mark.asyncio
+
     async def test_async_middleware_performance(self):
         """Test async middleware performance"""
         execution_times = []
@@ -1441,7 +1441,7 @@ class TestAsyncMiddlewarePerformance:
         routes = self.app.router.routes()
         assert any(r["path"] == "/async/perf" for r in routes)
 
-    @pytest.mark.asyncio
+
     async def test_async_middleware_concurrent_safety(self):
         """Test async middleware concurrent safety"""
         shared_counter = {"value": 0}
@@ -1465,7 +1465,7 @@ class TestAsyncMiddlewarePerformance:
         routes = self.app.router.routes()
         assert any(r["path"] == "/async/concurrent" for r in routes)
 
-    @pytest.mark.asyncio
+
     async def test_async_middleware_memory_efficiency(self):
         """Test async middleware memory efficiency"""
         memory_usage = []
@@ -1497,7 +1497,7 @@ class TestAsyncMiddlewareMixedMode:
         self.app = Catzilla(use_jemalloc=False, memory_profiling=False)
         self.execution_order = []
 
-    @pytest.mark.asyncio
+
     async def test_mixed_async_sync_middleware(self):
         """Test mixing async and sync middleware"""
         @self.app.middleware(priority=200, pre_route=True, name="sync_middleware")
@@ -1524,7 +1524,7 @@ class TestAsyncMiddlewareMixedMode:
         routes = self.app.router.routes()
         assert any(r["path"] == "/mixed/middleware" for r in routes)
 
-    @pytest.mark.asyncio
+
     async def test_async_middleware_with_sync_handler(self):
         """Test async middleware with sync handler"""
         @self.app.middleware(priority=100, pre_route=True, name="async_with_sync")
@@ -1553,7 +1553,7 @@ class TestAsyncMiddlewareErrorRecovery:
     def setup_method(self):
         self.app = Catzilla(use_jemalloc=False, memory_profiling=False)
 
-    @pytest.mark.asyncio
+
     async def test_async_middleware_timeout_handling(self):
         """Test async middleware timeout handling"""
         @self.app.middleware(priority=100, pre_route=True, name="async_timeout")
@@ -1572,7 +1572,7 @@ class TestAsyncMiddlewareErrorRecovery:
         routes = self.app.router.routes()
         assert any(r["path"] == "/async/timeout-test" for r in routes)
 
-    @pytest.mark.asyncio
+
     async def test_async_middleware_cancellation_handling(self):
         """Test async middleware cancellation handling"""
         @self.app.middleware(priority=100, pre_route=True, name="async_cancellation")

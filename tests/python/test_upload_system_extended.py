@@ -504,10 +504,11 @@ class TestAdvancedStreamingFeatures:
 # REAL WORLD INTEGRATION TESTS
 # ============================================================================
 
+@pytest.mark.asyncio
 class TestRealWorldIntegration:
     """Test real-world integration scenarios."""
 
-    def test_http_multipart_parsing(self):
+    async def test_http_multipart_parsing(self):
         """Test actual HTTP multipart data parsing."""
         # Sample multipart data
         multipart_data = (
@@ -576,7 +577,7 @@ class TestRealWorldIntegration:
             assert isinstance(result, CatzillaUploadFile)
             assert result.content_type == "text/plain"
 
-    @pytest.mark.asyncio
+
     async def test_async_upload_handling(self):
         """Test asynchronous upload handling."""
         # Test async upload scenario

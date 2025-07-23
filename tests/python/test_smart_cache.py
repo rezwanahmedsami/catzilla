@@ -502,6 +502,7 @@ class TestCacheDecorator:
 # Cache Middleware Tests
 # ============================================================================
 
+@pytest.mark.asyncio
 class TestCacheMiddleware:
     """Test Smart Cache Middleware"""
 
@@ -560,7 +561,7 @@ class TestCacheMiddleware:
         except Exception as e:
             pytest.skip(f"Middleware not available: {e}")
 
-    @pytest.mark.asyncio
+
     async def test_cache_hit(self, middleware):
         """Test cache hit scenario"""
         request = self.create_mock_request()
@@ -626,6 +627,7 @@ class TestCacheMiddleware:
         assert 'cache_health' in stats
 
 
+@pytest.mark.asyncio
 class TestConditionalCacheMiddleware:
     """Test Conditional Cache Middleware"""
 
@@ -657,7 +659,7 @@ class TestConditionalCacheMiddleware:
         rule = conditional_middleware._get_rule_for_path("/other/path")
         assert rule is None
 
-    @pytest.mark.asyncio
+
     async def test_rule_based_caching(self, conditional_middleware):
         """Test caching based on rules"""
         # Request matching /api/users/* rule
