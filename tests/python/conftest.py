@@ -11,6 +11,24 @@ import warnings
 from typing import Generator
 
 
+# Ensure event loop is available as early as possible
+def _ensure_event_loop():
+    """Ensure there's always an event loop available."""
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            raise RuntimeError("Event loop is closed")
+    except RuntimeError:
+        # Create a new event loop if none exists or it's closed
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    return loop
+
+
+# Call this immediately when the module is imported
+_ensure_event_loop()
+
+
 @pytest.fixture(scope="function")
 def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
     """
@@ -22,6 +40,9 @@ def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
     # Suppress DeprecationWarnings about get_event_loop in newer Python versions
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
+
+        # Ensure we have an event loop before proceeding
+        _ensure_event_loop()
 
         # Get the current event loop policy
         policy = asyncio.get_event_loop_policy()
@@ -65,7 +86,9 @@ def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
                 finally:
                     # Make sure no event loop is set in the thread after cleanup
                     try:
-                        asyncio.set_event_loop(None)
+                        # But don't leave the thread without any loop - create a fresh one
+                        new_loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(new_loop)
                     except Exception:
                         pass
 
@@ -101,6 +124,9 @@ pytestmark = pytest.mark.asyncio
 
 def pytest_configure(config):
     """Configure pytest with custom markers and settings."""
+    # Ensure event loop is available at the earliest possible moment
+    _ensure_event_loop()
+
     config.addinivalue_line(
         "markers",
         "asyncio: Mark test as an async test that requires event loop"
@@ -117,6 +143,9 @@ def pytest_configure(config):
 
 def pytest_collection_modifyitems(config, items):
     """Modify test collection to add asyncio marker to async tests."""
+    # Ensure event loop is available during collection
+    _ensure_event_loop()
+
     for item in items:
         if asyncio.iscoroutinefunction(item.function):
             item.add_marker(pytest.mark.asyncio)
@@ -125,21 +154,31 @@ def pytest_collection_modifyitems(config, items):
 def pytest_sessionstart(session):
     """Called after the Session object has been created."""
     # Ensure we have a clean event loop policy at the start
+    _ensure_event_loop()
+
     try:
         loop = asyncio.get_event_loop()
         if not loop.is_closed():
-            loop.close()
+            # Keep the existing loop but ensure it's properly set
+            asyncio.set_event_loop(loop)
     except:
-        pass
+        # Create a fresh loop if needed
+        _ensure_event_loop()
 
     # Set a fresh event loop policy
     policy = asyncio.DefaultEventLoopPolicy()
     asyncio.set_event_loop_policy(policy)
 
+    # Ensure we still have a loop after policy change
+    _ensure_event_loop()
+
 
 def pytest_runtest_setup(item):
     """Called before each test item is executed."""
-    # Ensure there's an event loop available for async tests
+    # Always ensure there's an event loop available
+    _ensure_event_loop()
+
+    # Extra check for async tests
     if asyncio.iscoroutinefunction(item.function):
         try:
             loop = asyncio.get_event_loop()
@@ -147,5 +186,11 @@ def pytest_runtest_setup(item):
                 raise RuntimeError("Event loop is closed")
         except RuntimeError:
             # Create a new event loop if none exists or it's closed
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            _ensure_event_loop()
+
+
+def pytest_runtest_teardown(item, nextitem):
+    """Called after each test item is executed."""
+    # Ensure we maintain an event loop for the next test
+    if nextitem and asyncio.iscoroutinefunction(getattr(nextitem, 'function', None)):
+        _ensure_event_loop()
