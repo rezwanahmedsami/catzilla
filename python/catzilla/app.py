@@ -598,8 +598,6 @@ class Catzilla:
                     loop = asyncio.get_running_loop()
                     # We're in an async context - this shouldn't happen in normal request handling
                     # For now, just run the handler directly since we're already async
-                    import asyncio
-
                     return asyncio.run(handler(request))
 
                 except RuntimeError:
