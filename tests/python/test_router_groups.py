@@ -15,6 +15,31 @@ from typing import Optional, List
 from catzilla import Catzilla, Request, Response, JSONResponse, RouterGroup, BaseModel, Query, Path
 
 
+# Pytest fixture to ensure proper event loop for all async tests
+@pytest.fixture(scope="function")
+def event_loop():
+    """Create an event loop for each test function."""
+    policy = asyncio.get_event_loop_policy()
+    loop = policy.new_event_loop()
+    asyncio.set_event_loop(loop)
+    yield loop
+
+    # Clean up any remaining tasks
+    try:
+        tasks = [task for task in asyncio.all_tasks(loop) if not task.done()]
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
+    except:
+        pass
+    finally:
+        try:
+            loop.close()
+        except:
+            pass
+
+
 class TestRouterGroup:
     """Test RouterGroup basic functionality"""
 
@@ -1247,7 +1272,35 @@ class TestAsyncRouterGroups:
     """Test async router group functionality"""
 
     def setup_method(self):
+        # Ensure we have an event loop for async tests
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            # Python 3.10+ behavior - create new event loop if none exists
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
         self.app = Catzilla(auto_validation=True, memory_profiling=False)
+
+    def teardown_method(self):
+        # Clean up the app and ensure proper async cleanup
+        if hasattr(self, 'app') and self.app:
+            # Ensure any async resources are properly cleaned up
+            try:
+                loop = asyncio.get_event_loop()
+                if loop and not loop.is_closed():
+                    # Cancel any remaining tasks
+                    tasks = [task for task in asyncio.all_tasks(loop) if not task.done()]
+                    for task in tasks:
+                        task.cancel()
+                    if tasks:
+                        # Wait briefly for cancellation to complete
+                        try:
+                            loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
+                        except:
+                            pass
+            except:
+                pass
 
     @pytest.mark.asyncio
     async def test_async_router_group_basic(self):
