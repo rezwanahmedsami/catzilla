@@ -1272,35 +1272,16 @@ class TestAsyncRouterGroups:
     """Test async router group functionality"""
 
     def setup_method(self):
-        # Ensure we have an event loop for async tests
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # Python 3.10+ behavior - create new event loop if none exists
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
+        # Use the event_loop fixture - no manual event loop management needed
         self.app = Catzilla(auto_validation=True, memory_profiling=False)
 
     def teardown_method(self):
-        # Clean up the app and ensure proper async cleanup
-        if hasattr(self, 'app') and self.app:
-            # Ensure any async resources are properly cleaned up
-            try:
-                loop = asyncio.get_event_loop()
-                if loop and not loop.is_closed():
-                    # Cancel any remaining tasks
-                    tasks = [task for task in asyncio.all_tasks(loop) if not task.done()]
-                    for task in tasks:
-                        task.cancel()
-                    if tasks:
-                        # Wait briefly for cancellation to complete
-                        try:
-                            loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
-                        except:
-                            pass
-            except:
-                pass
+        # Simple cleanup with longer delay to help with async resource cleanup
+        if hasattr(self, 'app'):
+            self.app = None
+            # Longer delay to allow C extension async cleanup to complete in CI
+            import time
+            time.sleep(0.05)
 
     @pytest.mark.asyncio
     async def test_async_router_group_basic(self):
@@ -1573,6 +1554,14 @@ class TestAsyncRouterGroupIntegration:
 
     def setup_method(self):
         self.app = Catzilla(auto_validation=True, memory_profiling=False)
+
+    def teardown_method(self):
+        # Simple cleanup with longer delay to help with async resource cleanup
+        if hasattr(self, 'app'):
+            self.app = None
+            # Longer delay to allow C extension async cleanup to complete in CI
+            import time
+            time.sleep(0.05)
 
     @pytest.mark.asyncio
     async def test_async_router_group_with_middleware(self):

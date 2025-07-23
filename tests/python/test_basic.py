@@ -439,12 +439,12 @@ class TestAsyncRequestHandling:
         self.app = Catzilla(auto_validation=True, memory_profiling=False)
 
     def teardown_method(self):
-        # Simple cleanup with small delay to help with async resource cleanup
+        # Simple cleanup with longer delay to help with async resource cleanup
         if hasattr(self, 'app'):
             self.app = None
-            # Small delay to allow C extension async cleanup to complete
+            # Longer delay to allow C extension async cleanup to complete in CI
             import time
-            time.sleep(0.01)
+            time.sleep(0.05)
 
     @pytest.mark.asyncio
     async def test_async_request_json_parsing(self):
