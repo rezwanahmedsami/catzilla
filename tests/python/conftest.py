@@ -18,16 +18,18 @@ def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
 
     This fixture ensures that async tests have a clean event loop
     and properly handles event loop cleanup to prevent issues in CI environments.
-
-    Yields:
-        asyncio.AbstractEventLoop: A fresh event loop for the test
     """
     # Suppress DeprecationWarnings about get_event_loop in newer Python versions
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
 
+        # Get the current event loop policy
         policy = asyncio.get_event_loop_policy()
+
+        # Create a new event loop
         loop = policy.new_event_loop()
+
+        # Set it as the current event loop for this thread
         asyncio.set_event_loop(loop)
 
         try:
@@ -35,14 +37,20 @@ def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
         finally:
             # Clean up any remaining tasks
             try:
+                # Get all tasks associated with this loop
                 tasks = [task for task in asyncio.all_tasks(loop) if not task.done()]
-                for task in tasks:
-                    task.cancel()
                 if tasks:
+                    # Cancel all pending tasks
+                    for task in tasks:
+                        task.cancel()
                     # Wait briefly for cancellation to complete
-                    loop.run_until_complete(
-                        asyncio.gather(*tasks, return_exceptions=True)
-                    )
+                    try:
+                        loop.run_until_complete(
+                            asyncio.gather(*tasks, return_exceptions=True)
+                        )
+                    except Exception:
+                        # Ignore any exceptions during cleanup
+                        pass
             except Exception:
                 # Ignore cleanup errors - we're already shutting down
                 pass
@@ -54,6 +62,12 @@ def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
                 except Exception:
                     # Ignore close errors
                     pass
+                finally:
+                    # Make sure no event loop is set in the thread after cleanup
+                    try:
+                        asyncio.set_event_loop(None)
+                    except Exception:
+                        pass
 
 
 @pytest.fixture(scope="function")
@@ -106,3 +120,32 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if asyncio.iscoroutinefunction(item.function):
             item.add_marker(pytest.mark.asyncio)
+
+
+def pytest_sessionstart(session):
+    """Called after the Session object has been created."""
+    # Ensure we have a clean event loop policy at the start
+    try:
+        loop = asyncio.get_event_loop()
+        if not loop.is_closed():
+            loop.close()
+    except:
+        pass
+
+    # Set a fresh event loop policy
+    policy = asyncio.DefaultEventLoopPolicy()
+    asyncio.set_event_loop_policy(policy)
+
+
+def pytest_runtest_setup(item):
+    """Called before each test item is executed."""
+    # Ensure there's an event loop available for async tests
+    if asyncio.iscoroutinefunction(item.function):
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                raise RuntimeError("Event loop is closed")
+        except RuntimeError:
+            # Create a new event loop if none exists or it's closed
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
