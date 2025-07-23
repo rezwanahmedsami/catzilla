@@ -12,11 +12,18 @@
 #include <Python.h>
 #include <uv.h>
 #include <stdbool.h>
-#include <pthread.h>
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
-#include <unistd.h>
+
+// Platform-specific includes
+#ifdef _WIN32
+    #include <windows.h>
+    #include <io.h>
+#else
+    #include <unistd.h>
+    #include <pthread.h>
+#endif
 
 #include "async_bridge.h"
 
@@ -52,7 +59,7 @@ struct async_bridge_task_s {
     PyObject* py_exception;        // Exception if handler failed
 
     // Thread safety and state management
-    pthread_mutex_t state_mutex;   // Protects state changes
+    uv_mutex_t state_mutex;        // Protects state changes (cross-platform)
     async_task_state_t state;      // Current task state
     int ref_count;                 // Reference counting for safe cleanup
 
@@ -77,9 +84,9 @@ struct async_bridge_s {
     uv_loop_t* main_loop;          // Main libuv event loop
     uv_thread_t asyncio_thread;    // Dedicated thread for asyncio loop
 
-    // Thread safety
-    pthread_mutex_t bridge_mutex;  // Protects bridge state
-    pthread_cond_t shutdown_cond;  // Condition variable for shutdown
+    // Thread safety (using libuv cross-platform primitives)
+    uv_mutex_t bridge_mutex;       // Protects bridge state
+    uv_cond_t shutdown_cond;       // Condition variable for shutdown
     bool is_running;               // Bridge running state
     bool shutdown_requested;       // Shutdown flag
 
@@ -96,7 +103,7 @@ struct async_bridge_s {
 
 // Global bridge instance (singleton for simplicity)
 static async_bridge_t* g_async_bridge = NULL;
-static pthread_once_t bridge_init_once = PTHREAD_ONCE_INIT;
+static uv_once_t bridge_init_once = UV_ONCE_INIT;
 
 // ============================================================================
 // FORWARD DECLARATIONS
@@ -106,7 +113,7 @@ static pthread_once_t bridge_init_once = PTHREAD_ONCE_INIT;
 static void init_async_bridge_once(void);
 static int async_bridge_init(async_bridge_t* bridge, uv_loop_t* main_loop);
 static void async_bridge_cleanup(async_bridge_t* bridge);
-static void* asyncio_thread_main(void* arg);
+static void asyncio_thread_main(void* arg);
 
 // Task management
 static async_bridge_task_t* async_task_create(PyObject* coroutine, PyObject* request);
@@ -139,7 +146,7 @@ int catzilla_async_bridge_init(uv_loop_t* main_loop) {
         return 0; // Already initialized
     }
 
-    pthread_once(&bridge_init_once, init_async_bridge_once);
+    uv_once(&bridge_init_once, init_async_bridge_once);
 
     if (g_async_bridge == NULL) {
         log_async_error("Failed to initialize async bridge");
@@ -187,9 +194,9 @@ async_bridge_task_t* catzilla_execute_async_handler(
     task->user_data = user_data;
 
     // Check concurrent task limit
-    pthread_mutex_lock(&g_async_bridge->bridge_mutex);
+    uv_mutex_lock(&g_async_bridge->bridge_mutex);
     if (g_async_bridge->active_task_count >= g_async_bridge->max_concurrent_tasks) {
-        pthread_mutex_unlock(&g_async_bridge->bridge_mutex);
+        uv_mutex_unlock(&g_async_bridge->bridge_mutex);
         log_async_error("Maximum concurrent tasks exceeded");
         async_task_destroy(task);
         return NULL;
@@ -204,7 +211,7 @@ async_bridge_task_t* catzilla_execute_async_handler(
         g_async_bridge->peak_concurrent_tasks = g_async_bridge->active_task_count;
     }
 
-    pthread_mutex_unlock(&g_async_bridge->bridge_mutex);
+    uv_mutex_unlock(&g_async_bridge->bridge_mutex);
 
     // Schedule coroutine execution in asyncio loop
     schedule_coroutine_completion(task);
@@ -221,17 +228,17 @@ PyObject* catzilla_async_task_get_result(async_bridge_task_t* task) {
         return NULL;
     }
 
-    pthread_mutex_lock(&task->state_mutex);
+    uv_mutex_lock(&task->state_mutex);
 
     if (task->state != ASYNC_TASK_COMPLETED) {
-        pthread_mutex_unlock(&task->state_mutex);
+        uv_mutex_unlock(&task->state_mutex);
         return NULL;
     }
 
     PyObject* result = task->py_result;
     Py_XINCREF(result); // Caller owns the reference
 
-    pthread_mutex_unlock(&task->state_mutex);
+    uv_mutex_unlock(&task->state_mutex);
 
     return result;
 }
@@ -244,17 +251,17 @@ PyObject* catzilla_async_task_get_exception(async_bridge_task_t* task) {
         return NULL;
     }
 
-    pthread_mutex_lock(&task->state_mutex);
+    uv_mutex_lock(&task->state_mutex);
 
     if (task->state != ASYNC_TASK_ERROR) {
-        pthread_mutex_unlock(&task->state_mutex);
+        uv_mutex_unlock(&task->state_mutex);
         return NULL;
     }
 
     PyObject* exception = task->py_exception;
     Py_XINCREF(exception); // Caller owns the reference
 
-    pthread_mutex_unlock(&task->state_mutex);
+    uv_mutex_unlock(&task->state_mutex);
 
     return exception;
 }
@@ -267,9 +274,9 @@ uint64_t catzilla_async_task_get_duration(async_bridge_task_t* task) {
         return 0;
     }
 
-    pthread_mutex_lock(&task->state_mutex);
+    uv_mutex_lock(&task->state_mutex);
     uint64_t duration = task->completion_time - task->start_time;
-    pthread_mutex_unlock(&task->state_mutex);
+    uv_mutex_unlock(&task->state_mutex);
 
     return duration;
 }
@@ -282,12 +289,12 @@ void catzilla_async_bridge_shutdown(void) {
         return;
     }
 
-    pthread_mutex_lock(&g_async_bridge->bridge_mutex);
+    uv_mutex_lock(&g_async_bridge->bridge_mutex);
     g_async_bridge->shutdown_requested = true;
-    pthread_mutex_unlock(&g_async_bridge->bridge_mutex);
+    uv_mutex_unlock(&g_async_bridge->bridge_mutex);
 
     // Wait for asyncio thread to shutdown
-    pthread_join(g_async_bridge->asyncio_thread, NULL);
+    uv_thread_join(&g_async_bridge->asyncio_thread);
 
     async_bridge_cleanup(g_async_bridge);
     free(g_async_bridge);
@@ -305,17 +312,17 @@ static void init_async_bridge_once(void) {
         return;
     }
 
-    // Initialize mutex
-    if (pthread_mutex_init(&g_async_bridge->bridge_mutex, NULL) != 0) {
+    // Initialize mutex (libuv cross-platform)
+    if (uv_mutex_init(&g_async_bridge->bridge_mutex) != 0) {
         free(g_async_bridge);
         g_async_bridge = NULL;
         log_async_error("Failed to initialize bridge mutex");
         return;
     }
 
-    // Initialize condition variable
-    if (pthread_cond_init(&g_async_bridge->shutdown_cond, NULL) != 0) {
-        pthread_mutex_destroy(&g_async_bridge->bridge_mutex);
+    // Initialize condition variable (libuv cross-platform)
+    if (uv_cond_init(&g_async_bridge->shutdown_cond) != 0) {
+        uv_mutex_destroy(&g_async_bridge->bridge_mutex);
         free(g_async_bridge);
         g_async_bridge = NULL;
         log_async_error("Failed to initialize shutdown condition");
@@ -380,8 +387,8 @@ static int async_bridge_init(async_bridge_t* bridge, uv_loop_t* main_loop) {
         return -1;
     }
 
-    // Start asyncio thread
-    if (pthread_create(&bridge->asyncio_thread, NULL, asyncio_thread_main, bridge) != 0) {
+    // Start asyncio thread (libuv cross-platform)
+    if (uv_thread_create(&bridge->asyncio_thread, asyncio_thread_main, bridge) != 0) {
         log_async_error("Failed to create asyncio thread");
         return -1;
     }
@@ -409,13 +416,14 @@ static void async_bridge_cleanup(async_bridge_t* bridge) {
         bridge->active_tasks = NULL;
     }
 
-    // Destroy mutex
-    pthread_mutex_destroy(&bridge->bridge_mutex);
+    // Destroy synchronization primitives
+    uv_mutex_destroy(&bridge->bridge_mutex);
+    uv_cond_destroy(&bridge->shutdown_cond);
 
     PyGILState_Release(gstate);
 }
 
-static void* asyncio_thread_main(void* arg) {
+static void asyncio_thread_main(void* arg) {
     async_bridge_t* bridge = (async_bridge_t*)arg;
     assert(bridge != NULL);
 
@@ -439,8 +447,6 @@ static void* asyncio_thread_main(void* arg) {
     }
 
     PyGILState_Release(gstate);
-
-    return NULL;
 }
 
 static async_bridge_task_t* async_task_create(PyObject* coroutine, PyObject* request) {
@@ -449,8 +455,8 @@ static async_bridge_task_t* async_task_create(PyObject* coroutine, PyObject* req
         return NULL;
     }
 
-    // Initialize mutex
-    if (pthread_mutex_init(&task->state_mutex, NULL) != 0) {
+    // Initialize mutex (libuv cross-platform)
+    if (uv_mutex_init(&task->state_mutex) != 0) {
         free(task);
         return NULL;
     }
@@ -497,7 +503,7 @@ static void async_task_destroy(async_bridge_task_t* task) {
     Py_XDECREF(task->py_exception);
 
     // Destroy mutex
-    pthread_mutex_destroy(&task->state_mutex);
+    uv_mutex_destroy(&task->state_mutex);
 
     free(task);
 }
@@ -507,9 +513,9 @@ static void async_task_ref(async_bridge_task_t* task) {
         return;
     }
 
-    pthread_mutex_lock(&task->state_mutex);
+    uv_mutex_lock(&task->state_mutex);
     task->ref_count++;
-    pthread_mutex_unlock(&task->state_mutex);
+    uv_mutex_unlock(&task->state_mutex);
 }
 
 static void async_task_unref(async_bridge_task_t* task) {
@@ -517,10 +523,10 @@ static void async_task_unref(async_bridge_task_t* task) {
         return;
     }
 
-    pthread_mutex_lock(&task->state_mutex);
+    uv_mutex_lock(&task->state_mutex);
     task->ref_count--;
     int should_destroy = (task->ref_count == 0);
-    pthread_mutex_unlock(&task->state_mutex);
+    uv_mutex_unlock(&task->state_mutex);
 
     if (should_destroy) {
         async_task_destroy(task);
@@ -537,7 +543,7 @@ static void on_async_completion(uv_async_t* handle) {
     }
 
     // Remove from active tasks
-    pthread_mutex_lock(&g_async_bridge->bridge_mutex);
+    uv_mutex_lock(&g_async_bridge->bridge_mutex);
     for (size_t i = 0; i < g_async_bridge->active_task_count; i++) {
         if (g_async_bridge->active_tasks[i] == task) {
             // Shift remaining tasks
@@ -548,7 +554,7 @@ static void on_async_completion(uv_async_t* handle) {
             break;
         }
     }
-    pthread_mutex_unlock(&g_async_bridge->bridge_mutex);
+    uv_mutex_unlock(&g_async_bridge->bridge_mutex);
 
     // Release reference (may destroy task)
     async_task_unref(task);
@@ -571,10 +577,10 @@ static void schedule_coroutine_completion(async_bridge_task_t* task) {
 
     // TODO: Complete asyncio integration
     // For now, mark as completed to prevent hanging
-    pthread_mutex_lock(&task->state_mutex);
+    uv_mutex_lock(&task->state_mutex);
     task->state = ASYNC_TASK_COMPLETED;
     task->completion_time = uv_hrtime();
-    pthread_mutex_unlock(&task->state_mutex);
+    uv_mutex_unlock(&task->state_mutex);
 
     PyGILState_Release(gstate);
 
