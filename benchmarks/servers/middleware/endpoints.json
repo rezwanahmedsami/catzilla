@@ -1,0 +1,89 @@
+{
+  "feature_category": "middleware",
+  "description": "Middleware performance benchmarks comparing sync vs async middleware implementations",
+  "endpoints": [
+    {
+      "path": "/",
+      "name": "home",
+      "method": "GET",
+      "description": "Basic middleware overhead test"
+    },
+    {
+      "path": "/health",
+      "name": "health_check",
+      "method": "GET",
+      "description": "Health check with minimal middleware"
+    },
+    {
+      "path": "/middleware-light",
+      "name": "light_middleware",
+      "method": "GET",
+      "description": "Light middleware stack test"
+    },
+    {
+      "path": "/middleware-heavy",
+      "name": "heavy_middleware",
+      "method": "GET",
+      "description": "Heavy middleware stack test",
+      "headers": {
+        "Authorization": "Bearer valid-token"
+      }
+    },
+    {
+      "path": "/middleware-auth",
+      "name": "auth_middleware",
+      "method": "GET",
+      "description": "Authentication middleware test",
+      "headers": {
+        "Authorization": "Bearer valid-token"
+      }
+    },
+    {
+      "path": "/middleware-stats",
+      "name": "stats_middleware",
+      "method": "GET",
+      "description": "Middleware performance statistics"
+    },
+    {
+      "path": "/middleware-post",
+      "name": "post_middleware",
+      "method": "POST",
+      "description": "POST request with middleware",
+      "headers": {
+        "Authorization": "Bearer valid-token"
+      },
+      "body": {
+        "test": "middleware_post",
+        "data": "benchmark_payload"
+      }
+    },
+    {
+      "path": "/middleware-concurrent",
+      "name": "concurrent_middleware",
+      "method": "GET",
+      "description": "Concurrent operations with middleware"
+    }
+  ],
+  "test_scenarios": [
+    {
+      "name": "basic_middleware_overhead",
+      "endpoints": ["home", "health_check"],
+      "description": "Measure basic middleware overhead"
+    },
+    {
+      "name": "middleware_scaling",
+      "endpoints": ["light_middleware", "heavy_middleware"],
+      "description": "Compare light vs heavy middleware stacks"
+    },
+    {
+      "name": "authentication_performance",
+      "endpoints": ["auth_middleware", "post_middleware"],
+      "description": "Test authentication middleware performance"
+    },
+    {
+      "name": "async_compatibility",
+      "endpoints": ["concurrent_middleware", "stats_middleware"],
+      "description": "Test async operations with middleware"
+    }
+  ]
+}

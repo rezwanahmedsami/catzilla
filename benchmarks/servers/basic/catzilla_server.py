@@ -21,13 +21,13 @@ from typing import Optional, List, Dict
 import time
 
 # Add the catzilla package to the Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'python'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', 'python'))
 
 from catzilla import Catzilla, BaseModel, Query, Path, Header, Form, JSONResponse, HTMLResponse
 from typing import Optional, List, Dict
 
-# Import shared endpoints
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+# Import shared endpoints from the new structure
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
 from shared_endpoints import get_benchmark_endpoints, DEFAULT_JSON_PAYLOAD
 
 

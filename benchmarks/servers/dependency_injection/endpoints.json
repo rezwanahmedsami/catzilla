@@ -1,0 +1,93 @@
+{
+  "feature_category": "dependency_injection",
+  "description": "Dependency injection performance benchmarks comparing service resolution across different scopes",
+  "endpoints": [
+    {
+      "path": "/",
+      "name": "home",
+      "method": "GET",
+      "description": "Basic endpoint with minimal DI"
+    },
+    {
+      "path": "/health",
+      "name": "health_check",
+      "method": "GET",
+      "description": "Health check endpoint"
+    },
+    {
+      "path": "/di-simple",
+      "name": "simple_di",
+      "method": "GET",
+      "description": "Simple singleton service injection"
+    },
+    {
+      "path": "/di-request",
+      "name": "request_di",
+      "method": "GET",
+      "description": "Request-scoped service injection"
+    },
+    {
+      "path": "/di-transient",
+      "name": "transient_di",
+      "method": "GET",
+      "description": "Transient service injection (multiple instances)"
+    },
+    {
+      "path": "/di-complex",
+      "name": "complex_di",
+      "method": "GET",
+      "description": "Complex nested dependency injection"
+    },
+    {
+      "path": "/users/42",
+      "name": "get_user",
+      "method": "GET",
+      "description": "Repository pattern with DI"
+    },
+    {
+      "path": "/users",
+      "name": "create_user",
+      "method": "POST",
+      "description": "Create user with DI and validation",
+      "body": {
+        "id": 1,
+        "name": "Benchmark User",
+        "email": "benchmark@example.com"
+      }
+    },
+    {
+      "path": "/products?category=electronics",
+      "name": "get_products",
+      "method": "GET",
+      "description": "Get products with repository DI"
+    },
+    {
+      "path": "/di-performance",
+      "name": "performance_di",
+      "method": "GET",
+      "description": "DI performance test with multiple scopes"
+    }
+  ],
+  "test_scenarios": [
+    {
+      "name": "service_resolution_speed",
+      "endpoints": ["simple_di", "request_di", "transient_di"],
+      "description": "Measure service resolution time across different scopes"
+    },
+    {
+      "name": "complex_dependency_graphs",
+      "endpoints": ["complex_di", "performance_di"],
+      "description": "Test performance with complex nested dependencies"
+    },
+    {
+      "name": "repository_pattern_performance",
+      "endpoints": ["get_user", "create_user", "get_products"],
+      "description": "Repository pattern with DI performance"
+    },
+    {
+      "name": "scope_comparison",
+      "endpoints": ["simple_di", "request_di", "transient_di", "performance_di"],
+      "description": "Compare performance across all DI scopes"
+    }
+  ]
+}

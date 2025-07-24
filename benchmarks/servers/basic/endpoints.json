@@ -1,0 +1,113 @@
+{
+  "feature_category": "basic",
+  "description": "Basic HTTP performance benchmarks for fundamental operations",
+  "endpoints": [
+    {
+      "path": "/",
+      "name": "hello_world",
+      "method": "GET",
+      "description": "Simple text response - baseline performance"
+    },
+    {
+      "path": "/health",
+      "name": "health_check",
+      "method": "GET",
+      "description": "Health check endpoint"
+    },
+    {
+      "path": "/json",
+      "name": "json_response",
+      "method": "GET",
+      "description": "Simple JSON serialization"
+    },
+    {
+      "path": "/user/42",
+      "name": "path_params",
+      "method": "GET",
+      "description": "Path parameter extraction and routing"
+    },
+    {
+      "path": "/users?limit=20&offset=10",
+      "name": "query_params",
+      "method": "GET",
+      "description": "Query parameter parsing"
+    },
+    {
+      "path": "/user/123/profile",
+      "name": "complex_json",
+      "method": "GET",
+      "description": "Complex JSON response generation"
+    },
+    {
+      "path": "/echo",
+      "name": "json_echo",
+      "method": "POST",
+      "description": "JSON request parsing and echo",
+      "body": {
+        "message": "Hello from benchmark",
+        "timestamp": 1640995200,
+        "data": {
+          "nested": true,
+          "values": [1, 2, 3, 4, 5]
+        }
+      }
+    },
+    {
+      "path": "/validate/user",
+      "name": "validate_user_model",
+      "method": "POST",
+      "description": "Auto-validation with user model",
+      "body": {
+        "id": 42,
+        "name": "Alice Johnson",
+        "email": "alice@example.com",
+        "age": 28,
+        "is_active": true,
+        "tags": ["developer", "python", "performance"],
+        "metadata": {"team": "backend", "level": "senior"}
+      }
+    },
+    {
+      "path": "/validate/product",
+      "name": "validate_product_model",
+      "method": "POST",
+      "description": "Auto-validation with product model",
+      "body": {
+        "name": "High-Performance Widget",
+        "price": 99.99,
+        "category": "electronics",
+        "description": "A widget designed for maximum performance",
+        "in_stock": true,
+        "variants": ["red", "blue", "green"]
+      }
+    },
+    {
+      "path": "/search/validate?query=performance&limit=20&offset=0&sort_by=relevance",
+      "name": "query_validation",
+      "method": "GET",
+      "description": "Query parameter auto-validation with constraints"
+    }
+  ],
+  "test_scenarios": [
+    {
+      "name": "basic_http_operations",
+      "endpoints": ["hello_world", "json_response", "health_check"],
+      "description": "Test fundamental HTTP operations"
+    },
+    {
+      "name": "parameter_handling",
+      "endpoints": ["path_params", "query_params", "complex_json"],
+      "description": "Test parameter extraction and complex responses"
+    },
+    {
+      "name": "json_processing",
+      "endpoints": ["json_echo", "validate_user_model", "validate_product_model"],
+      "description": "Test JSON parsing and validation"
+    },
+    {
+      "name": "auto_validation_performance",
+      "endpoints": ["validate_user_model", "validate_product_model", "query_validation"],
+      "description": "Test auto-validation engine performance"
+    }
+  ]
+}
