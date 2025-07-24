@@ -1,0 +1,14 @@
+{
+  "framework": "flask",
+  "endpoint": "/json",
+  "endpoint_name": "json_response",
+  "method": "GET",
+  "duration": "10s",
+  "connections": 100,
+  "threads": 4,
+  "requests_per_sec": "236.08",
+  "avg_latency": "116.51ms",
+  "p99_latency": "168.49ms",
+  "transfer_per_sec": "46.80KB",
+  "timestamp": "2025-07-08T13:45:47+06:00"
+}

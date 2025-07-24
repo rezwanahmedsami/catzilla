@@ -1,0 +1,14 @@
+{
+  "framework": "catzilla",
+  "endpoint": "/json",
+  "endpoint_name": "json_response",
+  "method": "GET",
+  "duration": "10s",
+  "connections": 100,
+  "threads": 4,
+  "requests_per_sec": "2536.96",
+  "avg_latency": "65.35ms",
+  "p99_latency": "975.98ms",
+  "transfer_per_sec": "386.49KB",
+  "timestamp": "2025-07-24T00:37:13+06:00"
+}

@@ -1,0 +1,14 @@
+{
+  "framework": "fastapi",
+  "endpoint": "/json",
+  "endpoint_name": "json_response",
+  "method": "GET",
+  "duration": "10s",
+  "connections": 100,
+  "threads": 4,
+  "requests_per_sec": "3019.95",
+  "avg_latency": "34.07ms",
+  "p99_latency": "107.39ms",
+  "transfer_per_sec": "536.75KB",
+  "timestamp": "2025-07-08T14:12:32+06:00"
+}

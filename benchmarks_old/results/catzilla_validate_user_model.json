@@ -1,0 +1,14 @@
+{
+  "framework": "catzilla",
+  "endpoint": "/validate/user",
+  "endpoint_name": "validate_user_model",
+  "method": "POST",
+  "duration": "10s",
+  "connections": 100,
+  "threads": 4,
+  "requests_per_sec": "1986.29",
+  "avg_latency": "77.64ms",
+  "p99_latency": "1.09s",
+  "transfer_per_sec": "771.98KB",
+  "timestamp": "2025-07-24T00:38:14+06:00"
+}

@@ -1,0 +1,14 @@
+{
+  "framework": "fastapi",
+  "endpoint": "/users?limit=20&offset=10",
+  "endpoint_name": "query_params",
+  "method": "GET",
+  "duration": "10s",
+  "connections": 100,
+  "threads": 4,
+  "requests_per_sec": "1547.44",
+  "avg_latency": "64.42ms",
+  "p99_latency": "75.10ms",
+  "transfer_per_sec": "1.91MB",
+  "timestamp": "2025-07-08T14:13:02+06:00"
+}

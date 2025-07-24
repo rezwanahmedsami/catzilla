@@ -1,0 +1,14 @@
+{
+  "framework": "django",
+  "endpoint": "/user/123/profile",
+  "endpoint_name": "complex_json",
+  "method": "GET",
+  "duration": "10s",
+  "connections": 100,
+  "threads": 4,
+  "requests_per_sec": "0.40",
+  "avg_latency": "2.59ms",
+  "p99_latency": "4.31ms",
+  "transfer_per_sec": "207.01B",
+  "timestamp": "2025-07-08T14:15:00+06:00"
+}

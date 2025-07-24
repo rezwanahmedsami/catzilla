@@ -1,0 +1,14 @@
+Running 10s test @ http://127.0.0.1:8000/validate/product
+  4 threads and 100 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    76.90ms  169.40ms   1.98s    96.13%
+    Req/Sec   504.23    116.22     1.26k    87.69%
+  Latency Distribution
+     50%   48.31ms
+     75%   50.77ms
+     90%   54.53ms
+     99%    1.08s
+  19996 requests in 10.01s, 8.35MB read
+  Socket errors: connect 0, read 0, write 0, timeout 11
+Requests/sec:   1996.62
+Transfer/sec:    853.98KB

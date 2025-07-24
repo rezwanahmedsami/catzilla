@@ -1,0 +1,14 @@
+{
+  "framework": "catzilla",
+  "endpoint": "/user/123/profile",
+  "endpoint_name": "complex_json",
+  "method": "GET",
+  "duration": "10s",
+  "connections": 100,
+  "threads": 4,
+  "requests_per_sec": "2194.35",
+  "avg_latency": "75.25ms",
+  "p99_latency": "1.10s",
+  "transfer_per_sec": "0.99MB",
+  "timestamp": "2025-07-24T00:37:59+06:00"
+}

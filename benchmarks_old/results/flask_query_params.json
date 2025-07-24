@@ -1,0 +1,14 @@
+{
+  "framework": "flask",
+  "endpoint": "/users?limit=20&offset=10",
+  "endpoint_name": "query_params",
+  "method": "GET",
+  "duration": "10s",
+  "connections": 100,
+  "threads": 4,
+  "requests_per_sec": "837.29",
+  "avg_latency": "112.85ms",
+  "p99_latency": "208.59ms",
+  "transfer_per_sec": "1.05MB",
+  "timestamp": "2025-07-08T13:46:04+06:00"
+}

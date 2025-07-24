@@ -1,0 +1,14 @@
+{
+  "framework": "django",
+  "endpoint": "/user/42",
+  "endpoint_name": "path_params",
+  "method": "GET",
+  "duration": "10s",
+  "connections": 100,
+  "threads": 4,
+  "requests_per_sec": "677.24",
+  "avg_latency": "147.49ms",
+  "p99_latency": "362.40ms",
+  "transfer_per_sec": "162.70KB",
+  "timestamp": "2025-07-08T13:47:11+06:00"
+}

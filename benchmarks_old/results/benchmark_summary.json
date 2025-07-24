@@ -1,0 +1,358 @@
+{
+  "benchmark_info": {
+    "timestamp": "2025-07-08T11:20:38+00:00",
+    "duration": "10s",
+    "connections": 100,
+    "threads": 4,
+    "tool": "wrk"
+  },
+  "system_info":
+{"collection_timestamp": "2025-07-08T11:20:38.377872", "collection_utc": "2025-07-08T11:20:38.377879Z", "os": {"system": "Linux", "release": "4.18.0-553.27.1.el8_10.x86_64", "version": "#1 SMP Tue Nov 5 04:50:16 EST 2024", "machine": "x86_64", "processor": "x86_64", "platform": "Linux-4.18.0-553.27.1.el8_10.x86_64-x86_64-with-glibc2.28", "node": "ns3209505.ip-198-244-202.eu", "linux_distribution": {"NAME": "AlmaLinux", "VERSION": "8.10 (Cerulean Leopard)", "ID": "almalinux", "ID_LIKE": "rhel centos fedora", "VERSION_ID": "8.10", "PLATFORM_ID": "platform:el8", "PRETTY_NAME": "AlmaLinux 8.10 (Cerulean Leopard)", "ANSI_COLOR": "0;34", "LOGO": "fedora-logo-icon", "CPE_NAME": "cpe:/o:almalinux:almalinux:8::baseos", "HOME_URL": "https://almalinux.org/", "DOCUMENTATION_URL": "https://wiki.almalinux.org/", "BUG_REPORT_URL": "https://bugs.almalinux.org/", "ALMALINUX_MANTISBT_PROJECT": "AlmaLinux-8", "ALMALINUX_MANTISBT_PROJECT_VERSION": "8.10", "REDHAT_SUPPORT_PRODUCT": "AlmaLinux", "REDHAT_SUPPORT_PRODUCT_VERSION": "8.10", "SUPPORT_END": "2029-06-01"}}, "cpu": {"processor": "x86_64", "machine": "x86_64", "architecture": "64bit", "cpu_count_logical": 16, "cpu_count_physical": 8, "cpu_freq": {"current": 3138.82, "min": 800.0, "max": 3201.0}, "model": "Intel(R) Xeon(R) E-2388G CPU @ 3.20GHz"}, "memory": {"total": 67407724544, "available": 44472610816, "used": 18946424832, "free": 910200832, "percent_used": 34.0, "total_gb": 62.78, "available_gb": 41.42, "used_gb": 17.65, "swap": {"total": 1073733632, "used": 1073729536, "free": 4096, "percent": 100.0, "total_gb": 1.0}}, "disk": {"path": "/root/devwork/catzilla", "total": 509576056832, "used": 160887390208, "free": 348688666624, "total_gb": 474.58, "used_gb": 149.84, "free_gb": 324.74, "percent_used": 31.57}, "network": {"hostname": "ns3209505.ip-198-244-202.eu", "interfaces": {"lo": [{"family": "IPv4", "address": "127.0.0.1", "netmask": "255.0.0.0", "broadcast": null}, {"family": "IPv6", "address": "::1", "netmask": "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"}], "eno1": [{"family": "IPv4", "address": "198.244.202.183", "netmask": "255.255.255.0", "broadcast": "198.244.202.255"}, {"family": "IPv6", "address": "2001:41d0:800:3fb7::", "netmask": "ffff:ffff:ffff:ff00::"}, {"family": "IPv6", "address": "fe80::d250:99ff:fefd:b7c9%eno1", "netmask": "ffff:ffff:ffff:ffff::"}], "eno1:cp1": [{"family": "IPv4", "address": "51.89.222.108", "netmask": "255.255.255.0", "broadcast": "51.89.222.255"}], "eno1:cp2": [{"family": "IPv4", "address": "54.37.243.252", "netmask": "255.255.255.0", "broadcast": "54.37.243.255"}], "eno1:cp3": [{"family": "IPv4", "address": "51.68.192.118", "netmask": "255.255.255.0", "broadcast": "51.68.192.255"}], "eno1:cp4": [{"family": "IPv4", "address": "51.68.200.58", "netmask": "255.255.255.0", "broadcast": "51.68.200.255"}], "eno1:cp5": [{"family": "IPv4", "address": "51.89.253.213", "netmask": "255.255.255.0", "broadcast": "51.89.253.255"}], "eno1:cp6": [{"family": "IPv4", "address": "57.128.132.20", "netmask": "255.255.255.0", "broadcast": "57.128.132.255"}], "eno1:cp8": [{"family": "IPv4", "address": "51.77.226.176", "netmask": "255.255.255.0", "broadcast": "51.77.226.255"}], "eno1:cp9": [{"family": "IPv4", "address": "51.68.209.93", "netmask": "255.255.255.0", "broadcast": "51.68.209.255"}], "eno1:cp10": [{"family": "IPv4", "address": "51.89.169.208", "netmask": "255.255.255.0", "broadcast": "51.89.169.255"}], "eno1:cp7": [{"family": "IPv4", "address": "57.128.132.19", "netmask": "255.255.255.0", "broadcast": "57.128.132.255"}], "docker0": [{"family": "IPv4", "address": "172.17.0.1", "netmask": "255.255.0.0", "broadcast": "172.17.255.255"}, {"family": "IPv6", "address": "fe80::42:4fff:fe54:f41a%docker0", "netmask": "ffff:ffff:ffff:ffff::"}], "vethd631592": [{"family": "IPv6", "address": "fe80::8852:d6ff:feb1:1940%vethd631592", "netmask": "ffff:ffff:ffff:ffff::"}]}, "io_counters": {"bytes_sent": 2979612659768, "bytes_recv": 426579779420, "packets_sent": 3192138824, "packets_recv": 2343447381}}, "python": {"version": "3.11.9 (main, Jun  3 2025, 17:08:19) [GCC 8.5.0 20210514 (Red Hat 8.5.0-26)]", "version_info": {"major": 3, "minor": 11, "micro": 9, "releaselevel": "final", "serial": 0}, "executable": "/root/devwork/catzilla/venv/bin/python3", "platform": "linux", "implementation": {"name": "cpython", "version": "3.11.9"}, "path": ["/root/devwork/catzilla/benchmarks", "/root/.pyenv/versions/3.11.9/lib/python311.zip", "/root/.pyenv/versions/3.11.9/lib/python3.11"]}, "process": {"pid": 2386341, "ppid": 2384146, "name": "python3", "cpu_percent": 0.0, "memory_info": {"rss": 20688896, "vms": 98385920, "rss_mb": 19.73, "vms_mb": 93.83}, "create_time": 1751973638.3, "cwd": "/root/devwork/catzilla"}, "load_average": {"1min": 1.31, "5min": 1.11, "15min": 0.92}},
+  "results": [
+    {
+      "framework": "catzilla",
+      "endpoint": "/user/123/profile",
+      "endpoint_name": "complex_json",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "21178.42",
+      "avg_latency": "4.98ms",
+      "p99_latency": "19.25ms",
+      "transfer_per_sec": "9.55MB",
+      "timestamp": "2025-07-08T11:15:44+00:00"
+    }
+,
+    {
+      "framework": "catzilla",
+      "endpoint": "/",
+      "endpoint_name": "hello_world",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "35678.50",
+      "avg_latency": "2.97ms",
+      "p99_latency": "13.88ms",
+      "transfer_per_sec": "3.44MB",
+      "timestamp": "2025-07-08T11:14:44+00:00"
+    }
+,
+    {
+      "framework": "catzilla",
+      "endpoint": "/json",
+      "endpoint_name": "json_response",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "26723.18",
+      "avg_latency": "3.86ms",
+      "p99_latency": "3.86ms",
+      "transfer_per_sec": "3.98MB",
+      "timestamp": "2025-07-08T11:14:59+00:00"
+    }
+,
+    {
+      "framework": "catzilla",
+      "endpoint": "/user/42",
+      "endpoint_name": "path_params",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "24734.27",
+      "avg_latency": "4.15ms",
+      "p99_latency": "12.68ms",
+      "transfer_per_sec": "4.62MB",
+      "timestamp": "2025-07-08T11:15:14+00:00"
+    }
+,
+    {
+      "framework": "catzilla",
+      "endpoint": "/users?limit=20&offset=10",
+      "endpoint_name": "query_params",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "16250.90",
+      "avg_latency": "6.25ms",
+      "p99_latency": "16.73ms",
+      "transfer_per_sec": "21.53MB",
+      "timestamp": "2025-07-08T11:15:29+00:00"
+    }
+,
+    {
+      "framework": "catzilla",
+      "endpoint": "/search/validate?query=performance&limit=20&offset=0",
+      "endpoint_name": "query_validation",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "18629.60",
+      "avg_latency": "5.49ms",
+      "p99_latency": "16.84ms",
+      "transfer_per_sec": "5.37MB",
+      "timestamp": "2025-07-08T11:16:29+00:00"
+    }
+,
+    {
+      "framework": "catzilla",
+      "endpoint": "/validate/product",
+      "endpoint_name": "validate_product_model",
+      "method": "POST",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "16327.53",
+      "avg_latency": "6.32ms",
+      "p99_latency": "16.98ms",
+      "transfer_per_sec": "6.82MB",
+      "timestamp": "2025-07-08T11:16:14+00:00"
+    }
+,
+    {
+      "framework": "catzilla",
+      "endpoint": "/validate/user",
+      "endpoint_name": "validate_user_model",
+      "method": "POST",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "16052.07",
+      "avg_latency": "6.52ms",
+      "p99_latency": "22.76ms",
+      "transfer_per_sec": "6.09MB",
+      "timestamp": "2025-07-08T11:15:59+00:00"
+    }
+,
+    {
+      "framework": "django",
+      "endpoint": "/user/123/profile",
+      "endpoint_name": "complex_json",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "4297.94",
+      "avg_latency": "23.18ms",
+      "p99_latency": "40.55ms",
+      "transfer_per_sec": "2.14MB",
+      "timestamp": "2025-07-08T11:20:32+00:00"
+    }
+,
+    {
+      "framework": "django",
+      "endpoint": "/",
+      "endpoint_name": "hello_world",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "4671.45",
+      "avg_latency": "21.47ms",
+      "p99_latency": "40.02ms",
+      "transfer_per_sec": "693.43KB",
+      "timestamp": "2025-07-08T11:19:31+00:00"
+    }
+,
+    {
+      "framework": "django",
+      "endpoint": "/json",
+      "endpoint_name": "json_response",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "4474.05",
+      "avg_latency": "22.31ms",
+      "p99_latency": "40.03ms",
+      "transfer_per_sec": "0.88MB",
+      "timestamp": "2025-07-08T11:19:46+00:00"
+    }
+,
+    {
+      "framework": "django",
+      "endpoint": "/user/42",
+      "endpoint_name": "path_params",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "4441.46",
+      "avg_latency": "22.41ms",
+      "p99_latency": "40.17ms",
+      "transfer_per_sec": "1.04MB",
+      "timestamp": "2025-07-08T11:20:02+00:00"
+    }
+,
+    {
+      "framework": "django",
+      "endpoint": "/users?limit=20&offset=10",
+      "endpoint_name": "query_params",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "3951.70",
+      "avg_latency": "25.26ms",
+      "p99_latency": "42.60ms",
+      "transfer_per_sec": "5.42MB",
+      "timestamp": "2025-07-08T11:20:17+00:00"
+    }
+,
+    {
+      "framework": "fastapi",
+      "endpoint": "/user/123/profile",
+      "endpoint_name": "complex_json",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "5549.56",
+      "avg_latency": "17.98ms",
+      "p99_latency": "35.35ms",
+      "transfer_per_sec": "2.51MB",
+      "timestamp": "2025-07-08T11:17:50+00:00"
+    }
+,
+    {
+      "framework": "fastapi",
+      "endpoint": "/",
+      "endpoint_name": "hello_world",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "7979.18",
+      "avg_latency": "12.65ms",
+      "p99_latency": "29.55ms",
+      "transfer_per_sec": "1.12MB",
+      "timestamp": "2025-07-08T11:16:50+00:00"
+    }
+,
+    {
+      "framework": "fastapi",
+      "endpoint": "/json",
+      "endpoint_name": "json_response",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "6937.52",
+      "avg_latency": "14.40ms",
+      "p99_latency": "31.78ms",
+      "transfer_per_sec": "1.21MB",
+      "timestamp": "2025-07-08T11:17:05+00:00"
+    }
+,
+    {
+      "framework": "fastapi",
+      "endpoint": "/user/42",
+      "endpoint_name": "path_params",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "6547.91",
+      "avg_latency": "15.35ms",
+      "p99_latency": "32.46ms",
+      "transfer_per_sec": "1.36MB",
+      "timestamp": "2025-07-08T11:17:20+00:00"
+    }
+,
+    {
+      "framework": "fastapi",
+      "endpoint": "/users?limit=20&offset=10",
+      "endpoint_name": "query_params",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "3515.07",
+      "avg_latency": "28.38ms",
+      "p99_latency": "45.31ms",
+      "transfer_per_sec": "4.33MB",
+      "timestamp": "2025-07-08T11:17:35+00:00"
+    }
+,
+    {
+      "framework": "flask",
+      "endpoint": "/user/123/profile",
+      "endpoint_name": "complex_json",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "4975.77",
+      "avg_latency": "20.10ms",
+      "p99_latency": "37.34ms",
+      "transfer_per_sec": "2.35MB",
+      "timestamp": "2025-07-08T11:19:11+00:00"
+    }
+,
+    {
+      "framework": "flask",
+      "endpoint": "/",
+      "endpoint_name": "hello_world",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "5558.25",
+      "avg_latency": "17.93ms",
+      "p99_latency": "35.12ms",
+      "transfer_per_sec": "0.88MB",
+      "timestamp": "2025-07-08T11:18:10+00:00"
+    }
+,
+    {
+      "framework": "flask",
+      "endpoint": "/json",
+      "endpoint_name": "json_response",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "5378.57",
+      "avg_latency": "18.51ms",
+      "p99_latency": "36.09ms",
+      "transfer_per_sec": "1.05MB",
+      "timestamp": "2025-07-08T11:18:26+00:00"
+    }
+,
+    {
+      "framework": "flask",
+      "endpoint": "/user/42",
+      "endpoint_name": "path_params",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "5129.00",
+      "avg_latency": "19.43ms",
+      "p99_latency": "36.19ms",
+      "transfer_per_sec": "1.17MB",
+      "timestamp": "2025-07-08T11:18:41+00:00"
+    }
+,
+    {
+      "framework": "flask",
+      "endpoint": "/users?limit=20&offset=10",
+      "endpoint_name": "query_params",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "requests_per_sec": "4816.61",
+      "avg_latency": "20.72ms",
+      "p99_latency": "38.16ms",
+      "transfer_per_sec": "6.04MB",
+      "timestamp": "2025-07-08T11:18:56+00:00"
+    }
+
+  ]
+}

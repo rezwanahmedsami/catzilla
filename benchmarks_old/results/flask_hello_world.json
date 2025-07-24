@@ -1,0 +1,14 @@
+{
+  "framework": "flask",
+  "endpoint": "/",
+  "endpoint_name": "hello_world",
+  "method": "GET",
+  "duration": "10s",
+  "connections": 100,
+  "threads": 4,
+  "requests_per_sec": "1193.43",
+  "avg_latency": "84.50ms",
+  "p99_latency": "252.61ms",
+  "transfer_per_sec": "193.47KB",
+  "timestamp": "2025-07-08T14:13:38+06:00"
+}

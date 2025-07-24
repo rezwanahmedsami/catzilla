@@ -1,0 +1,14 @@
+{
+  "framework": "catzilla",
+  "endpoint": "/search/validate?query=performance&limit=20&offset=0",
+  "endpoint_name": "query_validation",
+  "method": "GET",
+  "duration": "10s",
+  "connections": 100,
+  "threads": 4,
+  "requests_per_sec": "1933.62",
+  "avg_latency": "80.15ms",
+  "p99_latency": "1.09s",
+  "transfer_per_sec": "570.27KB",
+  "timestamp": "2025-07-24T00:38:44+06:00"
+}
