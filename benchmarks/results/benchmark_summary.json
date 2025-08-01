@@ -1,0 +1,146 @@
+{
+  "benchmark_info": {
+    "timestamp": "2025-08-01T05:11:17.852877Z",
+    "duration": "10s",
+    "connections": 100,
+    "threads": 4,
+    "tool": "wrk",
+    "system": "feature_based"
+  },
+  "categories_tested": [
+    "basic"
+  ],
+  "total_results": 10,
+  "results": [
+    {
+      "framework": "catzilla",
+      "category": "basic",
+      "endpoint": "/",
+      "endpoint_name": "hello_world",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "timestamp": "2025-08-01T05:10:36.888238Z",
+      "requests_per_sec": "14162.83",
+      "transfer_per_sec": "1.36MB"
+    },
+    {
+      "framework": "catzilla",
+      "category": "basic",
+      "endpoint": "/json",
+      "endpoint_name": "json_response",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "timestamp": "2025-08-01T05:10:47.022037Z",
+      "requests_per_sec": "10159.65",
+      "transfer_per_sec": "1.50MB"
+    },
+    {
+      "framework": "catzilla",
+      "category": "basic",
+      "endpoint": "/user/42",
+      "endpoint_name": "path_params",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "timestamp": "2025-08-01T05:10:57.094822Z",
+      "requests_per_sec": "8400.39",
+      "transfer_per_sec": "1.57MB"
+    },
+    {
+      "framework": "catzilla",
+      "category": "basic",
+      "endpoint": "/users?limit=20&offset=10",
+      "endpoint_name": "query_params",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "timestamp": "2025-08-01T05:11:07.164510Z",
+      "requests_per_sec": "5700.14",
+      "transfer_per_sec": "7.55MB"
+    },
+    {
+      "framework": "catzilla",
+      "category": "basic",
+      "endpoint": "/user/123/profile",
+      "endpoint_name": "complex_json",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "timestamp": "2025-08-01T05:11:17.312725Z",
+      "requests_per_sec": "6875.67",
+      "transfer_per_sec": "3.10MB"
+    },
+    {
+      "framework": "catzilla",
+      "category": "basic",
+      "endpoint": "/",
+      "endpoint_name": "hello_world",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "timestamp": "2025-08-01T05:10:36.888238Z",
+      "requests_per_sec": "14162.83",
+      "transfer_per_sec": "1.36MB"
+    },
+    {
+      "framework": "catzilla",
+      "category": "basic",
+      "endpoint": "/json",
+      "endpoint_name": "json_response",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "timestamp": "2025-08-01T05:10:47.022037Z",
+      "requests_per_sec": "10159.65",
+      "transfer_per_sec": "1.50MB"
+    },
+    {
+      "framework": "catzilla",
+      "category": "basic",
+      "endpoint": "/user/42",
+      "endpoint_name": "path_params",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "timestamp": "2025-08-01T05:10:57.094822Z",
+      "requests_per_sec": "8400.39",
+      "transfer_per_sec": "1.57MB"
+    },
+    {
+      "framework": "catzilla",
+      "category": "basic",
+      "endpoint": "/users?limit=20&offset=10",
+      "endpoint_name": "query_params",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "timestamp": "2025-08-01T05:11:07.164510Z",
+      "requests_per_sec": "5700.14",
+      "transfer_per_sec": "7.55MB"
+    },
+    {
+      "framework": "catzilla",
+      "category": "basic",
+      "endpoint": "/user/123/profile",
+      "endpoint_name": "complex_json",
+      "method": "GET",
+      "duration": "10s",
+      "connections": 100,
+      "threads": 4,
+      "timestamp": "2025-08-01T05:11:17.312725Z",
+      "requests_per_sec": "6875.67",
+      "transfer_per_sec": "3.10MB"
+    }
+  ]
+}

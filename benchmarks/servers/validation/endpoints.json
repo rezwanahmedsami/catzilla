@@ -1,0 +1,187 @@
+{
+  "feature": "validation",
+  "description": "Validation engine performance benchmarks",
+  "frameworks": {
+    "catzilla": {
+      "server": "catzilla_validation.py",
+      "port": 8100,
+      "validation_engine": "c_accelerated"
+    },
+    "fastapi": {
+      "server": "fastapi_validation.py",
+      "port": 8101,
+      "validation_engine": "pydantic"
+    },
+    "flask": {
+      "server": "flask_validation.py",
+      "port": 8102,
+      "validation_engine": "manual"
+    },
+    "django": {
+      "server": "django_validation.py",
+      "port": 8103,
+      "validation_engine": "drf_serializers"
+    }
+  },
+  "endpoints": [
+    {
+      "name": "simple_user",
+      "method": "POST",
+      "path": "/validate/simple-user",
+      "description": "Basic user model validation",
+      "test_data": {
+        "id": 123,
+        "name": "John Doe",
+        "email": "john@example.com",
+        "age": 30
+      }
+    },
+    {
+      "name": "advanced_user",
+      "method": "POST",
+      "path": "/validate/advanced-user",
+      "description": "Advanced user validation with Field constraints",
+      "test_data": {
+        "id": 123,
+        "username": "johndoe123",
+        "email": "john@example.com",
+        "age": 30,
+        "height": 1.75,
+        "is_active": true,
+        "tags": ["developer", "python", "web"],
+        "metadata": {"department": "engineering", "role": "senior"}
+      }
+    },
+    {
+      "name": "complex_user",
+      "method": "POST",
+      "path": "/validate/complex-user",
+      "description": "Complex nested model validation",
+      "test_data": {
+        "id": 123,
+        "personal_info": {
+          "id": 123,
+          "username": "johndoe123",
+          "email": "john@example.com",
+          "age": 30,
+          "height": 1.75,
+          "is_active": true,
+          "tags": ["developer"],
+          "metadata": {"role": "senior"}
+        },
+        "billing_address": {
+          "street": "123 Main Street",
+          "city": "San Francisco",
+          "state": "CA",
+          "zip_code": "94102",
+          "country": "USA"
+        },
+        "preferences": {"theme": "dark", "notifications": true},
+        "created_at": "2024-01-01T00:00:00Z"
+      }
+    },
+    {
+      "name": "product",
+      "method": "POST",
+      "path": "/validate/product",
+      "description": "Product validation with comprehensive constraints",
+      "test_data": {
+        "name": "Premium Widget",
+        "price": "29.99",
+        "category": "Electronics",
+        "description": "A high-quality widget for all your needs",
+        "sku": "WIDGET-001",
+        "in_stock": true,
+        "stock_quantity": 100,
+        "dimensions": {"length": 10.0, "width": 5.0, "height": 2.0},
+        "tags": ["premium", "electronics", "widget"],
+        "variants": [
+          {"color": "red", "size": "small"},
+          {"color": "blue", "size": "large"}
+        ]
+      }
+    },
+    {
+      "name": "batch_users_small",
+      "method": "POST",
+      "path": "/validate/batch-users",
+      "description": "Small batch user validation (10 users)",
+      "generate_data": "batch_users_10"
+    },
+    {
+      "name": "batch_users_medium",
+      "method": "POST",
+      "path": "/validate/batch-users",
+      "description": "Medium batch user validation (100 users)",
+      "generate_data": "batch_users_100"
+    },
+    {
+      "name": "batch_products_small",
+      "method": "POST",
+      "path": "/validate/batch-products",
+      "description": "Small batch product validation (10 products)",
+      "generate_data": "batch_products_10"
+    },
+    {
+      "name": "batch_products_medium",
+      "method": "POST",
+      "path": "/validate/batch-products",
+      "description": "Medium batch product validation (100 products)",
+      "generate_data": "batch_products_100"
+    },
+    {
+      "name": "batch_orders",
+      "method": "POST",
+      "path": "/validate/batch-orders",
+      "description": "Batch order validation with custom validation",
+      "generate_data": "batch_orders_50"
+    },
+    {
+      "name": "mega_batch",
+      "method": "POST",
+      "path": "/validate/mega-batch",
+      "description": "Comprehensive batch validation performance test",
+      "generate_data": "mega_batch"
+    },
+    {
+      "name": "error_handling",
+      "method": "POST",
+      "path": "/validate/error-handling",
+      "description": "Validation error handling performance"
+    }
+  ],
+  "benchmark_settings": {
+    "duration": "30s",
+    "connections": 100,
+    "threads": 10,
+    "warmup_time": 5
+  },
+  "data_generators": {
+    "batch_users_10": {
+      "type": "batch_users",
+      "count": 10
+    },
+    "batch_users_100": {
+      "type": "batch_users",
+      "count": 100
+    },
+    "batch_products_10": {
+      "type": "batch_products",
+      "count": 10
+    },
+    "batch_products_100": {
+      "type": "batch_products",
+      "count": 100
+    },
+    "batch_orders_50": {
+      "type": "batch_orders",
+      "count": 50
+    },
+    "mega_batch": {
+      "type": "mega_batch",
+      "users": 50,
+      "products": 50,
+      "orders": 25
+    }
+  }
+}

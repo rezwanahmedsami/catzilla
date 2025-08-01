@@ -1,0 +1,188 @@
+{
+  "name": "file_operations",
+  "description": "File upload, download, streaming, and processing performance tests",
+  "endpoints": [
+    {
+      "path": "/upload/single",
+      "method": "POST",
+      "description": "Upload single file with optional background processing",
+      "headers": {
+        "Content-Type": "multipart/form-data"
+      },
+      "form_data": {
+        "file": "@sample_file.txt",
+        "category": ["general", "images", "documents", "media"],
+        "description": "Test file upload",
+        "auto_process": ["true", "false"]
+      },
+      "weight": 2
+    },
+    {
+      "path": "/upload/multiple",
+      "method": "POST",
+      "description": "Upload multiple files with batch processing",
+      "headers": {
+        "Content-Type": "multipart/form-data"
+      },
+      "form_data": {
+        "files": ["@sample_file1.txt", "@sample_file2.txt"],
+        "category": ["general", "batch"],
+        "batch_process": ["true", "false"]
+      },
+      "weight": 1
+    },
+    {
+      "path": "/download/{file_id}",
+      "method": "GET",
+      "description": "Download file by ID",
+      "path_params": {
+        "file_id": ["test-file-1", "test-file-2", "test-file-3"]
+      },
+      "params": {
+        "as_attachment": ["true", "false"]
+      },
+      "weight": 3
+    },
+    {
+      "path": "/stream/{file_id}",
+      "method": "GET",
+      "description": "Stream file in chunks",
+      "path_params": {
+        "file_id": ["test-file-1", "test-file-2", "test-file-3"]
+      },
+      "params": {
+        "chunk_size": [8192, 16384, 32768]
+      },
+      "weight": 2
+    },
+    {
+      "path": "/files",
+      "method": "GET",
+      "description": "List uploaded files with filtering",
+      "params": {
+        "category": ["general", "images", "documents", null],
+        "limit": [20, 50, 100],
+        "offset": [0, 20, 40]
+      },
+      "weight": 2
+    },
+    {
+      "path": "/files/{file_id}/info",
+      "method": "GET",
+      "description": "Get detailed file information",
+      "path_params": {
+        "file_id": ["test-file-1", "test-file-2", "test-file-3"]
+      },
+      "weight": 1
+    },
+    {
+      "path": "/files/{file_id}",
+      "method": "DELETE",
+      "description": "Delete file",
+      "path_params": {
+        "file_id": ["test-file-1", "test-file-2", "test-file-3"]
+      },
+      "weight": 1
+    },
+    {
+      "path": "/process/{file_id}",
+      "method": "POST",
+      "description": "Process file with specified operation",
+      "path_params": {
+        "file_id": ["test-file-1", "test-file-2", "test-file-3"]
+      },
+      "params": {
+        "operation": ["resize", "compress", "convert", "analyze"],
+        "params": ["{\"width\": 800, \"height\": 600}", "{\"quality\": 80}", "{\"format\": \"webp\"}", "{}"]
+      },
+      "weight": 1
+    },
+    {
+      "path": "/stats",
+      "method": "GET",
+      "description": "Get file operation statistics",
+      "weight": 1
+    },
+    {
+      "path": "/health",
+      "method": "GET",
+      "description": "Health check",
+      "weight": 1
+    }
+  ],
+  "concurrent_users": [5, 10, 20, 50],
+  "test_duration": 60,
+  "ramp_up_time": 10,
+  "file_sizes": {
+    "small": "1KB",
+    "medium": "100KB",
+    "large": "1MB",
+    "xlarge": "10MB"
+  },
+  "test_files": [
+    {
+      "name": "sample_file.txt",
+      "size": "1KB",
+      "content_type": "text/plain"
+    },
+    {
+      "name": "sample_image.jpg",
+      "size": "100KB",
+      "content_type": "image/jpeg"
+    },
+    {
+      "name": "sample_document.pdf",
+      "size": "1MB",
+      "content_type": "application/pdf"
+    },
+    {
+      "name": "sample_video.mp4",
+      "size": "10MB",
+      "content_type": "video/mp4"
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "upload_heavy",
+      "description": "Heavy file upload testing",
+      "duration": 30,
+      "weight_distribution": {
+        "/upload/single": 3,
+        "/upload/multiple": 1,
+        "/files": 1
+      }
+    },
+    {
+      "name": "download_heavy",
+      "description": "Heavy file download testing",
+      "duration": 30,
+      "weight_distribution": {
+        "/download/{file_id}": 4,
+        "/stream/{file_id}": 2,
+        "/files/{file_id}/info": 1
+      }
+    },
+    {
+      "name": "processing_intensive",
+      "description": "File processing performance",
+      "duration": 30,
+      "weight_distribution": {
+        "/process/{file_id}": 3,
+        "/files/{file_id}/info": 2,
+        "/stats": 1
+      }
+    },
+    {
+      "name": "mixed_operations",
+      "description": "Mixed file operations",
+      "duration": 60,
+      "weight_distribution": {
+        "/upload/single": 2,
+        "/download/{file_id}": 3,
+        "/stream/{file_id}": 2,
+        "/files": 2,
+        "/process/{file_id}": 1
+      }
+    }
+  ]
+}

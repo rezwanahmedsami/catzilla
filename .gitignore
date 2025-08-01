@@ -72,3 +72,7 @@ wheelhouse/
 
 uploads/
 catzilla_example.db
+
+
+# ignore lua script in benchmarks/results
+benchmarks/results/*.lua
