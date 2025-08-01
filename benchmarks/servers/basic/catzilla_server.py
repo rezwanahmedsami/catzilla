@@ -26,8 +26,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', 'py
 from catzilla import Catzilla, BaseModel, Query, Path, Header, Form, JSONResponse, HTMLResponse
 from typing import Optional, List, Dict
 
-# Import shared endpoints from the new structure
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
+# Import shared endpoints from the new structure - use absolute path
+shared_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
+sys.path.insert(0, shared_dir)
 from shared_endpoints import get_benchmark_endpoints, DEFAULT_JSON_PAYLOAD
 
 
@@ -332,6 +333,7 @@ def main():
     parser = argparse.ArgumentParser(description="Catzilla Benchmark Server")
     parser.add_argument("--port", type=int, default=8000, help="Port to run server on")
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind to")
+    parser.add_argument("--workers", type=int, default=1, help="Number of workers (ignored for compatibility)")
     args = parser.parse_args()
 
     app = create_catzilla_server()

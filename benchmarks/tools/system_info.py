@@ -110,19 +110,14 @@ def get_memory_info() -> Dict[str, Any]:
 
 
 def get_disk_info() -> Dict[str, Any]:
-    """Collect disk usage information."""
+    """Collect disk usage information (safe for public)."""
     try:
         # Get disk usage for the current directory (where benchmarks are running)
         current_path = os.getcwd()
         disk_usage = psutil.disk_usage(current_path)
 
         return {
-            "path": current_path,
-            "total": disk_usage.total,
-            "used": disk_usage.used,
-            "free": disk_usage.free,
             "total_gb": round(disk_usage.total / (1024**3), 2),
-            "used_gb": round(disk_usage.used / (1024**3), 2),
             "free_gb": round(disk_usage.free / (1024**3), 2),
             "percent_used": round((disk_usage.used / disk_usage.total) * 100, 2)
         }
@@ -131,43 +126,24 @@ def get_disk_info() -> Dict[str, Any]:
 
 
 def get_network_info() -> Dict[str, Any]:
-    """Collect network configuration information."""
+    """Collect basic network information (safe for public)."""
     network_info = {
-        "hostname": socket.gethostname(),
-        "interfaces": {}
+        "interface_count": 0,
+        "has_ipv4": False,
+        "has_ipv6": False
     }
 
     try:
-        # Get network interfaces
-        for interface_name, addresses in psutil.net_if_addrs().items():
-            interface_info = []
+        # Count interfaces and check for protocol support without revealing details
+        interfaces = psutil.net_if_addrs()
+        network_info["interface_count"] = len(interfaces)
+
+        for interface_name, addresses in interfaces.items():
             for addr in addresses:
                 if addr.family == socket.AF_INET:  # IPv4
-                    interface_info.append({
-                        "family": "IPv4",
-                        "address": addr.address,
-                        "netmask": addr.netmask,
-                        "broadcast": addr.broadcast
-                    })
+                    network_info["has_ipv4"] = True
                 elif addr.family == socket.AF_INET6:  # IPv6
-                    interface_info.append({
-                        "family": "IPv6",
-                        "address": addr.address,
-                        "netmask": addr.netmask
-                    })
-
-            if interface_info:
-                network_info["interfaces"][interface_name] = interface_info
-
-        # Get network statistics
-        net_io = psutil.net_io_counters()
-        if net_io:
-            network_info["io_counters"] = {
-                "bytes_sent": net_io.bytes_sent,
-                "bytes_recv": net_io.bytes_recv,
-                "packets_sent": net_io.packets_sent,
-                "packets_recv": net_io.packets_recv
-            }
+                    network_info["has_ipv6"] = True
 
     except (AttributeError, OSError):
         network_info["error"] = "Network information collection failed"
@@ -176,39 +152,31 @@ def get_network_info() -> Dict[str, Any]:
 
 
 def get_python_info() -> Dict[str, Any]:
-    """Collect Python environment information."""
+    """Collect Python environment information (safe for public)."""
     return {
-        "version": sys.version,
         "version_info": {
             "major": sys.version_info.major,
             "minor": sys.version_info.minor,
             "micro": sys.version_info.micro,
-            "releaselevel": sys.version_info.releaselevel,
-            "serial": sys.version_info.serial
+            "releaselevel": sys.version_info.releaselevel
         },
-        "executable": sys.executable,
         "platform": sys.platform,
         "implementation": {
             "name": sys.implementation.name,
             "version": f"{sys.implementation.version.major}.{sys.implementation.version.minor}.{sys.implementation.version.micro}"
-        },
-        "path": sys.path[:3]  # First few paths for context
+        }
     }
 
 
 def get_os_info() -> Dict[str, Any]:
-    """Collect operating system information."""
+    """Collect operating system information (safe for public)."""
     os_info = {
         "system": platform.system(),
-        "release": platform.release(),
-        "version": platform.version(),
         "machine": platform.machine(),
-        "processor": platform.processor(),
-        "platform": platform.platform(),
-        "node": platform.node()
+        "architecture": platform.architecture()[0]
     }
 
-    # Add system-specific information
+    # Add system-specific information (public details only)
     try:
         if platform.system() == "Darwin":  # macOS
             result = subprocess.run(
@@ -219,19 +187,25 @@ def get_os_info() -> Dict[str, Any]:
                 for line in result.stdout.strip().split('\n'):
                     if ':' in line:
                         key, value = line.split(':', 1)
-                        macos_info[key.strip()] = value.strip()
-                os_info["macos_details"] = macos_info
+                        # Only include public OS version info
+                        if key.strip() in ['ProductName', 'ProductVersion']:
+                            macos_info[key.strip()] = value.strip()
+                if macos_info:
+                    os_info["macos_details"] = macos_info
 
         elif platform.system() == "Linux":
-            # Try to get distribution info
+            # Try to get distribution info (public details only)
             try:
                 with open('/etc/os-release', 'r') as f:
                     os_release = {}
                     for line in f:
                         if '=' in line:
                             key, value = line.strip().split('=', 1)
-                            os_release[key] = value.strip('"')
-                    os_info["linux_distribution"] = os_release
+                            # Only include public distribution info
+                            if key in ['NAME', 'VERSION', 'ID', 'VERSION_ID']:
+                                os_release[key] = value.strip('"')
+                    if os_release:
+                        os_info["linux_distribution"] = os_release
             except (FileNotFoundError, PermissionError):
                 pass
 
@@ -242,32 +216,24 @@ def get_os_info() -> Dict[str, Any]:
 
 
 def get_process_info() -> Dict[str, Any]:
-    """Collect current process information."""
-    current_process = psutil.Process()
+    """Collect current process information (safe for public)."""
+    try:
+        current_process = psutil.Process()
 
-    return {
-        "pid": current_process.pid,
-        "ppid": current_process.ppid(),
-        "name": current_process.name(),
-        "cpu_percent": current_process.cpu_percent(),
-        "memory_info": {
-            "rss": current_process.memory_info().rss,
-            "vms": current_process.memory_info().vms,
-            "rss_mb": round(current_process.memory_info().rss / (1024**2), 2),
-            "vms_mb": round(current_process.memory_info().vms / (1024**2), 2)
-        },
-        "create_time": current_process.create_time(),
-        "cwd": current_process.cwd()
-    }
+        return {
+            "name": current_process.name(),
+            "memory_usage_mb": round(current_process.memory_info().rss / (1024**2), 2)
+        }
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        return {"error": "Process information not available"}
 
 
 def collect_system_info() -> Dict[str, Any]:
-    """Collect comprehensive system information."""
+    """Collect comprehensive system information (safe for public repositories)."""
     print("Collecting system information...", file=sys.stderr)
 
     system_info = {
         "collection_timestamp": datetime.now().isoformat(),
-        "collection_utc": datetime.utcnow().isoformat() + "Z",
         "os": get_os_info(),
         "cpu": get_cpu_info(),
         "memory": get_memory_info(),
@@ -282,9 +248,9 @@ def collect_system_info() -> Dict[str, Any]:
         if hasattr(os, 'getloadavg'):
             load_avg = os.getloadavg()
             system_info["load_average"] = {
-                "1min": load_avg[0],
-                "5min": load_avg[1],
-                "15min": load_avg[2]
+                "1min": round(load_avg[0], 2),
+                "5min": round(load_avg[1], 2),
+                "15min": round(load_avg[2], 2)
             }
     except (OSError, AttributeError):
         pass
@@ -294,7 +260,7 @@ def collect_system_info() -> Dict[str, Any]:
 
 
 def format_system_info_markdown(system_info: Dict[str, Any]) -> str:
-    """Format system information as Markdown for inclusion in reports."""
+    """Format system information as Markdown for inclusion in reports (public-safe)."""
     md_lines = [
         "## System Information",
         "",
@@ -302,10 +268,8 @@ def format_system_info_markdown(system_info: Dict[str, Any]) -> str:
         "",
         "### Operating System",
         f"- **System**: {system_info['os']['system']}",
-        f"- **Release**: {system_info['os']['release']}",
-        f"- **Version**: {system_info['os']['version']}",
-        f"- **Platform**: {system_info['os']['platform']}",
         f"- **Machine**: {system_info['os']['machine']}",
+        f"- **Architecture**: {system_info['os']['architecture']}",
     ]
 
     # Add macOS specific details
@@ -324,16 +288,13 @@ def format_system_info_markdown(system_info: Dict[str, Any]) -> str:
             "#### Linux Distribution",
         ])
         for key, value in system_info['os']['linux_distribution'].items():
-            if key in ['NAME', 'VERSION', 'ID', 'ID_LIKE', 'VERSION_ID']:
-                md_lines.append(f"- **{key}**: {value}")
+            md_lines.append(f"- **{key}**: {value}")
 
     # CPU Information
     cpu = system_info['cpu']
     md_lines.extend([
         "",
         "### CPU",
-        f"- **Processor**: {cpu.get('processor', 'Unknown')}",
-        f"- **Architecture**: {cpu.get('architecture', 'Unknown')}",
         f"- **Logical Cores**: {cpu.get('cpu_count_logical', 'Unknown')}",
         f"- **Physical Cores**: {cpu.get('cpu_count_physical', 'Unknown')}",
     ])
@@ -370,10 +331,10 @@ def format_system_info_markdown(system_info: Dict[str, Any]) -> str:
         disk = system_info['disk']
         md_lines.extend([
             "",
-            "### Disk",
+            "### Storage",
             f"- **Total Space**: {disk['total_gb']} GB",
             f"- **Free Space**: {disk['free_gb']} GB",
-            f"- **Used Space**: {disk['used_gb']} GB ({disk['percent_used']:.1f}%)",
+            f"- **Used**: {disk['percent_used']:.1f}%",
         ])
 
     # Python Information
@@ -383,8 +344,19 @@ def format_system_info_markdown(system_info: Dict[str, Any]) -> str:
         "### Python Environment",
         f"- **Python Version**: {python['version_info']['major']}.{python['version_info']['minor']}.{python['version_info']['micro']}",
         f"- **Implementation**: {python['implementation']['name']} {python['implementation']['version']}",
-        f"- **Executable**: {python['executable']}",
+        f"- **Platform**: {python['platform']}",
     ])
+
+    # Network Information
+    if 'error' not in system_info['network']:
+        network = system_info['network']
+        md_lines.extend([
+            "",
+            "### Network",
+            f"- **Interface Count**: {network['interface_count']}",
+            f"- **IPv4 Support**: {'Yes' if network['has_ipv4'] else 'No'}",
+            f"- **IPv6 Support**: {'Yes' if network['has_ipv6'] else 'No'}",
+        ])
 
     # Load averages (Unix systems)
     if 'load_average' in system_info:
@@ -392,9 +364,9 @@ def format_system_info_markdown(system_info: Dict[str, Any]) -> str:
         md_lines.extend([
             "",
             "### System Load",
-            f"- **1 minute**: {load['1min']:.2f}",
-            f"- **5 minutes**: {load['5min']:.2f}",
-            f"- **15 minutes**: {load['15min']:.2f}",
+            f"- **1 minute**: {load['1min']}",
+            f"- **5 minutes**: {load['5min']}",
+            f"- **15 minutes**: {load['15min']}",
         ])
 
     return "\n".join(md_lines)

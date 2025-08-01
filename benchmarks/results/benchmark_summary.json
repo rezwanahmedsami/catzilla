@@ -1,146 +1,88 @@
 {
-  "benchmark_info": {
-    "timestamp": "2025-08-01T05:11:17.852877Z",
-    "duration": "10s",
-    "connections": 100,
+  "category": "dependency_injection",
+  "timestamp": "2025-08-02T01:44:44.621966",
+  "test_params": {
     "threads": 4,
-    "tool": "wrk",
-    "system": "feature_based"
+    "connections": 100,
+    "duration": 10,
+    "timeout": 10
   },
-  "categories_tested": [
-    "basic"
-  ],
-  "total_results": 10,
-  "results": [
-    {
-      "framework": "catzilla",
-      "category": "basic",
-      "endpoint": "/",
-      "endpoint_name": "hello_world",
-      "method": "GET",
-      "duration": "10s",
-      "connections": 100,
-      "threads": 4,
-      "timestamp": "2025-08-01T05:10:36.888238Z",
-      "requests_per_sec": "14162.83",
-      "transfer_per_sec": "1.36MB"
+  "system_info": {
+    "collection_timestamp": "2025-08-02T01:44:44.622005",
+    "os": {
+      "system": "Darwin",
+      "machine": "x86_64",
+      "architecture": "64bit",
+      "macos_details": {
+        "ProductName": "macOS",
+        "ProductVersion": "15.5"
+      }
     },
-    {
-      "framework": "catzilla",
-      "category": "basic",
-      "endpoint": "/json",
-      "endpoint_name": "json_response",
-      "method": "GET",
-      "duration": "10s",
-      "connections": 100,
-      "threads": 4,
-      "timestamp": "2025-08-01T05:10:47.022037Z",
-      "requests_per_sec": "10159.65",
-      "transfer_per_sec": "1.50MB"
+    "cpu": {
+      "processor": "i386",
+      "machine": "x86_64",
+      "architecture": "64bit",
+      "cpu_count_logical": 8,
+      "cpu_count_physical": 4,
+      "cpu_freq": {
+        "current": 1100,
+        "min": 1100,
+        "max": 1100
+      },
+      "model": "Quad-Core Intel Core i5",
+      "speed": "1.1 GHz",
+      "processors": "1",
+      "total_cores": "4"
     },
-    {
-      "framework": "catzilla",
-      "category": "basic",
-      "endpoint": "/user/42",
-      "endpoint_name": "path_params",
-      "method": "GET",
-      "duration": "10s",
-      "connections": 100,
-      "threads": 4,
-      "timestamp": "2025-08-01T05:10:57.094822Z",
-      "requests_per_sec": "8400.39",
-      "transfer_per_sec": "1.57MB"
+    "memory": {
+      "total": 8589934592,
+      "available": 2439483392,
+      "used": 4854403072,
+      "free": 71131136,
+      "percent_used": 71.6,
+      "total_gb": 8.0,
+      "available_gb": 2.27,
+      "used_gb": 4.52,
+      "swap": {
+        "total": 2147483648,
+        "used": 1636564992,
+        "free": 510918656,
+        "percent": 76.2,
+        "total_gb": 2.0
+      }
     },
-    {
-      "framework": "catzilla",
-      "category": "basic",
-      "endpoint": "/users?limit=20&offset=10",
-      "endpoint_name": "query_params",
-      "method": "GET",
-      "duration": "10s",
-      "connections": 100,
-      "threads": 4,
-      "timestamp": "2025-08-01T05:11:07.164510Z",
-      "requests_per_sec": "5700.14",
-      "transfer_per_sec": "7.55MB"
+    "disk": {
+      "total_gb": 418.16,
+      "free_gb": 14.5,
+      "percent_used": 92.63
     },
-    {
-      "framework": "catzilla",
-      "category": "basic",
-      "endpoint": "/user/123/profile",
-      "endpoint_name": "complex_json",
-      "method": "GET",
-      "duration": "10s",
-      "connections": 100,
-      "threads": 4,
-      "timestamp": "2025-08-01T05:11:17.312725Z",
-      "requests_per_sec": "6875.67",
-      "transfer_per_sec": "3.10MB"
+    "network": {
+      "interface_count": 13,
+      "has_ipv4": true,
+      "has_ipv6": true
     },
-    {
-      "framework": "catzilla",
-      "category": "basic",
-      "endpoint": "/",
-      "endpoint_name": "hello_world",
-      "method": "GET",
-      "duration": "10s",
-      "connections": 100,
-      "threads": 4,
-      "timestamp": "2025-08-01T05:10:36.888238Z",
-      "requests_per_sec": "14162.83",
-      "transfer_per_sec": "1.36MB"
+    "python": {
+      "version_info": {
+        "major": 3,
+        "minor": 10,
+        "micro": 11,
+        "releaselevel": "final"
+      },
+      "platform": "darwin",
+      "implementation": {
+        "name": "cpython",
+        "version": "3.10.11"
+      }
     },
-    {
-      "framework": "catzilla",
-      "category": "basic",
-      "endpoint": "/json",
-      "endpoint_name": "json_response",
-      "method": "GET",
-      "duration": "10s",
-      "connections": 100,
-      "threads": 4,
-      "timestamp": "2025-08-01T05:10:47.022037Z",
-      "requests_per_sec": "10159.65",
-      "transfer_per_sec": "1.50MB"
+    "process": {
+      "name": "Python",
+      "memory_usage_mb": 14.4
     },
-    {
-      "framework": "catzilla",
-      "category": "basic",
-      "endpoint": "/user/42",
-      "endpoint_name": "path_params",
-      "method": "GET",
-      "duration": "10s",
-      "connections": 100,
-      "threads": 4,
-      "timestamp": "2025-08-01T05:10:57.094822Z",
-      "requests_per_sec": "8400.39",
-      "transfer_per_sec": "1.57MB"
-    },
-    {
-      "framework": "catzilla",
-      "category": "basic",
-      "endpoint": "/users?limit=20&offset=10",
-      "endpoint_name": "query_params",
-      "method": "GET",
-      "duration": "10s",
-      "connections": 100,
-      "threads": 4,
-      "timestamp": "2025-08-01T05:11:07.164510Z",
-      "requests_per_sec": "5700.14",
-      "transfer_per_sec": "7.55MB"
-    },
-    {
-      "framework": "catzilla",
-      "category": "basic",
-      "endpoint": "/user/123/profile",
-      "endpoint_name": "complex_json",
-      "method": "GET",
-      "duration": "10s",
-      "connections": 100,
-      "threads": 4,
-      "timestamp": "2025-08-01T05:11:17.312725Z",
-      "requests_per_sec": "6875.67",
-      "transfer_per_sec": "3.10MB"
+    "load_average": {
+      "1min": 2.47,
+      "5min": 2.55,
+      "15min": 2.58
     }
-  ]
+  },
+  "frameworks": {}
 }

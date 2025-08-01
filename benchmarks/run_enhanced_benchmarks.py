@@ -33,13 +33,32 @@ import yaml
 # Add shared modules to path
 SCRIPT_DIR = Path(__file__).parent
 SHARED_DIR = SCRIPT_DIR / "shared"
+TOOLS_DIR = SCRIPT_DIR / "tools"
 sys.path.insert(0, str(SHARED_DIR))
+sys.path.insert(0, str(TOOLS_DIR))
 
 # Import shared utilities
 from benchmarks_config import (
     FRAMEWORKS, SERVER_CONFIGS, DEFAULT_TEST_PARAMS,
     get_framework_port, get_server_command
 )
+
+# Import system information collection
+try:
+    import os
+    import sys
+    # Add tools directory to path with absolute path
+    tools_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tools')
+    if tools_dir not in sys.path:
+        sys.path.insert(0, tools_dir)
+    from system_info import collect_system_info, format_system_info_markdown
+    print("System info module loaded successfully")
+except ImportError as e:
+    print(f"Warning: system_info module not found ({e}). System information will not be included in reports.")
+    def collect_system_info():
+        return {"error": "system_info module not available"}
+    def format_system_info_markdown(info):
+        return "## System Information\n\nSystem information not available."
 
 
 class EnhancedBenchmarkRunner:
@@ -360,6 +379,7 @@ end
             "category": category,
             "timestamp": datetime.now().isoformat(),
             "test_params": test_params,
+            "system_info": collect_system_info(),
             "frameworks": {}
         }
 
@@ -395,12 +415,18 @@ end
                 self.stop_server(process)
                 time.sleep(2)
 
-        # Save results
-        results_file = self.output_dir / f"{category}_results_{int(time.time())}.json"
+        # Save results with clean filename
+        results_file = self.output_dir / f"{category}_results.json"
         with open(results_file, 'w') as f:
             json.dump(category_results, f, indent=2)
 
         print(f"Results saved to {results_file}")
+
+        # Also save as benchmark_summary.json for the main category
+        summary_file = self.output_dir / "benchmark_summary.json"
+        with open(summary_file, 'w') as f:
+            json.dump(category_results, f, indent=2)
+
         return category_results
 
     def run_all_benchmarks(self, frameworks: List[str] = None,
@@ -426,6 +452,7 @@ end
             "frameworks": frameworks,
             "categories": categories,
             "test_params": test_params,
+            "system_info": collect_system_info(),
             "results": {}
         }
 
@@ -440,59 +467,102 @@ end
                 print(f"Error running {category} benchmarks: {e}")
                 all_results["results"][category] = {"error": str(e)}
 
-        # Save comprehensive results
-        results_file = self.output_dir / f"comprehensive_results_{int(time.time())}.json"
+        # Save comprehensive results with clean filename
+        results_file = self.output_dir / "comprehensive_results.json"
         with open(results_file, 'w') as f:
             json.dump(all_results, f, indent=2)
 
+        # Always save the main benchmark_summary.json
+        summary_file = self.output_dir / "benchmark_summary.json"
+        with open(summary_file, 'w') as f:
+            json.dump(all_results, f, indent=2)
+
         print(f"\nComprehensive results saved to {results_file}")
+        print(f"Benchmark summary saved to {summary_file}")
         return all_results
 
     def generate_performance_report(self, results: Dict[str, Any]) -> str:
-        """Generate a performance comparison report"""
+        """Generate a performance comparison report with system information"""
         report = []
         report.append("# Catzilla Framework Benchmark Report")
         report.append(f"Generated: {results['timestamp']}")
-        report.append(f"Test Parameters: {results['test_params']}")
+
+        # Handle both single category and comprehensive results
+        if "test_params" in results:
+            report.append(f"Test Parameters: {results['test_params']}")
         report.append("")
+
+        # Add system information
+        if "system_info" in results:
+            system_md = format_system_info_markdown(results["system_info"])
+            report.append(system_md)
+            report.append("")
 
         # Summary table
         report.append("## Performance Summary")
         report.append("")
 
-        for category, category_results in results["results"].items():
-            if "error" in category_results:
-                continue
-
+        # Handle single category results (when running specific category)
+        if "category" in results and "frameworks" in results:
+            category = results["category"]
             report.append(f"### {category.title()} Category")
             report.append("")
 
-            # Create comparison table
-            frameworks = category_results.get("frameworks", {})
-            if not frameworks:
-                continue
+            # Process endpoints for single category
+            frameworks_data = results["frameworks"]
+            if frameworks_data:
+                # Get all endpoints from all frameworks
+                all_endpoints = set()
+                for fw_results in frameworks_data.values():
+                    all_endpoints.update(fw_results.get("endpoints", {}).keys())
 
-            # Get all endpoints
-            all_endpoints = set()
-            for fw_results in frameworks.values():
-                all_endpoints.update(fw_results.get("endpoints", {}).keys())
+                for endpoint in sorted(all_endpoints):
+                    report.append(f"#### Endpoint: {endpoint}")
+                    report.append("")
+                    report.append("| Framework | Requests/sec | Avg Latency | 99th Percentile |")
+                    report.append("|-----------|--------------|-------------|-----------------|")
 
-            for endpoint in sorted(all_endpoints):
-                report.append(f"#### Endpoint: {endpoint}")
+                    # Add data for each framework
+                    for framework, framework_data in frameworks_data.items():
+                        endpoint_results = framework_data.get("endpoints", {}).get(endpoint, {})
+                        rps = endpoint_results.get("requests_per_second", "N/A")
+                        avg_lat = endpoint_results.get("latency_avg", "N/A")
+                        p99_lat = endpoint_results.get("latency_99p", "N/A")
+                        report.append(f"| {framework} | {rps} | {avg_lat} | {p99_lat} |")
+
+                    report.append("")
+
+        # Handle comprehensive results (when running all categories)
+        elif "results" in results:
+            for category, category_results in results["results"].items():
+                if "error" in category_results:
+                    continue
+
+                report.append(f"### {category.title()} Category")
                 report.append("")
-                report.append("| Framework | Requests/sec | Avg Latency | 99th Percentile |")
-                report.append("|-----------|--------------|-------------|-----------------|")
 
-                for framework, fw_results in frameworks.items():
-                    endpoint_results = fw_results.get("endpoints", {}).get(endpoint, {})
+                frameworks_data = category_results.get("frameworks", {})
+                if frameworks_data:
+                    # Get all endpoints from all frameworks
+                    all_endpoints = set()
+                    for fw_results in frameworks_data.values():
+                        all_endpoints.update(fw_results.get("endpoints", {}).keys())
 
-                    rps = endpoint_results.get("requests_per_second", "N/A")
-                    avg_lat = endpoint_results.get("latency_avg", "N/A")
-                    p99_lat = endpoint_results.get("latency_99p", "N/A")
+                    for endpoint in sorted(all_endpoints):
+                        report.append(f"#### Endpoint: {endpoint}")
+                        report.append("")
+                        report.append("| Framework | Requests/sec | Avg Latency | 99th Percentile |")
+                        report.append("|-----------|--------------|-------------|-----------------|")
 
-                    report.append(f"| {framework} | {rps} | {avg_lat} | {p99_lat} |")
+                        # Add data for each framework
+                        for framework, framework_data in frameworks_data.items():
+                            endpoint_results = framework_data.get("endpoints", {}).get(endpoint, {})
+                            rps = endpoint_results.get("requests_per_second", "N/A")
+                            avg_lat = endpoint_results.get("latency_avg", "N/A")
+                            p99_lat = endpoint_results.get("latency_99p", "N/A")
+                            report.append(f"| {framework} | {rps} | {avg_lat} | {p99_lat} |")
 
-                report.append("")
+                        report.append("")
 
         return "\n".join(report)
 
@@ -535,13 +605,20 @@ def main():
             args.frameworks, None, test_params
         )
 
-    # Generate report if requested
-    if args.report and "results" in results:
+    # Always generate performance report
+    if "results" in results or "category" in results:
         report = runner.generate_performance_report(results)
-        report_file = runner.output_dir / f"performance_report_{int(time.time())}.md"
+        report_file = runner.output_dir / "benchmark_summary.md"
         with open(report_file, 'w') as f:
             f.write(report)
         print(f"Performance report saved to {report_file}")
+
+    # Also generate additional detailed report if requested
+    if args.report and ("results" in results or "category" in results):
+        detailed_report_file = runner.output_dir / "performance_report_detailed.md"
+        with open(detailed_report_file, 'w') as f:
+            f.write(report)
+        print(f"Detailed performance report saved to {detailed_report_file}")
 
 
 if __name__ == "__main__":

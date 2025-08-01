@@ -366,6 +366,21 @@ cleanup_servers() {
             fi
         fi
     done
+
+    # Clean up temporary Lua scripts
+    cleanup_lua_files
+}
+
+# Function to clean up temporary Lua scripts
+cleanup_lua_files() {
+    # Only clean up Lua files from results directory (temporary files)
+    if [ -d "$RESULTS_DIR" ]; then
+        local lua_count=$(find "$RESULTS_DIR" -name "*.lua" -type f 2>/dev/null | wc -l)
+        if [ "$lua_count" -gt 0 ]; then
+            print_status "Cleaning up $lua_count temporary Lua script(s) from results directory..."
+            find "$RESULTS_DIR" -name "*.lua" -type f -delete 2>/dev/null || true
+        fi
+    fi
 }
 
 # Function to generate summary report

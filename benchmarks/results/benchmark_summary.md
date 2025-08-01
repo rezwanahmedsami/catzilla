@@ -1,18 +1,55 @@
-# Catzilla Performance Benchmark Results
+# Catzilla Framework Benchmark Report
+Generated: 2025-08-02T01:44:44.621966
+Test Parameters: {'threads': 4, 'connections': 100, 'duration': 10, 'timeout': 10}
 
-## Test Configuration
-- **Duration**: 5s
-- **Connections**: 50
-- **Threads**: 4
-- **Tool**: wrk
-- **Date**: Fri Aug  1 11:04:43 +06 2025
+## System Information
 
-## Performance Results
+**Collection Time**: 2025-08-02T01:44:44.622005
 
-| Framework | Endpoint | Requests/sec | Avg Latency | 99% Latency |
-|-----------|----------|--------------|-------------|-------------|
-| catzilla | complex_json | 7682.35 | 6.52ms | 12.70ms |
-| catzilla | hello_world | 13371.91 | 4.05ms | 26.08ms |
-| catzilla | json_response | 11089.68 | 4.44ms | 8.30ms |
-| catzilla | path_params | 8999.50 | 5.48ms | 10.03ms |
-| catzilla | query_params | 6318.87 | 7.96ms | 16.11ms |
+### Operating System
+- **System**: Darwin
+- **Machine**: x86_64
+- **Architecture**: 64bit
+
+#### macOS Details
+- **ProductName**: macOS
+- **ProductVersion**: 15.5
+
+### CPU
+- **Logical Cores**: 8
+- **Physical Cores**: 4
+- **Model**: Quad-Core Intel Core i5
+- **Speed**: 1.1 GHz
+- **Current Frequency**: 1100 MHz
+- **Max Frequency**: 1100 MHz
+
+### Memory
+- **Total RAM**: 8.0 GB
+- **Available RAM**: 2.27 GB
+- **Used RAM**: 4.52 GB (71.6%)
+- **Total Swap**: 2.0 GB
+- **Used Swap**: 76.2%
+
+### Storage
+- **Total Space**: 418.16 GB
+- **Free Space**: 14.5 GB
+- **Used**: 92.6%
+
+### Python Environment
+- **Python Version**: 3.10.11
+- **Implementation**: cpython 3.10.11
+- **Platform**: darwin
+
+### Network
+- **Interface Count**: 13
+- **IPv4 Support**: Yes
+- **IPv6 Support**: Yes
+
+### System Load
+- **1 minute**: 2.47
+- **5 minutes**: 2.55
+- **15 minutes**: 2.58
+
+## Performance Summary
+
+### Dependency_Injection Category

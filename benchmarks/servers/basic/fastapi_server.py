@@ -12,8 +12,9 @@ import json
 import time
 from typing import Dict, Any, Optional, List
 
-# Import shared endpoints
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+# Import shared endpoints - use absolute path to avoid import issues
+shared_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
+sys.path.insert(0, shared_dir)
 from shared_endpoints import get_benchmark_endpoints, DEFAULT_JSON_PAYLOAD
 
 try:
