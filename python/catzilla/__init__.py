@@ -28,6 +28,13 @@ App = Catzilla
 
 # Auto-validation system (FastAPI-style with 20x performance)
 from .auto_validation import Form, Header, Path, Query, create_auto_validated_handler
+from .cache_middleware import (
+    ConditionalCacheMiddleware,
+    SmartCacheMiddleware,
+    create_api_cache_middleware,
+    create_page_cache_middleware,
+    create_static_cache_middleware,
+)
 from .decorators import Depends, auto_inject, depends, inject, scoped, service
 
 # Revolutionary Dependency Injection System
@@ -102,6 +109,10 @@ from .scope import (
     session_scope,
 )
 
+# Revolutionary Smart Cache System (Multi-level C-accelerated caching)
+# Revolutionary Smart Cache System
+from .smart_cache import SmartCache, SmartCacheConfig, cached, get_cache, reset_cache
+
 # Streaming and WebSocket support
 from .streaming import StreamingResponse, StreamingWriter, stream_template
 from .types import HTMLResponse, JSONResponse, Request, Response
@@ -135,6 +146,11 @@ __all__ = [
     "ResponseBuilder",
     "Router",
     "RouterGroup",
+    # Revolutionary Smart Cache System
+    "SmartCache",
+    "SmartCacheConfig",
+    "cached",
+    "get_cache",
     # Revolutionary File Upload System (C-native performance)
     "CatzillaUploadFile",
     "File",
@@ -209,6 +225,17 @@ __all__ = [
     "session_scope",
     "ScopedDIContainer",
     "scoped_service",
+    # Revolutionary Smart Cache System
+    "SmartCache",
+    "SmartCacheConfig",
+    "cached",
+    "get_cache",
+    "reset_cache",
+    "SmartCacheMiddleware",
+    "ConditionalCacheMiddleware",
+    "create_api_cache_middleware",
+    "create_static_cache_middleware",
+    "create_page_cache_middleware",
     # Factory System
     "ServiceFactoryProtocol",
     "ClassFactory",

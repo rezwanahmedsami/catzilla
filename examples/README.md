@@ -47,7 +47,16 @@ Service management and dependency patterns.
 | **`scoped_services.py`** | Service scoping and lifecycle management | Singleton services, request-scoped services, service lifetimes |
 | **`factories.py`** | Dynamic service factories and providers | Factory patterns, service providers, dynamic configuration |
 
-### 🔗 Middleware Examples (`middleware/`)
+### �️ Cache Examples (`cache/`)
+Smart caching system with multi-level storage.
+
+| File | Description | Key Features |
+|------|-------------|--------------|
+| **`basic_cache_example.py`** | Basic Smart Cache usage and function caching | @cached decorator, direct cache operations, TTL management, statistics |
+| **`smart_cache_example.py`** | Advanced multi-level caching with middleware | Memory/Redis/Disk caching, cache middleware, conditional rules, monitoring |
+| **`cache_configurations.py`** | Different cache configuration patterns | Memory-only, persistent, distributed configs, performance comparison |
+
+### �🔗 Middleware Examples (`middleware/`)
 Request/response processing middleware.
 
 | File | Description | Key Features |

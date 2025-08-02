@@ -10,13 +10,13 @@ import time
 from datetime import datetime
 from typing import Dict, List, Any
 
-from python.catzilla.app import Catzilla
-from python.catzilla.smart_cache import SmartCache, SmartCacheConfig, cached
-from python.catzilla.cache_middleware import (
+from catzilla.app import Catzilla
+from catzilla.smart_cache import SmartCache, SmartCacheConfig, cached
+from catzilla.cache_middleware import (
     SmartCacheMiddleware, ConditionalCacheMiddleware,
     create_api_cache_middleware, create_static_cache_middleware
 )
-from python.catzilla.response import JSONResponse, PlainTextResponse, HTMLResponse
+from catzilla.response import JSONResponse, PlainTextResponse, HTMLResponse
 
 
 # ============================================================================
