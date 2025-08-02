@@ -1,55 +1,47 @@
-# Catzilla Framework Benchmark Report
-Generated: 2025-08-02T01:44:44.621966
-Test Parameters: {'threads': 4, 'connections': 100, 'duration': 10, 'timeout': 10}
+# Catzilla Performance Benchmark Results
 
-## System Information
+## Test Configuration
+- **Duration**: 5s
+- **Connections**: 50
+- **Threads**: 4
+- **Tool**: wrk
+- **Date**: Sat Aug  2 17:08:21 +06 2025
 
-**Collection Time**: 2025-08-02T01:44:44.622005
+## Performance Results
 
-### Operating System
-- **System**: Darwin
-- **Machine**: x86_64
-- **Architecture**: 64bit
-
-#### macOS Details
-- **ProductName**: macOS
-- **ProductVersion**: 15.5
-
-### CPU
-- **Logical Cores**: 8
-- **Physical Cores**: 4
-- **Model**: Quad-Core Intel Core i5
-- **Speed**: 1.1 GHz
-- **Current Frequency**: 1100 MHz
-- **Max Frequency**: 1100 MHz
-
-### Memory
-- **Total RAM**: 8.0 GB
-- **Available RAM**: 2.27 GB
-- **Used RAM**: 4.52 GB (71.6%)
-- **Total Swap**: 2.0 GB
-- **Used Swap**: 76.2%
-
-### Storage
-- **Total Space**: 418.16 GB
-- **Free Space**: 14.5 GB
-- **Used**: 92.6%
-
-### Python Environment
-- **Python Version**: 3.10.11
-- **Implementation**: cpython 3.10.11
-- **Platform**: darwin
-
-### Network
-- **Interface Count**: 13
-- **IPv4 Support**: Yes
-- **IPv6 Support**: Yes
-
-### System Load
-- **1 minute**: 2.47
-- **5 minutes**: 2.55
-- **15 minutes**: 2.58
-
-## Performance Summary
-
-### Dependency_Injection Category
+| Framework | Endpoint | Requests/sec | Avg Latency | 99% Latency |
+|-----------|----------|--------------|-------------|-------------|
+| catzilla
+fastapi
+flask
+django |  |  |  |  |
+| catzilla | sqlalchemy-di_complex_db_operations | 12770.11 | 3.81ms | 7.29ms |
+| catzilla | sqlalchemy-di_complex_di_chain | 12664.09 | 3.87ms | 7.78ms |
+| catzilla | sqlalchemy-di_db_posts_list | 11771.53 | 6.68ms | 90.69ms |
+| catzilla | sqlalchemy-di_db_user_detail | 13366.57 | 3.64ms | 6.90ms |
+| catzilla | sqlalchemy-di_db_users_list | 14257.25 | 3.43ms | 6.47ms |
+| catzilla | sqlalchemy-di_health_check | 943.16 | 71.12ms | 725.43ms |
+| catzilla | sqlalchemy-di_simple_di | 16751.77 | 2.91ms | 5.23ms |
+| catzilla | sqlalchemy-di_transient_di | 15327.43 | 3.19ms | 5.91ms |
+|  |  |  |  |  |
+| fastapi | sqlalchemy-di_complex_db_operations | 2435.56 | 19.39ms | 28.49ms |
+| fastapi | sqlalchemy-di_complex_di_chain | 2465.88 | 19.41ms | 26.89ms |
+| fastapi | sqlalchemy-di_db_posts_list | 2471.84 | 19.11ms | 27.97ms |
+| fastapi | sqlalchemy-di_db_user_detail | 2375.15 | 21.03ms | 86.68ms |
+| fastapi | sqlalchemy-di_db_users_list | 2473.63 | 19.34ms | 29.30ms |
+| fastapi | sqlalchemy-di_health_check | 482.63 | 98.11ms | 144.78ms |
+| fastapi | sqlalchemy-di_simple_di | 2584.34 | 18.44ms | 27.11ms |
+| fastapi | sqlalchemy-di_transient_di | 2401.14 | 19.62ms | 30.22ms |
+| flask | sqlalchemy-di_complex_db_operations | 152.08 | 67.08ms | 92.64ms |
+| flask | sqlalchemy-di_complex_di_chain | 864.07 | 55.03ms | 79.55ms |
+| flask | sqlalchemy-di_db_posts_list | 732.08 | 64.96ms | 101.01ms |
+| flask | sqlalchemy-di_db_user_detail | 746.80 | 67.05ms | 278.60ms |
+| flask | sqlalchemy-di_db_users_list | 64.74 | 52.79ms | 72.47ms |
+| flask | sqlalchemy-di_health_check | 316.20 | 150.69ms | 365.16ms |
+| flask | sqlalchemy-di_simple_di | 749.23 | 63.50ms | 115.01ms |
+| flask | sqlalchemy-di_transient_di | 741.84 | 64.09ms | 93.75ms |
+| django |  |  |  |  |
+| catzilla
+fastapi
+flask
+django |  |  |  |  |

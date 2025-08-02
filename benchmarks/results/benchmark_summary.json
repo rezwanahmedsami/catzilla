@@ -1,88 +1,1911 @@
 {
-  "category": "dependency_injection",
-  "timestamp": "2025-08-02T01:44:44.621966",
-  "test_params": {
+  "benchmark_info": {
+    "timestamp": "2025-08-02T17:08:21+06:00",
+    "duration": "5s",
+    "connections": 50,
     "threads": 4,
-    "connections": 100,
-    "duration": 10,
-    "timeout": 10
+    "tool": "wrk"
   },
-  "system_info": {
-    "collection_timestamp": "2025-08-02T01:44:44.622005",
-    "os": {
-      "system": "Darwin",
-      "machine": "x86_64",
-      "architecture": "64bit",
-      "macos_details": {
-        "ProductName": "macOS",
-        "ProductVersion": "15.5"
-      }
-    },
-    "cpu": {
-      "processor": "i386",
-      "machine": "x86_64",
-      "architecture": "64bit",
-      "cpu_count_logical": 8,
-      "cpu_count_physical": 4,
-      "cpu_freq": {
-        "current": 1100,
-        "min": 1100,
-        "max": 1100
+  "results": [
+    {
+      "category": "basic",
+      "timestamp": "2025-08-02T01:34:53.915253",
+      "test_params": {
+        "threads": 4,
+        "connections": 100,
+        "duration": 10,
+        "timeout": 10
       },
-      "model": "Quad-Core Intel Core i5",
-      "speed": "1.1 GHz",
-      "processors": "1",
-      "total_cores": "4"
-    },
-    "memory": {
-      "total": 8589934592,
-      "available": 2439483392,
-      "used": 4854403072,
-      "free": 71131136,
-      "percent_used": 71.6,
-      "total_gb": 8.0,
-      "available_gb": 2.27,
-      "used_gb": 4.52,
-      "swap": {
-        "total": 2147483648,
-        "used": 1636564992,
-        "free": 510918656,
-        "percent": 76.2,
-        "total_gb": 2.0
-      }
-    },
-    "disk": {
-      "total_gb": 418.16,
-      "free_gb": 14.5,
-      "percent_used": 92.63
-    },
-    "network": {
-      "interface_count": 13,
-      "has_ipv4": true,
-      "has_ipv6": true
-    },
-    "python": {
-      "version_info": {
-        "major": 3,
-        "minor": 10,
-        "micro": 11,
-        "releaselevel": "final"
+      "system_info": {
+        "collection_timestamp": "2025-08-02T01:34:53.915299",
+        "os": {
+          "system": "Darwin",
+          "machine": "x86_64",
+          "architecture": "64bit",
+          "macos_details": {
+            "ProductName": "macOS",
+            "ProductVersion": "15.5"
+          }
+        },
+        "cpu": {
+          "processor": "i386",
+          "machine": "x86_64",
+          "architecture": "64bit",
+          "cpu_count_logical": 8,
+          "cpu_count_physical": 4,
+          "cpu_freq": {
+            "current": 1100,
+            "min": 1100,
+            "max": 1100
+          },
+          "model": "Quad-Core Intel Core i5",
+          "speed": "1.1 GHz",
+          "processors": "1",
+          "total_cores": "4"
+        },
+        "memory": {
+          "total": 8589934592,
+          "available": 2956898304,
+          "used": 4817895424,
+          "free": 667262976,
+          "percent_used": 65.6,
+          "total_gb": 8.0,
+          "available_gb": 2.75,
+          "used_gb": 4.49,
+          "swap": {
+            "total": 3221225472,
+            "used": 1567883264,
+            "free": 1653342208,
+            "percent": 48.7,
+            "total_gb": 3.0
+          }
+        },
+        "disk": {
+          "total_gb": 418.16,
+          "free_gb": 13.53,
+          "percent_used": 92.62
+        },
+        "network": {
+          "interface_count": 13,
+          "has_ipv4": true,
+          "has_ipv6": true
+        },
+        "python": {
+          "version_info": {
+            "major": 3,
+            "minor": 10,
+            "micro": 11,
+            "releaselevel": "final"
+          },
+          "platform": "darwin",
+          "implementation": {
+            "name": "cpython",
+            "version": "3.10.11"
+          }
+        },
+        "process": {
+          "name": "Python",
+          "memory_usage_mb": 14.59
+        },
+        "load_average": {
+          "1min": 2.62,
+          "5min": 2.78,
+          "15min": 2.67
+        }
       },
-      "platform": "darwin",
-      "implementation": {
-        "name": "cpython",
-        "version": "3.10.11"
+      "frameworks": {
+        "catzilla": {
+          "framework": "catzilla",
+          "category": "basic",
+          "timestamp": "2025-08-02T01:35:02.464658",
+          "test_params": {
+            "threads": 4,
+            "connections": 100,
+            "duration": 10,
+            "timeout": 10
+          },
+          "endpoints": {
+            "/": {
+              "latency_avg": "9.27ms",
+              "latency_stdev": "10.83ms",
+              "latency_max": "307.86ms",
+              "total_requests": 118445,
+              "duration": "in",
+              "total_bytes": "11.41MB",
+              "requests_per_second": 11723.34,
+              "transfer_per_second": "1.13MB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8000/"
+            },
+            "/health": {
+              "latency_avg": "15.68ms",
+              "latency_stdev": "26.45ms",
+              "latency_max": "397.63ms",
+              "total_requests": 88486,
+              "duration": "in",
+              "total_bytes": "18.82MB",
+              "requests_per_second": 8806.54,
+              "transfer_per_second": "1.87MB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8000/health"
+            },
+            "/json": {
+              "latency_avg": "16.99ms",
+              "latency_stdev": "21.22ms",
+              "latency_max": "501.52ms",
+              "total_requests": 67927,
+              "duration": "in",
+              "total_bytes": "10.04MB",
+              "requests_per_second": 6761.83,
+              "transfer_per_second": "1.00MB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8000/json"
+            },
+            "/user/42": {
+              "latency_avg": "14.65ms",
+              "latency_stdev": "21.25ms",
+              "latency_max": "450.22ms",
+              "total_requests": 82935,
+              "duration": "in",
+              "total_bytes": "15.50MB",
+              "requests_per_second": 8266.92,
+              "transfer_per_second": "1.55MB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8000/user/42"
+            },
+            "/users?limit=20&offset=10": {
+              "latency_avg": "19.73ms",
+              "latency_stdev": "33.36ms",
+              "latency_max": "652.79ms",
+              "total_requests": 60925,
+              "duration": "in",
+              "total_bytes": "80.70MB",
+              "requests_per_second": 6088.47,
+              "transfer_per_second": "8.07MB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8000/users?limit=20&offset=10"
+            },
+            "/user/123/profile": {
+              "latency_avg": "15.34ms",
+              "latency_stdev": "25.76ms",
+              "latency_max": "562.63ms",
+              "total_requests": 77751,
+              "duration": "in",
+              "total_bytes": "35.01MB",
+              "requests_per_second": 7696.51,
+              "transfer_per_second": "3.47MB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8000/user/123/profile"
+            },
+            "/echo": {
+              "latency_avg": "13.71ms",
+              "latency_stdev": "21.31ms",
+              "latency_max": "485.77ms",
+              "total_requests": 84374,
+              "duration": "in",
+              "total_bytes": "11.91MB",
+              "requests_per_second": 8350.89,
+              "transfer_per_second": "1.18MB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/catzilla_basic__echo.lua http://127.0.0.1:8000"
+            },
+            "/validate/user": {
+              "latency_avg": "23.09ms",
+              "latency_stdev": "39.73ms",
+              "latency_max": "727.33ms",
+              "total_requests": 54691,
+              "duration": "in",
+              "total_bytes": "20.76MB",
+              "requests_per_second": 5462.89,
+              "transfer_per_second": "2.07MB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/catzilla_basic__validate_user.lua http://127.0.0.1:8000"
+            },
+            "/validate/product": {
+              "latency_avg": "22.01ms",
+              "latency_stdev": "39.38ms",
+              "latency_max": "736.31ms",
+              "total_requests": 56930,
+              "duration": "in",
+              "total_bytes": "23.78MB",
+              "requests_per_second": 5671.15,
+              "transfer_per_second": "2.37MB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/catzilla_basic__validate_product.lua http://127.0.0.1:8000"
+            },
+            "/search/validate?query=performance&limit=20&offset=0&sort_by=relevance": {
+              "latency_avg": "19.30ms",
+              "latency_stdev": "33.01ms",
+              "latency_max": "649.85ms",
+              "total_requests": 62821,
+              "duration": "in",
+              "total_bytes": "18.03MB",
+              "requests_per_second": 6217.5,
+              "transfer_per_second": "1.78MB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8000/search/validate?query=performance&limit=20&offset=0&sort_by=relevance"
+            }
+          }
+        },
+        "fastapi": {
+          "framework": "fastapi",
+          "category": "basic",
+          "timestamp": "2025-08-02T01:37:03.845961",
+          "test_params": {
+            "threads": 4,
+            "connections": 100,
+            "duration": 10,
+            "timeout": 10
+          },
+          "endpoints": {
+            "/": {
+              "latency_avg": "28.77ms",
+              "latency_stdev": "3.45ms",
+              "latency_max": "73.38ms",
+              "total_requests": 34729,
+              "duration": "in",
+              "total_bytes": "4.87MB",
+              "requests_per_second": 3470.55,
+              "transfer_per_second": "498.23KB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8100/"
+            },
+            "/health": {
+              "latency_avg": "37.86ms",
+              "latency_stdev": "10.47ms",
+              "latency_max": "162.77ms",
+              "total_requests": 26713,
+              "duration": "in",
+              "total_bytes": "5.83MB",
+              "requests_per_second": 2664.2,
+              "transfer_per_second": "595.83KB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8100/health"
+            },
+            "/json": {
+              "latency_avg": "37.45ms",
+              "latency_stdev": "16.52ms",
+              "latency_max": "208.65ms",
+              "total_requests": 27905,
+              "duration": "in",
+              "total_bytes": "4.84MB",
+              "requests_per_second": 2768.8,
+              "transfer_per_second": "492.15KB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8100/json"
+            },
+            "/user/42": {
+              "latency_avg": "38.52ms",
+              "latency_stdev": "3.68ms",
+              "latency_max": "75.78ms",
+              "total_requests": 25926,
+              "duration": "in",
+              "total_bytes": "5.39MB",
+              "requests_per_second": 2589.64,
+              "transfer_per_second": "551.34KB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8100/user/42"
+            },
+            "/users?limit=20&offset=10": {
+              "latency_avg": "69.10ms",
+              "latency_stdev": "6.43ms",
+              "latency_max": "89.83ms",
+              "total_requests": 14443,
+              "duration": "in",
+              "total_bytes": "17.81MB",
+              "requests_per_second": 1440.71,
+              "transfer_per_second": "1.78MB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8100/users?limit=20&offset=10"
+            },
+            "/user/123/profile": {
+              "latency_avg": "47.58ms",
+              "latency_stdev": "8.67ms",
+              "latency_max": "104.49ms",
+              "total_requests": 20967,
+              "duration": "in",
+              "total_bytes": "9.46MB",
+              "requests_per_second": 2093.68,
+              "transfer_per_second": "0.94MB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8100/user/123/profile"
+            },
+            "/echo": {
+              "latency_avg": "48.38ms",
+              "latency_stdev": "8.26ms",
+              "latency_max": "105.09ms",
+              "total_requests": 20640,
+              "duration": "in",
+              "total_bytes": "5.50MB",
+              "requests_per_second": 2060.56,
+              "transfer_per_second": "561.81KB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/fastapi_basic__echo.lua http://127.0.0.1:8100"
+            },
+            "/validate/user": {
+              "latency_avg": "108.33ms",
+              "latency_stdev": "53.69ms",
+              "latency_max": "366.99ms",
+              "total_requests": 9452,
+              "duration": "in",
+              "total_bytes": "3.63MB",
+              "requests_per_second": 942.45,
+              "transfer_per_second": "370.90KB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/fastapi_basic__validate_user.lua http://127.0.0.1:8100"
+            },
+            "/validate/product": {
+              "latency_avg": "91.01ms",
+              "latency_stdev": "41.94ms",
+              "latency_max": "284.98ms",
+              "total_requests": 11196,
+              "duration": "in",
+              "total_bytes": "4.76MB",
+              "requests_per_second": 1117.18,
+              "transfer_per_second": "486.57KB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/fastapi_basic__validate_product.lua http://127.0.0.1:8100"
+            },
+            "/search/validate?query=performance&limit=20&offset=0&sort_by=relevance": {
+              "latency_avg": "83.31ms",
+              "latency_stdev": "24.94ms",
+              "latency_max": "181.05ms",
+              "total_requests": 11969,
+              "duration": "in",
+              "total_bytes": "3.57MB",
+              "requests_per_second": 1194.18,
+              "transfer_per_second": "365.03KB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8100/search/validate?query=performance&limit=20&offset=0&sort_by=relevance"
+            }
+          }
+        },
+        "flask": {
+          "framework": "flask",
+          "category": "basic",
+          "timestamp": "2025-08-02T01:39:04.649599",
+          "test_params": {
+            "threads": 4,
+            "connections": 100,
+            "duration": 10,
+            "timeout": 10
+          },
+          "endpoints": {
+            "/": {
+              "latency_avg": "157.31ms",
+              "latency_stdev": "43.13ms",
+              "latency_max": "200.50ms",
+              "total_requests": 1088,
+              "duration": "in",
+              "total_bytes": "198.69KB",
+              "requests_per_second": 108.18,
+              "transfer_per_second": "19.75KB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8200/"
+            },
+            "/health": {
+              "latency_avg": "0.00us",
+              "latency_stdev": "0.00us",
+              "latency_max": "0.00us",
+              "total_requests": 0,
+              "duration": "in",
+              "total_bytes": "0.00B",
+              "requests_per_second": 0.0,
+              "transfer_per_second": "0.00B",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8200/health"
+            },
+            "/json": {
+              "latency_avg": "0.00us",
+              "latency_stdev": "0.00us",
+              "latency_max": "0.00us",
+              "total_requests": 0,
+              "duration": "in",
+              "total_bytes": "0.00B",
+              "requests_per_second": 0.0,
+              "transfer_per_second": "0.00B",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8200/json"
+            },
+            "/user/42": {
+              "latency_avg": "0.00us",
+              "latency_stdev": "0.00us",
+              "latency_max": "0.00us",
+              "total_requests": 0,
+              "duration": "in",
+              "total_bytes": "0.00B",
+              "requests_per_second": 0.0,
+              "transfer_per_second": "0.00B",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8200/user/42"
+            },
+            "/users?limit=20&offset=10": {
+              "latency_avg": "0.00us",
+              "latency_stdev": "0.00us",
+              "latency_max": "0.00us",
+              "total_requests": 0,
+              "duration": "in",
+              "total_bytes": "0.00B",
+              "requests_per_second": 0.0,
+              "transfer_per_second": "0.00B",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8200/users?limit=20&offset=10"
+            },
+            "/user/123/profile": {
+              "latency_avg": "0.00us",
+              "latency_stdev": "0.00us",
+              "latency_max": "0.00us",
+              "total_requests": 0,
+              "duration": "in",
+              "total_bytes": "0.00B",
+              "requests_per_second": 0.0,
+              "transfer_per_second": "0.00B",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8200/user/123/profile"
+            },
+            "/echo": {
+              "latency_avg": "0.00us",
+              "latency_stdev": "0.00us",
+              "latency_max": "0.00us",
+              "total_requests": 0,
+              "duration": "in",
+              "total_bytes": "0.00B",
+              "requests_per_second": 0.0,
+              "transfer_per_second": "0.00B",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/flask_basic__echo.lua http://127.0.0.1:8200"
+            },
+            "/validate/user": {
+              "latency_avg": "0.00us",
+              "latency_stdev": "0.00us",
+              "latency_max": "0.00us",
+              "total_requests": 0,
+              "duration": "in",
+              "total_bytes": "0.00B",
+              "requests_per_second": 0.0,
+              "transfer_per_second": "0.00B",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/flask_basic__validate_user.lua http://127.0.0.1:8200"
+            },
+            "/validate/product": {
+              "latency_avg": "0.00us",
+              "latency_stdev": "0.00us",
+              "latency_max": "0.00us",
+              "total_requests": 0,
+              "duration": "in",
+              "total_bytes": "0.00B",
+              "requests_per_second": 0.0,
+              "transfer_per_second": "0.00B",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/flask_basic__validate_product.lua http://127.0.0.1:8200"
+            },
+            "/search/validate?query=performance&limit=20&offset=0&sort_by=relevance": {
+              "latency_avg": "0.00us",
+              "latency_stdev": "0.00us",
+              "latency_max": "0.00us",
+              "total_requests": 0,
+              "duration": "in",
+              "total_bytes": "0.00B",
+              "requests_per_second": 0.0,
+              "transfer_per_second": "0.00B",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8200/search/validate?query=performance&limit=20&offset=0&sort_by=relevance"
+            }
+          }
+        },
+        "django": {
+          "framework": "django",
+          "category": "basic",
+          "timestamp": "2025-08-02T01:41:05.750882",
+          "test_params": {
+            "threads": 4,
+            "connections": 100,
+            "duration": 10,
+            "timeout": 10
+          },
+          "endpoints": {
+            "/": {
+              "latency_avg": "91.37ms",
+              "latency_stdev": "24.42ms",
+              "latency_max": "194.23ms",
+              "total_requests": 10915,
+              "duration": "in",
+              "total_bytes": "1.58MB",
+              "requests_per_second": 1088.3,
+              "transfer_per_second": "161.54KB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8300/"
+            },
+            "/health": {
+              "latency_avg": "99.18ms",
+              "latency_stdev": "27.01ms",
+              "latency_max": "201.37ms",
+              "total_requests": 4871,
+              "duration": "in",
+              "total_bytes": "1.03MB",
+              "socket_errors": {
+                "connect": 100,
+                "read": 0,
+                "write": 0,
+                "timeout": 0
+              },
+              "requests_per_second": 484.02,
+              "transfer_per_second": "104.55KB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8300/health"
+            },
+            "/json": {
+              "latency_avg": "112.17ms",
+              "latency_stdev": "31.72ms",
+              "latency_max": "166.79ms",
+              "total_requests": 601,
+              "duration": "in",
+              "total_bytes": "120.90KB",
+              "socket_errors": {
+                "connect": 100,
+                "read": 0,
+                "write": 0,
+                "timeout": 0
+              },
+              "requests_per_second": 59.65,
+              "transfer_per_second": "12.00KB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8300/json"
+            },
+            "/user/42": {
+              "latency_avg": "106.37ms",
+              "latency_stdev": "27.54ms",
+              "latency_max": "213.55ms",
+              "total_requests": 9358,
+              "duration": "in",
+              "total_bytes": "2.20MB",
+              "requests_per_second": 932.99,
+              "transfer_per_second": "224.14KB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8300/user/42"
+            },
+            "/users?limit=20&offset=10": {
+              "latency_avg": "162.69ms",
+              "latency_stdev": "64.21ms",
+              "latency_max": "464.82ms",
+              "total_requests": 6189,
+              "duration": "in",
+              "total_bytes": "8.49MB",
+              "requests_per_second": 616.98,
+              "transfer_per_second": "867.03KB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8300/users?limit=20&offset=10"
+            },
+            "/user/123/profile": {
+              "latency_avg": "124.82ms",
+              "latency_stdev": "44.45ms",
+              "latency_max": "230.57ms",
+              "total_requests": 913,
+              "duration": "in",
+              "total_bytes": "465.57KB",
+              "socket_errors": {
+                "connect": 100,
+                "read": 0,
+                "write": 0,
+                "timeout": 0
+              },
+              "requests_per_second": 90.75,
+              "transfer_per_second": "46.28KB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8300/user/123/profile"
+            },
+            "/echo": {
+              "latency_avg": "134.46ms",
+              "latency_stdev": "31.40ms",
+              "latency_max": "254.55ms",
+              "total_requests": 7384,
+              "duration": "in",
+              "total_bytes": "2.23MB",
+              "requests_per_second": 735.54,
+              "transfer_per_second": "227.11KB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/django_basic__echo.lua http://127.0.0.1:8300"
+            },
+            "/validate/user": {
+              "latency_avg": "212.70ms",
+              "latency_stdev": "71.51ms",
+              "latency_max": "468.73ms",
+              "total_requests": 4656,
+              "duration": "in",
+              "total_bytes": "1.99MB",
+              "requests_per_second": 464.1,
+              "transfer_per_second": "203.04KB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/django_basic__validate_user.lua http://127.0.0.1:8300"
+            },
+            "/validate/product": {
+              "latency_avg": "256.46ms",
+              "latency_stdev": "64.10ms",
+              "latency_max": "558.47ms",
+              "total_requests": 3845,
+              "duration": "in",
+              "total_bytes": "1.79MB",
+              "requests_per_second": 382.86,
+              "transfer_per_second": "182.47KB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/django_basic__validate_product.lua http://127.0.0.1:8300"
+            },
+            "/search/validate?query=performance&limit=20&offset=0&sort_by=relevance": {
+              "latency_avg": "180.10ms",
+              "latency_stdev": "60.89ms",
+              "latency_max": "447.90ms",
+              "total_requests": 5549,
+              "duration": "in",
+              "total_bytes": "1.86MB",
+              "requests_per_second": 553.01,
+              "transfer_per_second": "189.56KB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8300/search/validate?query=performance&limit=20&offset=0&sort_by=relevance"
+            }
+          }
+        }
       }
     },
-    "process": {
-      "name": "Python",
-      "memory_usage_mb": 14.4
-    },
-    "load_average": {
-      "1min": 2.47,
-      "5min": 2.55,
-      "15min": 2.58
+    {
+      "framework": "catzilla",
+      "endpoint": "/di/db/complex",
+      "endpoint_name": "sqlalchemy-di_complex_db_operations",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "12770.11",
+      "avg_latency": "3.81ms",
+      "p99_latency": "7.29ms",
+      "transfer_per_sec": "1.51MB",
+      "timestamp": "2025-08-02T17:05:07+06:00"
     }
-  },
-  "frameworks": {}
+,
+    {
+      "framework": "catzilla",
+      "endpoint": "/di/db/chain",
+      "endpoint_name": "sqlalchemy-di_complex_di_chain",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "12664.09",
+      "avg_latency": "3.87ms",
+      "p99_latency": "7.78ms",
+      "transfer_per_sec": "1.50MB",
+      "timestamp": "2025-08-02T17:05:18+06:00"
+    }
+,
+    {
+      "framework": "catzilla",
+      "endpoint": "/di/db/posts",
+      "endpoint_name": "sqlalchemy-di_db_posts_list",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "11771.53",
+      "avg_latency": "6.68ms",
+      "p99_latency": "90.69ms",
+      "transfer_per_sec": "1.39MB",
+      "timestamp": "2025-08-02T17:04:57+06:00"
+    }
+,
+    {
+      "framework": "catzilla",
+      "endpoint": "/di/db/user/1",
+      "endpoint_name": "sqlalchemy-di_db_user_detail",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "13366.57",
+      "avg_latency": "3.64ms",
+      "p99_latency": "6.90ms",
+      "transfer_per_sec": "1.58MB",
+      "timestamp": "2025-08-02T17:04:47+06:00"
+    }
+,
+    {
+      "framework": "catzilla",
+      "endpoint": "/di/db/users",
+      "endpoint_name": "sqlalchemy-di_db_users_list",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "14257.25",
+      "avg_latency": "3.43ms",
+      "p99_latency": "6.47ms",
+      "transfer_per_sec": "1.69MB",
+      "timestamp": "2025-08-02T17:04:37+06:00"
+    }
+,
+    {
+      "framework": "catzilla",
+      "endpoint": "/health",
+      "endpoint_name": "sqlalchemy-di_health_check",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "943.16",
+      "avg_latency": "71.12ms",
+      "p99_latency": "725.43ms",
+      "transfer_per_sec": "166.71KB",
+      "timestamp": "2025-08-02T17:04:06+06:00"
+    }
+,
+    {
+      "framework": "catzilla",
+      "endpoint": "/di/simple",
+      "endpoint_name": "sqlalchemy-di_simple_di",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "16751.77",
+      "avg_latency": "2.91ms",
+      "p99_latency": "5.23ms",
+      "transfer_per_sec": "1.98MB",
+      "timestamp": "2025-08-02T17:04:16+06:00"
+    }
+,
+    {
+      "framework": "catzilla",
+      "endpoint": "/di/transient",
+      "endpoint_name": "sqlalchemy-di_transient_di",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "15327.43",
+      "avg_latency": "3.19ms",
+      "p99_latency": "5.91ms",
+      "transfer_per_sec": "1.81MB",
+      "timestamp": "2025-08-02T17:04:26+06:00"
+    }
+,
+    {
+      "category": "dependency_injection",
+      "timestamp": "2025-08-02T15:17:06.455940",
+      "test_params": {
+        "threads": 4,
+        "connections": 100,
+        "duration": 10,
+        "timeout": 10
+      },
+      "system_info": {
+        "collection_timestamp": "2025-08-02T15:17:06.456097",
+        "os": {
+          "system": "Darwin",
+          "machine": "x86_64",
+          "architecture": "64bit",
+          "macos_details": {
+            "ProductName": "macOS",
+            "ProductVersion": "15.5"
+          }
+        },
+        "cpu": {
+          "processor": "i386",
+          "machine": "x86_64",
+          "architecture": "64bit",
+          "cpu_count_logical": 8,
+          "cpu_count_physical": 4,
+          "cpu_freq": {
+            "current": 1100,
+            "min": 1100,
+            "max": 1100
+          },
+          "model": "Quad-Core Intel Core i5",
+          "speed": "1.1 GHz",
+          "processors": "1",
+          "total_cores": "4"
+        },
+        "memory": {
+          "total": 8589934592,
+          "available": 2302369792,
+          "used": 4594503680,
+          "free": 57462784,
+          "percent_used": 73.2,
+          "total_gb": 8.0,
+          "available_gb": 2.14,
+          "used_gb": 4.28,
+          "swap": {
+            "total": 1073741824,
+            "used": 355729408,
+            "free": 718012416,
+            "percent": 33.1,
+            "total_gb": 1.0
+          }
+        },
+        "disk": {
+          "total_gb": 418.16,
+          "free_gb": 15.62,
+          "percent_used": 92.6
+        },
+        "network": {
+          "interface_count": 13,
+          "has_ipv4": true,
+          "has_ipv6": true
+        },
+        "python": {
+          "version_info": {
+            "major": 3,
+            "minor": 10,
+            "micro": 11,
+            "releaselevel": "final"
+          },
+          "platform": "darwin",
+          "implementation": {
+            "name": "cpython",
+            "version": "3.10.11"
+          }
+        },
+        "process": {
+          "name": "Python",
+          "memory_usage_mb": 15.66
+        },
+        "load_average": {
+          "1min": 3.18,
+          "5min": 2.71,
+          "15min": 2.7
+        }
+      },
+      "frameworks": {}
+    },
+    {
+      "framework": "fastapi",
+      "endpoint": "/di/db/complex",
+      "endpoint_name": "sqlalchemy-di_complex_db_operations",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "2435.56",
+      "avg_latency": "19.39ms",
+      "p99_latency": "28.49ms",
+      "transfer_per_sec": "366.31KB",
+      "timestamp": "2025-08-02T17:06:37+06:00"
+    }
+,
+    {
+      "framework": "fastapi",
+      "endpoint": "/di/db/chain",
+      "endpoint_name": "sqlalchemy-di_complex_di_chain",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "2465.88",
+      "avg_latency": "19.41ms",
+      "p99_latency": "26.89ms",
+      "transfer_per_sec": "370.85KB",
+      "timestamp": "2025-08-02T17:06:47+06:00"
+    }
+,
+    {
+      "framework": "fastapi",
+      "endpoint": "/di/db/posts",
+      "endpoint_name": "sqlalchemy-di_db_posts_list",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "2471.84",
+      "avg_latency": "19.11ms",
+      "p99_latency": "27.97ms",
+      "transfer_per_sec": "371.79KB",
+      "timestamp": "2025-08-02T17:06:27+06:00"
+    }
+,
+    {
+      "framework": "fastapi",
+      "endpoint": "/di/db/user/1",
+      "endpoint_name": "sqlalchemy-di_db_user_detail",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "2375.15",
+      "avg_latency": "21.03ms",
+      "p99_latency": "86.68ms",
+      "transfer_per_sec": "357.28KB",
+      "timestamp": "2025-08-02T17:06:16+06:00"
+    }
+,
+    {
+      "framework": "fastapi",
+      "endpoint": "/di/db/users",
+      "endpoint_name": "sqlalchemy-di_db_users_list",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "2473.63",
+      "avg_latency": "19.34ms",
+      "p99_latency": "29.30ms",
+      "transfer_per_sec": "372.06KB",
+      "timestamp": "2025-08-02T17:06:06+06:00"
+    }
+,
+    {
+      "framework": "fastapi",
+      "endpoint": "/health",
+      "endpoint_name": "sqlalchemy-di_health_check",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "482.63",
+      "avg_latency": "98.11ms",
+      "p99_latency": "144.78ms",
+      "transfer_per_sec": "95.68KB",
+      "timestamp": "2025-08-02T17:05:35+06:00"
+    }
+,
+    {
+      "framework": "fastapi",
+      "endpoint": "/di/simple",
+      "endpoint_name": "sqlalchemy-di_simple_di",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "2584.34",
+      "avg_latency": "18.44ms",
+      "p99_latency": "27.11ms",
+      "transfer_per_sec": "388.66KB",
+      "timestamp": "2025-08-02T17:05:45+06:00"
+    }
+,
+    {
+      "framework": "fastapi",
+      "endpoint": "/di/transient",
+      "endpoint_name": "sqlalchemy-di_transient_di",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "2401.14",
+      "avg_latency": "19.62ms",
+      "p99_latency": "30.22ms",
+      "transfer_per_sec": "361.16KB",
+      "timestamp": "2025-08-02T17:05:56+06:00"
+    }
+,
+    {
+      "framework": "flask",
+      "endpoint": "/di/db/complex",
+      "endpoint_name": "sqlalchemy-di_complex_db_operations",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "152.08",
+      "avg_latency": "67.08ms",
+      "p99_latency": "92.64ms",
+      "transfer_per_sec": "57.77KB",
+      "timestamp": "2025-08-02T17:08:05+06:00"
+    }
+,
+    {
+      "framework": "flask",
+      "endpoint": "/di/db/chain",
+      "endpoint_name": "sqlalchemy-di_complex_di_chain",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "864.07",
+      "avg_latency": "55.03ms",
+      "p99_latency": "79.55ms",
+      "transfer_per_sec": "328.25KB",
+      "timestamp": "2025-08-02T17:08:15+06:00"
+    }
+,
+    {
+      "framework": "flask",
+      "endpoint": "/di/db/posts",
+      "endpoint_name": "sqlalchemy-di_db_posts_list",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "732.08",
+      "avg_latency": "64.96ms",
+      "p99_latency": "101.01ms",
+      "transfer_per_sec": "278.14KB",
+      "timestamp": "2025-08-02T17:07:55+06:00"
+    }
+,
+    {
+      "framework": "flask",
+      "endpoint": "/di/db/user/1",
+      "endpoint_name": "sqlalchemy-di_db_user_detail",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "746.80",
+      "avg_latency": "67.05ms",
+      "p99_latency": "278.60ms",
+      "transfer_per_sec": "283.70KB",
+      "timestamp": "2025-08-02T17:07:45+06:00"
+    }
+,
+    {
+      "framework": "flask",
+      "endpoint": "/di/db/users",
+      "endpoint_name": "sqlalchemy-di_db_users_list",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "64.74",
+      "avg_latency": "52.79ms",
+      "p99_latency": "72.47ms",
+      "transfer_per_sec": "24.59KB",
+      "timestamp": "2025-08-02T17:07:34+06:00"
+    }
+,
+    {
+      "framework": "flask",
+      "endpoint": "/health",
+      "endpoint_name": "sqlalchemy-di_health_check",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "316.20",
+      "avg_latency": "150.69ms",
+      "p99_latency": "365.16ms",
+      "transfer_per_sec": "75.65KB",
+      "timestamp": "2025-08-02T17:07:04+06:00"
+    }
+,
+    {
+      "framework": "flask",
+      "endpoint": "/di/simple",
+      "endpoint_name": "sqlalchemy-di_simple_di",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "749.23",
+      "avg_latency": "63.50ms",
+      "p99_latency": "115.01ms",
+      "transfer_per_sec": "284.65KB",
+      "timestamp": "2025-08-02T17:07:14+06:00"
+    }
+,
+    {
+      "framework": "flask",
+      "endpoint": "/di/transient",
+      "endpoint_name": "sqlalchemy-di_transient_di",
+      "benchmark_type": "sqlalchemy-di",
+      "method": "GET",
+      "duration": "5s",
+      "connections": 50,
+      "threads": 4,
+      "requests_per_sec": "741.84",
+      "avg_latency": "64.09ms",
+      "p99_latency": "93.75ms",
+      "transfer_per_sec": "281.81KB",
+      "timestamp": "2025-08-02T17:07:24+06:00"
+    }
+,
+    {
+      "category": "middleware",
+      "timestamp": "2025-08-02T01:42:59.023466",
+      "test_params": {
+        "threads": 4,
+        "connections": 100,
+        "duration": 10,
+        "timeout": 10
+      },
+      "system_info": {
+        "collection_timestamp": "2025-08-02T01:42:59.023541",
+        "os": {
+          "system": "Darwin",
+          "machine": "x86_64",
+          "architecture": "64bit",
+          "macos_details": {
+            "ProductName": "macOS",
+            "ProductVersion": "15.5"
+          }
+        },
+        "cpu": {
+          "processor": "i386",
+          "machine": "x86_64",
+          "architecture": "64bit",
+          "cpu_count_logical": 8,
+          "cpu_count_physical": 4,
+          "cpu_freq": {
+            "current": 1100,
+            "min": 1100,
+            "max": 1100
+          },
+          "model": "Quad-Core Intel Core i5",
+          "speed": "1.1 GHz",
+          "processors": "1",
+          "total_cores": "4"
+        },
+        "memory": {
+          "total": 8589934592,
+          "available": 2366529536,
+          "used": 4936933376,
+          "free": 52101120,
+          "percent_used": 72.4,
+          "total_gb": 8.0,
+          "available_gb": 2.2,
+          "used_gb": 4.6,
+          "swap": {
+            "total": 2147483648,
+            "used": 1636564992,
+            "free": 510918656,
+            "percent": 76.2,
+            "total_gb": 2.0
+          }
+        },
+        "disk": {
+          "total_gb": 418.16,
+          "free_gb": 14.51,
+          "percent_used": 92.63
+        },
+        "network": {
+          "interface_count": 13,
+          "has_ipv4": true,
+          "has_ipv6": true
+        },
+        "python": {
+          "version_info": {
+            "major": 3,
+            "minor": 10,
+            "micro": 11,
+            "releaselevel": "final"
+          },
+          "platform": "darwin",
+          "implementation": {
+            "name": "cpython",
+            "version": "3.10.11"
+          }
+        },
+        "process": {
+          "name": "Python",
+          "memory_usage_mb": 14.54
+        },
+        "load_average": {
+          "1min": 3.2,
+          "5min": 2.74,
+          "15min": 2.65
+        }
+      },
+      "frameworks": {
+        "django": {
+          "framework": "django",
+          "category": "middleware",
+          "timestamp": "2025-08-02T01:43:13.712583",
+          "test_params": {
+            "threads": 4,
+            "connections": 100,
+            "duration": 10,
+            "timeout": 10
+          },
+          "endpoints": {
+            "/": {
+              "latency_avg": "128.70ms",
+              "latency_stdev": "36.46ms",
+              "latency_max": "296.42ms",
+              "total_requests": 7717,
+              "duration": "in",
+              "total_bytes": "2.03MB",
+              "requests_per_second": 769.73,
+              "transfer_per_second": "207.40KB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8310/"
+            },
+            "/health": {
+              "latency_avg": "139.65ms",
+              "latency_stdev": "40.56ms",
+              "latency_max": "288.38ms",
+              "total_requests": 7128,
+              "duration": "in",
+              "total_bytes": "1.84MB",
+              "requests_per_second": 710.48,
+              "transfer_per_second": "187.71KB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8310/health"
+            },
+            "/middleware-light": {
+              "latency_avg": "130.52ms",
+              "latency_stdev": "40.55ms",
+              "latency_max": "276.89ms",
+              "total_requests": 1575,
+              "duration": "in",
+              "total_bytes": "406.01KB",
+              "socket_errors": {
+                "connect": 100,
+                "read": 0,
+                "write": 0,
+                "timeout": 0
+              },
+              "requests_per_second": 156.28,
+              "transfer_per_second": "40.29KB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8310/middleware-light"
+            },
+            "/middleware-heavy": {
+              "latency_avg": "118.38ms",
+              "latency_stdev": "28.93ms",
+              "latency_max": "235.18ms",
+              "total_requests": 8411,
+              "duration": "in",
+              "total_bytes": "2.58MB",
+              "requests_per_second": 838.92,
+              "transfer_per_second": "263.50KB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8310/middleware-heavy"
+            },
+            "/middleware-auth": {
+              "latency_avg": "132.57ms",
+              "latency_stdev": "37.33ms",
+              "latency_max": "295.83ms",
+              "total_requests": 7050,
+              "duration": "in",
+              "total_bytes": "1.90MB",
+              "socket_errors": {
+                "connect": 100,
+                "read": 0,
+                "write": 0,
+                "timeout": 0
+              },
+              "requests_per_second": 702.31,
+              "transfer_per_second": "193.97KB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8310/middleware-auth"
+            },
+            "/middleware-stats": {
+              "latency_avg": "108.47ms",
+              "latency_stdev": "34.16ms",
+              "latency_max": "210.88ms",
+              "total_requests": 989,
+              "duration": "in",
+              "total_bytes": "270.95KB",
+              "socket_errors": {
+                "connect": 100,
+                "read": 0,
+                "write": 0,
+                "timeout": 0
+              },
+              "requests_per_second": 98.19,
+              "transfer_per_second": "26.90KB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8310/middleware-stats"
+            },
+            "/middleware-post": {
+              "latency_avg": "121.66ms",
+              "latency_stdev": "31.71ms",
+              "latency_max": "250.66ms",
+              "total_requests": 8184,
+              "duration": "in",
+              "total_bytes": "2.18MB",
+              "requests_per_second": 815.42,
+              "transfer_per_second": "222.58KB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/django_middleware__middleware-post.lua http://127.0.0.1:8310"
+            },
+            "/middleware-concurrent": {
+              "latency_avg": "126.26ms",
+              "latency_stdev": "37.88ms",
+              "latency_max": "309.30ms",
+              "total_requests": 7856,
+              "duration": "in",
+              "total_bytes": "2.10MB",
+              "requests_per_second": 783.01,
+              "transfer_per_second": "214.00KB",
+              "method": "GET",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 100 -d 10s --timeout 10s http://127.0.0.1:8310/middleware-concurrent"
+            }
+          }
+        }
+      }
+    },
+    {
+      "category": "validation",
+      "timestamp": "2025-08-02T01:15:54.694494",
+      "test_params": {
+        "threads": 4,
+        "connections": 25,
+        "duration": 3,
+        "timeout": 10
+      },
+      "system_info": {
+        "collection_timestamp": "2025-08-02T01:15:54.694569",
+        "os": {
+          "system": "Darwin",
+          "machine": "x86_64",
+          "architecture": "64bit",
+          "macos_details": {
+            "ProductName": "macOS",
+            "ProductVersion": "15.5"
+          }
+        },
+        "cpu": {
+          "processor": "i386",
+          "machine": "x86_64",
+          "architecture": "64bit",
+          "cpu_count_logical": 8,
+          "cpu_count_physical": 4,
+          "cpu_freq": {
+            "current": 1100,
+            "min": 1100,
+            "max": 1100
+          },
+          "model": "Quad-Core Intel Core i5",
+          "speed": "1.1 GHz",
+          "processors": "1",
+          "total_cores": "4"
+        },
+        "memory": {
+          "total": 8589934592,
+          "available": 2887671808,
+          "used": 4913287168,
+          "free": 523661312,
+          "percent_used": 66.4,
+          "total_gb": 8.0,
+          "available_gb": 2.69,
+          "used_gb": 4.58,
+          "swap": {
+            "total": 3221225472,
+            "used": 1580204032,
+            "free": 1641021440,
+            "percent": 49.1,
+            "total_gb": 3.0
+          }
+        },
+        "disk": {
+          "total_gb": 418.16,
+          "free_gb": 13.53,
+          "percent_used": 92.62
+        },
+        "network": {
+          "interface_count": 13,
+          "has_ipv4": true,
+          "has_ipv6": true
+        },
+        "python": {
+          "version_info": {
+            "major": 3,
+            "minor": 10,
+            "micro": 11,
+            "releaselevel": "final"
+          },
+          "platform": "darwin",
+          "implementation": {
+            "name": "cpython",
+            "version": "3.10.11"
+          }
+        },
+        "process": {
+          "name": "Python",
+          "memory_usage_mb": 15.66
+        },
+        "load_average": {
+          "1min": 2.34,
+          "5min": 2.19,
+          "15min": 2.45
+        }
+      },
+      "frameworks": {
+        "catzilla": {
+          "framework": "catzilla",
+          "category": "validation",
+          "timestamp": "2025-08-02T01:16:02.939078",
+          "test_params": {
+            "threads": 4,
+            "connections": 25,
+            "duration": 3,
+            "timeout": 10
+          },
+          "endpoints": {
+            "/validate/simple-user": {
+              "latency_avg": "4.58ms",
+              "latency_stdev": "12.69ms",
+              "latency_max": "130.80ms",
+              "total_requests": 29021,
+              "duration": "in",
+              "total_bytes": "6.86MB",
+              "requests_per_second": 9423.87,
+              "transfer_per_second": "2.23MB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/catzilla_validation__validate_simple-user.lua http://127.0.0.1:8040"
+            },
+            "/validate/advanced-user": {
+              "latency_avg": "2.58ms",
+              "latency_stdev": "1.00ms",
+              "latency_max": "31.15ms",
+              "total_requests": 28907,
+              "duration": "in",
+              "total_bytes": "8.41MB",
+              "requests_per_second": 9322.04,
+              "transfer_per_second": "2.71MB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/catzilla_validation__validate_advanced-user.lua http://127.0.0.1:8040"
+            },
+            "/validate/complex-user": {
+              "latency_avg": "4.88ms",
+              "latency_stdev": "13.64ms",
+              "latency_max": "135.47ms",
+              "total_requests": 27807,
+              "duration": "in",
+              "total_bytes": "7.93MB",
+              "requests_per_second": 8963.85,
+              "transfer_per_second": "2.56MB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/catzilla_validation__validate_complex-user.lua http://127.0.0.1:8040"
+            },
+            "/validate/product": {
+              "latency_avg": "2.46ms",
+              "latency_stdev": "1.71ms",
+              "latency_max": "52.32ms",
+              "total_requests": 31257,
+              "duration": "in",
+              "total_bytes": "9.39MB",
+              "requests_per_second": 10078.11,
+              "transfer_per_second": "3.03MB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/catzilla_validation__validate_product.lua http://127.0.0.1:8040"
+            },
+            "/validate/batch-users": {
+              "latency_avg": "2.33ms",
+              "latency_stdev": "1.52ms",
+              "latency_max": "46.12ms",
+              "total_requests": 33045,
+              "duration": "in",
+              "total_bytes": "4.66MB",
+              "requests_per_second": 10653.98,
+              "transfer_per_second": "1.50MB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/catzilla_validation__validate_batch-users.lua http://127.0.0.1:8040"
+            },
+            "/validate/batch-products": {
+              "latency_avg": "2.41ms",
+              "latency_stdev": "1.37ms",
+              "latency_max": "44.22ms",
+              "total_requests": 31649,
+              "duration": "in",
+              "total_bytes": "4.47MB",
+              "requests_per_second": 10199.42,
+              "transfer_per_second": "1.44MB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/catzilla_validation__validate_batch-products.lua http://127.0.0.1:8040"
+            },
+            "/validate/batch-orders": {
+              "latency_avg": "2.37ms",
+              "latency_stdev": "1.75ms",
+              "latency_max": "51.30ms",
+              "total_requests": 32660,
+              "duration": "in",
+              "total_bytes": "4.61MB",
+              "requests_per_second": 10529.43,
+              "transfer_per_second": "1.49MB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/catzilla_validation__validate_batch-orders.lua http://127.0.0.1:8040"
+            },
+            "/validate/mega-batch": {
+              "latency_avg": "2.84ms",
+              "latency_stdev": "1.90ms",
+              "latency_max": "55.68ms",
+              "total_requests": 27081,
+              "duration": "in",
+              "total_bytes": "8.19MB",
+              "requests_per_second": 8730.57,
+              "transfer_per_second": "2.64MB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/catzilla_validation__validate_mega-batch.lua http://127.0.0.1:8040"
+            },
+            "/validate/error-handling": {
+              "latency_avg": "3.09ms",
+              "latency_stdev": "1.95ms",
+              "latency_max": "54.05ms",
+              "total_requests": 24426,
+              "duration": "in",
+              "total_bytes": "9.78MB",
+              "requests_per_second": 7878.74,
+              "transfer_per_second": "3.16MB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/catzilla_validation__validate_error-handling.lua http://127.0.0.1:8040"
+            }
+          }
+        },
+        "fastapi": {
+          "framework": "fastapi",
+          "category": "validation",
+          "timestamp": "2025-08-02T01:16:58.599134",
+          "test_params": {
+            "threads": 4,
+            "connections": 25,
+            "duration": 3,
+            "timeout": 10
+          },
+          "endpoints": {
+            "/validate/simple-user": {
+              "latency_avg": "11.18ms",
+              "latency_stdev": "2.62ms",
+              "latency_max": "40.03ms",
+              "total_requests": 6633,
+              "duration": "in",
+              "total_bytes": "2.40MB",
+              "requests_per_second": 2138.72,
+              "transfer_per_second": "793.76KB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/fastapi_validation__validate_simple-user.lua http://127.0.0.1:8140"
+            },
+            "/validate/advanced-user": {
+              "latency_avg": "12.52ms",
+              "latency_stdev": "1.93ms",
+              "latency_max": "34.85ms",
+              "total_requests": 5895,
+              "duration": "in",
+              "total_bytes": "3.01MB",
+              "requests_per_second": 1898.78,
+              "transfer_per_second": "0.97MB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/fastapi_validation__validate_advanced-user.lua http://127.0.0.1:8140"
+            },
+            "/validate/complex-user": {
+              "latency_avg": "12.33ms",
+              "latency_stdev": "2.60ms",
+              "latency_max": "35.15ms",
+              "total_requests": 5896,
+              "duration": "in",
+              "total_bytes": "2.70MB",
+              "requests_per_second": 1900.65,
+              "transfer_per_second": "0.87MB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/fastapi_validation__validate_complex-user.lua http://127.0.0.1:8140"
+            },
+            "/validate/product": {
+              "latency_avg": "15.29ms",
+              "latency_stdev": "8.76ms",
+              "latency_max": "109.13ms",
+              "total_requests": 4992,
+              "duration": "in",
+              "total_bytes": "2.98MB",
+              "requests_per_second": 1659.77,
+              "transfer_per_second": "0.99MB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/fastapi_validation__validate_product.lua http://127.0.0.1:8140"
+            },
+            "/validate/batch-users": {
+              "latency_avg": "11.81ms",
+              "latency_stdev": "6.52ms",
+              "latency_max": "149.16ms",
+              "total_requests": 6078,
+              "duration": "in",
+              "total_bytes": "1.34MB",
+              "requests_per_second": 1993.49,
+              "transfer_per_second": "449.70KB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/fastapi_validation__validate_batch-users.lua http://127.0.0.1:8140"
+            },
+            "/validate/batch-products": {
+              "latency_avg": "11.28ms",
+              "latency_stdev": "2.15ms",
+              "latency_max": "32.44ms",
+              "total_requests": 6496,
+              "duration": "in",
+              "total_bytes": "1.45MB",
+              "requests_per_second": 2093.55,
+              "transfer_per_second": "478.41KB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/fastapi_validation__validate_batch-products.lua http://127.0.0.1:8140"
+            },
+            "/validate/batch-orders": {
+              "latency_avg": "11.37ms",
+              "latency_stdev": "2.16ms",
+              "latency_max": "29.49ms",
+              "total_requests": 6444,
+              "duration": "in",
+              "total_bytes": "1.43MB",
+              "requests_per_second": 2077.54,
+              "transfer_per_second": "470.78KB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/fastapi_validation__validate_batch-orders.lua http://127.0.0.1:8140"
+            },
+            "/validate/mega-batch": {
+              "latency_avg": "18.16ms",
+              "latency_stdev": "4.27ms",
+              "latency_max": "41.46ms",
+              "total_requests": 4028,
+              "duration": "in",
+              "total_bytes": "2.10MB",
+              "requests_per_second": 1297.77,
+              "transfer_per_second": "693.38KB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/fastapi_validation__validate_mega-batch.lua http://127.0.0.1:8140"
+            },
+            "/validate/error-handling": {
+              "latency_avg": "14.62ms",
+              "latency_stdev": "3.16ms",
+              "latency_max": "27.58ms",
+              "total_requests": 4916,
+              "duration": "in",
+              "total_bytes": "5.89MB",
+              "requests_per_second": 1636.02,
+              "transfer_per_second": "1.96MB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/fastapi_validation__validate_error-handling.lua http://127.0.0.1:8140"
+            }
+          }
+        },
+        "flask": {
+          "framework": "flask",
+          "category": "validation",
+          "timestamp": "2025-08-02T01:17:53.967043",
+          "test_params": {
+            "threads": 4,
+            "connections": 25,
+            "duration": 3,
+            "timeout": 10
+          },
+          "endpoints": {
+            "/validate/simple-user": {
+              "latency_avg": "20.75ms",
+              "latency_stdev": "4.97ms",
+              "latency_max": "41.03ms",
+              "total_requests": 3476,
+              "duration": "in",
+              "total_bytes": "678.91KB",
+              "requests_per_second": 1120.02,
+              "transfer_per_second": "218.75KB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/flask_validation__validate_simple-user.lua http://127.0.0.1:8240"
+            },
+            "/validate/advanced-user": {
+              "latency_avg": "26.22ms",
+              "latency_stdev": "15.82ms",
+              "latency_max": "151.86ms",
+              "total_requests": 2970,
+              "duration": "in",
+              "total_bytes": "580.25KB",
+              "requests_per_second": 957.53,
+              "transfer_per_second": "187.07KB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/flask_validation__validate_advanced-user.lua http://127.0.0.1:8240"
+            },
+            "/validate/complex-user": {
+              "latency_avg": "19.91ms",
+              "latency_stdev": "2.12ms",
+              "latency_max": "32.84ms",
+              "total_requests": 3589,
+              "duration": "in",
+              "total_bytes": "700.98KB",
+              "requests_per_second": 1193.3,
+              "transfer_per_second": "233.07KB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/flask_validation__validate_complex-user.lua http://127.0.0.1:8240"
+            },
+            "/validate/product": {
+              "latency_avg": "19.66ms",
+              "latency_stdev": "2.24ms",
+              "latency_max": "35.52ms",
+              "total_requests": 3725,
+              "duration": "in",
+              "total_bytes": "727.54KB",
+              "requests_per_second": 1200.53,
+              "transfer_per_second": "234.48KB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/flask_validation__validate_product.lua http://127.0.0.1:8240"
+            },
+            "/validate/batch-users": {
+              "error": "unable to connect to 127.0.0.1:8240 Can't assign requested address\n",
+              "method": "POST",
+              "weight": 1
+            },
+            "/validate/batch-products": {
+              "error": "unable to connect to 127.0.0.1:8240 Can't assign requested address\n",
+              "method": "POST",
+              "weight": 1
+            },
+            "/validate/batch-orders": {
+              "error": "unable to connect to 127.0.0.1:8240 Can't assign requested address\n",
+              "method": "POST",
+              "weight": 1
+            },
+            "/validate/mega-batch": {
+              "error": "unable to connect to 127.0.0.1:8240 Can't assign requested address\n",
+              "method": "POST",
+              "weight": 1
+            },
+            "/validate/error-handling": {
+              "latency_avg": "0.00us",
+              "latency_stdev": "0.00us",
+              "latency_max": "0.00us",
+              "total_requests": 0,
+              "duration": "in",
+              "total_bytes": "0.00B",
+              "socket_errors": {
+                "connect": 24,
+                "read": 0,
+                "write": 0,
+                "timeout": 0
+              },
+              "requests_per_second": 0.0,
+              "transfer_per_second": "0.00B",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/flask_validation__validate_error-handling.lua http://127.0.0.1:8240"
+            }
+          }
+        },
+        "django": {
+          "framework": "django",
+          "category": "validation",
+          "timestamp": "2025-08-02T01:18:33.666773",
+          "test_params": {
+            "threads": 4,
+            "connections": 25,
+            "duration": 3,
+            "timeout": 10
+          },
+          "endpoints": {
+            "/validate/simple-user": {
+              "latency_avg": "8.07ms",
+              "latency_stdev": "3.64ms",
+              "latency_max": "48.98ms",
+              "total_requests": 784,
+              "duration": "in",
+              "total_bytes": "229.98KB",
+              "socket_errors": {
+                "connect": 0,
+                "read": 784,
+                "write": 0,
+                "timeout": 0
+              },
+              "requests_per_second": 259.32,
+              "transfer_per_second": "76.07KB",
+              "method": "POST",
+              "weight": 1,
+              "cmd": "wrk -t 4 -c 25 -d 3s --timeout 10s -s /Users/user/devwork/catzilla/benchmarks/results/django_validation__validate_simple-user.lua http://127.0.0.1:8340"
+            },
+            "/validate/advanced-user": {
+              "error": "unable to connect to 127.0.0.1:8340 Operation timed out\n",
+              "method": "POST",
+              "weight": 1
+            },
+            "/validate/complex-user": {
+              "error": "unable to connect to 127.0.0.1:8340 Operation timed out\n",
+              "method": "POST",
+              "weight": 1
+            },
+            "/validate/product": {
+              "error": "unable to connect to 127.0.0.1:8340 Operation timed out\n",
+              "method": "POST",
+              "weight": 1
+            },
+            "/validate/batch-users": {
+              "error": "unable to connect to 127.0.0.1:8340 Operation timed out\n",
+              "method": "POST",
+              "weight": 1
+            },
+            "/validate/batch-products": {
+              "error": "unable to connect to 127.0.0.1:8340 Operation timed out\n",
+              "method": "POST",
+              "weight": 1
+            },
+            "/validate/batch-orders": {
+              "error": "unable to connect to 127.0.0.1:8340 Operation timed out\n",
+              "method": "POST",
+              "weight": 1
+            },
+            "/validate/mega-batch": {
+              "error": "unable to connect to 127.0.0.1:8340 Operation timed out\n",
+              "method": "POST",
+              "weight": 1
+            },
+            "/validate/error-handling": {
+              "error": "unable to connect to 127.0.0.1:8340 Operation timed out\n",
+              "method": "POST",
+              "weight": 1
+            }
+          }
+        }
+      }
+    }
+  ]
 }

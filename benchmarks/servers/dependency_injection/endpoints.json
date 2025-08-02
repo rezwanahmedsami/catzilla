@@ -1,6 +1,70 @@
 {
   "feature_category": "dependency_injection",
-  "description": "Dependency injection performance benchmarks comparing service resolution across different scopes",
+  "description": "Dependency injection performance benchmarks comparing service resolution across different scopes with real SQLAlchemy database operations",
+  "servers": {
+    "catzilla": "catzilla_di.py",
+    "catzilla_sqlalchemy": "catzilla_sqlalchemy_di.py",
+    "fastapi": "fastapi_di.py",
+    "fastapi_sqlalchemy": "fastapi_sqlalchemy_di.py",
+    "flask_sqlalchemy": "flask_sqlalchemy_di.py",
+    "django": "django_di.py"
+  },
+  "sqlalchemy_endpoints": [
+    {
+      "path": "/",
+      "name": "home",
+      "method": "GET",
+      "description": "Basic endpoint with minimal DI - SQLAlchemy version"
+    },
+    {
+      "path": "/health",
+      "name": "health_check",
+      "method": "GET",
+      "description": "Health check endpoint with real database connection test"
+    },
+    {
+      "path": "/users",
+      "name": "get_users",
+      "method": "GET",
+      "description": "Get users with singleton service DI and real database operations",
+      "query_params": {
+        "limit": "100"
+      }
+    },
+    {
+      "path": "/users/42",
+      "name": "get_user",
+      "method": "GET",
+      "description": "Get user with posts - complex DI chain with multiple repositories and real joins"
+    },
+    {
+      "path": "/posts",
+      "name": "get_posts",
+      "method": "GET",
+      "description": "Get posts with service layer DI and real database operations",
+      "query_params": {
+        "limit": "100"
+      }
+    },
+    {
+      "path": "/posts/by-user/1",
+      "name": "get_posts_by_user",
+      "method": "GET",
+      "description": "Get posts by user with repository DI and filtered queries"
+    },
+    {
+      "path": "/analytics/transient-test",
+      "name": "transient_analytics",
+      "method": "GET",
+      "description": "Test transient/multiple service creation patterns"
+    },
+    {
+      "path": "/di-complex-chain",
+      "name": "complex_di_chain",
+      "method": "GET",
+      "description": "Complex DI chain with multiple services, repositories, and real database operations"
+    }
+  ],
   "endpoints": [
     {
       "path": "/",
@@ -12,7 +76,7 @@
       "path": "/health",
       "name": "health_check",
       "method": "GET",
-      "description": "Health check endpoint"
+      "description": "Health check endpoint with database connection test"
     },
     {
       "path": "/di-simple",
@@ -39,10 +103,46 @@
       "description": "Complex nested dependency injection"
     },
     {
+      "path": "/di-complex-chain",
+      "name": "complex_di_chain",
+      "method": "GET",
+      "description": "Complex DI chain with multiple services and repositories"
+    },
+    {
+      "path": "/users",
+      "name": "get_users",
+      "method": "GET",
+      "description": "Get users with singleton service DI and real database operations",
+      "query_params": {
+        "limit": "100"
+      }
+    },
+    {
       "path": "/users/42",
       "name": "get_user",
       "method": "GET",
-      "description": "Repository pattern with DI"
+      "description": "Get user with posts - complex DI chain with multiple repositories"
+    },
+    {
+      "path": "/posts",
+      "name": "get_posts",
+      "method": "GET",
+      "description": "Get posts with service layer DI and real database operations",
+      "query_params": {
+        "limit": "100"
+      }
+    },
+    {
+      "path": "/posts/by-user/1",
+      "name": "get_posts_by_user",
+      "method": "GET",
+      "description": "Get posts by user with repository DI and filtered queries"
+    },
+    {
+      "path": "/analytics/transient-test",
+      "name": "transient_analytics",
+      "method": "GET",
+      "description": "Test transient service creation with multiple instances"
     },
     {
       "path": "/users",

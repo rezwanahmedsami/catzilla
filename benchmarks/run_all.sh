@@ -31,6 +31,62 @@ BASIC_SERVERS=(
     "django:8003:python3 $SERVERS_DIR/basic/django_server.py --port 8003"
 )
 
+# Server configurations for dependency injection benchmarks
+DI_SERVERS=(
+    "catzilla:8010:python3 $SERVERS_DIR/dependency_injection/catzilla_di.py --port 8010"
+    "fastapi:8011:python3 $SERVERS_DIR/dependency_injection/fastapi_di.py --port 8011"
+    "django:8012:python3 $SERVERS_DIR/dependency_injection/django_di.py --port 8012"
+)
+
+# Server configurations for SQLAlchemy DI benchmarks
+SQLALCHEMY_DI_SERVERS=(
+    "catzilla:8020:python3 $SERVERS_DIR/dependency_injection/catzilla_sqlalchemy_di.py --port 8020"
+    "fastapi:8021:python3 $SERVERS_DIR/dependency_injection/fastapi_sqlalchemy_di.py --port 8021"
+    "flask:8022:python3 $SERVERS_DIR/dependency_injection/flask_sqlalchemy_di.py --port 8022"
+)
+
+# Server configurations for middleware benchmarks
+MIDDLEWARE_SERVERS=(
+    "catzilla:8030:python3 $SERVERS_DIR/middleware/catzilla_middleware.py --port 8030"
+    "fastapi:8031:python3 $SERVERS_DIR/middleware/fastapi_middleware.py --port 8031"
+    "django:8032:python3 $SERVERS_DIR/middleware/django_middleware.py --port 8032"
+)
+
+# Server configurations for validation benchmarks
+VALIDATION_SERVERS=(
+    "catzilla:8040:python3 $SERVERS_DIR/validation/catzilla_validation.py --port 8040"
+    "fastapi:8041:python3 $SERVERS_DIR/validation/fastapi_validation.py --port 8041"
+    "flask:8042:python3 $SERVERS_DIR/validation/flask_validation.py --port 8042"
+    "django:8043:python3 $SERVERS_DIR/validation/django_validation.py --port 8043"
+)
+
+# Server configurations for file operations benchmarks
+FILE_OPERATIONS_SERVERS=(
+    "catzilla:8050:python3 $SERVERS_DIR/file_operations/catzilla_file.py --port 8050"
+    "fastapi:8051:python3 $SERVERS_DIR/file_operations/fastapi_file.py --port 8051"
+    "flask:8052:python3 $SERVERS_DIR/file_operations/flask_file.py --port 8052"
+    "django:8053:python3 $SERVERS_DIR/file_operations/django_file.py --port 8053"
+)
+
+# Server configurations for background tasks benchmarks
+BACKGROUND_TASKS_SERVERS=(
+    "catzilla:8060:python3 $SERVERS_DIR/background_tasks/catzilla_tasks.py --port 8060"
+    "fastapi:8061:python3 $SERVERS_DIR/background_tasks/fastapi_tasks.py --port 8061"
+    "flask:8062:python3 $SERVERS_DIR/background_tasks/flask_tasks.py --port 8062"
+    "django:8063:python3 $SERVERS_DIR/background_tasks/django_tasks.py --port 8063"
+)
+
+# Server configurations for async operations benchmarks
+ASYNC_OPERATIONS_SERVERS=(
+    "django:8070:python3 $SERVERS_DIR/async_operations/django_async.py --port 8070"
+)
+
+# Server configurations for real-world scenarios benchmarks
+REAL_WORLD_SERVERS=(
+    "catzilla:8080:python3 $SERVERS_DIR/real_world_scenarios/catzilla_realworld.py --port 8080"
+    "fastapi:8081:python3 $SERVERS_DIR/real_world_scenarios/fastapi_realworld.py --port 8081"
+)
+
 # Test endpoints for basic benchmarks
 BASIC_ENDPOINTS=(
     "/:hello_world"
@@ -38,6 +94,92 @@ BASIC_ENDPOINTS=(
     "/user/42:path_params"
     "/users?limit=20&offset=10:query_params"
     "/user/123/profile:complex_json"
+)
+
+# Test endpoints for dependency injection benchmarks
+DI_ENDPOINTS=(
+    "/di/simple:simple_di"
+    "/di/transient:transient_di"
+    "/di/singleton:singleton_di"
+    "/di/request:request_scoped_di"
+    "/di/complex:complex_di_chain"
+)
+
+# Test endpoints for SQLAlchemy DI benchmarks
+SQLALCHEMY_DI_ENDPOINTS=(
+    "/health:health_check"
+    "/di/simple:simple_di"
+    "/di/transient:transient_di"
+    "/di/db/users:db_users_list"
+    "/di/db/user/1:db_user_detail"
+    "/di/db/posts:db_posts_list"
+    "/di/db/complex:complex_db_operations"
+    "/di/db/chain:complex_di_chain"
+)
+
+# Test endpoints for middleware benchmarks
+MIDDLEWARE_ENDPOINTS=(
+    "/:home"
+    "/health:health_check"
+    "/middleware-light:light_middleware"
+    "/middleware-heavy:heavy_middleware"
+    "/middleware-auth:auth_middleware"
+    "/middleware-cors:cors_middleware"
+    "/middleware-logging:logging_middleware"
+    "/middleware-compression:compression_middleware"
+)
+
+# Test endpoints for validation benchmarks
+VALIDATION_ENDPOINTS=(
+    "/health:health_check"
+    "/validation/simple:simple_validation"
+    "/validation/user:user_validation"
+    "/validation/nested:nested_validation"
+    "/validation/complex:complex_validation"
+    "/validation/array:array_validation"
+    "/validation/performance:performance_test"
+)
+
+# Test endpoints for file operations benchmarks
+FILE_OPERATIONS_ENDPOINTS=(
+    "/health:health_check"
+    "/upload/small:small_file_upload"
+    "/upload/medium:medium_file_upload"
+    "/upload/large:large_file_upload"
+    "/download/text:text_file_download"
+    "/download/binary:binary_file_download"
+    "/static/image:static_image_serve"
+    "/stream/data:data_streaming"
+)
+
+# Test endpoints for background tasks benchmarks
+BACKGROUND_TASKS_ENDPOINTS=(
+    "/health:health_check"
+    "/task/simple:simple_task"
+    "/task/email:email_task"
+    "/task/batch:batch_processing"
+    "/task/scheduled:scheduled_task"
+    "/task/queue:queue_processing"
+    "/task/parallel:parallel_tasks"
+)
+
+# Test endpoints for async operations benchmarks
+ASYNC_OPERATIONS_ENDPOINTS=(
+    "/health:health_check"
+    "/async/simple:simple_async"
+    "/async/db:async_database"
+    "/async/http:async_http_client"
+    "/async/concurrent:concurrent_operations"
+)
+
+# Test endpoints for real-world scenarios benchmarks
+REAL_WORLD_ENDPOINTS=(
+    "/health:health_check"
+    "/api/users:user_crud"
+    "/api/products:product_search"
+    "/api/orders:order_processing"
+    "/api/analytics:analytics_query"
+    "/api/complex:complex_business_logic"
 )
 
 # Colors for output
@@ -175,9 +317,24 @@ run_benchmark() {
     local port=""
     local method=${4:-"GET"}
     local post_data=${5:-""}
+    local benchmark_type=${6:-"basic"}  # Add benchmark_type parameter
 
-    # Extract port from server configuration
-    for server_config in "${BASIC_SERVERS[@]}"; do
+    # Extract port from appropriate server configuration based on benchmark type
+    local servers_to_check=()
+    case "$benchmark_type" in
+        "basic") servers_to_check=("${BASIC_SERVERS[@]}") ;;
+        "di") servers_to_check=("${DI_SERVERS[@]}") ;;
+        "sqlalchemy-di") servers_to_check=("${SQLALCHEMY_DI_SERVERS[@]}") ;;
+        "middleware") servers_to_check=("${MIDDLEWARE_SERVERS[@]}") ;;
+        "validation") servers_to_check=("${VALIDATION_SERVERS[@]}") ;;
+        "file-operations") servers_to_check=("${FILE_OPERATIONS_SERVERS[@]}") ;;
+        "background-tasks") servers_to_check=("${BACKGROUND_TASKS_SERVERS[@]}") ;;
+        "async-operations") servers_to_check=("${ASYNC_OPERATIONS_SERVERS[@]}") ;;
+        "real-world") servers_to_check=("${REAL_WORLD_SERVERS[@]}") ;;
+        *) servers_to_check=("${BASIC_SERVERS[@]}") ;;
+    esac
+
+    for server_config in "${servers_to_check[@]}"; do
         local server_name=${server_config%%:*}
         if [ "$server_name" = "$framework" ]; then
             port=$(echo "$server_config" | cut -d':' -f2)
@@ -186,7 +343,7 @@ run_benchmark() {
     done
 
     if [ -z "$port" ]; then
-        print_error "Port not found for framework: $framework"
+        print_error "Port not found for framework: $framework (type: $benchmark_type)"
         return 1
     fi
 
@@ -253,6 +410,7 @@ EOF
   "framework": "$framework",
   "endpoint": "$endpoint",
   "endpoint_name": "$endpoint_name",
+  "benchmark_type": "$benchmark_type",
   "method": "$method",
   "duration": "$DURATION",
   "connections": $CONNECTIONS,
@@ -279,16 +437,65 @@ EOF
 # Function to run benchmarks for a single framework
 benchmark_framework() {
     local framework=$1
+    local benchmark_type=${2:-"basic"}  # Default to basic benchmarks
 
-    print_status "Starting benchmark for $framework"
+    print_status "Starting $benchmark_type benchmark for $framework"
     echo "=================================================="
+
+    # Select server configuration and endpoints based on benchmark type
+    local servers_array
+    local endpoints_array
+    local port_offset
+
+    case "$benchmark_type" in
+        "basic")
+            servers_array=("${BASIC_SERVERS[@]}")
+            endpoints_array=("${BASIC_ENDPOINTS[@]}")
+            ;;
+        "di")
+            servers_array=("${DI_SERVERS[@]}")
+            endpoints_array=("${DI_ENDPOINTS[@]}")
+            ;;
+        "sqlalchemy-di")
+            servers_array=("${SQLALCHEMY_DI_SERVERS[@]}")
+            endpoints_array=("${SQLALCHEMY_DI_ENDPOINTS[@]}")
+            ;;
+        "middleware")
+            servers_array=("${MIDDLEWARE_SERVERS[@]}")
+            endpoints_array=("${MIDDLEWARE_ENDPOINTS[@]}")
+            ;;
+        "validation")
+            servers_array=("${VALIDATION_SERVERS[@]}")
+            endpoints_array=("${VALIDATION_ENDPOINTS[@]}")
+            ;;
+        "file-operations")
+            servers_array=("${FILE_OPERATIONS_SERVERS[@]}")
+            endpoints_array=("${FILE_OPERATIONS_ENDPOINTS[@]}")
+            ;;
+        "background-tasks")
+            servers_array=("${BACKGROUND_TASKS_SERVERS[@]}")
+            endpoints_array=("${BACKGROUND_TASKS_ENDPOINTS[@]}")
+            ;;
+        "async-operations")
+            servers_array=("${ASYNC_OPERATIONS_SERVERS[@]}")
+            endpoints_array=("${ASYNC_OPERATIONS_ENDPOINTS[@]}")
+            ;;
+        "real-world")
+            servers_array=("${REAL_WORLD_SERVERS[@]}")
+            endpoints_array=("${REAL_WORLD_ENDPOINTS[@]}")
+            ;;
+        *)
+            print_error "Unknown benchmark type: $benchmark_type"
+            return 1
+            ;;
+    esac
 
     # Extract server configuration
     local server_config=""
     local port=""
     local command=""
 
-    for config in "${BASIC_SERVERS[@]}"; do
+    for config in "${servers_array[@]}"; do
         local server_name=${config%%:*}
         if [ "$server_name" = "$framework" ]; then
             server_config="$config"
@@ -299,7 +506,7 @@ benchmark_framework() {
     done
 
     if [ -z "$server_config" ]; then
-        print_error "Server configuration not found for $framework"
+        print_error "Server configuration not found for $framework ($benchmark_type)"
         return 1
     fi
 
@@ -314,11 +521,11 @@ benchmark_framework() {
 
     # Run benchmarks for each endpoint
     local all_passed=true
-    for endpoint_config in "${BASIC_ENDPOINTS[@]}"; do
+    for endpoint_config in "${endpoints_array[@]}"; do
         local endpoint=${endpoint_config%%:*}
         local endpoint_name=${endpoint_config#*:}
 
-        if ! run_benchmark "$framework" "$endpoint" "$endpoint_name"; then
+        if ! run_benchmark "$framework" "$endpoint" "${benchmark_type}_${endpoint_name}" "GET" "" "$benchmark_type"; then
             all_passed=false
         fi
 
@@ -332,9 +539,9 @@ benchmark_framework() {
     fi
 
     if [ "$all_passed" = true ]; then
-        print_success "All benchmarks completed for $framework"
+        print_success "All $benchmark_type benchmarks completed for $framework"
     else
-        print_warning "Some benchmarks failed for $framework"
+        print_warning "Some $benchmark_type benchmarks failed for $framework"
     fi
 
     echo ""
@@ -344,7 +551,21 @@ benchmark_framework() {
 cleanup_servers() {
     print_status "Cleaning up any running benchmark servers..."
 
-    for server_config in "${BASIC_SERVERS[@]}"; do
+    # List of all server configurations
+    local all_servers=(
+        "${BASIC_SERVERS[@]}"
+        "${DI_SERVERS[@]}"
+        "${SQLALCHEMY_DI_SERVERS[@]}"
+        "${MIDDLEWARE_SERVERS[@]}"
+        "${VALIDATION_SERVERS[@]}"
+        "${FILE_OPERATIONS_SERVERS[@]}"
+        "${BACKGROUND_TASKS_SERVERS[@]}"
+        "${ASYNC_OPERATIONS_SERVERS[@]}"
+        "${REAL_WORLD_SERVERS[@]}"
+    )
+
+    # Cleanup all servers
+    for server_config in "${all_servers[@]}"; do
         local framework=${server_config%%:*}
         local port=$(echo "$server_config" | cut -d':' -f2)
         local pid_file="$RESULTS_DIR/${framework}_server.pid"
@@ -460,16 +681,23 @@ usage() {
     echo ""
     echo "Options:"
     echo "  --mode MODE         Benchmark mode: 'direct' (wrk) or 'python' (feature-based)"
+    echo "  --type TYPE         Benchmark type (see available types below)"
     echo "  --framework FRAMEWORK    Run specific framework only (catzilla,fastapi,flask,django)"
     echo "  --duration TIME     Test duration (default: 10s)"
     echo "  --connections NUM   Number of connections (default: 100)"
     echo "  --threads NUM       Number of threads (default: 4)"
+    echo "  --all              Run all available benchmark types"
     echo "  --help             Show this help message"
     echo ""
     echo "Direct Mode (wrk) Examples:"
-    echo "  $0                                    # Run all frameworks with wrk"
-    echo "  $0 --framework catzilla              # Run Catzilla only"
-    echo "  $0 --duration 30s --connections 200  # Custom settings"
+    echo "  $0                                          # Run basic benchmarks"
+    echo "  $0 --type di                               # Run dependency injection benchmarks"
+    echo "  $0 --type sqlalchemy-di                    # Run SQLAlchemy DI benchmarks"
+    echo "  $0 --type validation                       # Run validation engine benchmarks"
+    echo "  $0 --type middleware                       # Run middleware benchmarks"
+    echo "  $0 --framework catzilla --type validation  # Run Catzilla validation only"
+    echo "  $0 --all                                   # Run ALL benchmark types"
+    echo "  $0 --duration 30s --connections 200        # Custom settings"
     echo ""
     echo "Python Feature Mode Examples:"
     echo "  $0 --mode python --basic             # Run basic HTTP benchmarks"
@@ -480,7 +708,21 @@ usage() {
     echo "  $0 --mode python --all               # Run all feature categories"
     echo ""
     echo "Available frameworks: catzilla, fastapi, flask, django"
-    echo "Available feature categories: basic, middleware, dependency_injection, async_operations, validation, file_operations, background_tasks, real_world_scenarios"
+    echo ""
+    echo "Available benchmark types (direct mode):"
+    echo "  basic              - Basic HTTP operations (GET, POST, JSON)"
+    echo "  di                 - Dependency injection overhead"
+    echo "  sqlalchemy-di      - SQLAlchemy with dependency injection"
+    echo "  middleware         - Middleware performance"
+    echo "  validation         - Input validation engines"
+    echo "  file-operations    - File upload/download/streaming"
+    echo "  background-tasks   - Background task processing"
+    echo "  async-operations   - Async/await operations"
+    echo "  real-world         - Real-world API scenarios"
+    echo ""
+    echo "Available feature categories (python mode):"
+    echo "  basic, middleware, dependency_injection, async_operations,"
+    echo "  validation, file_operations, background_tasks, real_world_scenarios"
 }
 
 # Check dependencies
@@ -504,13 +746,19 @@ check_dependencies() {
 # Parse command line arguments
 parse_arguments() {
     MODE="direct"  # Default to direct wrk mode
+    BENCHMARK_TYPE="basic"  # Default benchmark type
     SELECTED_FRAMEWORK=""
     PYTHON_ARGS=""
+    RUN_ALL_TYPES=false
 
     while [[ $# -gt 0 ]]; do
         case $1 in
             --mode)
                 MODE="$2"
+                shift 2
+                ;;
+            --type)
+                BENCHMARK_TYPE="$2"
                 shift 2
                 ;;
             --framework)
@@ -529,7 +777,11 @@ parse_arguments() {
                 THREADS="$2"
                 shift 2
                 ;;
-            --basic|--middleware|--di|--async|--validation|--file-ops|--bg-tasks|--real-world|--all)
+            --all)
+                RUN_ALL_TYPES=true
+                shift
+                ;;
+            --basic|--middleware|--di|--async|--validation|--file-ops|--bg-tasks|--real-world)
                 MODE="python"
                 PYTHON_ARGS="$PYTHON_ARGS $1"
                 shift
@@ -565,6 +817,25 @@ parse_arguments() {
         fi
     fi
 
+    # Validate benchmark type
+    if [ -n "$BENCHMARK_TYPE" ]; then
+        local valid_types=("basic" "di" "sqlalchemy-di" "middleware" "validation" "file-operations" "background-tasks" "async-operations" "real-world")
+        local type_valid=false
+
+        for valid_type in "${valid_types[@]}"; do
+            if [ "$valid_type" = "$BENCHMARK_TYPE" ]; then
+                type_valid=true
+                break
+            fi
+        done
+
+        if [ "$type_valid" = false ]; then
+            print_error "Invalid benchmark type: $BENCHMARK_TYPE"
+            print_error "Valid types: ${valid_types[*]}"
+            exit 1
+        fi
+    fi
+
     # Validate mode
     if [ "$MODE" != "direct" ] && [ "$MODE" != "python" ]; then
         print_error "Invalid mode: $MODE"
@@ -575,7 +846,14 @@ parse_arguments() {
 
 # Run direct wrk benchmarks (like benchmarks_old)
 run_direct_benchmarks() {
-    print_header "🚀 Direct wrk Benchmark Mode"
+    if [ "$RUN_ALL_TYPES" = true ]; then
+        print_header "🚀 Direct wrk Benchmark Mode - ALL TYPES"
+        local all_types=("basic" "di" "sqlalchemy-di" "middleware" "validation" "file-operations" "background-tasks" "real-world")
+    else
+        print_header "🚀 Direct wrk Benchmark Mode - $BENCHMARK_TYPE"
+        local all_types=("$BENCHMARK_TYPE")
+    fi
+
     echo "Duration: $DURATION, Connections: $CONNECTIONS, Threads: $THREADS"
     echo "=========================================="
 
@@ -594,27 +872,73 @@ run_direct_benchmarks() {
     # Clean up any existing servers
     cleanup_servers
 
-    # Determine which frameworks to test
-    local frameworks_to_test
-    if [ -n "$SELECTED_FRAMEWORK" ]; then
-        frameworks_to_test=("$SELECTED_FRAMEWORK")
-    else
-        frameworks_to_test=("catzilla" "fastapi" "flask" "django")
-    fi
+    # Run benchmarks for each type
+    for benchmark_type in "${all_types[@]}"; do
+        print_header "Starting $benchmark_type benchmarks..."
 
-    print_status "Testing frameworks: ${frameworks_to_test[*]}"
-    echo ""
+        # Determine which frameworks to test based on benchmark type
+        local frameworks_to_test
+        if [ -n "$SELECTED_FRAMEWORK" ]; then
+            frameworks_to_test=("$SELECTED_FRAMEWORK")
+        else
+            case "$benchmark_type" in
+                "basic")
+                    frameworks_to_test=("catzilla" "fastapi" "flask" "django")
+                    ;;
+                "di")
+                    frameworks_to_test=("catzilla" "fastapi" "django")  # Only these have DI servers
+                    ;;
+                "sqlalchemy-di")
+                    frameworks_to_test=("catzilla" "fastapi" "flask")  # These have SQLAlchemy DI servers
+                    ;;
+                "middleware")
+                    frameworks_to_test=("catzilla" "fastapi" "django")  # These have middleware servers
+                    ;;
+                "validation")
+                    frameworks_to_test=("catzilla" "fastapi" "flask" "django")  # All have validation servers
+                    ;;
+                "file-operations")
+                    frameworks_to_test=("catzilla" "fastapi" "flask" "django")  # All have file servers
+                    ;;
+                "background-tasks")
+                    frameworks_to_test=("catzilla" "fastapi" "flask" "django")  # All have task servers
+                    ;;
+                "async-operations")
+                    frameworks_to_test=("django")  # Only Django async server available
+                    ;;
+                "real-world")
+                    frameworks_to_test=("catzilla" "fastapi")  # These have real-world servers
+                    ;;
+                *)
+                    frameworks_to_test=("catzilla" "fastapi" "flask" "django")
+                    ;;
+            esac
+        fi
 
-    # Run benchmarks for each framework
-    for framework in "${frameworks_to_test[@]}"; do
-        benchmark_framework "$framework"
-        sleep 3  # Pause between frameworks
+        print_status "Testing frameworks: ${frameworks_to_test[*]} (type: $benchmark_type)"
+        echo ""
+
+        # Run benchmarks for each framework
+        for framework in "${frameworks_to_test[@]}"; do
+            benchmark_framework "$framework" "$benchmark_type"
+            sleep 3  # Pause between frameworks
+        done
+
+        if [ "$RUN_ALL_TYPES" = true ] && [ "$benchmark_type" != "${all_types[-1]}" ]; then
+            print_status "Completed $benchmark_type benchmarks. Moving to next type..."
+            echo ""
+            sleep 5  # Longer pause between benchmark types
+        fi
     done
 
     # Generate summary
     generate_summary
 
-    print_success "All benchmarks completed!"
+    if [ "$RUN_ALL_TYPES" = true ]; then
+        print_success "All benchmark types completed!"
+    else
+        print_success "All $BENCHMARK_TYPE benchmarks completed!"
+    fi
     print_status "Results saved in: $RESULTS_DIR"
 }
 
