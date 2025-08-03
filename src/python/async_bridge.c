@@ -482,7 +482,7 @@ static async_bridge_task_t* async_task_create(PyObject* coroutine, PyObject* req
 
     // Debug info
     snprintf(task->debug_info, sizeof(task->debug_info),
-             "Task created at %llu", task->start_time);
+             "Task created at %llu", (unsigned long long)task->start_time);
 
     return task;
 }

@@ -836,6 +836,19 @@ target_link_libraries(_catzilla PRIVATE
   yyjson
 )
 
+# Linux-specific libraries
+if(UNIX AND NOT APPLE)
+    # Add pthread, dl, rt, and math libraries for Linux
+    find_package(Threads REQUIRED)
+    target_link_libraries(_catzilla PRIVATE Threads::Threads ${CMAKE_DL_LIBS} m)
+
+    # Add rt library if available (for clock functions)
+    find_library(RT_LIB rt)
+    if(RT_LIB)
+        target_link_libraries(_catzilla PRIVATE rt)
+    endif()
+endif()
+
 # Only link to Python libraries if they exist and are needed (not for manylinux or macOS)
 # macOS Python extensions should not link to Python libraries - symbols are provided at runtime
 if(Python3_LIBRARIES AND NOT (UNIX AND NOT APPLE) AND NOT APPLE)
