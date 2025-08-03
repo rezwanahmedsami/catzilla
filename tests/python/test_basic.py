@@ -569,33 +569,19 @@ class TestAsyncRequestHandling:
         assert any(r["path"] == "/async/timeout" for r in routes)
 
 
-@pytest.mark.asyncio
 class TestAsyncMemoryRevolution:
     """Test async functionality with Memory Revolution features"""
 
-    def setup_method(self):
-        # Ensure we have a clean event loop for this test
-        try:
-            import asyncio
-            loop = asyncio.get_event_loop()
-            if loop.is_closed():
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-        except RuntimeError:
-            # No event loop exists, create one
-            import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
+    @pytest.fixture(autouse=True)
+    async def setup_app(self):
+        """Setup app for async testing"""
         self.app = Catzilla(auto_validation=True, memory_profiling=False)
-
-    def teardown_method(self):
-        # Simple cleanup with longer delay to help with async resource cleanup
+        yield
+        # Cleanup
         if hasattr(self, 'app'):
             self.app = None
-            # Longer delay to allow C extension async cleanup to complete in CI
-            import time
-            time.sleep(0.05)
+            # Small delay to allow C extension async cleanup to complete
+            await asyncio.sleep(0.01)
 
     @pytest.mark.asyncio
     async def test_async_memory_optimized_responses(self):
@@ -629,33 +615,19 @@ class TestAsyncMemoryRevolution:
         assert any(r["path"] == "/async/concurrent" for r in routes)
 
 
-@pytest.mark.asyncio
 class TestAsyncPerformanceStability:
     """Test async performance and stability characteristics"""
 
-    def setup_method(self):
-        # Ensure we have a clean event loop for this test
-        try:
-            import asyncio
-            loop = asyncio.get_event_loop()
-            if loop.is_closed():
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-        except RuntimeError:
-            # No event loop exists, create one
-            import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
+    @pytest.fixture(autouse=True)
+    async def setup_app(self):
+        """Setup app for async testing"""
         self.app = Catzilla(auto_validation=True, memory_profiling=False)
-
-    def teardown_method(self):
-        # Simple cleanup with longer delay to help with async resource cleanup
+        yield
+        # Cleanup
         if hasattr(self, 'app'):
             self.app = None
-            # Longer delay to allow C extension async cleanup to complete in CI
-            import time
-            time.sleep(0.05)
+            # Small delay to allow C extension async cleanup to complete
+            await asyncio.sleep(0.01)
 
     @pytest.mark.asyncio
     async def test_async_high_frequency_requests(self):

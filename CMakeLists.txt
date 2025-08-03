@@ -766,6 +766,9 @@ endif()
 
 target_link_libraries(catzilla_core PRIVATE uv_a llhttp_static yyjson)
 
+# Ensure dependencies are built first
+add_dependencies(catzilla_core yyjson llhttp_static uv_a)
+
 # Windows-specific linking
 if(WIN32)
     target_link_libraries(catzilla_core PRIVATE ws2_32 iphlpapi userenv)
@@ -835,6 +838,9 @@ target_link_libraries(_catzilla PRIVATE
   llhttp_static
   yyjson
 )
+
+# Ensure dependencies are built first
+add_dependencies(_catzilla catzilla_core yyjson llhttp_static)
 
 # Linux-specific libraries
 if(UNIX AND NOT APPLE)

@@ -158,11 +158,14 @@ class TestCriticalProductionErrors:
         """Get next available test port with better conflict avoidance"""
         import socket
         import random
+        import time
 
         # Use a wider range and add randomization to avoid conflicts
-        base_port = self.test_port + random.randint(0, 50)
+        # Use timestamp-based port range to ensure uniqueness across test runs
+        timestamp_offset = int(time.time()) % 1000
+        base_port = 9000 + timestamp_offset + random.randint(0, 100)
 
-        for port in range(base_port, base_port + 200):
+        for port in range(base_port, base_port + 500):  # Much wider search range
             try:
                 # Test both TCP and check if anything is listening
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -173,18 +176,21 @@ class TestCriticalProductionErrors:
 
                 if result != 0:  # Port is not in use
                     # Double-check by trying to bind
-                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                    sock.bind(('localhost', port))
-                    sock.close()
-                    self.test_port = port + 1
-                    return port
+                    try:
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                        sock.bind(('localhost', port))
+                        sock.close()
+                        self.test_port = port + 10  # Bigger gap to avoid conflicts
+                        return port
+                    except OSError:
+                        continue
             except OSError:
                 continue
 
         raise RuntimeError("No available ports found in range")
 
-    def start_error_test_server(self, app_code: str, port: int, timeout: float = 10.0) -> subprocess.Popen:
+    def start_error_test_server(self, app_code: str, port: int, timeout: float = 30.0) -> subprocess.Popen:
         """Start a test server for error scenario testing with robust startup"""
         script = f'''
 import sys
@@ -212,7 +218,7 @@ if __name__ == "__main__":
     try:
         print(f"Starting error test server on port {port}", flush=True)
         # Add longer delay for proper initialization in test suites
-        time.sleep(1.0)
+        time.sleep(2.0)
         print("Server initialization complete, starting listener...", flush=True)
         app.listen(port={port})
     except KeyboardInterrupt:
@@ -245,7 +251,7 @@ if __name__ == "__main__":
         start_time = time.time()
         last_error = None
         health_checks_passed = 0
-        required_health_checks = 3
+        required_health_checks = 2  # Reduced for faster tests
 
         while time.time() - start_time < timeout:
             if process.poll() is not None:
@@ -253,26 +259,27 @@ if __name__ == "__main__":
                 raise RuntimeError(f"Error test server process died: {output}")
 
             try:
-                response = requests.get(f"http://localhost:{port}/health", timeout=3)
+                response = requests.get(f"http://localhost:{port}/health", timeout=5)  # Increased timeout
                 if response.status_code == 200:
                     health_checks_passed += 1
                     if health_checks_passed >= required_health_checks:
                         print(f"Error test server started successfully on port {port}")
-                        time.sleep(0.5)  # Additional stabilization time
+                        time.sleep(1.0)  # Additional stabilization time
                         return process
                     else:
-                        time.sleep(0.2)
+                        time.sleep(0.5)  # Longer pause between checks
                 else:
                     health_checks_passed = 0
+                    time.sleep(0.5)
             except Exception as e:
                 last_error = e
                 health_checks_passed = 0
-                time.sleep(0.3)
+                time.sleep(1.0)  # Longer wait on error
 
         # Server failed to start
         try:
             process.terminate()
-            output, _ = process.communicate(timeout=2)
+            output, _ = process.communicate(timeout=5)  # Increased timeout
         except:
             process.kill()
             output = "Process killed due to timeout"

@@ -111,10 +111,12 @@ Changelog = "https://github.com/rezwanahmedsami/catzilla/blob/main/CHANGELOG.md"
 catzilla-server = "catzilla.cli:main"
 
 [tool.setuptools]
-packages = ["catzilla"]
-package-dir = {"catzilla" = "python/catzilla"}
+package-dir = {"" = "python"}
 include-package-data = true
 zip-safe = false
+
+[tool.setuptools.packages.find]
+where = ["python"]
 
 [tool.setuptools.package-data]
 catzilla = [

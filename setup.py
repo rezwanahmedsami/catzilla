@@ -77,8 +77,6 @@ ext_modules = [Extension('catzilla._catzilla', sources=[])]
 setup(
     name="catzilla",
     version="0.1.0",
-    packages=find_packages(where="python"),
-    package_dir={"": "python"},
     ext_modules=ext_modules,
     cmdclass={"build_ext": CMakeBuild},
     python_requires=">=3.8",

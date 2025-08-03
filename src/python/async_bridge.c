@@ -13,6 +13,7 @@
 #include <uv.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <inttypes.h>  // For PRIu64
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -482,7 +483,7 @@ static async_bridge_task_t* async_task_create(PyObject* coroutine, PyObject* req
 
     // Debug info
     snprintf(task->debug_info, sizeof(task->debug_info),
-             "Task created at %llu", (unsigned long long)task->start_time);
+             "Task created at %" PRIu64, task->start_time);
 
     return task;
 }

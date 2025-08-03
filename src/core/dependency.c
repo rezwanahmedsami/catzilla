@@ -6,6 +6,7 @@
 #include <string.h>
 #include <time.h>
 #include <stdio.h>
+#include <inttypes.h>  // For PRIu64
 
 #ifdef _WIN32
 #include "windows_compat.h"
@@ -1912,9 +1913,9 @@ int catzilla_di_generate_performance_report(catzilla_di_container_t* container,
         "=== DI Container Performance Report ===\n"
         "Container ID: %u\n"
         "Total Services: %d\n"
-        "Total Resolutions: %llu\n"
-        "Cache Hits: %llu\n"
-        "Cache Misses: %llu\n"
+        "Total Resolutions: %" PRIu64 "\n"
+        "Cache Hits: %" PRIu64 "\n"
+        "Cache Misses: %" PRIu64 "\n"
         "Hit Rate: %.2f%%\n"
         "Average Resolution Time: %.3f ms\n"
         "Total Memory Usage: %zu bytes\n"
