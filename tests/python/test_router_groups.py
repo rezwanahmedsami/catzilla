@@ -1276,12 +1276,17 @@ class TestAsyncRouterGroups:
         # Ensure we have a clean event loop for this test
         try:
             import asyncio
-            loop = asyncio.get_event_loop()
-            if loop.is_closed():
+            # Try to get existing loop
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_closed():
+                    raise RuntimeError("Loop is closed")
+            except RuntimeError:
+                # No event loop exists or it's closed, create one
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-        except RuntimeError:
-            # No event loop exists, create one
+        except Exception:
+            # Fallback: always create a new loop
             import asyncio
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -1517,8 +1522,11 @@ class TestAsyncRouterGroups:
         assert "/async/perf/memory" in paths
 
     @pytest.mark.asyncio
-    async def test_mixed_async_sync_router_groups(self):
+    async def test_mixed_async_sync_router_groups(self, event_loop):
         """Test mixed async/sync router groups"""
+        # Use the event_loop fixture to ensure proper setup
+        asyncio.set_event_loop(event_loop)
+
         # Async group
         async_group = RouterGroup("/async", tags=["async"])
 
@@ -1570,12 +1578,17 @@ class TestAsyncRouterGroupIntegration:
         # Ensure we have a clean event loop for this test
         try:
             import asyncio
-            loop = asyncio.get_event_loop()
-            if loop.is_closed():
+            # Try to get existing loop
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_closed():
+                    raise RuntimeError("Loop is closed")
+            except RuntimeError:
+                # No event loop exists or it's closed, create one
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-        except RuntimeError:
-            # No event loop exists, create one
+        except Exception:
+            # Fallback: always create a new loop
             import asyncio
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)

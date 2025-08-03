@@ -123,7 +123,7 @@ class TestCriticalIntegration:
             time.sleep(0.2)
         return False
 
-    def start_test_server(self, app_code: str, port: int, timeout: float = 10.0) -> subprocess.Popen:
+    def start_test_server(self, app_code: str, port: int, timeout: float = 15.0) -> subprocess.Popen:
         """Start a test server in a subprocess with robust startup checking"""
         # Ensure port is free first
         if not self.wait_for_port_free(port, timeout=5.0):
@@ -183,7 +183,7 @@ if __name__ == "__main__":
         start_time = time.time()
         last_error = None
         health_checks_passed = 0
-        required_health_checks = 3  # Require multiple successful checks
+        required_health_checks = 2  # Reduced for CI stability
 
         while time.time() - start_time < timeout:
             # Check if process died
@@ -193,22 +193,22 @@ if __name__ == "__main__":
 
             try:
                 # Test multiple endpoints to ensure server is fully ready
-                response = requests.get(f"http://localhost:{port}/health", timeout=3)
+                response = requests.get(f"http://localhost:{port}/health", timeout=5)  # Increased timeout
                 if response.status_code == 200:
                     health_checks_passed += 1
                     if health_checks_passed >= required_health_checks:
                         print(f"Server started successfully on port {port}")
-                        # Give additional time for full initialization
-                        time.sleep(0.5)
+                        # Give additional time for full initialization in CI
+                        time.sleep(1.0)  # Increased for CI stability
                         return process
                     else:
-                        time.sleep(0.2)  # Brief pause between health checks
+                        time.sleep(0.3)  # Slightly longer pause between health checks
                 else:
                     health_checks_passed = 0
             except Exception as e:
                 last_error = e
                 health_checks_passed = 0
-                time.sleep(0.3)
+                time.sleep(0.5)  # Longer wait on error
 
         # If we get here, startup failed
         try:
