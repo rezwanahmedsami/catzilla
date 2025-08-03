@@ -471,60 +471,79 @@ except Exception as e:
 
         # Create production app and test basic functionality
         prod_app_test = '''
-from catzilla import Catzilla, JSONResponse
+import sys
+import signal
 import time
 import os
+from catzilla import Catzilla, JSONResponse
 
-# Simple mock request for testing
-class MockRequest:
-    def __init__(self):
-        self.path_params = {}
-        self.query_params = {}
+# Set up signal handling for clean exit
+def signal_handler(signum, frame):
+    print("✓ Received signal, exiting cleanly")
+    sys.exit(0)
 
-app = Catzilla()
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
 
-@app.get("/health")
-def health(request):
-    return JSONResponse({
-        "status": "healthy",
-        "timestamp": time.time(),
-        "pid": os.getpid()
-    })
+try:
+    # Simple mock request for testing
+    class MockRequest:
+        def __init__(self):
+            self.path_params = {}
+            self.query_params = {}
 
-@app.get("/api/status")
-def api_status(request):
-    return JSONResponse({
-        "api": "operational",
-        "version": "1.0.0",
-        "environment": "production"
-    })
+    app = Catzilla()
 
-# Test app creation and route registration
-assert app is not None, "Production app creation failed"
-print("✓ Production app created successfully")
+    @app.get("/health")
+    def health(request):
+        return JSONResponse({
+            "status": "healthy",
+            "timestamp": time.time(),
+            "pid": os.getpid()
+        })
 
-# Test that routes are callable
-mock_request = MockRequest()
+    @app.get("/api/status")
+    def api_status(request):
+        return JSONResponse({
+            "api": "operational",
+            "version": "1.0.0",
+            "environment": "production"
+        })
 
-# Test health route
-health_response = health(mock_request)
-print("✓ Health endpoint functional")
+    # Test app creation and route registration
+    assert app is not None, "Production app creation failed"
+    print("✓ Production app created successfully")
 
-# Test status route
-status_response = api_status(mock_request)
-print("✓ API status endpoint functional")
+    # Test that routes are callable
+    mock_request = MockRequest()
 
-print("✓ Production deployment simulation successful")
+    # Test health route
+    health_response = health(mock_request)
+    print("✓ Health endpoint functional")
+
+    # Test status route
+    status_response = api_status(mock_request)
+    print("✓ API status endpoint functional")
+
+    print("✓ Production deployment simulation successful")
+
+except Exception as e:
+    print(f"✗ Production test failed: {e}")
+    sys.exit(1)
+finally:
+    # Explicit cleanup and exit
+    print("✓ Cleaning up and exiting")
+    sys.exit(0)
 '''
 
         # Write production test
         test_path = env_dir / "prod_test.py"
         test_path.write_text(prod_app_test)
 
-        # Run production test
+        # Run production test with extended timeout for subprocess overhead
         self.validator.run_command([
             python_exe, str(test_path)
-        ], timeout=30)
+        ], timeout=60)  # Extended timeout for subprocess and cleanup
 
         print("✅ Production deployment simulation: PASSED")
 

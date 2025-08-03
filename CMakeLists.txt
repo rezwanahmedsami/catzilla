@@ -645,12 +645,11 @@ if(WIN32)
 endif()
 
 # libuv
-# Configure libuv to be less noisy on Windows
-if(WIN32)
-    set(LIBUV_BUILD_SHARED OFF CACHE BOOL "Build shared library")
-    set(LIBUV_BUILD_BENCH OFF CACHE BOOL "Build benchmarks")
-    set(LIBUV_BUILD_TESTS OFF CACHE BOOL "Build tests")
-endif()
+# Configure libuv to build only static libraries (no shared libraries)
+# This prevents symbolic link conflicts during wheel builds in CI environments
+set(LIBUV_BUILD_SHARED OFF CACHE BOOL "Build shared library")
+set(LIBUV_BUILD_BENCH OFF CACHE BOOL "Build benchmarks")
+set(LIBUV_BUILD_TESTS OFF CACHE BOOL "Build tests")
 
 add_subdirectory(deps/libuv)
 

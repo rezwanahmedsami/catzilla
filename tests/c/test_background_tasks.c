@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>  // For PRIu64 portable format macros
 #ifndef _WIN32
 #include <unistd.h>
 #else
@@ -91,7 +92,7 @@ int main() {
     if (task_id == 0) {
         printf("❌ Failed to add simple C task\n");
     } else {
-        printf("✅ Simple C task added with ID: %llu\n", task_id);
+        printf("✅ Simple C task added with ID: %" PRIu64 "\n", task_id);
     }
 
     // Test 2: High priority logging task
@@ -110,7 +111,7 @@ int main() {
     if (log_task_id == 0) {
         printf("❌ Failed to add logging task\n");
     } else {
-        printf("✅ Logging task added with ID: %llu\n", log_task_id);
+        printf("✅ Logging task added with ID: %" PRIu64 "\n", log_task_id);
     }
 
     // Test 3: Performance task with delay
@@ -129,7 +130,7 @@ int main() {
     if (perf_task_id == 0) {
         printf("❌ Failed to add performance task\n");
     } else {
-        printf("✅ Performance task added with ID: %llu (delayed 100ms)\n", perf_task_id);
+        printf("✅ Performance task added with ID: %" PRIu64 " (delayed 100ms)\n", perf_task_id);
     }
 
     // Test 4: Batch task submission
@@ -186,11 +187,11 @@ int main() {
 
 #ifndef _WIN32
     printf("Queue Status:\n");
-    printf("  Critical queue: %llu tasks\n", stats.critical_queue_size);
-    printf("  High queue:     %llu tasks\n", stats.high_queue_size);
-    printf("  Normal queue:   %llu tasks\n", stats.normal_queue_size);
-    printf("  Low queue:      %llu tasks\n", stats.low_queue_size);
-    printf("  Total queued:   %llu tasks\n", stats.total_queued);
+    printf("  Critical queue: %" PRIu64 " tasks\n", stats.critical_queue_size);
+    printf("  High queue:     %" PRIu64 " tasks\n", stats.high_queue_size);
+    printf("  Normal queue:   %" PRIu64 " tasks\n", stats.normal_queue_size);
+    printf("  Low queue:      %" PRIu64 " tasks\n", stats.low_queue_size);
+    printf("  Total queued:   %" PRIu64 " tasks\n", stats.total_queued);
 
     printf("Worker Metrics:\n");
     printf("  Active workers: %d\n", stats.active_workers);
@@ -198,23 +199,23 @@ int main() {
     printf("  Total workers:  %d\n", stats.total_workers);
 
     printf("Performance Metrics:\n");
-    printf("  Tasks per second:    %llu\n", stats.tasks_per_second);
+    printf("  Tasks per second:    %" PRIu64 "\n", stats.tasks_per_second);
     printf("  Avg execution time:  %.2f ms\n", stats.avg_execution_time_ms);
     printf("  P95 execution time:  %.2f ms\n", stats.p95_execution_time_ms);
-    printf("  Memory usage:        %llu MB\n", stats.memory_usage_mb);
+    printf("  Memory usage:        %" PRIu64 " MB\n", stats.memory_usage_mb);
 
     printf("System Health:\n");
-    printf("  Uptime:              %llu seconds\n", stats.uptime_seconds);
-    printf("  Total processed:     %llu tasks\n", stats.total_tasks_processed);
-    printf("  Failed tasks:        %llu\n", stats.failed_tasks);
+    printf("  Uptime:              %" PRIu64 " seconds\n", stats.uptime_seconds);
+    printf("  Total processed:     %" PRIu64 " tasks\n", stats.total_tasks_processed);
+    printf("  Failed tasks:        %" PRIu64 "\n", stats.failed_tasks);
     printf("  Error rate:          %.2f%%\n", stats.error_rate * 100);
 #else
     // Windows has limited stats
     printf("Basic Statistics (Windows):\n");
-    printf("  Uptime:              %llu seconds\n", stats.uptime_seconds);
-    printf("  Total processed:     %llu tasks\n", stats.total_tasks_processed);
+    printf("  Uptime:              %" PRIu64 " seconds\n", stats.uptime_seconds);
+    printf("  Total processed:     %" PRIu64 " tasks\n", stats.total_tasks_processed);
     printf("  Engine CPU usage:    %.2f%%\n", stats.engine_cpu_usage);
-    printf("  Engine memory:       %llu MB\n", stats.engine_memory_usage);
+    printf("  Engine memory:       %" PRIu64 " MB\n", stats.engine_memory_usage);
 #endif
 
     // Test 5: Stress test
@@ -279,13 +280,13 @@ int main() {
     stats.engine_cpu_usage = 0.0;
     stats.engine_memory_usage = 0;
 #endif
-    printf("Total tasks processed: %llu\n", stats.total_tasks_processed);
+    printf("Total tasks processed: %" PRIu64 "\n", stats.total_tasks_processed);
 #ifndef _WIN32
-    printf("Current throughput:    %llu tasks/second\n", stats.tasks_per_second);
+    printf("Current throughput:    %" PRIu64 " tasks/second\n", stats.tasks_per_second);
     printf("Memory efficiency:     %.1f%%\n", stats.memory_efficiency * 100);
 #else
     printf("Engine CPU usage:      %.2f%%\n", stats.engine_cpu_usage);
-    printf("Engine memory usage:   %llu MB\n", stats.engine_memory_usage);
+    printf("Engine memory usage:   %" PRIu64 " MB\n", stats.engine_memory_usage);
 #endif
 
 #undef BATCH_SIZE
