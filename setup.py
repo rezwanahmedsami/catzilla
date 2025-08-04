@@ -25,7 +25,7 @@ class CMakeBuild(build_ext):
         # Check for jemalloc environment variable
         use_jemalloc = os.getenv('CATZILLA_USE_JEMALLOC', '1') == '1'
 
-        # 1) Configure
+        # 1) Configure with robust compiler detection
         configure_cmd = [
             'cmake', '-S', '.', '-B', build_dir,
             f'-DPython3_EXECUTABLE={sys.executable}',
@@ -33,19 +33,87 @@ class CMakeBuild(build_ext):
             f'-DUSE_JEMALLOC={"ON" if use_jemalloc else "OFF"}'
         ]
 
+        # Add platform-specific compiler fixes for isolated environments
+        if sys.platform == 'darwin':
+            # macOS: Explicitly set compilers to avoid isolated env issues
+            configure_cmd.extend([
+                '-DCMAKE_C_COMPILER=/usr/bin/clang',
+                '-DCMAKE_CXX_COMPILER=/usr/bin/clang++',
+                # Force architecture detection for M1/Intel compatibility
+                f'-DCMAKE_OSX_ARCHITECTURES={platform.machine()}'
+            ])
+        elif sys.platform.startswith('linux'):
+            # Linux: Set compilers for Ubuntu CI compatibility
+            configure_cmd.extend([
+                '-DCMAKE_C_COMPILER=/usr/bin/gcc',
+                '-DCMAKE_CXX_COMPILER=/usr/bin/g++'
+            ])
+
+        # Set generator for better compatibility
+        if sys.platform == 'win32':
+            configure_cmd.extend(['-G', 'Visual Studio 16 2019'])
+        else:
+            configure_cmd.extend(['-G', 'Unix Makefiles'])
+
         if use_jemalloc:
             print(f"{platform_emoji('🚀', '>>')} Building Catzilla with jemalloc support...")
         else:
             print(f"{platform_emoji('⚠️', '!!')} Building Catzilla without jemalloc (fallback to standard malloc)")
 
-        subprocess.check_call(configure_cmd)
+        # Preserve environment for CMake
+        env = os.environ.copy()
 
-        # 2) Build
+        # Set environment variables for isolated build environments
+        if sys.platform == 'darwin':
+            # macOS: Set SDK path and deployment target
+            env['MACOSX_DEPLOYMENT_TARGET'] = os.getenv("MACOSX_DEPLOYMENT_TARGET", "10.15")
+            # Ensure we can find system tools
+            env['PATH'] = '/usr/bin:/bin:/usr/sbin:/sbin:' + env.get('PATH', '')
+            # Fix for shell directory access issues in CI
+            env['PWD'] = os.getcwd()
+        elif sys.platform.startswith('linux'):
+            # Linux: Ensure compiler tools are available
+            env['CC'] = env.get('CC', 'gcc')
+            env['CXX'] = env.get('CXX', 'g++')
+            env['PWD'] = os.getcwd()
+
+        # Ensure we're in the right working directory
+        original_cwd = os.getcwd()
+        try:
+            # Change to source directory for CMake
+            source_dir = os.path.dirname(os.path.abspath(__file__))
+            os.chdir(source_dir)
+
+            subprocess.check_call(configure_cmd, env=env, cwd=source_dir)
+        except subprocess.CalledProcessError as e:
+            print(f"CMake configure failed with return code {e.returncode}")
+            print("Attempting fallback configuration...")
+
+            # Fallback: minimal configuration without extra flags
+            fallback_cmd = [
+                'cmake', '-S', '.', '-B', build_dir,
+                f'-DPython3_EXECUTABLE={sys.executable}',
+                f'-DUSE_JEMALLOC={"ON" if use_jemalloc else "OFF"}'
+            ]
+            subprocess.check_call(fallback_cmd, env=env, cwd=source_dir)
+        finally:
+            # Restore original working directory
+            os.chdir(original_cwd)
+
+        # 2) Build with environment preservation
         build_cmd = ['cmake', '--build', build_dir]
         # On Windows, explicitly use Release configuration to avoid python3XX_d.lib issues
         if sys.platform == 'win32':
             build_cmd.extend(['--config', 'Release'])
-        subprocess.check_call(build_cmd)
+
+        # Add parallel build support for faster compilation
+        if sys.platform != 'win32':
+            import multiprocessing
+            build_cmd.extend(['--parallel', str(min(multiprocessing.cpu_count(), 8))])
+
+        # Ensure we build from the right directory
+        source_dir = os.path.dirname(os.path.abspath(__file__))
+        subprocess.check_call(build_cmd, env=env, cwd=source_dir)
 
         # 3) Locate the built extension file
         if sys.platform == 'win32':

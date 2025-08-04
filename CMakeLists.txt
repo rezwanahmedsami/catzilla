@@ -1,4 +1,36 @@
 cmake_minimum_required(VERSION 3.15)
+
+# Robust compiler detection for isolated build environments
+if(NOT CMAKE_C_COMPILER)
+    if(APPLE)
+        # macOS: Use system clang by default
+        find_program(CMAKE_C_COMPILER clang PATHS /usr/bin /opt/homebrew/bin /usr/local/bin)
+        find_program(CMAKE_CXX_COMPILER clang++ PATHS /usr/bin /opt/homebrew/bin /usr/local/bin)
+        if(NOT CMAKE_C_COMPILER)
+            # Fallback to any available clang
+            find_program(CMAKE_C_COMPILER NAMES clang cc)
+            find_program(CMAKE_CXX_COMPILER NAMES clang++ c++)
+        endif()
+    elseif(UNIX)
+        # Linux: Use system gcc by default
+        find_program(CMAKE_C_COMPILER gcc PATHS /usr/bin /bin /usr/local/bin)
+        find_program(CMAKE_CXX_COMPILER g++ PATHS /usr/bin /bin /usr/local/bin)
+        if(NOT CMAKE_C_COMPILER)
+            # Fallback to any available gcc/clang
+            find_program(CMAKE_C_COMPILER NAMES gcc clang cc)
+            find_program(CMAKE_CXX_COMPILER NAMES g++ clang++ c++)
+        endif()
+    endif()
+
+    # Log what we found
+    if(CMAKE_C_COMPILER)
+        message(STATUS "✅ Found C compiler: ${CMAKE_C_COMPILER}")
+    endif()
+    if(CMAKE_CXX_COMPILER)
+        message(STATUS "✅ Found C++ compiler: ${CMAKE_CXX_COMPILER}")
+    endif()
+endif()
+
 project(catzilla VERSION 0.1.0 LANGUAGES C CXX)
 
 # Set C11 standard with MSVC compatibility
@@ -647,6 +679,13 @@ endif()
 # libuv
 # Configure libuv to build only static libraries (no shared libraries)
 # This prevents symbolic link conflicts during wheel builds in CI environments
+
+# Ensure compilers are properly set before configuring libuv
+if(NOT CMAKE_C_COMPILER_WORKS)
+    message(STATUS "Checking C compiler before libuv configuration...")
+    enable_language(C)
+endif()
+
 set(LIBUV_BUILD_SHARED OFF CACHE BOOL "Build shared library")
 set(LIBUV_BUILD_BENCH OFF CACHE BOOL "Build benchmarks")
 set(LIBUV_BUILD_TESTS OFF CACHE BOOL "Build tests")
