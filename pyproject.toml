@@ -13,6 +13,7 @@ version = "0.1.0"
 description = "Ultra-fast Python web framework with C-accelerated routing"
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     {name = "Rezwan Ahmed Sami", email = "samiahmed0f0@gmail.com"}
 ]
