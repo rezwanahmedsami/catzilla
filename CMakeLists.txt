@@ -11,6 +11,12 @@ if(NOT CMAKE_C_COMPILER)
             find_program(CMAKE_C_COMPILER NAMES clang cc)
             find_program(CMAKE_CXX_COMPILER NAMES clang++ c++)
         endif()
+    elseif(WIN32)
+        # Windows: Try to find MSVC, then fallback to other compilers
+        if(NOT CMAKE_C_COMPILER)
+            find_program(CMAKE_C_COMPILER NAMES cl.exe gcc.exe clang.exe)
+            find_program(CMAKE_CXX_COMPILER NAMES cl.exe g++.exe clang++.exe)
+        endif()
     elseif(UNIX)
         # Linux: Use system gcc by default
         find_program(CMAKE_C_COMPILER gcc PATHS /usr/bin /bin /usr/local/bin)

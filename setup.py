@@ -25,13 +25,25 @@ class CMakeBuild(build_ext):
         # Check for jemalloc environment variable
         use_jemalloc = os.getenv('CATZILLA_USE_JEMALLOC', '1') == '1'
 
+        # Python version compatibility checks
+        python_version = sys.version_info
+        print(f"Building for Python {python_version.major}.{python_version.minor}.{python_version.micro} on {platform.system()}")
+
+        # Disable jemalloc for problematic Python versions in CI
+        if python_version.minor in [8, 11] and os.getenv('CI'):
+            print("Warning: Disabling jemalloc for Python 3.8/3.11 in CI environment for compatibility")
+            use_jemalloc = False
+
         # 1) Configure with robust compiler detection
         configure_cmd = [
             'cmake', '-S', '.', '-B', build_dir,
             f'-DPython3_EXECUTABLE={sys.executable}',
-            f'-DCMAKE_OSX_DEPLOYMENT_TARGET={os.getenv("MACOSX_DEPLOYMENT_TARGET","10.15")}',
             f'-DUSE_JEMALLOC={"ON" if use_jemalloc else "OFF"}'
         ]
+
+        # Add macOS deployment target only on macOS
+        if sys.platform == 'darwin':
+            configure_cmd.append(f'-DCMAKE_OSX_DEPLOYMENT_TARGET={os.getenv("MACOSX_DEPLOYMENT_TARGET","10.15")}')
 
         # Add platform-specific compiler fixes for isolated environments
         if sys.platform == 'darwin':
@@ -44,14 +56,48 @@ class CMakeBuild(build_ext):
             ])
         elif sys.platform.startswith('linux'):
             # Linux: Set compilers for Ubuntu CI compatibility
+            # Handle Python 3.8 specific issues
             configure_cmd.extend([
                 '-DCMAKE_C_COMPILER=/usr/bin/gcc',
                 '-DCMAKE_CXX_COMPILER=/usr/bin/g++'
             ])
+            # Add Python version specific flags for older versions
+            python_version = sys.version_info
+            if python_version.major == 3 and python_version.minor <= 8:
+                configure_cmd.append('-DCMAKE_POSITION_INDEPENDENT_CODE=ON')
+        elif sys.platform == 'win32':
+            # Windows: Let CMake detect compilers, but set platform
+            configure_cmd.extend([
+                '-DCMAKE_GENERATOR_PLATFORM=x64' if platform.machine().endswith('64') else '-DCMAKE_GENERATOR_PLATFORM=Win32'
+            ])
 
-        # Set generator for better compatibility
+        # Set generator for better compatibility with automatic detection
         if sys.platform == 'win32':
-            configure_cmd.extend(['-G', 'Visual Studio 16 2019'])
+            # Windows: Try to detect the best available generator
+            try:
+                # Check for VS 2022 first (newest)
+                result = subprocess.run(['cmake', '-G', 'Visual Studio 17 2022', '--help'],
+                                      capture_output=True, text=True)
+                if result.returncode == 0:
+                    configure_cmd.extend(['-G', 'Visual Studio 17 2022'])
+                else:
+                    # Fallback to VS 2019
+                    result = subprocess.run(['cmake', '-G', 'Visual Studio 16 2019', '--help'],
+                                          capture_output=True, text=True)
+                    if result.returncode == 0:
+                        configure_cmd.extend(['-G', 'Visual Studio 16 2019'])
+                    else:
+                        # Fallback to Ninja or MinGW
+                        result = subprocess.run(['cmake', '-G', 'Ninja', '--help'],
+                                              capture_output=True, text=True)
+                        if result.returncode == 0:
+                            configure_cmd.extend(['-G', 'Ninja'])
+                        else:
+                            # Final fallback - let CMake choose
+                            print("Warning: Using default CMake generator on Windows")
+            except Exception as e:
+                print(f"Warning: Could not detect Windows generator: {e}")
+                # Don't add any generator, let CMake choose
         else:
             configure_cmd.extend(['-G', 'Unix Makefiles'])
 
@@ -76,6 +122,13 @@ class CMakeBuild(build_ext):
             env['CC'] = env.get('CC', 'gcc')
             env['CXX'] = env.get('CXX', 'g++')
             env['PWD'] = os.getcwd()
+        elif sys.platform == 'win32':
+            # Windows: Set up build environment
+            # Ensure we can find build tools
+            if 'VS160COMNTOOLS' in env or 'VS170COMNTOOLS' in env:
+                print("Visual Studio environment detected")
+            # Set minimal Windows environment for CMake
+            env['CMAKE_GENERATOR_INSTANCE'] = env.get('CMAKE_GENERATOR_INSTANCE', '')
 
         # Ensure we're in the right working directory
         original_cwd = os.getcwd()
@@ -95,7 +148,25 @@ class CMakeBuild(build_ext):
                 f'-DPython3_EXECUTABLE={sys.executable}',
                 f'-DUSE_JEMALLOC={"ON" if use_jemalloc else "OFF"}'
             ]
-            subprocess.check_call(fallback_cmd, env=env, cwd=source_dir)
+
+            # For Windows, try different generators in fallback
+            if sys.platform == 'win32':
+                # Try minimal Windows generators
+                for generator in ['Ninja', 'MinGW Makefiles', 'NMake Makefiles']:
+                    try:
+                        test_cmd = fallback_cmd + ['-G', generator]
+                        subprocess.check_call(test_cmd, env=env, cwd=source_dir)
+                        print(f"Success with {generator} generator")
+                        break
+                    except subprocess.CalledProcessError:
+                        print(f"Failed with {generator} generator, trying next...")
+                        continue
+                else:
+                    # Final fallback - no generator specified
+                    print("Trying default generator...")
+                    subprocess.check_call(fallback_cmd, env=env, cwd=source_dir)
+            else:
+                subprocess.check_call(fallback_cmd, env=env, cwd=source_dir)
         finally:
             # Restore original working directory
             os.chdir(original_cwd)
