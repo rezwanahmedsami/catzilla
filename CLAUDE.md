@@ -142,7 +142,7 @@ Catzilla is a Python web framework focused on:
 
 **Build Dependencies**:
 - `CMake 3.15+` - Build system
-- `Python 3.8+` - Runtime (3.10+ recommended)
+- `Python 3.9+` - Runtime (3.10+ recommended)
 - C Compiler (GCC/Clang/MSVC)
 
 ### Platform Support Matrix
@@ -155,7 +155,7 @@ Catzilla is a Python web framework focused on:
 | Windows | x86_64 | ✅ Full Support | ✅ Windows 10+ |
 | Linux | ARM64 | ⚠️ Source Only | ❌ No pre-built wheel |
 
-**Python Versions**: 3.8, 3.9, 3.10, 3.11, 3.12, 3.13
+**Python Versions**: 3.9, 3.10, 3.11, 3.12, 3.13
 
 ---
 
@@ -798,7 +798,7 @@ Common issues and solutions.
 **Compatibility**:
 - [ ] FastAPI syntax maintained
 - [ ] Cross-platform compatibility
-- [ ] Python 3.8+ support
+- [ ] Python 3.9+ support
 - [ ] Backward compatibility preserved
 
 **Testing**:

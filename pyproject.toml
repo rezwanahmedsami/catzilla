@@ -13,7 +13,6 @@ version = "0.1.0"
 description = "Ultra-fast Python web framework with C-accelerated routing"
 readme = "README.md"
 license = "MIT"
-license-files = ["LICENSE"]
 authors = [
     {name = "Rezwan Ahmed Sami", email = "samiahmed0f0@gmail.com"}
 ]
@@ -36,7 +35,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -55,7 +53,7 @@ classifiers = [
     "Framework :: AsyncIO",
     "Typing :: Typed"
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
     "psutil>=5.9.0"
 ]
@@ -251,8 +249,8 @@ line_length = 88
 
 # cibuildwheel configuration for professional wheel building
 [tool.cibuildwheel]
-# Build for Python 3.8-3.13 across all platforms
-build = "cp38-* cp39-* cp310-* cp311-* cp312-* cp313-*"
+# Build for Python 3.9-3.13 across all platforms
+build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
 
 # Skip problematic builds
 skip = [

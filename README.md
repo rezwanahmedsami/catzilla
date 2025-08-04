@@ -84,7 +84,7 @@ pip install catzilla
 ```
 
 **System Requirements:**
-- Python 3.8+ (3.10+ recommended)
+- Python 3.9+ (3.10+ recommended)
 - Windows, macOS, or Linux
 - No additional dependencies required
 
@@ -127,7 +127,7 @@ pip install -e .
 ```
 
 **Build Requirements (Source Only):**
-- **Python 3.8-3.13**
+- **Python 3.9-3.13**
 - **CMake 3.15+**
 - **C Compiler**: GCC/Clang (Linux/macOS) or MSVC (Windows)
 
@@ -200,7 +200,6 @@ Catzilla v0.1.0 provides comprehensive cross-platform support with pre-built whe
 
 | Python Version | Linux x86_64 | macOS Intel | macOS ARM64 | Windows |
 |----------------|--------------|-------------|-------------|---------|
-| **3.8** | ✅ | ✅ | ✅ | ✅ |
 | **3.9** | ✅ | ✅ | ✅ | ✅ |
 | **3.10** | ✅ | ✅ | ✅ | ✅ |
 | **3.11** | ✅ | ✅ | ✅ | ✅ |

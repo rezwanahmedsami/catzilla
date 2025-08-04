@@ -123,7 +123,7 @@ jobs:
           - python-version: '3.11'
             os: macos-latest
           # Edge versions on Linux only
-          - python-version: '3.8'
+          - python-version: '3.9'
             os: ubuntu-latest
           - python-version: '3.12'
             os: ubuntu-latest

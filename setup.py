@@ -30,8 +30,8 @@ class CMakeBuild(build_ext):
         print(f"Building for Python {python_version.major}.{python_version.minor}.{python_version.micro} on {platform.system()}")
 
         # Disable jemalloc for problematic Python versions in CI
-        if python_version.minor in [8, 11] and os.getenv('CI'):
-            print("Warning: Disabling jemalloc for Python 3.8/3.11 in CI environment for compatibility")
+        if python_version.minor == 11 and os.getenv('CI'):
+            print("Warning: Disabling jemalloc for Python 3.11 in CI environment for compatibility")
             use_jemalloc = False
 
         # 1) Configure with robust compiler detection
@@ -56,15 +56,10 @@ class CMakeBuild(build_ext):
             ])
         elif sys.platform.startswith('linux'):
             # Linux: Set compilers for Ubuntu CI compatibility
-            # Handle Python 3.8 specific issues
             configure_cmd.extend([
                 '-DCMAKE_C_COMPILER=/usr/bin/gcc',
                 '-DCMAKE_CXX_COMPILER=/usr/bin/g++'
             ])
-            # Add Python version specific flags for older versions
-            python_version = sys.version_info
-            if python_version.major == 3 and python_version.minor <= 8:
-                configure_cmd.append('-DCMAKE_POSITION_INDEPENDENT_CODE=ON')
         elif sys.platform == 'win32':
             # Windows: Let CMake detect compilers, but set platform
             configure_cmd.extend([
@@ -229,7 +224,7 @@ setup(
     version="0.1.0",
     ext_modules=ext_modules,
     cmdclass={"build_ext": CMakeBuild},
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     include_package_data=True,
     zip_safe=False,
 )
