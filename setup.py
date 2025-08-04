@@ -67,10 +67,21 @@ class CMakeBuild(build_ext):
                 print("=== Release subdirectory contents ===", os.listdir(os.path.join(build_dir, 'Release')))
             raise RuntimeError(f"Expected {ext_name} in {so_path}, but not found")
 
-        # 4) Copy it into your package
+        # 4) Copy it into your package with proper cleanup handling
         dest_path = self.get_ext_fullpath('catzilla._catzilla')
-        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-        self.copy_file(so_path, dest_path)
+        dest_dir = os.path.dirname(dest_path)
+        os.makedirs(dest_dir, exist_ok=True)
+
+        # Use shutil.copy2 to preserve metadata and handle file operations better
+        import shutil
+        try:
+            shutil.copy2(so_path, dest_path)
+            print(f"Successfully copied {so_path} to {dest_path}")
+        except Exception as e:
+            print(f"Error copying extension: {e}")
+            print(f"Source exists: {os.path.exists(so_path)}")
+            print(f"Dest dir exists: {os.path.exists(dest_dir)}")
+            raise
 
 ext_modules = [Extension('catzilla._catzilla', sources=[])]
 
