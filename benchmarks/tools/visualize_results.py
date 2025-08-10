@@ -19,8 +19,10 @@ try:
     import pandas as pd
     import numpy as np
     import seaborn as sns
-except ImportError:
-    print("❌ Required packages not installed. Install with: pip install matplotlib pandas seaborn")
+    import traceback
+except ImportError as e:
+    print(f"❌ Required packages not installed. Install with: pip install matplotlib pandas seaborn numpy: {e}")
+    print("Attempting to install missing packages...")
     sys.exit(1)
 except Exception as e:
     print(f"❌ Error importing libraries: {e}")
@@ -115,8 +117,8 @@ class BenchmarkVisualizer:
         """Create requests per second comparison chart"""
         plt.figure(figsize=(14, 8))
 
-        # Group by framework and endpoint for better visualization
-        pivot_data = df.pivot(index='endpoint_name', columns='framework', values='requests_per_sec')
+        # Group by framework and endpoint for better visualization, handling duplicates
+        pivot_data = df.groupby(['endpoint_name', 'framework'])['requests_per_sec'].mean().unstack(fill_value=0)
 
         # Create grouped bar chart
         ax = pivot_data.plot(kind='bar', width=0.8, figsize=(14, 8))
@@ -141,7 +143,7 @@ class BenchmarkVisualizer:
         plt.figure(figsize=(14, 8))
 
         # Group by framework and endpoint
-        pivot_data = df.pivot(index='endpoint_name', columns='framework', values='avg_latency_ms')
+        pivot_data = df.groupby(['endpoint_name', 'framework'])['avg_latency_ms'].mean().unstack(fill_value=0)
 
         # Create grouped bar chart
         ax = pivot_data.plot(kind='bar', width=0.8, figsize=(14, 8))
@@ -207,8 +209,8 @@ class BenchmarkVisualizer:
         """Create a heatmap showing performance across frameworks and endpoints"""
         plt.figure(figsize=(12, 8))
 
-        # Create pivot table for heatmap
-        pivot_data = df.pivot(index='endpoint_name', columns='framework', values='requests_per_sec')
+        # Create pivot table for heatmap - handle duplicates by averaging
+        pivot_data = df.groupby(['endpoint_name', 'framework'])['requests_per_sec'].mean().unstack(fill_value=0)
 
         # Create heatmap
         sns.heatmap(pivot_data, annot=True, fmt='.0f', cmap='YlOrRd',
@@ -348,9 +350,10 @@ def main():
 
     args = parser.parse_args()
 
-    # Resolve paths
+    # Resolve paths - fix to look in benchmarks/results by default
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    results_dir = os.path.join(script_dir, args.results_dir)
+    benchmarks_dir = os.path.dirname(script_dir)  # Go up one level from tools/ to benchmarks/
+    results_dir = os.path.join(benchmarks_dir, args.results_dir)
     output_dir = args.output_dir or results_dir
 
     if not os.path.exists(results_dir):
