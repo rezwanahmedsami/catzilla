@@ -26,4 +26,4 @@ repos:
     -   id: end-of-file-fixer
     -   id: check-yaml
     -   id: check-added-large-files
-        exclude: ^docs/_static/
+        exclude: ^(docs/_static/|benchmarks/results/)

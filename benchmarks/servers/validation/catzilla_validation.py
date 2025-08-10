@@ -294,6 +294,192 @@ def create_catzilla_validation_server():
         })
 
     # ==========================================
+    # BENCHMARK ENDPOINTS (matching expected paths)
+    # ==========================================
+
+    @app.get("/validation/simple")
+    def validation_simple(request) -> Response:
+        """Simple validation benchmark (GET endpoint for wrk testing)"""
+        sample_user = SimpleUser(
+            id=123,
+            name="John Doe",
+            email="john@example.com",
+            age=30
+        )
+
+        return JSONResponse({
+            "validated": True,
+            "user": sample_user.model_dump(),
+            "framework": "catzilla",
+            "validation_type": "simple",
+            "performance": get_performance_stats(),
+            "benchmark": True
+        })
+
+    @app.get("/validation/user")
+    def validation_user(request) -> Response:
+        """User validation benchmark (GET endpoint for wrk testing)"""
+        sample_user = AdvancedUser(
+            id=123,
+            username="johndoe123",
+            email="john@example.com",
+            age=30,
+            height=1.75,
+            is_active=True,
+            tags=["developer", "python", "web"],
+            metadata={"department": "engineering", "role": "senior"}
+        )
+
+        return JSONResponse({
+            "validated": True,
+            "user": sample_user.model_dump(),
+            "framework": "catzilla",
+            "validation_type": "advanced_user",
+            "performance": get_performance_stats(),
+            "benchmark": True
+        })
+
+    @app.get("/validation/nested")
+    def validation_nested(request) -> Response:
+        """Nested validation benchmark (GET endpoint for wrk testing)"""
+        sample_user = ComplexUser(
+            id=123,
+            personal_info=AdvancedUser(
+                id=123,
+                username="johndoe123",
+                email="john@example.com",
+                age=30,
+                height=1.75,
+                is_active=True,
+                tags=["developer"],
+                metadata={"role": "senior"}
+            ),
+            billing_address=Address(
+                street="123 Main Street",
+                city="San Francisco",
+                state="CA",
+                zip_code="94102",
+                country="USA"
+            ),
+            preferences={"theme": "dark", "notifications": True},
+            created_at=datetime.now()
+        )
+
+        return JSONResponse({
+            "validated": True,
+            "user": sample_user.model_dump(),
+            "framework": "catzilla",
+            "validation_type": "nested_models",
+            "performance": get_performance_stats(),
+            "benchmark": True
+        })
+
+    @app.get("/validation/complex")
+    def validation_complex(request) -> Response:
+        """Complex validation benchmark (GET endpoint for wrk testing)"""
+        sample_user = ComplexUser(
+            id=123,
+            personal_info=AdvancedUser(
+                id=123,
+                username="johndoe123",
+                email="john@example.com",
+                age=30,
+                height=1.75,
+                is_active=True,
+                tags=["developer", "python"],
+                metadata={"department": "engineering", "role": "senior"}
+            ),
+            billing_address=Address(
+                street="123 Main Street",
+                city="San Francisco",
+                state="CA",
+                zip_code="94102",
+                country="USA"
+            ),
+            shipping_address=Address(
+                street="456 Oak Avenue",
+                city="Berkeley",
+                state="CA",
+                zip_code="94704",
+                country="USA"
+            ),
+            preferences={"theme": "dark", "notifications": True, "language": "en"},
+            created_at=datetime.now()
+        )
+
+        return JSONResponse({
+            "validated": True,
+            "user": sample_user.model_dump(),
+            "framework": "catzilla",
+            "validation_type": "complex_nested",
+            "performance": get_performance_stats(),
+            "benchmark": True
+        })
+
+    @app.get("/validation/array")
+    def validation_array(request) -> Response:
+        """Array validation benchmark (GET endpoint for wrk testing)"""
+        sample_users = [
+            AdvancedUser(
+                id=i,
+                username=f"user{i}",
+                email=f"user{i}@example.com",
+                age=25 + (i % 50),
+                height=1.5 + (i % 5) * 0.1,
+                is_active=True,
+                tags=["user", f"group{i % 10}"],
+                metadata={"batch": "benchmark"}
+            )
+            for i in range(1, 11)  # 10 users for GET benchmark
+        ]
+
+        return JSONResponse({
+            "validated": True,
+            "count": len(sample_users),
+            "users": [user.model_dump() for user in sample_users],
+            "framework": "catzilla",
+            "validation_type": "array_batch",
+            "performance": get_performance_stats(),
+            "benchmark": True
+        })
+
+    @app.get("/validation/performance")
+    def validation_performance(request) -> Response:
+        """Performance validation benchmark (GET endpoint for wrk testing)"""
+        start_time = time.perf_counter()
+
+        # Create sample products for performance testing
+        sample_products = [
+            Product(
+                name=f"Product {i}",
+                price=Decimal(f"{(i * 10 + 99) / 100:.2f}"),
+                category=f"Category{i % 5}",
+                description=f"Description for product {i}",
+                sku=f"PROD-{i:03d}",
+                in_stock=True,
+                stock_quantity=i * 10,
+                dimensions={"length": 10.0, "width": 5.0, "height": 2.0},
+                tags=[f"tag{i % 3}", f"category{i % 5}"],
+                variants=[{"color": "red", "size": "small"}]
+            )
+            for i in range(1, 21)  # 20 products for GET benchmark
+        ]
+
+        validation_time = (time.perf_counter() - start_time) * 1000
+
+        return JSONResponse({
+            "validated": True,
+            "count": len(sample_products),
+            "validation_time_ms": round(validation_time, 3),
+            "throughput_per_sec": round(len(sample_products) / (validation_time / 1000), 2) if validation_time > 0 else 0,
+            "products": [product.model_dump() for product in sample_products],
+            "framework": "catzilla",
+            "validation_type": "performance_benchmark",
+            "performance": get_performance_stats(),
+            "benchmark": True
+        })
+
+    # ==========================================
     # ERROR HANDLING BENCHMARKS
     # ==========================================
 

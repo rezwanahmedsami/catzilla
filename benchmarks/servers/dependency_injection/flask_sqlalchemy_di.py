@@ -572,3 +572,5 @@ if __name__ == "__main__":
     print(f"  📊 Analytics: New instance per function call")
 
     app.run(host="0.0.0.0", port=args.port, debug=False, threaded=True)
+
+# The app instance is already created at module level for WSGI servers like gunicorn

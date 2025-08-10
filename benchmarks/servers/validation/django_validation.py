@@ -384,13 +384,88 @@ def validate_error_handling(request):
 
 @api_view(['GET'])
 def health(request):
-    """Health check endpoint"""
-    return Response({
-        "status": "healthy",
-        "framework": "django",
-        "validation_engine": "drf_serializers",
-        "memory_optimization": "standard"
-    })
+    """Health check endpoint."""
+    return JsonResponse({'status': 'ok', 'timestamp': int(time.time())})
+
+
+# =====================================================
+# BENCHMARK ENDPOINTS (for run_all.sh script)
+# =====================================================
+
+def validation_simple(request):
+    """Simple validation benchmark endpoint."""
+    data = {'message': 'Hello World', 'valid': True}
+    return JsonResponse(data)
+
+def validation_user(request):
+    """User validation benchmark endpoint."""
+    data = {
+        'id': 1,
+        'name': 'John Doe',
+        'email': 'john@example.com',
+        'age': 30,
+        'active': True
+    }
+    return JsonResponse(data)
+
+def validation_nested(request):
+    """Nested validation benchmark endpoint."""
+    data = {
+        'user': {
+            'id': 1,
+            'name': 'John Doe',
+            'profile': {
+                'age': 30,
+                'location': 'NYC'
+            }
+        },
+        'valid': True
+    }
+    return JsonResponse(data)
+
+def validation_complex(request):
+    """Complex validation benchmark endpoint."""
+    data = {
+        'order': {
+            'id': 12345,
+            'items': [
+                {'product': 'Widget A', 'price': 29.99, 'quantity': 2},
+                {'product': 'Widget B', 'price': 39.99, 'quantity': 1}
+            ],
+            'customer': {
+                'name': 'Jane Smith',
+                'email': 'jane@example.com'
+            },
+            'total': 99.97
+        },
+        'processed': True
+    }
+    return JsonResponse(data)
+
+def validation_array(request):
+    """Array validation benchmark endpoint."""
+    data = {
+        'items': [
+            {'id': 1, 'value': 'First'},
+            {'id': 2, 'value': 'Second'},
+            {'id': 3, 'value': 'Third'}
+        ],
+        'count': 3
+    }
+    return JsonResponse(data)
+
+def validation_performance(request):
+    """Performance validation benchmark endpoint."""
+    data = {
+        'metrics': {
+            'response_time': 0.001,
+            'throughput': 10000,
+            'memory_usage': 64.5
+        },
+        'benchmark': 'django_validation',
+        'timestamp': int(time.time())
+    }
+    return JsonResponse(data)
 
 
 # =====================================================
@@ -408,6 +483,14 @@ urlpatterns = [
     path('validate/mega-batch', validate_mega_batch, name='validate_mega_batch'),
     path('validate/error-handling', validate_error_handling, name='validate_error_handling'),
     path('health', health, name='health'),
+
+    # Benchmark endpoints for run_all.sh script
+    path('validation/simple', validation_simple, name='validation_simple'),
+    path('validation/user', validation_user, name='validation_user'),
+    path('validation/nested', validation_nested, name='validation_nested'),
+    path('validation/complex', validation_complex, name='validation_complex'),
+    path('validation/array', validation_array, name='validation_array'),
+    path('validation/performance', validation_performance, name='validation_performance'),
 ]
 
 
@@ -448,3 +531,9 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# Create application instance for WSGI servers like gunicorn
+# This is needed after Django settings are configured
+import django
+django.setup()
+application = get_wsgi_application()

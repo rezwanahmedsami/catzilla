@@ -13,14 +13,11 @@ import time
 import asyncio
 from typing import Optional
 
-try:
-    from fastapi import FastAPI, Request, Response, HTTPException, Depends
-    from fastapi.responses import JSONResponse
-    from fastapi.middleware.base import BaseHTTPMiddleware
-    from fastapi.middleware.cors import CORSMiddleware
-except ImportError:
-    print("❌ FastAPI not installed. Install with: pip install fastapi uvicorn")
-    sys.exit(1)
+
+from fastapi import FastAPI, Request, Response, HTTPException, Depends
+from fastapi.responses import JSONResponse
+from fastapi.middleware.base import BaseHTTPMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 
 # Initialize FastAPI
 app = FastAPI(
@@ -311,7 +308,7 @@ def main():
     try:
         import uvicorn
         uvicorn.run(
-            "fastapi_middleware:app",
+            app,  # Use the app instance directly instead of string path
             host=args.host,
             port=args.port,
             log_level="error",  # Minimize logging for benchmarking
@@ -323,3 +320,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# Create app instance for ASGI servers like uvicorn (exposed at module level)
+# This is already created above, but we ensure it's available for external ASGI servers

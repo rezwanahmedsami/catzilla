@@ -19,7 +19,6 @@ from typing import Optional
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', 'python'))
 
 from catzilla import Catzilla, Request, Response, JSONResponse
-from catzilla.dependency_injection import service, Depends
 
 # Initialize Catzilla with middleware support
 app = Catzilla(

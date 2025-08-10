@@ -26,65 +26,65 @@ WARMUP_TIME="3s"        # Warmup duration
 # Server configurations for basic benchmarks
 BASIC_SERVERS=(
     "catzilla:8000:python3 $SERVERS_DIR/basic/catzilla_server.py --port 8000"
-    "fastapi:8001:python3 $SERVERS_DIR/basic/fastapi_server.py --port 8001"
-    "flask:8002:python3 $SERVERS_DIR/basic/flask_server.py --port 8002"
-    "django:8003:python3 $SERVERS_DIR/basic/django_server.py --port 8003"
+    "fastapi:8001:uvicorn benchmarks.servers.basic.fastapi_server:app --host 127.0.0.1 --port 8001"
+    "flask:8002:gunicorn --bind 127.0.0.1:8002 --workers 4 --worker-class sync benchmarks.servers.basic.flask_server:app"
+    "django:8003:gunicorn --bind 127.0.0.1:8003 --workers 4 --worker-class sync benchmarks.servers.basic.django_server:application"
 )
 
 # Server configurations for dependency injection benchmarks
 DI_SERVERS=(
     "catzilla:8010:python3 $SERVERS_DIR/dependency_injection/catzilla_di.py --port 8010"
-    "fastapi:8011:python3 $SERVERS_DIR/dependency_injection/fastapi_di.py --port 8011"
-    "django:8012:python3 $SERVERS_DIR/dependency_injection/django_di.py --port 8012"
+    "fastapi:8011:uvicorn benchmarks.servers.dependency_injection.fastapi_di:app --host 127.0.0.1 --port 8011"
+    "django:8012:gunicorn --bind 127.0.0.1:8012 --workers 4 --worker-class sync benchmarks.servers.dependency_injection.django_di:application"
 )
 
 # Server configurations for SQLAlchemy DI benchmarks
 SQLALCHEMY_DI_SERVERS=(
     "catzilla:8020:python3 $SERVERS_DIR/dependency_injection/catzilla_sqlalchemy_di.py --port 8020"
-    "fastapi:8021:python3 $SERVERS_DIR/dependency_injection/fastapi_sqlalchemy_di.py --port 8021"
-    "flask:8022:python3 $SERVERS_DIR/dependency_injection/flask_sqlalchemy_di.py --port 8022"
+    "fastapi:8021:uvicorn benchmarks.servers.dependency_injection.fastapi_sqlalchemy_di:app --host 127.0.0.1 --port 8021"
+    "flask:8022:gunicorn --bind 127.0.0.1:8022 --workers 4 --worker-class sync benchmarks.servers.dependency_injection.flask_sqlalchemy_di:app"
 )
 
 # Server configurations for middleware benchmarks
 MIDDLEWARE_SERVERS=(
     "catzilla:8030:python3 $SERVERS_DIR/middleware/catzilla_middleware.py --port 8030"
-    "fastapi:8031:python3 $SERVERS_DIR/middleware/fastapi_middleware.py --port 8031"
-    "django:8032:python3 $SERVERS_DIR/middleware/django_middleware.py --port 8032"
+    "fastapi:8031:uvicorn benchmarks.servers.middleware.fastapi_middleware:app --host 127.0.0.1 --port 8031"
+    "django:8032:gunicorn --bind 127.0.0.1:8032 --workers 4 --worker-class sync benchmarks.servers.middleware.django_middleware:application"
 )
 
 # Server configurations for validation benchmarks
 VALIDATION_SERVERS=(
     "catzilla:8040:python3 $SERVERS_DIR/validation/catzilla_validation.py --port 8040"
-    "fastapi:8041:python3 $SERVERS_DIR/validation/fastapi_validation.py --port 8041"
-    "flask:8042:python3 $SERVERS_DIR/validation/flask_validation.py --port 8042"
-    "django:8043:python3 $SERVERS_DIR/validation/django_validation.py --port 8043"
+    "fastapi:8041:uvicorn benchmarks.servers.validation.fastapi_validation:app --host 127.0.0.1 --port 8041"
+    "flask:8042:gunicorn --bind 127.0.0.1:8042 --workers 4 --worker-class sync benchmarks.servers.validation.flask_validation:app"
+    "django:8043:gunicorn --bind 127.0.0.1:8043 --workers 4 --worker-class sync benchmarks.servers.validation.django_validation:application"
 )
 
 # Server configurations for file operations benchmarks
 FILE_OPERATIONS_SERVERS=(
     "catzilla:8050:python3 $SERVERS_DIR/file_operations/catzilla_file.py --port 8050"
-    "fastapi:8051:python3 $SERVERS_DIR/file_operations/fastapi_file.py --port 8051"
-    "flask:8052:python3 $SERVERS_DIR/file_operations/flask_file.py --port 8052"
-    "django:8053:python3 $SERVERS_DIR/file_operations/django_file.py --port 8053"
+    "fastapi:8051:uvicorn benchmarks.servers.file_operations.fastapi_file:app --host 127.0.0.1 --port 8051"
+    "flask:8052:gunicorn --bind 127.0.0.1:8052 --workers 4 --worker-class sync benchmarks.servers.file_operations.flask_file:app"
+    "django:8053:gunicorn --bind 127.0.0.1:8053 --workers 4 --worker-class sync benchmarks.servers.file_operations.django_file:application"
 )
 
 # Server configurations for background tasks benchmarks
 BACKGROUND_TASKS_SERVERS=(
     "catzilla:8060:python3 $SERVERS_DIR/background_tasks/catzilla_tasks.py --port 8060"
-    "fastapi:8061:python3 $SERVERS_DIR/background_tasks/fastapi_tasks.py --port 8061"
-    "flask:8062:python3 $SERVERS_DIR/background_tasks/flask_tasks.py --port 8062"
-    "django:8063:python3 $SERVERS_DIR/background_tasks/django_tasks.py --port 8063"
+    "fastapi:8061:uvicorn benchmarks.servers.background_tasks.fastapi_tasks:app --host 127.0.0.1 --port 8061"
+    "flask:8062:gunicorn --bind 127.0.0.1:8062 --workers 4 --worker-class sync benchmarks.servers.background_tasks.flask_tasks:app"
+    "django:8063:gunicorn --bind 127.0.0.1:8063 --workers 4 --worker-class sync benchmarks.servers.background_tasks.django_tasks:application"
 )
 
 # Server configurations for async operations benchmarks
 ASYNC_OPERATIONS_SERVERS=(
-    "django:8070:python3 $SERVERS_DIR/async_operations/django_async.py --port 8070"
+    "django:8070:gunicorn --bind 127.0.0.1:8070 --workers 4 --worker-class sync benchmarks.servers.async_operations.django_async:application"
 )
 
 # Server configurations for real-world scenarios benchmarks
 REAL_WORLD_SERVERS=(
     "catzilla:8080:python3 $SERVERS_DIR/real_world_scenarios/catzilla_realworld.py --port 8080"
-    "fastapi:8081:python3 $SERVERS_DIR/real_world_scenarios/fastapi_realworld.py --port 8081"
+    "fastapi:8081:uvicorn benchmarks.servers.real_world_scenarios.fastapi_realworld:app --host 127.0.0.1 --port 8081"
 )
 
 # Test endpoints for basic benchmarks
@@ -250,19 +250,31 @@ stop_server() {
         print_status "Stopping $name server (PID: $pid)..."
         kill -TERM "$pid" 2>/dev/null || true
 
-        # Wait for graceful shutdown
-        for i in {1..5}; do
+        # Wait for graceful shutdown with better monitoring
+        local stopped=false
+        for i in {1..10}; do  # Increased timeout to 10 seconds
             if ! kill -0 "$pid" 2>/dev/null; then
+                stopped=true
                 break
             fi
             sleep 1
         done
 
         # Force kill if necessary
-        if kill -0 "$pid" 2>/dev/null; then
-            print_warning "Force killing $name server..."
+        if [ "$stopped" = false ] && kill -0 "$pid" 2>/dev/null; then
+            print_warning "Graceful shutdown failed. Force killing $name server..."
             kill -KILL "$pid" 2>/dev/null || true
+            sleep 2  # Give it time to fully die
         fi
+
+        # Verify the server is actually stopped
+        if ! kill -0 "$pid" 2>/dev/null; then
+            print_success "$name server stopped successfully (PID: $pid)"
+        else
+            print_error "Failed to stop $name server (PID: $pid)"
+        fi
+    else
+        print_warning "Server PID $pid for $name is not running or invalid"
     fi
 }
 
@@ -521,11 +533,15 @@ benchmark_framework() {
 
     # Run benchmarks for each endpoint
     local all_passed=true
+    local framework_results_created=false
+
     for endpoint_config in "${endpoints_array[@]}"; do
         local endpoint=${endpoint_config%%:*}
         local endpoint_name=${endpoint_config#*:}
 
-        if ! run_benchmark "$framework" "$endpoint" "${benchmark_type}_${endpoint_name}" "GET" "" "$benchmark_type"; then
+        if run_benchmark "$framework" "$endpoint" "${benchmark_type}_${endpoint_name}" "GET" "" "$benchmark_type"; then
+            framework_results_created=true
+        else
             all_passed=false
         fi
 
@@ -536,12 +552,37 @@ benchmark_framework() {
     if [ -n "$server_pid" ]; then
         stop_server "$server_pid" "$framework"
         rm -f "$RESULTS_DIR/${framework}_server.pid"
+
+        # Additional cleanup: kill any remaining processes on the port
+        if check_port "$port"; then
+            print_warning "Port $port still in use after stopping server. Cleaning up remaining processes..."
+            local remaining_pids=$(lsof -Pi :$port -sTCP:LISTEN -t 2>/dev/null)
+            for remaining_pid in $remaining_pids; do
+                if [ -n "$remaining_pid" ]; then
+                    print_status "Killing remaining process $remaining_pid on port $port"
+                    kill -TERM "$remaining_pid" 2>/dev/null || true
+                    sleep 1
+                    kill -KILL "$remaining_pid" 2>/dev/null || true
+                fi
+            done
+        fi
+
+        # Final verification and cleanup delay
+        sleep 3
+        if ! check_port "$port"; then
+            print_success "$framework server and all child processes stopped (port $port is free)"
+        else
+            print_warning "$framework server cleanup completed but port $port may still be in use"
+        fi
     fi
 
-    if [ "$all_passed" = true ]; then
-        print_success "All $benchmark_type benchmarks completed for $framework"
+    if [ "$framework_results_created" = true ]; then
+        print_success "Framework $framework benchmarks completed with some successful results"
+        if [ "$all_passed" = false ]; then
+            print_warning "Some endpoints failed for $framework, but successful results were preserved"
+        fi
     else
-        print_warning "Some $benchmark_type benchmarks failed for $framework"
+        print_error "All $benchmark_type benchmarks failed for $framework - no results to save"
     fi
 
     echo ""
@@ -604,47 +645,139 @@ cleanup_lua_files() {
     fi
 }
 
-# Function to generate summary report
+# Function to generate summary report with framework-keyed structure
 generate_summary() {
-    print_status "Generating benchmark summary..."
+    print_status "Generating framework-keyed benchmark summary..."
 
     local summary_file="$RESULTS_DIR/benchmark_summary.json"
     local summary_md="$RESULTS_DIR/benchmark_summary.md"
 
-    # Create JSON summary
-    echo "{" > "$summary_file"
-    echo "  \"benchmark_info\": {" >> "$summary_file"
-    echo "    \"timestamp\": \"$(date -Iseconds)\"," >> "$summary_file"
-    echo "    \"duration\": \"$DURATION\"," >> "$summary_file"
-    echo "    \"connections\": $CONNECTIONS," >> "$summary_file"
-    echo "    \"threads\": $THREADS," >> "$summary_file"
-    echo "    \"tool\": \"wrk\"" >> "$summary_file"
-    echo "  }," >> "$summary_file"
-    echo "  \"results\": [" >> "$summary_file"
+    # Load existing summary or create new structure
+    local existing_summary=""
+    if [ -f "$summary_file" ]; then
+        existing_summary=$(cat "$summary_file")
+    fi
 
-    # Collect all individual results
-    local first=true
-    for json_file in "$RESULTS_DIR"/*.json; do
-        if [ -f "$json_file" ] && [[ "$json_file" != *"summary"* ]]; then
-            if [ "$first" = false ]; then
-                echo "," >> "$summary_file"
-            fi
-            cat "$json_file" | sed 's/^/    /' >> "$summary_file"
-            first=false
+    # Create new structure with framework-keyed organization
+    local temp_file="/tmp/benchmark_summary_new.json"
+
+    # Start building new summary
+    cat > "$temp_file" << EOF
+{
+  "metadata": {
+    "created": "$(date -Iseconds)",
+    "last_updated": "$(date -Iseconds)",
+    "version": "3.0",
+    "description": "Catzilla Framework Transparent Benchmarking System - Framework Keyed"
+  },
+  "categories": {
+EOF
+
+    # Get existing categories (excluding current one) to preserve
+    local other_categories=""
+    if [ -n "$existing_summary" ] && echo "$existing_summary" | jq -e '.categories' >/dev/null 2>&1; then
+        other_categories=$(echo "$existing_summary" | jq -r '.categories | keys[]' 2>/dev/null | grep -v "^$BENCHMARK_TYPE$" || true)
+    fi
+
+    # Add current benchmark type with framework-keyed structure
+    echo "    \"$BENCHMARK_TYPE\": {" >> "$temp_file"
+    echo "      \"last_run\": \"$(date -Iseconds)\"," >> "$temp_file"
+    echo "      \"test_params\": {" >> "$temp_file"
+    echo "        \"duration\": \"$DURATION\"," >> "$temp_file"
+    echo "        \"connections\": $CONNECTIONS," >> "$temp_file"
+    echo "        \"threads\": $THREADS," >> "$temp_file"
+    echo "        \"tool\": \"wrk\"" >> "$temp_file"
+    echo "      }," >> "$temp_file"
+    echo "      \"results\": {" >> "$temp_file"
+
+    # Initialize framework structure with existing data if available
+    local frameworks=("catzilla" "fastapi" "flask" "django")
+    local first_framework=true
+
+    for framework in "${frameworks[@]}"; do
+        if [ "$first_framework" = false ]; then
+            echo "," >> "$temp_file"
         fi
+        echo "        \"$framework\": [" >> "$temp_file"
+
+        # Check if this framework has new results for current benchmark type
+        local framework_has_new_results=false
+        local first_result=true
+
+        for json_file in "$RESULTS_DIR"/*.json; do
+            if [ -f "$json_file" ] && [[ "$json_file" != *"summary"* ]] && [[ "$json_file" == *"_${BENCHMARK_TYPE}_"* ]]; then
+                # Check if this JSON file is for the current framework
+                local file_framework=$(grep '"framework"' "$json_file" 2>/dev/null | head -1 | cut -d'"' -f4 2>/dev/null || echo "")
+                if [ "$file_framework" = "$framework" ]; then
+                    if [ "$first_result" = false ]; then
+                        echo "," >> "$temp_file"
+                    fi
+                    cat "$json_file" | sed 's/^/          /' >> "$temp_file"
+                    first_result=false
+                    framework_has_new_results=true
+                fi
+            fi
+        done
+
+        # If no new results for this framework, preserve existing data
+        if [ "$framework_has_new_results" = false ] && [ -n "$existing_summary" ]; then
+            local existing_framework_data=""
+            if echo "$existing_summary" | jq -e ".categories.\"$BENCHMARK_TYPE\".results.\"$framework\"" >/dev/null 2>&1; then
+                existing_framework_data=$(echo "$existing_summary" | jq -r ".categories.\"$BENCHMARK_TYPE\".results.\"$framework\"" 2>/dev/null)
+                if [ "$existing_framework_data" != "[]" ] && [ "$existing_framework_data" != "null" ]; then
+                    echo "$existing_framework_data" | jq -r '.[] | @json' 2>/dev/null | while IFS= read -r result; do
+                        if [ "$first_result" = false ]; then
+                            echo "," >> "$temp_file"
+                        fi
+                        echo "$result" | jq '.' | sed 's/^/          /' >> "$temp_file"
+                        first_result=false
+                    done 2>/dev/null || true
+                fi
+            fi
+        fi
+
+        echo "" >> "$temp_file"
+        echo "        ]" >> "$temp_file"
+        first_framework=false
     done
 
-    echo "" >> "$summary_file"
-    echo "  ]" >> "$summary_file"
-    echo "}" >> "$summary_file"
+    echo "      }" >> "$temp_file"
+    echo "    }" >> "$temp_file"
 
-    print_success "Benchmark summary saved to: $summary_file"
+    # Add other existing categories
+    if [ -n "$other_categories" ]; then
+        for category in $other_categories; do
+            echo "," >> "$temp_file"
+            echo "    \"$category\": " >> "$temp_file"
+            echo "$existing_summary" | jq ".categories.\"$category\"" | sed 's/^/    /' >> "$temp_file"
+        done
+    fi
 
-    # Create Markdown summary
-    cat > "$summary_md" << EOF
-# Catzilla Performance Benchmark Results
+    # Close the JSON structure
+    echo "" >> "$temp_file"
+    echo "  }" >> "$temp_file"
+    echo "}" >> "$temp_file"
+
+    # Move the temporary file to final location
+    mv "$temp_file" "$summary_file"
+
+    print_success "Framework-keyed benchmark summary saved to: $summary_file"
+
+    # Create category-specific markdown
+    generate_category_markdown_report
+
+    print_success "Category-specific reports generated"
+}
+
+# Function to generate category-specific markdown reports
+generate_category_markdown_report() {
+    local category_md="$RESULTS_DIR/${BENCHMARK_TYPE}_performance_report.md"
+
+    cat > "$category_md" << EOF
+# Catzilla $(echo ${BENCHMARK_TYPE} | sed 's/./\U&/') Category Performance Report
 
 ## Test Configuration
+- **Category**: $BENCHMARK_TYPE
 - **Duration**: $DURATION
 - **Connections**: $CONNECTIONS
 - **Threads**: $THREADS
@@ -657,20 +790,81 @@ generate_summary() {
 |-----------|----------|--------------|-------------|-------------|
 EOF
 
-    # Parse JSON results to create table
+    # Parse JSON results to create table for current category
     for json_file in "$RESULTS_DIR"/*.json; do
-        if [ -f "$json_file" ] && [[ "$json_file" != *"summary"* ]]; then
+        if [ -f "$json_file" ] && [[ "$json_file" != *"summary"* ]] && [[ "$json_file" == *"_${BENCHMARK_TYPE}_"* ]]; then
             local framework=$(grep '"framework"' "$json_file" | cut -d'"' -f4)
             local endpoint=$(grep '"endpoint_name"' "$json_file" | cut -d'"' -f4)
             local rps=$(grep '"requests_per_sec"' "$json_file" | cut -d'"' -f4)
             local avg_lat=$(grep '"avg_latency"' "$json_file" | cut -d'"' -f4)
             local p99_lat=$(grep '"p99_latency"' "$json_file" | cut -d'"' -f4)
-            echo "| $framework | $endpoint | $rps | $avg_lat | $p99_lat |" >> "$summary_md"
+            echo "| $framework | $endpoint | $rps | $avg_lat | $p99_lat |" >> "$category_md"
         fi
     done
 
-    echo "" >> "$summary_md"
-    print_success "Markdown summary saved to: $summary_md"
+    echo "" >> "$category_md"
+    echo "## Catzilla Performance Advantage" >> "$category_md"
+    echo "" >> "$category_md"
+    echo "This report shows how Catzilla performs compared to other frameworks in the **$BENCHMARK_TYPE** category." >> "$category_md"
+
+    print_success "Category report saved to: $category_md"
+}
+
+# Function to cleanup any running servers
+cleanup_servers() {
+    print_status "Cleaning up any running benchmark servers..."
+
+    # List of all server configurations
+    local all_servers=(
+        "${BASIC_SERVERS[@]}"
+        "${DI_SERVERS[@]}"
+        "${SQLALCHEMY_DI_SERVERS[@]}"
+        "${MIDDLEWARE_SERVERS[@]}"
+        "${VALIDATION_SERVERS[@]}"
+        "${FILE_OPERATIONS_SERVERS[@]}"
+        "${BACKGROUND_TASKS_SERVERS[@]}"
+        "${ASYNC_OPERATIONS_SERVERS[@]}"
+        "${REAL_WORLD_SERVERS[@]}"
+    )
+
+    # Cleanup all servers
+    for server_config in "${all_servers[@]}"; do
+        local framework=${server_config%%:*}
+        local port=$(echo "$server_config" | cut -d':' -f2)
+        local pid_file="$RESULTS_DIR/${framework}_server.pid"
+
+        if [ -f "$pid_file" ]; then
+            local pid=$(cat "$pid_file")
+            stop_server "$pid" "$framework"
+            rm -f "$pid_file"
+        fi
+
+        # Also check for any processes using the port
+        if check_port "$port"; then
+            local existing_pid=$(lsof -Pi :$port -sTCP:LISTEN -t 2>/dev/null | head -1)
+            if [ -n "$existing_pid" ]; then
+                print_warning "Killing process $existing_pid using port $port"
+                kill -TERM "$existing_pid" 2>/dev/null || true
+                sleep 1
+                kill -KILL "$existing_pid" 2>/dev/null || true
+            fi
+        fi
+    done
+
+    # Clean up temporary Lua scripts
+    cleanup_lua_files
+}
+
+# Function to clean up temporary Lua scripts
+cleanup_lua_files() {
+    # Only clean up Lua files from results directory (temporary files)
+    if [ -d "$RESULTS_DIR" ]; then
+        local lua_count=$(find "$RESULTS_DIR" -name "*.lua" -type f 2>/dev/null | wc -l)
+        if [ "$lua_count" -gt 0 ]; then
+            print_status "Cleaning up $lua_count temporary Lua script(s) from results directory..."
+            find "$RESULTS_DIR" -name "*.lua" -type f -delete 2>/dev/null || true
+        fi
+    fi
 }
 
 # Show usage information
@@ -920,7 +1114,13 @@ run_direct_benchmarks() {
 
         # Run benchmarks for each framework
         for framework in "${frameworks_to_test[@]}"; do
-            benchmark_framework "$framework" "$benchmark_type"
+            if benchmark_framework "$framework" "$benchmark_type"; then
+                print_success "Successfully completed $framework benchmarks"
+                # Generate summary after each successful framework to preserve results
+                generate_summary
+            else
+                print_error "Failed to complete $framework benchmarks, but continuing with others..."
+            fi
             sleep 3  # Pause between frameworks
         done
 
@@ -931,7 +1131,7 @@ run_direct_benchmarks() {
         fi
     done
 
-    # Generate summary
+    # Generate final summary
     generate_summary
 
     if [ "$RUN_ALL_TYPES" = true ]; then

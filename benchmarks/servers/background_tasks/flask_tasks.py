@@ -857,3 +857,5 @@ if __name__ == '__main__':
     print("Available operations:", list(TASK_PROCESSORS.keys()))
 
     app.run(host=args.host, port=port, debug=args.debug, threaded=True)
+
+# The app instance is already created at module level (line 42) for WSGI servers like gunicorn

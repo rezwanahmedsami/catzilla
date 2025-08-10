@@ -517,3 +517,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# The app instance is already created at module level (line 25) for ASGI servers like uvicorn

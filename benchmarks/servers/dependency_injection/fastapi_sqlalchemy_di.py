@@ -577,3 +577,5 @@ if __name__ == "__main__":
     print(f"  📊 Analytics: New instance per dependency call")
 
     uvicorn.run(app, host="0.0.0.0", port=args.port, log_level="warning")
+
+# The app instance is already created at module level (line 36) for ASGI servers like uvicorn

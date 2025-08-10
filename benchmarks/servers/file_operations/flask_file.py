@@ -599,3 +599,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# Create app instance for WSGI servers like gunicorn
+app = create_flask_file_server()

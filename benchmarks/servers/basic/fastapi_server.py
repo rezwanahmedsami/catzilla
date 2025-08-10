@@ -353,3 +353,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# Create app instance for ASGI servers like uvicorn
+app = create_fastapi_server()

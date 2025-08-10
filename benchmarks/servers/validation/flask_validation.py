@@ -409,6 +409,223 @@ def create_flask_validation_server():
             "memory_optimization": "standard"
         })
 
+    # ==========================================
+    # BENCHMARK ENDPOINTS (matching expected paths)
+    # ==========================================
+
+    @app.route('/validation/simple', methods=['GET'])
+    def validation_simple():
+        """Simple validation benchmark (GET endpoint for wrk testing)"""
+        sample_data = {
+            "id": 123,
+            "name": "John Doe",
+            "email": "john@example.com",
+            "age": 30
+        }
+
+        errors = validate_simple_user(sample_data)
+        if errors:
+            return jsonify({"validation_errors": errors}), 400
+
+        return jsonify({
+            "validated": True,
+            "user": sample_data,
+            "framework": "flask",
+            "validation_type": "simple",
+            "benchmark": True
+        })
+
+    @app.route('/validation/user', methods=['GET'])
+    def validation_user():
+        """User validation benchmark (GET endpoint for wrk testing)"""
+        sample_data = {
+            "id": 123,
+            "username": "johndoe123",
+            "email": "john@example.com",
+            "age": 30,
+            "height": 1.75,
+            "tags": ["developer", "python"]
+        }
+
+        errors = validate_advanced_user(sample_data)
+        if errors:
+            return jsonify({"validation_errors": errors}), 400
+
+        return jsonify({
+            "validated": True,
+            "user": sample_data,
+            "framework": "flask",
+            "validation_type": "advanced_user",
+            "benchmark": True
+        })
+
+    @app.route('/validation/nested', methods=['GET'])
+    def validation_nested():
+        """Nested validation benchmark (GET endpoint for wrk testing)"""
+        sample_data = {
+            "personal_info": {
+                "id": 123,
+                "username": "johndoe123",
+                "email": "john@example.com",
+                "age": 30,
+                "height": 1.75
+            },
+            "billing_address": {
+                "street": "123 Main Street",
+                "city": "San Francisco",
+                "state": "CA",
+                "zip_code": "94102"
+            }
+        }
+
+        errors = []
+
+        # Validate personal_info
+        personal_info = sample_data.get('personal_info', {})
+        errors.extend(validate_advanced_user(personal_info))
+
+        # Validate billing_address
+        billing_address = sample_data.get('billing_address', {})
+        address_errors = validate_address(billing_address)
+        errors.extend([f"billing_address.{error}" for error in address_errors])
+
+        if errors:
+            return jsonify({"validation_errors": errors}), 400
+
+        return jsonify({
+            "validated": True,
+            "user": sample_data,
+            "framework": "flask",
+            "validation_type": "nested_models",
+            "benchmark": True
+        })
+
+    @app.route('/validation/complex', methods=['GET'])
+    def validation_complex():
+        """Complex validation benchmark (GET endpoint for wrk testing)"""
+        sample_data = {
+            "personal_info": {
+                "id": 123,
+                "username": "johndoe123",
+                "email": "john@example.com",
+                "age": 30,
+                "height": 1.75
+            },
+            "billing_address": {
+                "street": "123 Main Street",
+                "city": "San Francisco",
+                "state": "CA",
+                "zip_code": "94102"
+            },
+            "shipping_address": {
+                "street": "456 Oak Avenue",
+                "city": "Berkeley",
+                "state": "CA",
+                "zip_code": "94704"
+            }
+        }
+
+        errors = []
+
+        # Validate personal_info
+        personal_info = sample_data.get('personal_info', {})
+        errors.extend(validate_advanced_user(personal_info))
+
+        # Validate both addresses
+        for addr_type in ['billing_address', 'shipping_address']:
+            address = sample_data.get(addr_type, {})
+            address_errors = validate_address(address)
+            errors.extend([f"{addr_type}.{error}" for error in address_errors])
+
+        if errors:
+            return jsonify({"validation_errors": errors}), 400
+
+        return jsonify({
+            "validated": True,
+            "user": sample_data,
+            "framework": "flask",
+            "validation_type": "complex_nested",
+            "benchmark": True
+        })
+
+    @app.route('/validation/array', methods=['GET'])
+    def validation_array():
+        """Array validation benchmark (GET endpoint for wrk testing)"""
+        sample_data = {
+            "users": [
+                {
+                    "id": i,
+                    "username": f"user{i}",
+                    "email": f"user{i}@example.com",
+                    "age": 25 + (i % 50),
+                    "height": 1.5 + (i % 5) * 0.1
+                }
+                for i in range(1, 11)  # 10 users for GET benchmark
+            ]
+        }
+
+        users = sample_data.get('users', [])
+        all_errors = []
+
+        for i, user in enumerate(users):
+            errors = validate_advanced_user(user)
+            if errors:
+                all_errors.extend([f"user[{i}].{error}" for error in errors])
+
+        if all_errors:
+            return jsonify({"validation_errors": all_errors}), 400
+
+        return jsonify({
+            "validated": True,
+            "count": len(users),
+            "users": sample_data,
+            "framework": "flask",
+            "validation_type": "array_batch",
+            "benchmark": True
+        })
+
+    @app.route('/validation/performance', methods=['GET'])
+    def validation_performance():
+        """Performance validation benchmark (GET endpoint for wrk testing)"""
+        start_time = time.perf_counter()
+
+        # Simulate intensive validation work
+        sample_data = {
+            "products": [
+                {
+                    "name": f"Product {i}",
+                    "price": f"{(i * 10 + 99) / 100:.2f}",
+                    "category": f"Category{i % 5}",
+                    "sku": f"PROD-{i:03d}",
+                    "stock_quantity": i * 10
+                }
+                for i in range(1, 21)  # 20 products for GET benchmark
+            ]
+        }
+
+        products = sample_data.get('products', [])
+        all_errors = []
+
+        for i, product in enumerate(products):
+            errors = validate_product(product)
+            if errors:
+                all_errors.extend([f"product[{i}].{error}" for error in errors])
+
+        validation_time = (time.perf_counter() - start_time) * 1000
+
+        if all_errors:
+            return jsonify({"validation_errors": all_errors}), 400
+
+        return jsonify({
+            "validated": True,
+            "count": len(products),
+            "validation_time_ms": round(validation_time, 3),
+            "throughput_per_sec": round(len(products) / (validation_time / 1000), 2) if validation_time > 0 else 0,
+            "framework": "flask",
+            "validation_type": "performance_benchmark",
+            "benchmark": True
+        })
+
     return app
 
 
@@ -435,6 +652,14 @@ def main():
     print("  POST /validate/error-handling   - Error handling benchmark")
     print("  GET  /health                    - Health check")
     print()
+    print("Benchmark endpoints (for run_all.sh):")
+    print("  GET  /validation/simple         - Simple validation test")
+    print("  GET  /validation/user           - User validation test")
+    print("  GET  /validation/nested         - Nested validation test")
+    print("  GET  /validation/complex        - Complex validation test")
+    print("  GET  /validation/array          - Array validation test")
+    print("  GET  /validation/performance    - Performance validation test")
+    print()
 
     app.run(
         host=args.host,
@@ -447,3 +672,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# Create app instance for WSGI servers like gunicorn
+app = create_flask_validation_server()

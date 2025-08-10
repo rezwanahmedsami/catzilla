@@ -62,7 +62,7 @@ except ImportError as e:
 
 
 class EnhancedBenchmarkRunner:
-    """Enhanced benchmark runner with feature-based testing"""
+    """Enhanced benchmark runner with feature-based testing and append functionality"""
 
     def __init__(self, output_dir: str = "results"):
         self.output_dir = Path(output_dir)
@@ -79,8 +79,241 @@ class EnhancedBenchmarkRunner:
             "background_tasks",
             "real_world_scenarios"
         ]
+        self.summary_file = self.output_dir / "benchmark_summary.json"
 
     def discover_benchmark_categories(self) -> Dict[str, Dict]:
+        """Discover available benchmark categories and their configurations"""
+        categories = {}
+
+        servers_dir = SCRIPT_DIR / "servers"
+        for category_dir in servers_dir.iterdir():
+            if category_dir.is_dir() and category_dir.name in self.test_categories:
+                category_name = category_dir.name
+                categories[category_name] = {
+                    "name": category_name,
+                    "path": category_dir,
+                    "frameworks": [],
+                    "endpoints": None
+                }
+
+                # Check for framework servers
+                for framework in FRAMEWORKS:
+                    server_file = None
+                    for pattern in [f"{framework}_{category_name}.py", f"{framework}_server.py"]:
+                        potential_file = category_dir / pattern
+                        if potential_file.exists():
+                            server_file = potential_file
+                            break
+
+                    if server_file:
+                        categories[category_name]["frameworks"].append({
+                            "name": framework,
+                            "server_file": server_file
+                        })
+
+                # Load endpoints configuration
+                endpoints_file = category_dir / "endpoints.json"
+                if endpoints_file.exists():
+                    try:
+                        with open(endpoints_file, 'r') as f:
+                            endpoints_data = json.load(f)
+                            categories[category_name]["endpoints"] = endpoints_data.get("endpoints", [])
+                    except (json.JSONDecodeError, IOError) as e:
+                        print(f"⚠️  Warning: Failed to load endpoints for {category_name}: {e}")
+
+        return categories
+
+    def load_existing_summary(self) -> Dict[str, Any]:
+        """Load existing benchmark summary or create new structure"""
+        if self.summary_file.exists():
+            try:
+                with open(self.summary_file, 'r') as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"⚠️  Warning: Failed to load existing summary: {e}")
+                print("Creating new benchmark summary...")
+
+        # Return new structure
+        return {
+            "metadata": {
+                "created": datetime.now().isoformat(),
+                "last_updated": datetime.now().isoformat(),
+                "version": "2.0",
+                "description": "Catzilla Framework Transparent Benchmarking System"
+            },
+            "categories": {}
+        }
+
+    def save_category_results(self, category: str, results: Dict[str, Any]) -> None:
+        """Append/update results for a specific category using transparent structure"""
+        print(f"\n📊 Saving results for category: {category}")
+
+        # Use the new append functionality
+        self.append_category_results(category, results)
+
+    def get_summary_results_for_visualization(self) -> List[Dict[str, Any]]:
+        """Get flattened results for visualization tools"""
+        summary_data = self.load_existing_summary()
+        all_results = []
+
+        for category_name, category_data in summary_data.get("categories", {}).items():
+            all_results.extend(category_data.get("results", []))
+
+        return all_results
+        self.summary_file = self.output_dir / "benchmark_summary.json"
+
+    def load_existing_summary(self) -> Dict[str, Any]:
+        """Load existing benchmark summary or create new structure"""
+        summary_file = self.output_dir / "benchmark_summary.json"
+
+        if summary_file.exists():
+            try:
+                with open(summary_file, 'r') as f:
+                    data = json.load(f)
+                # Check if it's the new format
+                if "metadata" in data and "categories" in data:
+                    return data
+                else:
+                    print("⚠️  Converting old format to new transparent structure")
+                    return self._convert_old_format(data)
+            except (json.JSONDecodeError, FileNotFoundError):
+                print("⚠️  Existing summary file corrupted, creating new one")
+
+        # Create new transparent structure
+        return {
+            "metadata": {
+                "created": datetime.now().isoformat(),
+                "last_updated": datetime.now().isoformat(),
+                "version": "2.0",
+                "description": "Transparent Feature-by-Feature Framework Comparison"
+            },
+            "categories": {}
+        }
+
+    def _convert_old_format(self, old_data: Dict) -> Dict:
+        """Convert old format to new transparent format"""
+        new_format = {
+            "metadata": {
+                "created": datetime.now().isoformat(),
+                "last_updated": datetime.now().isoformat(),
+                "version": "2.0",
+                "description": "Transparent Feature-by-Feature Framework Comparison (Converted)"
+            },
+            "categories": {}
+        }
+
+        # Convert old results array to categorized format
+        if "results" in old_data:
+            for result in old_data["results"]:
+                if isinstance(result, dict):
+                    category = result.get("category", result.get("benchmark_type", "unknown"))
+
+                    if category not in new_format["categories"]:
+                        new_format["categories"][category] = {
+                            "last_run": datetime.now().isoformat(),
+                            "results": [],
+                            "test_params": {},
+                            "system_info": {}
+                        }
+
+                    # Add to category if it has the right structure
+                    if "framework" in result:
+                        new_format["categories"][category]["results"].append(result)
+
+        return new_format
+
+    def append_category_results(self, category: str, category_results: Dict[str, Any]):
+        """Append results for a specific category without affecting others"""
+        print(f"📝 Appending {category} results to transparent summary...")
+
+        # Load existing summary
+        summary = self.load_existing_summary()
+
+        # Update metadata
+        summary["metadata"]["last_updated"] = datetime.now().isoformat()
+
+        # Normalize category results to our standard format
+        normalized_results = []
+
+        # Handle the frameworks structure from run_framework_benchmark
+        if "frameworks" in category_results:
+            for framework, fw_data in category_results["frameworks"].items():
+                if "endpoints" in fw_data:
+                    for endpoint, endpoint_data in fw_data["endpoints"].items():
+                        if isinstance(endpoint_data, dict) and ("requests_per_sec" in endpoint_data or "error" not in endpoint_data):
+                            normalized_results.append({
+                                "framework": framework,
+                                "category": category,
+                                "endpoint": endpoint,
+                                "endpoint_name": f"{category}_{endpoint.strip('/').replace('/', '_')}",
+                                "benchmark_type": category,
+                                "method": endpoint_data.get("method", "GET"),
+                                "requests_per_sec": str(endpoint_data.get("requests_per_sec", "0")),
+                                "avg_latency": endpoint_data.get("avg_latency", "0ms"),
+                                "p99_latency": endpoint_data.get("p99_latency", "0ms"),
+                                "transfer_per_sec": endpoint_data.get("transfer_per_sec", "0KB"),
+                                "timestamp": datetime.now().isoformat(),
+                                "cmd": endpoint_data.get("cmd", ""),
+                                "weight": endpoint_data.get("weight", 1)
+                            })
+
+        # Store category results with metadata
+        summary["categories"][category] = {
+            "last_run": datetime.now().isoformat(),
+            "test_params": category_results.get("test_params", {}),
+            "system_info": category_results.get("system_info", {}),
+            "results": normalized_results,
+            "summary_stats": self._calculate_category_stats(normalized_results)
+        }
+
+        # Save updated summary
+        summary_file = self.output_dir / "benchmark_summary.json"
+        with open(summary_file, 'w') as f:
+            json.dump(summary, f, indent=2)
+
+        print(f"✅ {category} results appended to transparent summary!")
+        print(f"📊 Added {len(normalized_results)} benchmark results")
+        return summary
+
+    def _calculate_category_stats(self, results: List[Dict]) -> Dict[str, Any]:
+        """Calculate summary statistics for a category"""
+        if not results:
+            return {}
+
+        stats = {}
+        frameworks = set()
+
+        for result in results:
+            framework = result.get("framework", "unknown")
+            frameworks.add(framework)
+
+            if framework not in stats:
+                stats[framework] = {
+                    "avg_rps": 0,
+                    "avg_latency": 0,
+                    "endpoint_count": 0,
+                    "total_rps": 0
+                }
+
+            # Parse RPS
+            rps_str = result.get("requests_per_sec", "0")
+            try:
+                if 'k' in str(rps_str).lower():
+                    rps = float(str(rps_str).lower().replace('k', '')) * 1000
+                else:
+                    rps = float(str(rps_str).replace(',', ''))
+            except:
+                rps = 0
+
+            stats[framework]["total_rps"] += rps
+            stats[framework]["endpoint_count"] += 1
+
+        # Calculate averages
+        for framework in stats:
+            if stats[framework]["endpoint_count"] > 0:
+                stats[framework]["avg_rps"] = stats[framework]["total_rps"] / stats[framework]["endpoint_count"]
+
+        return stats
         """Discover available benchmark categories and their configurations"""
         categories = {}
 
@@ -422,10 +655,8 @@ end
 
         print(f"Results saved to {results_file}")
 
-        # Also save as benchmark_summary.json for the main category
-        summary_file = self.output_dir / "benchmark_summary.json"
-        with open(summary_file, 'w') as f:
-            json.dump(category_results, f, indent=2)
+        # Save to summary using append functionality instead of overwriting
+        self.save_category_results(category, category_results)
 
         return category_results
 
@@ -472,13 +703,50 @@ end
         with open(results_file, 'w') as f:
             json.dump(all_results, f, indent=2)
 
-        # Always save the main benchmark_summary.json
-        summary_file = self.output_dir / "benchmark_summary.json"
-        with open(summary_file, 'w') as f:
-            json.dump(all_results, f, indent=2)
+        # Generate flattened results for the old-style summary (backward compatibility)
+        flat_results = []
+        for category, category_data in all_results["results"].items():
+            if isinstance(category_data, dict) and "frameworks" in category_data:
+                for framework_name, framework_data in category_data["frameworks"].items():
+                    for endpoint_path, endpoint_data in framework_data.get("endpoints", {}).items():
+                        if isinstance(endpoint_data, dict) and "requests_per_sec" in endpoint_data:
+                            flat_result = {
+                                "framework": framework_name,
+                                "category": category,
+                                "endpoint": endpoint_path,
+                                "endpoint_name": f"{category}_{endpoint_path.replace('/', '_').strip('_')}",
+                                "benchmark_type": category,
+                                "method": endpoint_data.get("method", "GET"),
+                                "duration": endpoint_data.get("duration", "10s"),
+                                "connections": endpoint_data.get("connections", 100),
+                                "threads": endpoint_data.get("threads", 4),
+                                "requests_per_sec": endpoint_data.get("requests_per_sec", "0"),
+                                "avg_latency": endpoint_data.get("avg_latency", "0ms"),
+                                "p99_latency": endpoint_data.get("p99_latency", "0ms"),
+                                "transfer_per_sec": endpoint_data.get("transfer_per_sec", "0KB"),
+                                "timestamp": datetime.now().isoformat()
+                            }
+                            flat_results.append(flat_result)
+
+        # Create backward-compatible summary structure
+        backward_compatible_summary = {
+            "benchmark_info": {
+                "timestamp": all_results["timestamp"],
+                "duration": test_params.get("duration", "10s"),
+                "connections": test_params.get("connections", 100),
+                "threads": test_params.get("threads", 4),
+                "tool": "wrk"
+            },
+            "results": flat_results
+        }
+
+        # Save backward-compatible summary for existing visualization tools
+        old_summary_file = self.output_dir / "benchmark_summary_flat.json"
+        with open(old_summary_file, 'w') as f:
+            json.dump(backward_compatible_summary, f, indent=2)
 
         print(f"\nComprehensive results saved to {results_file}")
-        print(f"Benchmark summary saved to {summary_file}")
+        print(f"Backward-compatible summary saved to {old_summary_file}")
         return all_results
 
     def generate_performance_report(self, results: Dict[str, Any]) -> str:

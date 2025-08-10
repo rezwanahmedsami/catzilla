@@ -267,3 +267,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# Create WSGI application instance for external servers like gunicorn
+application = get_wsgi_application()

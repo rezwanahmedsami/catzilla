@@ -722,3 +722,6 @@ if __name__ == '__main__':
 
     sys.argv = ['manage.py', 'runserver', f'{args.host}:{port}']
     execute_from_command_line(sys.argv)
+
+# Create WSGI application instance for external servers like gunicorn
+application = get_wsgi_application()
