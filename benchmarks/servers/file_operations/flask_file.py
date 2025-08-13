@@ -523,7 +523,7 @@ def create_flask_file_server():
 def process_uploaded_file(file_id: str, file_path: Path, file_store: Dict):
     """Background task: Process uploaded file"""
     # Simulate file processing
-    time.sleep(2)
+    # Removed artificial delay for benchmarking
 
     if file_id in file_store["uploaded_files"]:
         file_store["uploaded_files"][file_id]["processed"] = True
@@ -534,7 +534,7 @@ def process_uploaded_file(file_id: str, file_path: Path, file_store: Dict):
 def process_file_batch(file_ids: List[str], file_store: Dict):
     """Background task: Process batch of files"""
     # Simulate batch processing
-    time.sleep(len(file_ids))
+    # Removed artificial delay for benchmarking)
 
     for file_id in file_ids:
         if file_id in file_store["uploaded_files"]:
@@ -553,7 +553,7 @@ def process_file_operation(file_id: str, file_path: Path, operation: str, params
         "analyze": 2
     }
 
-    time.sleep(processing_times.get(operation, 2))
+    # Removed artificial delay for benchmarking)
 
     if file_id in file_store["uploaded_files"]:
         file_info = file_store["uploaded_files"][file_id]

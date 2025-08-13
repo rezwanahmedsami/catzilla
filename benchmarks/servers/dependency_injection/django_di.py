@@ -72,15 +72,15 @@ class DatabaseService:
         self.queries_executed = 0
 
     def connect(self):
-        """Simulate database connection"""
+        """Fast database connection without artificial delay"""
         self.connection_count += 1
-        time.sleep(0.001)  # Simulate connection overhead
+        # Removed artificial delay for benchmarking
         return f"db_connection_{self.connection_count}"
 
     def query(self, sql: str):
-        """Simulate database query"""
+        """Fast database query without artificial delay"""
         self.queries_executed += 1
-        time.sleep(0.002)  # Simulate query time
+        # Removed artificial delay for benchmarking
         return {
             "query": sql,
             "result": f"result_{self.queries_executed}",

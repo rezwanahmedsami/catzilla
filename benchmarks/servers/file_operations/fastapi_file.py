@@ -509,7 +509,7 @@ def create_fastapi_file_server():
 async def process_uploaded_file(file_id: str, file_path: Path):
     """Background task: Process uploaded file"""
     # Simulate file processing
-    await asyncio.sleep(2)
+    # Removed artificial delay for benchmarking
 
     if file_id in file_store["uploaded_files"]:
         file_store["uploaded_files"][file_id]["processed"] = True
@@ -520,7 +520,7 @@ async def process_uploaded_file(file_id: str, file_path: Path):
 async def process_file_batch(file_ids: List[str]):
     """Background task: Process batch of files"""
     # Simulate batch processing
-    await asyncio.sleep(len(file_ids))
+    # Removed artificial delay for benchmarking)
 
     for file_id in file_ids:
         if file_id in file_store["uploaded_files"]:
@@ -539,7 +539,7 @@ async def process_file_operation(file_id: str, file_path: Path, operation: str, 
         "analyze": 2
     }
 
-    await asyncio.sleep(processing_times.get(operation, 2))
+    # Removed artificial delay for benchmarking)
 
     if file_id in file_store["uploaded_files"]:
         file_info = file_store["uploaded_files"][file_id]

@@ -88,7 +88,7 @@ class BenchmarkCache:
         print(f"💾 BenchmarkCache created at {self.created_at}")
 
     async def get(self, key: str) -> Optional[Any]:
-        await asyncio.sleep(0.001)  # Simulate async cache lookup
+        # Fast cache lookup without artificial delay
         if key in self.cache:
             self.hit_count += 1
             return self.cache[key]
@@ -96,7 +96,7 @@ class BenchmarkCache:
         return None
 
     async def set(self, key: str, value: Any) -> None:
-        await asyncio.sleep(0.0005)  # Simulate async cache write
+        # Fast cache write without artificial delay
         self.cache[key] = value
 
     def get_stats(self) -> Dict[str, Any]:
@@ -125,13 +125,12 @@ class BenchmarkSession:
         print(f"🔗 BenchmarkSession {self.session_id} created at {self.created_at}")
 
     async def execute_query(self, query: str) -> Dict[str, Any]:
-        """Simulate async database query"""
-        await asyncio.sleep(0.002)  # 2ms query time
+        """Fast database query without artificial delay"""
         self.queries_executed += 1
         return {
             "query": query,
             "session_id": self.session_id,
-            "execution_time": "2ms",
+            "execution_time": "0ms",
             "rows_affected": 1
         }
 
@@ -183,9 +182,9 @@ class BenchmarkLogger:
         print(f"📊 BenchmarkLogger {self.logger_id} created")
 
     async def log(self, level: str, message: str) -> None:
-        await asyncio.sleep(0.0001)  # 0.1ms log write
+        # Fast logging without artificial delay
         self.log_count += 1
-        self.context.add_operation(f"log_{level}", 0.1)
+        self.context.add_operation(f"log_{level}", 0.0)
 
 # ============================================================================
 # REPOSITORY SERVICES WITH COMPLEX DEPENDENCIES

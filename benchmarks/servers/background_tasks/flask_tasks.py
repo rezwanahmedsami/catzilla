@@ -125,7 +125,7 @@ def process_cpu_intensive(params: Dict) -> Dict:
         result += i ** 0.5
         if i % 10000 == 0:
             # Simulate progress updates
-            time.sleep(0.001)
+            # Removed artificial delay for benchmarking
 
     processing_time = time.time() - start_time
 
@@ -146,7 +146,7 @@ def process_io_simulation(params: Dict) -> Dict:
 
     for i in range(operations):
         # Simulate I/O delay
-        time.sleep(delay_per_op)
+        # Removed artificial delay for benchmarking
         results.append({
             'operation': i + 1,
             'timestamp': time.time(),
@@ -219,13 +219,13 @@ def process_image_manipulation(params: Dict) -> Dict:
 
         # Simulate processing time based on operation
         if op == 'resize':
-            time.sleep(0.5)
+            # Removed artificial delay for benchmarking
             result_data = {'new_width': width // 2, 'new_height': height // 2}
         elif op == 'filter':
-            time.sleep(0.3)
+            # Removed artificial delay for benchmarking
             result_data = {'filter_applied': 'gaussian_blur', 'intensity': 0.5}
         elif op == 'compress':
-            time.sleep(0.2)
+            # Removed artificial delay for benchmarking
             result_data = {'compression_ratio': 0.8, 'quality': 85}
         else:
             result_data = {'error': f'Unknown operation: {op}'}
@@ -260,7 +260,7 @@ def process_machine_learning(params: Dict) -> Dict:
     metrics = []
     for epoch in range(epochs):
         # Simulate training step
-        time.sleep(0.01)
+        # Removed artificial delay for benchmarking
 
         # Mock metrics
         loss = 1.0 / (epoch + 1) + random.random() * 0.1
@@ -298,7 +298,7 @@ def process_email_simulation(params: Dict) -> Dict:
     for i in range(recipients):
         try:
             # Simulate email sending delay
-            time.sleep(delay_per_email)
+            # Removed artificial delay for benchmarking
 
             # Simulate occasional failures
             if i % 20 == 19:  # 5% failure rate

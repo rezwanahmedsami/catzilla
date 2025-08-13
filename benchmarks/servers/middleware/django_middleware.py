@@ -122,11 +122,11 @@ if not settings.configured:
         USE_TZ=True,
         MIDDLEWARE=[
             'django.middleware.common.CommonMiddleware',
-            '__main__.TimingMiddleware',
-            '__main__.AuthMiddleware',
-            '__main__.LoggingMiddleware',
-            '__main__.RateLimitMiddleware',
-            '__main__.CORSMiddleware',
+            'benchmarks.servers.middleware.django_middleware.TimingMiddleware',
+            'benchmarks.servers.middleware.django_middleware.AuthMiddleware',
+            'benchmarks.servers.middleware.django_middleware.LoggingMiddleware',
+            'benchmarks.servers.middleware.django_middleware.RateLimitMiddleware',
+            'benchmarks.servers.middleware.django_middleware.CORSMiddleware',
         ],
         LOGGING={
             'version': 1,

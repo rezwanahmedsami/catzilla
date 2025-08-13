@@ -538,11 +538,11 @@ def task_worker(worker_id: str, task_store: Dict, executor: ThreadPoolExecutor):
 
             else:
                 # No tasks available, sleep briefly
-                time.sleep(0.1)
+                # Removed artificial delay for benchmarking
 
         except Exception as e:
             print(f"Worker {worker_id} error: {e}")
-            time.sleep(1)
+            # Removed artificial delay for benchmarking
 
 def execute_task(task: Task, worker_id: str, task_store: Dict):
     """Execute a single task"""
@@ -612,10 +612,10 @@ def execute_io_task(task: Task) -> Dict[str, Any]:
     file_size = payload.get("file_size", 1024)
 
     # Simulate file I/O
-    time.sleep(0.5)  # Simulate I/O wait
+    # Removed artificial delay for benchmarking  # Simulate I/O wait
     task.progress = 50.0
 
-    time.sleep(0.5)  # Simulate more I/O
+    # Removed artificial delay for benchmarking  # Simulate more I/O
     task.progress = 100.0
 
     return {
@@ -630,7 +630,7 @@ def execute_network_task(task: Task) -> Dict[str, Any]:
     url = payload.get("url", "https://example.com")
 
     # Simulate network request
-    time.sleep(random.uniform(0.5, 2.0))  # Variable network delay
+    # Removed artificial delay for benchmarking)  # Variable network delay
     task.progress = 100.0
 
     return {
@@ -646,7 +646,7 @@ def execute_data_processing_task(task: Task) -> Dict[str, Any]:
 
     # Simulate data processing
     for i in range(10):
-        time.sleep(0.1)
+        # Removed artificial delay for benchmarking
         task.progress = (i + 1) * 10
 
     return {
@@ -660,7 +660,7 @@ def execute_email_task(task: Task) -> Dict[str, Any]:
     recipients = payload.get("recipients", ["user@example.com"])
 
     # Simulate email sending
-    time.sleep(1.0)
+    # Removed artificial delay for benchmarking
     task.progress = 100.0
 
     return {
@@ -676,7 +676,7 @@ def execute_report_task(task: Task) -> Dict[str, Any]:
 
     # Simulate report generation
     for i in range(5):
-        time.sleep(0.5)
+        # Removed artificial delay for benchmarking
         task.progress = (i + 1) * 20
 
     return {
@@ -687,7 +687,7 @@ def execute_report_task(task: Task) -> Dict[str, Any]:
 
 async def schedule_delayed_task(task_id: str, delay_seconds: int, task_store: Dict):
     """Schedule a task to run after a delay"""
-    await asyncio.sleep(delay_seconds)
+    # Removed artificial delay for benchmarking
 
     if task_id in task_store["tasks"]:
         task = task_store["tasks"][task_id]
@@ -712,7 +712,7 @@ async def monitor_batch_execution(batch_id: str, task_ids: List[str], task_store
             print(f"Batch {batch_id} completed: {completed_tasks}/{len(task_ids)} tasks")
             break
 
-        await asyncio.sleep(1)
+        # Removed artificial delay for benchmarking
 
 
 def main():

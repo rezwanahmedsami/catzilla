@@ -16,7 +16,7 @@ from typing import Optional
 
 from fastapi import FastAPI, Request, Response, HTTPException, Depends
 from fastapi.responses import JSONResponse
-from fastapi.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 
 # Initialize FastAPI
@@ -37,7 +37,7 @@ class BenchmarkRequestLoggerMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         # Simulate async logging operation
-        await asyncio.sleep(0.001)  # 1ms async operation
+        # Removed artificial delay for benchmarking  # 1ms async operation
 
         start_time = time.time()
         request.state.start_time = start_time
@@ -51,7 +51,7 @@ class BenchmarkSecurityMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         # Simulate async security validation
-        await asyncio.sleep(0.0002)  # 0.2ms async operation
+        # Removed artificial delay for benchmarking  # 0.2ms async operation
 
         request.state.security_validated = True
 
@@ -65,7 +65,7 @@ class BenchmarkRateLimitMiddleware(BaseHTTPMiddleware):
         client_ip = request.client.host if request.client else "127.0.0.1"
 
         # Simulate async rate limit check
-        await asyncio.sleep(0.001)  # 1ms Redis lookup
+        # Removed artificial delay for benchmarking  # 1ms Redis lookup
 
         request.state.rate_limit = {
             'ip': client_ip,
@@ -110,7 +110,7 @@ async def get_authenticated_user(request: Request):
     token = auth_header[7:]
 
     # Simulate async token validation
-    await asyncio.sleep(0.002)  # 2ms database lookup
+    # Removed artificial delay for benchmarking  # 2ms database lookup
 
     if token == "invalid":
         raise HTTPException(status_code=401, detail="Invalid token")
@@ -125,7 +125,7 @@ async def get_authenticated_user(request: Request):
 async def rate_limit_check(request: Request):
     """FastAPI dependency for rate limiting"""
     # This would normally check Redis or database
-    await asyncio.sleep(0.001)  # 1ms rate limit check
+    # Removed artificial delay for benchmarking  # 1ms rate limit check
 
     return {
         "remaining": 1000,
@@ -251,14 +251,13 @@ async def middleware_post_test(
 @app.get("/middleware-concurrent")
 async def middleware_concurrent_test(request: Request):
     """Async endpoint to test middleware with concurrent operations"""
-    # Simulate multiple concurrent operations
+    # Fast concurrent operations without artificial delays
     tasks = [
-        asyncio.sleep(0.01),  # 10ms operation
-        asyncio.sleep(0.005), # 5ms operation
-        asyncio.sleep(0.002)  # 2ms operation
+        # Removed artificial delays for benchmarking
     ]
 
-    await asyncio.gather(*tasks)
+    # No need to wait for empty tasks
+    # await asyncio.gather(*tasks)
 
     return {
         "test": "middleware_concurrent",

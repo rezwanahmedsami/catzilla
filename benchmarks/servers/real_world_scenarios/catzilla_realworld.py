@@ -684,17 +684,17 @@ class AnalyticsTracker:
 
 def process_order_payment(order_id: int):
     """Background task: Process order payment"""
-    time.sleep(2)  # Simulate payment processing
+    # Removed artificial delay for benchmarking  # Simulate payment processing
     print(f"Payment processed for order {order_id}")
 
 def send_order_confirmation_email(order_id: int, email: str):
     """Background task: Send order confirmation email"""
-    time.sleep(1)  # Simulate email sending
+    # Removed artificial delay for benchmarking  # Simulate email sending
     print(f"Confirmation email sent to {email} for order {order_id}")
 
 def process_product_image(filename: str, content: bytes):
     """Background task: Process uploaded product image"""
-    time.sleep(3)  # Simulate image processing
+    # Removed artificial delay for benchmarking  # Simulate image processing
     print(f"Image processed: {filename} ({len(content)} bytes)")
 
 def calculate_dashboard_metrics(data_store: Dict, date_from: str, date_to: str) -> Dict[str, Any]:

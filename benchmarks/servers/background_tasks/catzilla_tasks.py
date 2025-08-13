@@ -136,7 +136,7 @@ def network_task(task_id: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
     results = []
     for i in range(request_count):
         # Simulate network delay
-        time.sleep(delay_ms / 1000)
+        # Removed artificial delay for benchmarking
         results.append({
             "request_id": i,
             "status": "success",
@@ -211,7 +211,7 @@ def email_task(task_id: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
     emails_sent = []
     for i in range(recipient_count):
         # Simulate email processing delay
-        time.sleep(0.01)  # 10ms per email
+        # Removed artificial delay for benchmarking  # 10ms per email
         emails_sent.append({
             "recipient": f"user{i}@example.com",
             "template": template,
@@ -250,7 +250,7 @@ def report_task(task_id: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     # Simulate report processing time
-    time.sleep(0.1)  # 100ms base processing time
+    # Removed artificial delay for benchmarking  # 100ms base processing time
 
     processing_time = (time.perf_counter() - start_time) * 1000
     report_data["summary"]["processing_time"] = f"{processing_time:.3f}ms"
@@ -348,7 +348,7 @@ def create_catzilla_background_server():
         if task_request.delay_seconds > 0:
             # In a real implementation, this would use a proper scheduler
             def delayed_execution():
-                time.sleep(task_request.delay_seconds)
+                # Removed artificial delay for benchmarking
                 execute_task(task_id, task_request.task_type, task_request.parameters)
 
             executor.submit(delayed_execution)
@@ -582,7 +582,7 @@ def create_catzilla_background_server():
 
             # Schedule execution
             def scheduled_execution():
-                time.sleep(delay_seconds)
+                # Removed artificial delay for benchmarking
                 execute_task(task_id, task_request.task_type, task_request.parameters)
 
             executor.submit(scheduled_execution)
