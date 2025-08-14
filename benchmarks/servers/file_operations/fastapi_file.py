@@ -39,8 +39,8 @@ from pydantic import BaseModel, Field
 import uvicorn
 
 # Import shared file endpoints
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
-from file_endpoints import get_file_endpoints
+# sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
+# from file_endpoints import get_file_endpoints
 
 
 def create_fastapi_file_server():
@@ -74,7 +74,7 @@ def create_fastapi_file_server():
         "download_stats": {}
     }
 
-    endpoints = get_file_endpoints()
+    # endpoints = get_file_endpoints()
 
     # ==========================================
     # FILE UPLOAD ENDPOINTS
@@ -499,61 +499,60 @@ def create_fastapi_file_server():
             "file_count": len(file_store["uploaded_files"])
         })
 
-    return app
+    # =====================================================
+    # BACKGROUND PROCESSING FUNCTIONS
+    # =====================================================
 
+    async def process_uploaded_file(file_id: str, file_path: Path):
+        """Background task: Process uploaded file"""
+        # Simulate file processing
+        # Removed artificial delay for benchmarking
 
-# =====================================================
-# BACKGROUND PROCESSING FUNCTIONS
-# =====================================================
-
-async def process_uploaded_file(file_id: str, file_path: Path):
-    """Background task: Process uploaded file"""
-    # Simulate file processing
-    # Removed artificial delay for benchmarking
-
-    if file_id in file_store["uploaded_files"]:
-        file_store["uploaded_files"][file_id]["processed"] = True
-        file_store["uploaded_files"][file_id]["processing_completed"] = datetime.now().isoformat()
-
-    print(f"File processed: {file_id}")
-
-async def process_file_batch(file_ids: List[str]):
-    """Background task: Process batch of files"""
-    # Simulate batch processing
-    # Removed artificial delay for benchmarking)
-
-    for file_id in file_ids:
         if file_id in file_store["uploaded_files"]:
             file_store["uploaded_files"][file_id]["processed"] = True
-            file_store["uploaded_files"][file_id]["batch_processed"] = True
+            file_store["uploaded_files"][file_id]["processing_completed"] = datetime.now().isoformat()
 
-    print(f"Batch processed: {len(file_ids)} files")
+        print(f"File processed: {file_id}")
 
-async def process_file_operation(file_id: str, file_path: Path, operation: str, params: dict, task_id: str):
-    """Background task: Process file with specific operation"""
-    # Simulate different processing times for different operations
-    processing_times = {
-        "resize": 1,
-        "compress": 3,
-        "convert": 5,
-        "analyze": 2
-    }
+    async def process_file_batch(file_ids: List[str]):
+        """Background task: Process batch of files"""
+        # Simulate batch processing
+        # Removed artificial delay for benchmarking)
 
-    # Removed artificial delay for benchmarking)
+        for file_id in file_ids:
+            if file_id in file_store["uploaded_files"]:
+                file_store["uploaded_files"][file_id]["processed"] = True
+                file_store["uploaded_files"][file_id]["batch_processed"] = True
 
-    if file_id in file_store["uploaded_files"]:
-        file_info = file_store["uploaded_files"][file_id]
-        if "processing_history" not in file_info:
-            file_info["processing_history"] = []
+        print(f"Batch processed: {len(file_ids)} files")
 
-        file_info["processing_history"].append({
-            "task_id": task_id,
-            "operation": operation,
-            "params": params,
-            "completed_at": datetime.now().isoformat()
-        })
+    async def process_file_operation(file_id: str, file_path: Path, operation: str, params: dict, task_id: str):
+        """Background task: Process file with specific operation"""
+        # Simulate different processing times for different operations
+        processing_times = {
+            "resize": 1,
+            "compress": 3,
+            "convert": 5,
+            "analyze": 2
+        }
 
-    print(f"File operation completed: {operation} on {file_id}")
+        # Removed artificial delay for benchmarking)
+
+        if file_id in file_store["uploaded_files"]:
+            file_info = file_store["uploaded_files"][file_id]
+            if "processing_history" not in file_info:
+                file_info["processing_history"] = []
+
+            file_info["processing_history"].append({
+                "task_id": task_id,
+                "operation": operation,
+                "params": params,
+                "completed_at": datetime.now().isoformat()
+            })
+
+        print(f"File operation completed: {operation} on {file_id}")
+
+    return app
 
 
 def main():

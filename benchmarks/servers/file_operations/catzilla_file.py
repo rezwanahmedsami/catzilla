@@ -29,13 +29,15 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', 'py
 
 from catzilla import (
     Catzilla, BaseModel, Field,
-    JSONResponse, FileResponse, StreamingResponse, Response,
+    JSONResponse, Response,
     Query, Path as PathParam, Header, Form, File, UploadFile
 )
 
-# Import shared file operation endpoints
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
-from file_endpoints import get_file_endpoints
+from catzilla import (
+    Catzilla, BaseModel, Field,
+    JSONResponse, Response,
+    Query, Path as PathParam, Header, Form, File, UploadFile
+)
 
 
 # =====================================================
@@ -72,10 +74,7 @@ def create_catzilla_file_server():
         auto_validation=True,        # Enable auto-validation
         memory_profiling=False,      # Disable for benchmarks
         auto_memory_tuning=True,     # Adaptive memory management
-        show_banner=False,
-        enable_file_uploads=True,    # Enable optimized file uploads
-        max_upload_size=100 * 1024 * 1024,  # 100MB max upload
-        upload_temp_dir="/tmp"       # Temporary directory for uploads
+        show_banner=False
     )
 
     # Create upload directory
@@ -89,7 +88,7 @@ def create_catzilla_file_server():
     # Generate test files
     create_test_files(static_dir)
 
-    endpoints = get_file_endpoints()
+    # endpoints = get_file_endpoints()  # Not needed for actual endpoints
 
     # ==========================================
     # FILE UPLOAD BENCHMARKS
@@ -98,7 +97,7 @@ def create_catzilla_file_server():
     @app.post("/upload/single")
     def upload_single_file(
         request,
-        file: UploadFile = File(..., description="File to upload"),
+        file: UploadFile = File(...),
         description: Optional[str] = Form(None)
     ) -> Response:
         """Single file upload benchmark"""
@@ -132,7 +131,7 @@ def create_catzilla_file_server():
     @app.post("/upload/multiple")
     def upload_multiple_files(
         request,
-        files: List[UploadFile] = File(..., description="Files to upload")
+        files: List[UploadFile] = File(...)
     ) -> Response:
         """Multiple file upload benchmark"""
         start_time = time.perf_counter()
@@ -219,10 +218,25 @@ def create_catzilla_file_server():
         if not filepath.exists():
             return JSONResponse({"error": "File not found"}, status_code=404)
 
-        return FileResponse(
-            path=str(filepath),
-            filename=filename,
-            media_type=mimetypes.guess_type(filename)[0]
+        # Read file content
+        mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+
+        # Handle text vs binary files
+        if mime_type.startswith('text/'):
+            with open(filepath, "r", encoding="utf-8") as f:
+                file_content = f.read()
+        else:
+            with open(filepath, "rb") as f:
+                file_bytes = f.read()
+            file_content = file_bytes.decode("utf-8", errors="ignore")
+
+        return Response(
+            status_code=200,
+            content_type=mime_type,
+            body=file_content,
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
         )
 
     @app.get("/static-range/{filename}")
@@ -262,10 +276,25 @@ def create_catzilla_file_server():
             except (ValueError, IndexError):
                 pass
 
-        return FileResponse(
-            path=str(filepath),
-            filename=filename,
-            media_type=mimetypes.guess_type(filename)[0]
+        # Read full file content
+        mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+
+        # Handle text vs binary files
+        if mime_type.startswith('text/'):
+            with open(filepath, "r", encoding="utf-8") as f:
+                file_content = f.read()
+        else:
+            with open(filepath, "rb") as f:
+                file_bytes = f.read()
+            file_content = file_bytes.decode("utf-8", errors="ignore")
+
+        return Response(
+            status_code=200,
+            content_type=mime_type,
+            body=file_content,
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
         )
 
     # ==========================================
@@ -280,41 +309,37 @@ def create_catzilla_file_server():
         if not filepath.exists():
             return JSONResponse({"error": "File not found"}, status_code=404)
 
-        def file_generator():
-            with open(filepath, "rb") as f:
-                while True:
-                    chunk = f.read(8192)  # 8KB chunks
-                    if not chunk:
-                        break
-                    yield chunk
+        # Read file content
+        mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
 
-        return StreamingResponse(
-            file_generator(),
-            media_type=mimetypes.guess_type(filename)[0] or "application/octet-stream",
+        # Handle text vs binary files
+        if mime_type.startswith('text/'):
+            with open(filepath, "r", encoding="utf-8") as f:
+                file_content = f.read()
+        else:
+            with open(filepath, "rb") as f:
+                file_bytes = f.read()
+            file_content = file_bytes.decode("utf-8", errors="ignore")
+
+        return Response(
+            status_code=200,
+            content_type=mime_type,
+            body=file_content,
             headers={"Content-Disposition": f"attachment; filename={filename}"}
         )
 
     @app.get("/stream/generated/{size_mb}")
     def stream_generated_data(request, size_mb: int = PathParam(...)) -> Response:
         """Generated data streaming benchmark"""
-        chunk_size = 8192
         total_bytes = size_mb * 1024 * 1024
-        chunks_sent = 0
 
-        def data_generator():
-            nonlocal chunks_sent
-            bytes_sent = 0
-            while bytes_sent < total_bytes:
-                remaining = total_bytes - bytes_sent
-                current_chunk_size = min(chunk_size, remaining)
-                chunk = b"A" * current_chunk_size
-                bytes_sent += current_chunk_size
-                chunks_sent += 1
-                yield chunk
+        # Generate the data at once (simplified for Catzilla)
+        content = "A" * total_bytes
 
-        return StreamingResponse(
-            data_generator(),
-            media_type="application/octet-stream",
+        return Response(
+            status_code=200,
+            content_type="application/octet-stream",
+            body=content,
             headers={
                 "Content-Length": str(total_bytes),
                 "Content-Disposition": f"attachment; filename=generated_{size_mb}mb.txt"

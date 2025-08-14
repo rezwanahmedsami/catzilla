@@ -5,6 +5,8 @@
 
 # --- Web frameworks for comparison ---
 fastapi==0.95.2  # Last version before Pydantic v2 support
+aiofiles==24.1.0
+python-multipart==0.0.20
 pydantic==1.10.15
 uvicorn==0.23.2
 flask
