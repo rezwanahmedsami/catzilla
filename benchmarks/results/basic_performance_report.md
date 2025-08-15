@@ -6,26 +6,32 @@
 - **Connections**: 100
 - **Threads**: 4
 - **Tool**: wrk
-- **Date**: Sun Aug 10 17:32:23 +06 2025
+- **Date**: Sat Aug 16 02:15:27 +06 2025
 
 ## Performance Results
 
 | Framework | Endpoint | Requests/sec | Avg Latency | 99% Latency |
 |-----------|----------|--------------|-------------|-------------|
-| catzilla | basic_complex_json | 7729.59 | 15.17ms | 97.27ms |
-| catzilla | basic_hello_world | 14540.51 | 7.63ms | 10.30ms |
-| catzilla | basic_json_response | 11874.04 | 9.61ms | 29.53ms |
-| catzilla | basic_path_params | 9486.92 | 12.52ms | 83.97ms |
-| catzilla | basic_query_params | 6577.34 | 19.02ms | 192.51ms |
-| django | basic_complex_json | 842.15 | 118.01ms | 234.68ms |
-| fastapi | basic_complex_json | 2091.87 | 47.61ms | 65.93ms |
-| fastapi | basic_hello_world | 3282.63 | 30.21ms | 40.23ms |
-| fastapi | basic_json_response | 2837.33 | 35.27ms | 66.24ms |
-| fastapi | basic_path_params | 2466.21 | 40.44ms | 60.65ms |
-| fastapi | basic_query_params | 1427.68 | 69.69ms | 97.47ms |
-| flask | basic_complex_json | 1130.77 | 88.73ms | 203.17ms |
-| flask | basic_hello_world | 1107.04 | 90.18ms | 173.38ms |
-| flask | basic_path_params | 0.00 | 0.00us | 0.00us |
+| catzilla | basic_complex_json | 7140.09 | 17.23ms | 126.54ms |
+| catzilla | basic_hello_world | 12483.43 | 9.61ms | 80.41ms |
+| catzilla | basic_json_response | 9404.73 | 13.43ms | 117.29ms |
+| catzilla | basic_path_params | 8330.97 | 14.06ms | 87.11ms |
+| catzilla | basic_query_params | 5642.72 | 20.73ms | 139.63ms |
+| django | basic_complex_json | 433.86 | 1.33ms | 3.04ms |
+| django | basic_hello_world | 1028.08 | 48.45ms | 67.96ms |
+| django | basic_json_response | 1.29 | 4.40ms | 10.30ms |
+| django | basic_path_params | 1664.19 | 49.36ms | 132.84ms |
+| django | basic_query_params | 0.99 | 3.61ms | 8.71ms |
+| fastapi | basic_complex_json | 1917.40 | 51.98ms | 67.30ms |
+| fastapi | basic_hello_world | 2558.32 | 38.97ms | 53.08ms |
+| fastapi | basic_json_response | 2304.81 | 43.26ms | 62.58ms |
+| fastapi | basic_path_params | 2117.15 | 47.46ms | 111.54ms |
+| fastapi | basic_query_params | 1281.65 | 78.59ms | 194.47ms |
+| flask | basic_complex_json | 493.14 | 5.03ms | 59.27ms |
+| flask | basic_hello_world | 1083.33 | 52.83ms | 66.56ms |
+| flask | basic_json_response | 1.78 | 5.23ms | 17.42ms |
+| flask | basic_path_params | 1612.88 | 47.77ms | 63.99ms |
+| flask | basic_query_params | 0.89 | 9.45ms | 29.83ms |
 
 ## Catzilla Performance Advantage
 

@@ -38,8 +38,8 @@ from pydantic import BaseModel, Field
 import uvicorn
 
 # Import shared background task endpoints
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
-from background_endpoints import get_background_endpoints
+# sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
+# from background_endpoints import get_background_endpoints
 
 
 # =====================================================
@@ -146,19 +146,23 @@ def create_fastapi_tasks_server():
     # Start background workers
     for i in range(4):
         worker_id = f"worker_{i}"
-        worker_thread = threading.Thread(
-            target=task_worker,
-            args=(worker_id, task_store, executor),
-            daemon=True
-        )
-        worker_thread.start()
+
+        # Initialize worker info first
         task_store["workers"][worker_id] = {
             "status": "running",
             "tasks_processed": 0,
             "current_task": None
         }
 
-    endpoints = get_background_endpoints()
+        # Then start the worker thread
+        worker_thread = threading.Thread(
+            target=task_worker,
+            args=(worker_id, task_store, executor),
+            daemon=True
+        )
+        worker_thread.start()
+
+    # endpoints = get_background_endpoints()
 
     # ==========================================
     # TASK CREATION ENDPOINTS
@@ -539,6 +543,7 @@ def task_worker(worker_id: str, task_store: Dict, executor: ThreadPoolExecutor):
             else:
                 # No tasks available, sleep briefly
                 # Removed artificial delay for benchmarking
+                pass
 
         except Exception as e:
             print(f"Worker {worker_id} error: {e}")

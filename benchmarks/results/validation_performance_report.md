@@ -6,38 +6,39 @@
 - **Connections**: 100
 - **Threads**: 4
 - **Tool**: wrk
-- **Date**: Mon Aug 11 01:01:19 +06 2025
+- **Date**: Sat Aug 16 01:30:30 +06 2025
 
 ## Performance Results
 
 | Framework | Endpoint | Requests/sec | Avg Latency | 99% Latency |
 |-----------|----------|--------------|-------------|-------------|
-| catzilla | validation_array_validation | 2657.82 | 63.54ms | 968.14ms |
-| catzilla | validation_complex_validation | 5159.79 | 25.54ms | 307.79ms |
-| catzilla | validation_health_check | 12166.68 | 9.49ms | 57.58ms |
-| catzilla | validation_nested_validation | 5443.61 | 24.01ms | 244.01ms |
-| catzilla | validation_performance_test | 1493.30 | 86.00ms | 990.17ms |
-| catzilla | validation_simple_validation | 8307.68 | 17.28ms | 193.09ms |
-| catzilla | validation_user_validation | 7161.75 | 17.27ms | 163.12ms |
-| django | validation_array_validation | 562.08 | 49.30ms | 72.76ms |
-| django | validation_complex_validation | 167.98 | 51.82ms | 99.27ms |
+| catzilla | validation_array_validation | 2037.23 | 80.58ms | 1.11s |
+| catzilla | validation_complex_validation | 3818.78 | 34.06ms | 276.42ms |
+| catzilla | validation_health_check | 11686.35 | 10.02ms | 72.19ms |
+| catzilla | validation_nested_validation | 5262.26 | 22.90ms | 202.30ms |
+| catzilla | validation_performance_test | 1228.19 | 96.54ms | 961.84ms |
+| catzilla | validation_simple_validation | 8748.30 | 14.49ms | 139.27ms |
+| catzilla | validation_user_validation | 6967.69 | 17.67ms | 134.95ms |
+| django | validation_array_validation | 210.50 | 1.12ms | 9.89ms |
+| django | validation_complex_validation | 172.96 | 45.97ms | 74.79ms |
 | django | validation_health_check | 922.40 | 108.09ms | 252.37ms |
-| django | validation_nested_validation | 490.10 | 22.23ms | 72.88ms |
-| django | validation_performance_test | 468.84 | 53.75ms | 91.10ms |
-| django | validation_simple_validation | 0.99 | 3.35ms | 8.47ms |
-| fastapi | validation_array_validation | 714.61 | 138.87ms | 158.68ms |
-| fastapi | validation_complex_validation | 1306.21 | 76.16ms | 91.19ms |
-| fastapi | validation_health_check | 2518.82 | 39.54ms | 50.53ms |
-| fastapi | validation_nested_validation | 1361.48 | 74.23ms | 199.17ms |
-| fastapi | validation_performance_test | 272.92 | 359.38ms | 415.53ms |
-| fastapi | validation_simple_validation | 2162.64 | 46.11ms | 56.19ms |
-| fastapi | validation_user_validation | 1766.39 | 56.46ms | 66.41ms |
+| django | validation_nested_validation | 785.17 | 45.01ms | 59.37ms |
+| django | validation_performance_test | 726.10 | 49.70ms | 64.50ms |
+| django | validation_simple_validation | 494.49 | 14.24ms | 75.00ms |
+| django | validation_user_validation | 0.20 | 2.82ms | 4.64ms |
+| fastapi | validation_array_validation | 566.95 | 176.11ms | 405.86ms |
+| fastapi | validation_complex_validation | 1126.25 | 88.27ms | 160.70ms |
+| fastapi | validation_health_check | 2101.04 | 48.81ms | 153.05ms |
+| fastapi | validation_nested_validation | 1356.93 | 73.43ms | 105.12ms |
+| fastapi | validation_performance_test | 251.93 | 389.08ms | 596.33ms |
+| fastapi | validation_simple_validation | 1891.91 | 53.41ms | 137.43ms |
+| fastapi | validation_user_validation | 1608.79 | 62.73ms | 164.86ms |
 | flask | validation_array_validation | 1663.23 | 47.79ms | 60.72ms |
-| flask | validation_complex_validation | 1.10 | 4.82ms | 10.40ms |
-| flask | validation_health_check | 1087.59 | 52.91ms | 73.76ms |
-| flask | validation_nested_validation | 946.75 | 47.33ms | 63.82ms |
-| flask | validation_performance_test | 4.06 | 6.82ms | 19.36ms |
-| flask | validation_simple_validation | 0.69 | 2.71ms | 4.85ms |
+| flask | validation_complex_validation | 2.67 | 8.02ms | 19.95ms |
+| flask | validation_health_check | 1029.88 | 52.81ms | 68.82ms |
+| flask | validation_nested_validation | 972.19 | 52.48ms | 177.86ms |
+| flask | validation_performance_test | 966.15 | 50.63ms | 67.15ms |
+| flask | validation_simple_validation | 1.19 | 3.12ms | 6.51ms |
 | flask | validation_user_validation | 1660.15 | 39.15ms | 55.62ms |
 
 ## Catzilla Performance Advantage

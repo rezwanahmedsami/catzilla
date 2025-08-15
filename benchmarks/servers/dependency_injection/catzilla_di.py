@@ -19,7 +19,8 @@ from typing import Optional, Dict, Any
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', 'python'))
 
 from catzilla import Catzilla, Request, Response, JSONResponse, BaseModel, Path, Query
-from catzilla.dependency_injection import service, Depends, set_default_container
+from catzilla.dependency_injection import set_default_container
+from catzilla.decorators import service, Depends
 
 # Initialize Catzilla with DI enabled
 app = Catzilla(

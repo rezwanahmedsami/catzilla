@@ -152,6 +152,7 @@ def process_cpu_intensive(params: Dict) -> Dict:
         result += i ** 0.5
         if i % 10000 == 0:
             # Removed artificial delay for benchmarking
+            pass
 
     processing_time = time.time() - start_time
 

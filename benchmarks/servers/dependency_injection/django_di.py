@@ -392,6 +392,12 @@ def scoped_services(request):
 urlpatterns = [
     path('', home, name='home'),
     path('health', health_check, name='health_check'),
+    path('di/simple', simple_service, name='simple_di'),
+    path('di/transient', simple_service, name='transient_di'),  # Same as simple for now
+    path('di/singleton', scoped_services, name='singleton_di'),
+    path('di/request', nested_services, {'user_id': 1}, name='request_scoped_di'),
+    path('di/complex', complex_resolution, name='complex_di_chain'),
+    # Legacy endpoints for backward compatibility
     path('simple-service', simple_service, name='simple_service'),
     path('nested-services/<int:user_id>', nested_services, name='nested_services'),
     path('create-user', create_user_endpoint, name='create_user'),

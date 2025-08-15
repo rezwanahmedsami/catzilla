@@ -24,15 +24,14 @@ import uuid
 import hashlib
 from typing import Optional, List, Dict, Any, Union
 from datetime import datetime, timedelta
-from decimal import Decimal
 import random
 
 # Add the catzilla package to the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', 'python'))
 
 from catzilla import (
-    Catzilla, BaseModel, Field, BackgroundTask,
-    JSONResponse, FileResponse, Response,
+    Catzilla, BaseModel, Field,
+    JSONResponse, Response,
     Query, Path as PathParam, Header, Form, File, UploadFile,
     Depends
 )
@@ -63,9 +62,9 @@ class Product(BaseModel):
     id: Optional[int] = None
     name: str = Field(min_length=1, max_length=200)
     description: str = Field(max_length=2000)
-    price: Decimal = Field(ge=0.01, max_digits=10, decimal_places=2)
+    price: float = Field(ge=0.01)  # Use float instead of Decimal
     category_id: int = Field(ge=1)
-    brand: Optional[str] = Field(max_length=100)
+    brand: Optional[str] = Field(None, max_length=100)
     sku: str = Field(regex=r'^[A-Z0-9\-]+$')
     stock_quantity: int = Field(ge=0)
     is_featured: bool = False
@@ -79,7 +78,7 @@ class Order(BaseModel):
     id: Optional[int] = None
     user_id: int = Field(ge=1)
     status: str = Field(regex=r'^(pending|confirmed|processing|shipped|delivered|cancelled)$')
-    total_amount: Decimal = Field(ge=0, max_digits=10, decimal_places=2)
+    total_amount: float = Field(ge=0)  # Use float instead of Decimal
     shipping_address: Dict[str, str]
     billing_address: Dict[str, str]
     items: List[Dict[str, Any]] = Field(min_items=1)
@@ -138,10 +137,14 @@ def create_catzilla_realworld_server():
         memory_profiling=False,      # Disable for benchmarks
         auto_memory_tuning=True,     # Adaptive memory management
         show_banner=False,
-        enable_background_tasks=True,  # Enable background processing
-        enable_file_uploads=True,    # Enable file operations
-        enable_di=True,             # Enable dependency injection
-        max_upload_size=50 * 1024 * 1024  # 50MB uploads
+        enable_di=True              # Enable dependency injection
+    )
+
+    # Enable background task system
+    app.enable_background_tasks(
+        workers=4,
+        enable_profiling=True,
+        memory_pool_mb=500
     )
 
     # In-memory data storage (in production, this would be a database)
@@ -181,8 +184,8 @@ def create_catzilla_realworld_server():
         """Get analytics tracking service"""
         return AnalyticsTracker(data_store)
 
-    app.register_dependency("current_user", get_current_user)
-    app.register_dependency("analytics", get_analytics_tracker)
+    # app.register_dependency("current_user", get_current_user)
+    # app.register_dependency("analytics", get_analytics_tracker)
 
     # ==========================================
     # E-COMMERCE API SCENARIOS
@@ -316,7 +319,7 @@ def create_catzilla_realworld_server():
         order_id = len(data_store["orders"]) + 1
 
         # Validate products and calculate total
-        total_amount = Decimal('0')
+        total_amount = 0.0  # Use float instead of Decimal
         validated_items = []
 
         for item in order.items:
@@ -335,7 +338,7 @@ def create_catzilla_realworld_server():
                     "error": f"Insufficient stock for product {product_id}"
                 }, status_code=400)
 
-            item_total = Decimal(str(product["price"])) * quantity
+            item_total = float(product["price"]) * quantity  # Use float instead of Decimal
             total_amount += item_total
 
             validated_items.append({
@@ -375,8 +378,8 @@ def create_catzilla_realworld_server():
         })
 
         # Schedule background tasks for order processing
-        app.add_background_task(process_order_payment, order_id)
-        app.add_background_task(send_order_confirmation_email, order_id, current_user.email)
+        app.add_task(process_order_payment, order_id)
+        app.add_task(send_order_confirmation_email, order_id, current_user.email)
 
         processing_time = (time.perf_counter() - start_time) * 1000
 
@@ -573,7 +576,7 @@ def create_catzilla_realworld_server():
         product["images"].append(image_info)
 
         # Schedule background image processing
-        app.add_background_task(process_product_image, new_filename, content)
+        app.add_task(process_product_image, new_filename, content)
 
         processing_time = (time.perf_counter() - start_time) * 1000
 

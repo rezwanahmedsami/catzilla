@@ -6,20 +6,20 @@
 - **Connections**: 100
 - **Threads**: 4
 - **Tool**: wrk
-- **Date**: Wed Aug 13 23:49:56 +06 2025
+- **Date**: Sat Aug 16 00:09:05 +06 2025
 
 ## Performance Results
 
 | Framework | Endpoint | Requests/sec | Avg Latency | 99% Latency |
 |-----------|----------|--------------|-------------|-------------|
-| catzilla | middleware_auth_middleware | 7040.52 | 17.78ms | 173.95ms |
-| catzilla | middleware_compression_middleware | 10867.38 | 10.39ms | 10.39ms |
-| catzilla | middleware_cors_middleware | 10144.21 | 12.29ms | 120.64ms |
-| catzilla | middleware_health_check | 3165.09 | 36.92ms | 201.87ms |
-| catzilla | middleware_heavy_middleware | 6284.37 | 23.86ms | 385.72ms |
-| catzilla | middleware_home | 4594.22 | 35.27ms | 556.29ms |
-| catzilla | middleware_light_middleware | 4885.07 | 28.02ms | 308.47ms |
-| catzilla | middleware_logging_middleware | 10934.92 | 10.56ms | 44.27ms |
+| catzilla | middleware_auth_middleware | 7904.84 | 15.38ms | 128.94ms |
+| catzilla | middleware_compression_middleware | 12091.11 | 9.17ms | 16.19ms |
+| catzilla | middleware_cors_middleware | 12067.86 | 9.28ms | 16.21ms |
+| catzilla | middleware_health_check | 9919.63 | 11.61ms | 47.52ms |
+| catzilla | middleware_heavy_middleware | 7681.43 | 17.39ms | 156.48ms |
+| catzilla | middleware_home | 10684.46 | 10.77ms | 64.10ms |
+| catzilla | middleware_light_middleware | 8537.58 | 13.77ms | 91.32ms |
+| catzilla | middleware_logging_middleware | 11554.60 | 10.34ms | 89.69ms |
 | django | middleware_auth_middleware | 419.39 | 17.99ms | 80.38ms |
 | django | middleware_compression_middleware | 983.85 | 60.20ms | 78.88ms |
 | django | middleware_cors_middleware | 695.93 | 63.61ms | 83.38ms |

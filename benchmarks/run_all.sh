@@ -81,6 +81,8 @@ BACKGROUND_TASKS_SERVERS=(
 REAL_WORLD_SERVERS=(
     "catzilla:8080:python3 $SERVERS_DIR/real_world_scenarios/catzilla_realworld.py --port 8080"
     "fastapi:8081:uvicorn benchmarks.servers.real_world_scenarios.fastapi_realworld:app --host 127.0.0.1 --port 8081"
+    "django:8082:gunicorn --bind 127.0.0.1:8082 --workers 4 --worker-class sync benchmarks.servers.real_world_scenarios.django_realworld:application"
+    "flask:8083:gunicorn --bind 127.0.0.1:8083 --workers 4 --worker-class sync benchmarks.servers.real_world_scenarios.flask_realworld:app"
 )
 
 # Test endpoints for basic benchmarks
@@ -162,11 +164,13 @@ BACKGROUND_TASKS_ENDPOINTS=(
 # Test endpoints for real-world scenarios benchmarks
 REAL_WORLD_ENDPOINTS=(
     "/health:health_check"
-    "/api/users:user_crud"
     "/api/products:product_search"
+    "/api/products/1:product_detail"
     "/api/orders:order_processing"
-    "/api/analytics:analytics_query"
-    "/api/complex:complex_business_logic"
+    "/api/blog/posts:blog_listing"
+    "/api/blog/posts/1:blog_post_detail"
+    "/api/analytics/dashboard:analytics_dashboard"
+    "/api/analytics/track:analytics_tracking"
 )
 
 # Colors for output
@@ -635,15 +639,27 @@ generate_summary() {
 
     # Load existing summary or create new structure
     local existing_summary=""
-    if [ -f "$summary_file" ]; then
-        existing_summary=$(cat "$summary_file")
+    local should_create_new=true
+
+    if [ -f "$summary_file" ] && [ -s "$summary_file" ]; then
+        # File exists and is not empty
+        existing_summary=$(cat "$summary_file" 2>/dev/null || echo "")
+        if [ -n "$existing_summary" ] && echo "$existing_summary" | jq -e '.categories' >/dev/null 2>&1; then
+            should_create_new=false
+            print_status "Merging with existing benchmark summary..."
+        else
+            print_status "Existing summary file is invalid, creating new one..."
+        fi
+    else
+        print_status "Creating new benchmark summary..."
     fi
 
     # Create new structure with framework-keyed organization
     local temp_file="/tmp/benchmark_summary_new.json"
 
-    # Start building new summary
-    cat > "$temp_file" << EOF
+    if [ "$should_create_new" = true ]; then
+        # Create completely new structure
+        cat > "$temp_file" << EOF
 {
   "metadata": {
     "created": "$(date -Iseconds)",
@@ -652,97 +668,134 @@ generate_summary() {
     "description": "Catzilla Framework Transparent Benchmarking System - Framework Keyed"
   },
   "categories": {
+    "$BENCHMARK_TYPE": {
+      "last_run": "$(date -Iseconds)",
+      "test_params": {
+        "duration": "$DURATION",
+        "connections": $CONNECTIONS,
+        "threads": $THREADS,
+        "tool": "wrk"
+      },
+      "results": {
 EOF
+        # Add framework results for new file
+        local frameworks=("catzilla" "fastapi" "flask" "django")
+        local first_framework=true
 
-    # Get existing categories (excluding current one) to preserve
-    local other_categories=""
-    if [ -n "$existing_summary" ] && echo "$existing_summary" | jq -e '.categories' >/dev/null 2>&1; then
-        other_categories=$(echo "$existing_summary" | jq -r '.categories | keys[]' 2>/dev/null | grep -v "^$BENCHMARK_TYPE$" || true)
-    fi
+        for framework in "${frameworks[@]}"; do
+            if [ "$first_framework" = false ]; then
+                echo "," >> "$temp_file"
+            fi
+            echo "        \"$framework\": [" >> "$temp_file"
 
-    # Add current benchmark type with framework-keyed structure
-    echo "    \"$BENCHMARK_TYPE\": {" >> "$temp_file"
-    echo "      \"last_run\": \"$(date -Iseconds)\"," >> "$temp_file"
-    echo "      \"test_params\": {" >> "$temp_file"
-    echo "        \"duration\": \"$DURATION\"," >> "$temp_file"
-    echo "        \"connections\": $CONNECTIONS," >> "$temp_file"
-    echo "        \"threads\": $THREADS," >> "$temp_file"
-    echo "        \"tool\": \"wrk\"" >> "$temp_file"
-    echo "      }," >> "$temp_file"
-    echo "      \"results\": {" >> "$temp_file"
-
-    # Initialize framework structure with existing data if available
-    local frameworks=("catzilla" "fastapi" "flask" "django")
-    local first_framework=true
-
-    for framework in "${frameworks[@]}"; do
-        if [ "$first_framework" = false ]; then
-            echo "," >> "$temp_file"
-        fi
-        echo "        \"$framework\": [" >> "$temp_file"
-
-        # Check if this framework has new results for current benchmark type
-        local framework_has_new_results=false
-        local first_result=true
-
-        for json_file in "$RESULTS_DIR"/*.json; do
-            if [ -f "$json_file" ] && [[ "$json_file" != *"summary"* ]] && [[ "$json_file" == *"_${BENCHMARK_TYPE}_"* ]]; then
-                # Check if this JSON file is for the current framework
-                local file_framework=$(grep '"framework"' "$json_file" 2>/dev/null | head -1 | cut -d'"' -f4 2>/dev/null || echo "")
-                if [ "$file_framework" = "$framework" ]; then
+            # Add new results for this framework
+            local first_result=true
+            for json_file in "$RESULTS_DIR"/*.json; do
+                if [ -f "$json_file" ] && [[ "$json_file" != *"summary"* ]] && [[ "$json_file" == *"${framework}_${BENCHMARK_TYPE}_"* ]]; then
                     if [ "$first_result" = false ]; then
                         echo "," >> "$temp_file"
                     fi
                     cat "$json_file" | sed 's/^/          /' >> "$temp_file"
                     first_result=false
-                    framework_has_new_results=true
                 fi
-            fi
+            done
+
+            echo "" >> "$temp_file"
+            echo "        ]" >> "$temp_file"
+            first_framework=false
         done
 
-        # If no new results for this framework, preserve existing data
-        if [ "$framework_has_new_results" = false ] && [ -n "$existing_summary" ]; then
-            local existing_framework_data=""
-            if echo "$existing_summary" | jq -e ".categories.\"$BENCHMARK_TYPE\".results.\"$framework\"" >/dev/null 2>&1; then
-                existing_framework_data=$(echo "$existing_summary" | jq -r ".categories.\"$BENCHMARK_TYPE\".results.\"$framework\"" 2>/dev/null)
-                if [ "$existing_framework_data" != "[]" ] && [ "$existing_framework_data" != "null" ]; then
-                    echo "$existing_framework_data" | jq -r '.[] | @json' 2>/dev/null | while IFS= read -r result; do
-                        if [ "$first_result" = false ]; then
-                            echo "," >> "$temp_file"
-                        fi
-                        echo "$result" | jq '.' | sed 's/^/          /' >> "$temp_file"
-                        first_result=false
-                    done 2>/dev/null || true
-                fi
+        cat >> "$temp_file" << EOF
+      }
+    }
+  }
+}
+EOF
+    else
+        # Merge with existing structure
+        # Use jq to properly merge the data
+        local new_category_data=""
+        local frameworks=("catzilla" "fastapi" "flask" "django")
+
+        # Build the new category data using jq
+        local category_json=$(cat << EOF
+{
+  "last_run": "$(date -Iseconds)",
+  "test_params": {
+    "duration": "$DURATION",
+    "connections": $CONNECTIONS,
+    "threads": $THREADS,
+    "tool": "wrk"
+  },
+  "results": {
+EOF
+)
+
+        echo "$category_json" > "$temp_file"
+
+        local first_framework=true
+        for framework in "${frameworks[@]}"; do
+            if [ "$first_framework" = false ]; then
+                echo "," >> "$temp_file"
             fi
+            echo "    \"$framework\": [" >> "$temp_file"
+
+            # Add new results for this framework if any exist
+            local first_result=true
+            local has_results=false
+            for json_file in "$RESULTS_DIR"/*.json; do
+                if [ -f "$json_file" ] && [[ "$json_file" != *"summary"* ]] && [[ "$json_file" == *"${framework}_${BENCHMARK_TYPE}_"* ]]; then
+                    if [ "$first_result" = false ]; then
+                        echo "," >> "$temp_file"
+                    fi
+                    cat "$json_file" | sed 's/^/      /' >> "$temp_file"
+                    first_result=false
+                    has_results=true
+                fi
+            done
+
+            echo "" >> "$temp_file"
+            echo "    ]" >> "$temp_file"
+            first_framework=false
+        done
+
+        echo "  }" >> "$temp_file"
+        echo "}" >> "$temp_file"
+
+        # Now merge with existing summary using jq
+        local final_temp="/tmp/benchmark_summary_final.json"
+        echo "$existing_summary" | jq --argjson newcat "$(cat "$temp_file")" \
+            '.metadata.last_updated = "'$(date -Iseconds)'" | .categories."'$BENCHMARK_TYPE'" = $newcat' \
+            > "$final_temp" 2>/dev/null
+
+        if [ $? -eq 0 ] && [ -s "$final_temp" ]; then
+            mv "$final_temp" "$temp_file"
+        else
+            print_warning "jq merge failed, falling back to simple replacement"
+            # Fallback: create new structure with existing categories preserved manually
+            echo "$existing_summary" | jq '.metadata.last_updated = "'$(date -Iseconds)'"' > "$final_temp" 2>/dev/null
+            if [ $? -eq 0 ]; then
+                # Add the new category data
+                local new_summary=$(cat "$final_temp")
+                echo "$new_summary" | jq --argjson newcat "$(cat "$temp_file")" '.categories."'$BENCHMARK_TYPE'" = $newcat' > "$temp_file" 2>/dev/null || {
+                    print_error "Failed to merge summary, creating backup"
+                    cp "$summary_file" "${summary_file}.backup.$(date +%s)"
+                    # Use the original file as fallback
+                    cp "$summary_file" "$temp_file"
+                }
+            fi
+            rm -f "$final_temp"
         fi
-
-        echo "" >> "$temp_file"
-        echo "        ]" >> "$temp_file"
-        first_framework=false
-    done
-
-    echo "      }" >> "$temp_file"
-    echo "    }" >> "$temp_file"
-
-    # Add other existing categories
-    if [ -n "$other_categories" ]; then
-        for category in $other_categories; do
-            echo "," >> "$temp_file"
-            echo "    \"$category\": " >> "$temp_file"
-            echo "$existing_summary" | jq ".categories.\"$category\"" | sed 's/^/    /' >> "$temp_file"
-        done
     fi
 
-    # Close the JSON structure
-    echo "" >> "$temp_file"
-    echo "  }" >> "$temp_file"
-    echo "}" >> "$temp_file"
-
     # Move the temporary file to final location
-    mv "$temp_file" "$summary_file"
-
-    print_success "Framework-keyed benchmark summary saved to: $summary_file"
+    if [ -f "$temp_file" ] && [ -s "$temp_file" ]; then
+        mv "$temp_file" "$summary_file"
+        print_success "Framework-keyed benchmark summary saved to: $summary_file"
+    else
+        print_error "Failed to generate summary file"
+        return 1
+    fi
 
     # Create category-specific markdown
     generate_category_markdown_report
@@ -1078,7 +1131,7 @@ run_direct_benchmarks() {
                     frameworks_to_test=("catzilla" "fastapi" "flask" "django")  # All have task servers
                     ;;
                 "real-world")
-                    frameworks_to_test=("catzilla" "fastapi")  # These have real-world servers
+                    frameworks_to_test=("catzilla" "fastapi" "django" "flask")  # These have real-world servers
                     ;;
                 *)
                     frameworks_to_test=("catzilla" "fastapi" "flask" "django")

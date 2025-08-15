@@ -29,13 +29,13 @@ import uuid
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', 'python'))
 
 from catzilla import (
-    Catzilla, BaseModel, Field, BackgroundTask,
+    Catzilla, BaseModel, Field,
     JSONResponse, Response, Query, Path as PathParam, Header, Form
 )
 
 # Import shared background task endpoints
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
-from background_endpoints import get_background_endpoints
+# sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
+# from background_endpoints import get_background_endpoints
 
 
 # =====================================================
@@ -283,10 +283,14 @@ def create_catzilla_background_server():
         auto_validation=True,        # Enable auto-validation
         memory_profiling=False,      # Disable for benchmarks
         auto_memory_tuning=True,     # Adaptive memory management
-        show_banner=False,
-        enable_background_tasks=True,  # Enable background task system
-        max_background_tasks=1000,   # Maximum concurrent tasks
-        task_timeout=300             # 5 minute timeout
+        show_banner=False
+    )
+
+    # Enable background task system
+    app.enable_background_tasks(
+        workers=4,
+        enable_profiling=True,
+        memory_pool_mb=500
     )
 
     # Task storage (in production, this would be a proper queue system)
@@ -294,7 +298,7 @@ def create_catzilla_background_server():
     task_queue = []
     executor = ThreadPoolExecutor(max_workers=10)
 
-    endpoints = get_background_endpoints()
+    # endpoints = get_background_endpoints()
 
     def execute_task(task_id: str, task_type: str, parameters: Dict[str, Any]) -> None:
         """Execute a background task"""
