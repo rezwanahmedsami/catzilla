@@ -6,36 +6,36 @@
 - **Connections**: 100
 - **Threads**: 4
 - **Tool**: wrk
-- **Date**: Sat Aug 16 00:09:05 +06 2025
+- **Date**: Sun Aug 17 20:51:00 +06 2025
 
 ## Performance Results
 
 | Framework | Endpoint | Requests/sec | Avg Latency | 99% Latency |
 |-----------|----------|--------------|-------------|-------------|
-| catzilla | middleware_auth_middleware | 7904.84 | 15.38ms | 128.94ms |
-| catzilla | middleware_compression_middleware | 12091.11 | 9.17ms | 16.19ms |
-| catzilla | middleware_cors_middleware | 12067.86 | 9.28ms | 16.21ms |
-| catzilla | middleware_health_check | 9919.63 | 11.61ms | 47.52ms |
-| catzilla | middleware_heavy_middleware | 7681.43 | 17.39ms | 156.48ms |
-| catzilla | middleware_home | 10684.46 | 10.77ms | 64.10ms |
-| catzilla | middleware_light_middleware | 8537.58 | 13.77ms | 91.32ms |
-| catzilla | middleware_logging_middleware | 11554.60 | 10.34ms | 89.69ms |
-| django | middleware_auth_middleware | 419.39 | 17.99ms | 80.38ms |
-| django | middleware_compression_middleware | 983.85 | 60.20ms | 78.88ms |
-| django | middleware_cors_middleware | 695.93 | 63.61ms | 83.38ms |
-| django | middleware_health_check | 18.07 | 31.54ms | 86.26ms |
-| django | middleware_heavy_middleware | 11.64 | 2.34ms | 8.58ms |
-| django | middleware_home | 1196.89 | 75.59ms | 175.82ms |
-| django | middleware_light_middleware | 1569.15 | 63.15ms | 79.73ms |
-| django | middleware_logging_middleware | 120.25 | 29.96ms | 84.02ms |
-| fastapi | middleware_auth_middleware | 326.85 | 297.35ms | 505.83ms |
-| fastapi | middleware_compression_middleware | 367.90 | 270.20ms | 387.29ms |
-| fastapi | middleware_cors_middleware | 346.56 | 286.19ms | 483.96ms |
-| fastapi | middleware_health_check | 348.37 | 285.18ms | 508.96ms |
-| fastapi | middleware_heavy_middleware | 348.00 | 282.99ms | 337.03ms |
-| fastapi | middleware_home | 356.53 | 275.36ms | 547.23ms |
-| fastapi | middleware_light_middleware | 358.12 | 276.60ms | 350.87ms |
-| fastapi | middleware_logging_middleware | 348.17 | 283.44ms | 457.62ms |
+| catzilla | middleware_auth_middleware | 8575.40 | 13.98ms | 95.45ms |
+| catzilla | middleware_compression_middleware | 13056.76 | 9.63ms | 96.11ms |
+| catzilla | middleware_cors_middleware | 14143.89 | 7.81ms | 12.06ms |
+| catzilla | middleware_health_check | 10373.25 | 10.75ms | 16.98ms |
+| catzilla | middleware_heavy_middleware | 8363.97 | 13.89ms | 80.38ms |
+| catzilla | middleware_home | 11458.31 | 4.87ms | 14.95ms |
+| catzilla | middleware_light_middleware | 9399.07 | 11.95ms | 11.95ms |
+| catzilla | middleware_logging_middleware | 13976.50 | 7.85ms | 11.93ms |
+| django | middleware_auth_middleware | 286.55 | 8.59ms | 103.99ms |
+| django | middleware_compression_middleware | 1145.55 | 86.49ms | 103.04ms |
+| django | middleware_cors_middleware | 967.37 | 88.15ms | 123.60ms |
+| django | middleware_health_check | 0.50 | 6.54ms | 10.64ms |
+| django | middleware_heavy_middleware | 191.49 | 99.23ms | 143.37ms |
+| django | middleware_home | 1008.14 | 98.27ms | 118.41ms |
+| django | middleware_light_middleware | 1156.18 | 85.68ms | 99.14ms |
+| django | middleware_logging_middleware | 33.46 | 51.09ms | 121.26ms |
+| fastapi | middleware_auth_middleware | 239.49 | 402.70ms | 488.75ms |
+| fastapi | middleware_compression_middleware | 248.62 | 392.02ms | 459.63ms |
+| fastapi | middleware_cors_middleware | 258.20 | 384.94ms | 477.92ms |
+| fastapi | middleware_health_check | 455.08 | 218.17ms | 254.66ms |
+| fastapi | middleware_heavy_middleware | 368.90 | 273.46ms | 617.08ms |
+| fastapi | middleware_home | 448.35 | 221.75ms | 259.45ms |
+| fastapi | middleware_light_middleware | 448.62 | 219.85ms | 273.18ms |
+| fastapi | middleware_logging_middleware | 248.25 | 393.16ms | 462.47ms |
 | flask | middleware_auth_middleware | 0.00 | 0.00us | 0.00us |
 | flask | middleware_compression_middleware | 1579.07 | 55.57ms | 103.04ms |
 | flask | middleware_cors_middleware | 970.32 | 53.28ms | 93.88ms |

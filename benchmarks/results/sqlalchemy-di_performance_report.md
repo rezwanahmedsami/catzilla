@@ -6,34 +6,36 @@
 - **Connections**: 100
 - **Threads**: 4
 - **Tool**: wrk
-- **Date**: Mon Aug 11 01:14:27 +06 2025
+- **Date**: Sun Aug 17 20:44:16 +06 2025
 
 ## Performance Results
 
 | Framework | Endpoint | Requests/sec | Avg Latency | 99% Latency |
 |-----------|----------|--------------|-------------|-------------|
-| catzilla | sqlalchemy-di_complex_db_operations | 13277.21 | 9.87ms | 110.25ms |
-| catzilla | sqlalchemy-di_complex_di_chain | 13717.58 | 8.02ms | 15.11ms |
-| catzilla | sqlalchemy-di_db_posts_list | 13251.21 | 9.11ms | 85.93ms |
-| catzilla | sqlalchemy-di_db_user_detail | 14257.14 | 7.56ms | 14.09ms |
-| catzilla | sqlalchemy-di_db_users_list | 14922.16 | 7.35ms | 13.04ms |
-| catzilla | sqlalchemy-di_health_check | 1061.84 | 100.79ms | 919.45ms |
-| catzilla | sqlalchemy-di_simple_di | 17727.83 | 6.80ms | 64.66ms |
-| catzilla | sqlalchemy-di_transient_di | 15207.82 | 8.59ms | 93.00ms |
-| fastapi | sqlalchemy-di_complex_db_operations | 2880.18 | 34.64ms | 59.85ms |
-| fastapi | sqlalchemy-di_complex_di_chain | 2918.84 | 34.22ms | 58.01ms |
-| fastapi | sqlalchemy-di_db_posts_list | 2747.35 | 37.59ms | 138.52ms |
-| fastapi | sqlalchemy-di_db_user_detail | 2933.75 | 34.02ms | 57.90ms |
-| fastapi | sqlalchemy-di_db_users_list | 2929.40 | 34.10ms | 57.20ms |
-| fastapi | sqlalchemy-di_health_check | 556.06 | 178.99ms | 405.41ms |
-| fastapi | sqlalchemy-di_simple_di | 2832.13 | 36.51ms | 132.10ms |
-| fastapi | sqlalchemy-di_transient_di | 2924.31 | 34.13ms | 57.48ms |
-| flask | sqlalchemy-di_complex_db_operations | 1039.07 | 95.57ms | 137.64ms |
-| flask | sqlalchemy-di_db_posts_list | 85.93 | 96.34ms | 163.56ms |
-| flask | sqlalchemy-di_db_user_detail | 1014.72 | 97.74ms | 144.41ms |
-| flask | sqlalchemy-di_db_users_list | 158.82 | 97.31ms | 150.10ms |
-| flask | sqlalchemy-di_health_check | 376.02 | 261.95ms | 468.00ms |
-| flask | sqlalchemy-di_simple_di | 827.07 | 108.15ms | 177.12ms |
+| catzilla | sqlalchemy-di_complex_db_operations | 13346.14 | 8.58ms | 8.58ms |
+| catzilla | sqlalchemy-di_complex_di_chain | 13839.62 | 7.96ms | 11.90ms |
+| catzilla | sqlalchemy-di_db_posts_list | 14092.92 | 7.70ms | 11.22ms |
+| catzilla | sqlalchemy-di_db_user_detail | 14308.89 | 7.72ms | 11.68ms |
+| catzilla | sqlalchemy-di_db_users_list | 14429.21 | 8.40ms | 70.44ms |
+| catzilla | sqlalchemy-di_health_check | 1059.34 | 104.14ms | 992.54ms |
+| catzilla | sqlalchemy-di_simple_di | 17915.25 | 5.94ms | 8.27ms |
+| catzilla | sqlalchemy-di_transient_di | 14901.48 | 8.00ms | 68.86ms |
+| fastapi | sqlalchemy-di_complex_db_operations | 2335.82 | 43.39ms | 117.53ms |
+| fastapi | sqlalchemy-di_complex_di_chain | 2416.54 | 41.26ms | 65.56ms |
+| fastapi | sqlalchemy-di_db_posts_list | 2308.43 | 44.03ms | 126.79ms |
+| fastapi | sqlalchemy-di_db_user_detail | 2393.85 | 41.64ms | 62.39ms |
+| fastapi | sqlalchemy-di_db_users_list | 2417.82 | 41.26ms | 65.88ms |
+| fastapi | sqlalchemy-di_health_check | 564.97 | 175.51ms | 253.99ms |
+| fastapi | sqlalchemy-di_simple_di | 2353.17 | 43.76ms | 144.49ms |
+| fastapi | sqlalchemy-di_transient_di | 2379.57 | 42.29ms | 93.08ms |
+| flask | sqlalchemy-di_complex_db_operations | 4.67 | 13.38ms | 33.64ms |
+| flask | sqlalchemy-di_complex_di_chain | 1655.56 | 44.74ms | 57.12ms |
+| flask | sqlalchemy-di_db_posts_list | 954.85 | 51.62ms | 140.68ms |
+| flask | sqlalchemy-di_db_user_detail | 0.89 | 5.43ms | 26.91ms |
+| flask | sqlalchemy-di_db_users_list | 507.06 | 52.30ms | 76.09ms |
+| flask | sqlalchemy-di_health_check | 855.60 | 115.82ms | 139.17ms |
+| flask | sqlalchemy-di_simple_di | 18.54 | 30.66ms | 89.44ms |
+| flask | sqlalchemy-di_transient_di | 494.42 | 30.42ms | 64.90ms |
 
 ## Catzilla Performance Advantage
 

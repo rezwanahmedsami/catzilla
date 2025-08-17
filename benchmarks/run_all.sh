@@ -630,9 +630,48 @@ cleanup_lua_files() {
     fi
 }
 
+# Function to clear individual benchmark result files
+clear_benchmark_results() {
+    print_header "🧹 Clearing Individual Benchmark Result Files"
+
+    if [ ! -d "$RESULTS_DIR" ]; then
+        print_warning "Results directory not found: $RESULTS_DIR"
+        return 0
+    fi
+
+    # Count files to be deleted
+    local json_count=$(find "$RESULTS_DIR" -name "*.json" -type f ! -name "benchmark_summary.json" 2>/dev/null | wc -l)
+    local txt_count=$(find "$RESULTS_DIR" -name "*.txt" -type f 2>/dev/null | wc -l)
+    local total_count=$((json_count + txt_count))
+
+    if [ "$total_count" -eq 0 ]; then
+        print_success "No individual benchmark result files found to clear"
+        return 0
+    fi
+
+    print_status "Found $json_count JSON files and $txt_count TXT files to remove"
+    print_status "Preserving benchmark_summary.json and analysis reports"
+
+    # Remove individual JSON files (excluding benchmark_summary.json)
+    if [ "$json_count" -gt 0 ]; then
+        find "$RESULTS_DIR" -name "*.json" -type f ! -name "benchmark_summary.json" -delete 2>/dev/null || true
+        print_success "Removed $json_count individual JSON result files"
+    fi
+
+    # Remove TXT files
+    if [ "$txt_count" -gt 0 ]; then
+        find "$RESULTS_DIR" -name "*.txt" -type f -delete 2>/dev/null || true
+        print_success "Removed $txt_count TXT result files"
+    fi
+
+    print_success "✅ Individual benchmark result files cleared successfully!"
+    print_status "Preserved files: benchmark_summary.json, *.md reports, *.png analysis"
+}
+
 # Function to generate summary report with framework-keyed structure
 generate_summary() {
-    print_status "Generating framework-keyed benchmark summary..."
+    local current_benchmark_type=${1:-$BENCHMARK_TYPE}  # Accept benchmark type as parameter
+    print_status "Generating framework-keyed benchmark summary for $current_benchmark_type..."
 
     local summary_file="$RESULTS_DIR/benchmark_summary.json"
     local summary_md="$RESULTS_DIR/benchmark_summary.md"
@@ -668,7 +707,7 @@ generate_summary() {
     "description": "Catzilla Framework Transparent Benchmarking System - Framework Keyed"
   },
   "categories": {
-    "$BENCHMARK_TYPE": {
+    "$current_benchmark_type": {
       "last_run": "$(date -Iseconds)",
       "test_params": {
         "duration": "$DURATION",
@@ -691,7 +730,7 @@ EOF
             # Add new results for this framework
             local first_result=true
             for json_file in "$RESULTS_DIR"/*.json; do
-                if [ -f "$json_file" ] && [[ "$json_file" != *"summary"* ]] && [[ "$json_file" == *"${framework}_${BENCHMARK_TYPE}_"* ]]; then
+                if [ -f "$json_file" ] && [[ "$json_file" != *"summary"* ]] && [[ "$json_file" == *"${framework}_${current_benchmark_type}_"* ]]; then
                     if [ "$first_result" = false ]; then
                         echo "," >> "$temp_file"
                     fi
@@ -744,7 +783,7 @@ EOF
             local first_result=true
             local has_results=false
             for json_file in "$RESULTS_DIR"/*.json; do
-                if [ -f "$json_file" ] && [[ "$json_file" != *"summary"* ]] && [[ "$json_file" == *"${framework}_${BENCHMARK_TYPE}_"* ]]; then
+                if [ -f "$json_file" ] && [[ "$json_file" != *"summary"* ]] && [[ "$json_file" == *"${framework}_${current_benchmark_type}_"* ]]; then
                     if [ "$first_result" = false ]; then
                         echo "," >> "$temp_file"
                     fi
@@ -765,7 +804,7 @@ EOF
         # Now merge with existing summary using jq
         local final_temp="/tmp/benchmark_summary_final.json"
         echo "$existing_summary" | jq --argjson newcat "$(cat "$temp_file")" \
-            '.metadata.last_updated = "'$(date -Iseconds)'" | .categories."'$BENCHMARK_TYPE'" = $newcat' \
+            '.metadata.last_updated = "'$(date -Iseconds)'" | .categories."'$current_benchmark_type'" = $newcat' \
             > "$final_temp" 2>/dev/null
 
         if [ $? -eq 0 ] && [ -s "$final_temp" ]; then
@@ -777,7 +816,7 @@ EOF
             if [ $? -eq 0 ]; then
                 # Add the new category data
                 local new_summary=$(cat "$final_temp")
-                echo "$new_summary" | jq --argjson newcat "$(cat "$temp_file")" '.categories."'$BENCHMARK_TYPE'" = $newcat' > "$temp_file" 2>/dev/null || {
+                echo "$new_summary" | jq --argjson newcat "$(cat "$temp_file")" '.categories."'$current_benchmark_type'" = $newcat' > "$temp_file" 2>/dev/null || {
                     print_error "Failed to merge summary, creating backup"
                     cp "$summary_file" "${summary_file}.backup.$(date +%s)"
                     # Use the original file as fallback
@@ -798,20 +837,21 @@ EOF
     fi
 
     # Create category-specific markdown
-    generate_category_markdown_report
+    generate_category_markdown_report "$current_benchmark_type"
 
     print_success "Category-specific reports generated"
 }
 
 # Function to generate category-specific markdown reports
 generate_category_markdown_report() {
-    local category_md="$RESULTS_DIR/${BENCHMARK_TYPE}_performance_report.md"
+    local current_benchmark_type=${1:-$BENCHMARK_TYPE}  # Accept benchmark type as parameter
+    local category_md="$RESULTS_DIR/${current_benchmark_type}_performance_report.md"
 
     cat > "$category_md" << EOF
-# Catzilla $(echo ${BENCHMARK_TYPE} | sed 's/./\U&/') Category Performance Report
+# Catzilla $(echo ${current_benchmark_type} | sed 's/./\U&/') Category Performance Report
 
 ## Test Configuration
-- **Category**: $BENCHMARK_TYPE
+- **Category**: $current_benchmark_type
 - **Duration**: $DURATION
 - **Connections**: $CONNECTIONS
 - **Threads**: $THREADS
@@ -826,7 +866,7 @@ EOF
 
     # Parse JSON results to create table for current category
     for json_file in "$RESULTS_DIR"/*.json; do
-        if [ -f "$json_file" ] && [[ "$json_file" != *"summary"* ]] && [[ "$json_file" == *"_${BENCHMARK_TYPE}_"* ]]; then
+        if [ -f "$json_file" ] && [[ "$json_file" != *"summary"* ]] && [[ "$json_file" == *"_${current_benchmark_type}_"* ]]; then
             local framework=$(grep '"framework"' "$json_file" | cut -d'"' -f4)
             local endpoint=$(grep '"endpoint_name"' "$json_file" | cut -d'"' -f4)
             local rps=$(grep '"requests_per_sec"' "$json_file" | cut -d'"' -f4)
@@ -839,7 +879,7 @@ EOF
     echo "" >> "$category_md"
     echo "## Catzilla Performance Advantage" >> "$category_md"
     echo "" >> "$category_md"
-    echo "This report shows how Catzilla performs compared to other frameworks in the **$BENCHMARK_TYPE** category." >> "$category_md"
+    echo "This report shows how Catzilla performs compared to other frameworks in the **$current_benchmark_type** category." >> "$category_md"
 
     print_success "Category report saved to: $category_md"
 }
@@ -914,6 +954,7 @@ usage() {
     echo "  --connections NUM   Number of connections (default: 100)"
     echo "  --threads NUM       Number of threads (default: 4)"
     echo "  --all              Run all available benchmark types"
+    echo "  --clear            Clear individual benchmark result files (.json/.txt)"
     echo "  --help             Show this help message"
     echo ""
     echo "Direct Mode (wrk) Examples:"
@@ -924,6 +965,7 @@ usage() {
     echo "  $0 --type middleware                       # Run middleware benchmarks"
     echo "  $0 --framework catzilla --type validation  # Run Catzilla validation only"
     echo "  $0 --all                                   # Run ALL benchmark types"
+    echo "  $0 --clear                                 # Clear individual result files"
     echo "  $0 --duration 30s --connections 200        # Custom settings"
     echo ""
     echo "Python Feature Mode Examples:"
@@ -1008,6 +1050,10 @@ parse_arguments() {
             --all)
                 RUN_ALL_TYPES=true
                 shift
+                ;;
+            --clear)
+                clear_benchmark_results
+                exit 0
                 ;;
             --basic|--middleware|--di|--async|--validation|--file-ops|--bg-tasks|--real-world)
                 MODE="python"
@@ -1147,7 +1193,7 @@ run_direct_benchmarks() {
             if benchmark_framework "$framework" "$benchmark_type"; then
                 print_success "Successfully completed $framework benchmarks"
                 # Generate summary after each successful framework to preserve results
-                generate_summary
+                generate_summary "$benchmark_type"
             else
                 print_error "Failed to complete $framework benchmarks, but continuing with others..."
             fi
@@ -1162,7 +1208,12 @@ run_direct_benchmarks() {
     done
 
     # Generate final summary
-    generate_summary
+    if [ "$RUN_ALL_TYPES" = true ]; then
+        # For --all runs, generate summary for the last benchmark type
+        generate_summary "${all_types[-1]}"
+    else
+        generate_summary "$BENCHMARK_TYPE"
+    fi
 
     if [ "$RUN_ALL_TYPES" = true ]; then
         print_success "All benchmark types completed!"

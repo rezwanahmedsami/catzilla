@@ -6,40 +6,40 @@
 - **Connections**: 100
 - **Threads**: 4
 - **Tool**: wrk
-- **Date**: Sat Aug 16 01:30:30 +06 2025
+- **Date**: Sun Aug 17 21:39:40 +06 2025
 
 ## Performance Results
 
 | Framework | Endpoint | Requests/sec | Avg Latency | 99% Latency |
 |-----------|----------|--------------|-------------|-------------|
-| catzilla | validation_array_validation | 2037.23 | 80.58ms | 1.11s |
-| catzilla | validation_complex_validation | 3818.78 | 34.06ms | 276.42ms |
-| catzilla | validation_health_check | 11686.35 | 10.02ms | 72.19ms |
-| catzilla | validation_nested_validation | 5262.26 | 22.90ms | 202.30ms |
-| catzilla | validation_performance_test | 1228.19 | 96.54ms | 961.84ms |
-| catzilla | validation_simple_validation | 8748.30 | 14.49ms | 139.27ms |
-| catzilla | validation_user_validation | 6967.69 | 17.67ms | 134.95ms |
-| django | validation_array_validation | 210.50 | 1.12ms | 9.89ms |
-| django | validation_complex_validation | 172.96 | 45.97ms | 74.79ms |
-| django | validation_health_check | 922.40 | 108.09ms | 252.37ms |
-| django | validation_nested_validation | 785.17 | 45.01ms | 59.37ms |
-| django | validation_performance_test | 726.10 | 49.70ms | 64.50ms |
-| django | validation_simple_validation | 494.49 | 14.24ms | 75.00ms |
-| django | validation_user_validation | 0.20 | 2.82ms | 4.64ms |
-| fastapi | validation_array_validation | 566.95 | 176.11ms | 405.86ms |
-| fastapi | validation_complex_validation | 1126.25 | 88.27ms | 160.70ms |
-| fastapi | validation_health_check | 2101.04 | 48.81ms | 153.05ms |
-| fastapi | validation_nested_validation | 1356.93 | 73.43ms | 105.12ms |
-| fastapi | validation_performance_test | 251.93 | 389.08ms | 596.33ms |
-| fastapi | validation_simple_validation | 1891.91 | 53.41ms | 137.43ms |
-| fastapi | validation_user_validation | 1608.79 | 62.73ms | 164.86ms |
-| flask | validation_array_validation | 1663.23 | 47.79ms | 60.72ms |
-| flask | validation_complex_validation | 2.67 | 8.02ms | 19.95ms |
-| flask | validation_health_check | 1029.88 | 52.81ms | 68.82ms |
-| flask | validation_nested_validation | 972.19 | 52.48ms | 177.86ms |
-| flask | validation_performance_test | 966.15 | 50.63ms | 67.15ms |
-| flask | validation_simple_validation | 1.19 | 3.12ms | 6.51ms |
-| flask | validation_user_validation | 1660.15 | 39.15ms | 55.62ms |
+| catzilla | validation_array_validation | 2551.03 | 64.99ms | 976.14ms |
+| catzilla | validation_complex_validation | 4620.01 | 29.90ms | 382.76ms |
+| catzilla | validation_health_check | 6460.13 | 15.75ms | 24.07ms |
+| catzilla | validation_nested_validation | 3383.64 | 52.07ms | 660.73ms |
+| catzilla | validation_performance_test | 1512.42 | 86.93ms | 1.03s |
+| catzilla | validation_simple_validation | 4856.21 | 27.28ms | 330.69ms |
+| catzilla | validation_user_validation | 4150.46 | 35.07ms | 500.56ms |
+| django | validation_array_validation | 626.54 | 43.87ms | 69.57ms |
+| django | validation_complex_validation | 3.77 | 3.09ms | 25.32ms |
+| django | validation_health_check | 0.00 | 0.00us | 0.00us |
+| django | validation_nested_validation | 1648.43 | 41.23ms | 54.06ms |
+| django | validation_performance_test | 833.59 | 48.37ms | 166.06ms |
+| django | validation_simple_validation | 875.04 | 45.81ms | 61.42ms |
+| django | validation_user_validation | 4.56 | 8.44ms | 22.04ms |
+| fastapi | validation_array_validation | 683.29 | 145.16ms | 274.42ms |
+| fastapi | validation_complex_validation | 1293.11 | 76.98ms | 90.85ms |
+| fastapi | validation_health_check | 2592.79 | 38.46ms | 48.46ms |
+| fastapi | validation_nested_validation | 1312.24 | 75.86ms | 117.88ms |
+| fastapi | validation_performance_test | 276.48 | 354.61ms | 395.88ms |
+| fastapi | validation_simple_validation | 1959.18 | 51.99ms | 152.46ms |
+| fastapi | validation_user_validation | 1147.54 | 86.58ms | 175.90ms |
+| flask | validation_array_validation | 1623.16 | 41.30ms | 56.39ms |
+| flask | validation_complex_validation | 2.38 | 5.95ms | 27.39ms |
+| flask | validation_health_check | 996.00 | 54.08ms | 126.66ms |
+| flask | validation_nested_validation | 889.82 | 44.79ms | 63.36ms |
+| flask | validation_performance_test | 952.26 | 47.04ms | 73.83ms |
+| flask | validation_simple_validation | 0.30 | 2.03ms | 2.33ms |
+| flask | validation_user_validation | 1627.19 | 40.47ms | 58.94ms |
 
 ## Catzilla Performance Advantage
 
