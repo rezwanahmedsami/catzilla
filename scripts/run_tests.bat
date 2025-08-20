@@ -19,6 +19,7 @@ REM Default values
 set run_all=true
 set run_python=false
 set run_c=false
+set run_e2e=false
 set verbose=false
 set docker=false
 set docker_platform=all
@@ -35,6 +36,7 @@ echo   -h, --help            Show this help message
 echo   -a, --all             Run all tests (default)
 echo   -p, --python          Run only Python tests
 echo   -c, --c               Run only C tests
+echo   -e, --e2e             Run only E2E tests
 echo   -v, --verbose         Run tests with verbose output
 echo.
 echo %CYAN%🐳 Docker Cross-Platform Testing:%NC%
@@ -75,6 +77,8 @@ if "%~1"=="-p" goto :set_python
 if "%~1"=="--python" goto :set_python
 if "%~1"=="-c" goto :set_c
 if "%~1"=="--c" goto :set_c
+if "%~1"=="-e" goto :set_e2e
+if "%~1"=="--e2e" goto :set_e2e
 if "%~1"=="-v" goto :set_verbose
 if "%~1"=="--verbose" goto :set_verbose
 if "%~1"=="--docker" (
@@ -102,6 +106,7 @@ exit /b 0
 set run_all=true
 set run_python=false
 set run_c=false
+set run_e2e=false
 shift
 goto :parse_args
 
@@ -109,6 +114,7 @@ goto :parse_args
 set run_all=false
 set run_python=true
 set run_c=false
+set run_e2e=false
 shift
 goto :parse_args
 
@@ -116,6 +122,15 @@ goto :parse_args
 set run_all=false
 set run_python=false
 set run_c=true
+set run_e2e=false
+shift
+goto :parse_args
+
+:set_e2e
+set run_all=false
+set run_python=false
+set run_c=false
+set run_e2e=true
 shift
 goto :parse_args
 
@@ -219,6 +234,39 @@ if %errorlevel% == 0 (
 )
 goto :eof
 
+REM Function to run E2E tests
+:run_e2e_tests
+echo %YELLOW%Running E2E tests...%NC%
+
+REM Configure jemalloc for tests
+call "%SCRIPT_DIR%jemalloc_helper.bat"
+if %errorlevel% neq 0 (
+    echo %YELLOW%Warning: jemalloc configuration failed. Tests may be slower or less stable.%NC%
+)
+
+REM Set PYTHONPATH to include the python directory
+set PYTHONPATH=%PROJECT_ROOT%\python;%PYTHONPATH%
+
+REM Change to project root directory
+cd /d "%PROJECT_ROOT%"
+
+REM Run E2E tests with the specific pytest configuration
+echo %YELLOW%Starting E2E test execution...%NC%
+if "%verbose%"=="true" (
+    python -m pytest "tests\e2e" -c "tests\e2e\pytest.ini" --tb=short -v
+) else (
+    python -m pytest "tests\e2e" -c "tests\e2e\pytest.ini" --tb=short
+)
+
+if %errorlevel% == 0 (
+    echo %GREEN%E2E tests passed!%NC%
+    set e2e_success=true
+) else (
+    echo %RED%E2E tests failed!%NC%
+    set e2e_success=false
+)
+goto :eof
+
 REM Function to run C tests
 :run_c_tests
 echo %YELLOW%Running C tests...%NC%
@@ -319,12 +367,18 @@ if "%run_all%"=="true" (
 
     call :run_c_tests
     if "%c_success%"=="false" set success=false
+
+    call :run_e2e_tests
+    if "%e2e_success%"=="false" set success=false
 ) else if "%run_python%"=="true" (
     call :run_python_tests
     if "%python_success%"=="false" set success=false
 ) else if "%run_c%"=="true" (
     call :run_c_tests
     if "%c_success%"=="false" set success=false
+) else if "%run_e2e%"=="true" (
+    call :run_e2e_tests
+    if "%e2e_success%"=="false" set success=false
 )
 
 REM Exit with appropriate status

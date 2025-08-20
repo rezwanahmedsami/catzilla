@@ -29,6 +29,7 @@ print_usage() {
     echo "  -a, --all             Run all tests (default)"
     echo "  -p, --python          Run only Python tests"
     echo "  -c, --c               Run only C tests"
+    echo "  -e, --e2e             Run only E2E tests"
     echo "  -v, --verbose         Run tests with verbose output"
     echo ""
     echo -e "${CYAN}🐳 Docker Cross-Platform Testing:${NC}"
@@ -219,6 +220,45 @@ run_python_tests() {
     fi
 }
 
+# Function to run E2E tests
+run_e2e_tests() {
+    local verbose=$1
+    echo -e "${YELLOW}Running E2E tests...${NC}"
+
+    # Set PYTHONPATH to include the python directory
+    export PYTHONPATH="$PROJECT_ROOT/python:$PYTHONPATH"
+
+    # Change to project root directory
+    cd "$PROJECT_ROOT" || exit 1
+
+    # Detect the correct Python command
+    PYTHON_CMD="python"
+    if ! command -v python &> /dev/null; then
+        if command -v python3 &> /dev/null; then
+            PYTHON_CMD="python3"
+        else
+            echo -e "${RED}Error: Neither 'python' nor 'python3' command found!${NC}"
+            return 1
+        fi
+    fi
+
+    # Run E2E tests with the specific pytest configuration
+    echo -e "${YELLOW}Starting E2E test execution...${NC}"
+    if [ "$verbose" = true ]; then
+        $PYTHON_CMD -m pytest tests/e2e/ -c tests/e2e/pytest.ini --tb=short -v
+    else
+        $PYTHON_CMD -m pytest tests/e2e/ -c tests/e2e/pytest.ini --tb=short
+    fi
+
+    local result=$?
+    if [ $result -eq 0 ]; then
+        echo -e "${GREEN}E2E tests passed!${NC}"
+    else
+        echo -e "${RED}E2E tests failed!${NC}"
+        return 1
+    fi
+}
+
 # Function to run C tests
 run_c_tests() {
     local verbose=$1
@@ -272,6 +312,7 @@ run_c_tests() {
 run_all=true
 run_python=false
 run_c=false
+run_e2e=false
 verbose=false
 docker_mode=false
 docker_platform="all"
@@ -287,18 +328,28 @@ while [[ $# -gt 0 ]]; do
             run_all=true
             run_python=false
             run_c=false
+            run_e2e=false
             shift
             ;;
         -p|--python)
             run_all=false
             run_python=true
             run_c=false
+            run_e2e=false
             shift
             ;;
         -c|--c)
             run_all=false
             run_python=false
             run_c=true
+            run_e2e=false
+            shift
+            ;;
+        -e|--e2e)
+            run_all=false
+            run_python=false
+            run_c=false
+            run_e2e=true
             shift
             ;;
         -v|--verbose)
@@ -336,10 +387,13 @@ success=true
 if [ "$run_all" = true ]; then
     run_python_tests "$verbose" || success=false
     run_c_tests "$verbose" || success=false
+    run_e2e_tests "$verbose" || success=false
 elif [ "$run_python" = true ]; then
     run_python_tests "$verbose" || success=false
 elif [ "$run_c" = true ]; then
     run_c_tests "$verbose" || success=false
+elif [ "$run_e2e" = true ]; then
+    run_e2e_tests "$verbose" || success=false
 fi
 
 # Exit with appropriate status
