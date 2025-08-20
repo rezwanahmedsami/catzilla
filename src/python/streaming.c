@@ -372,18 +372,62 @@ static PyObject* py_connect_streaming_response(PyObject* self, PyObject* args) {
     int status = PyLong_AsLong(status_code);
     const char* content_type_str = PyUnicode_AsUTF8(content_type);
 
-    // Send headers with chunked transfer encoding
-    char response_headers[1024];
-    snprintf(response_headers, sizeof(response_headers),
+    // Get headers from the StreamingResponse
+    PyObject* headers_obj = PyObject_GetAttrString(py_response, "_headers");
+
+    // Check if custom headers already include Connection header
+    bool has_connection_header = false;
+    if (headers_obj && PyDict_Check(headers_obj)) {
+        PyObject* connection_key = PyUnicode_FromString("connection");
+        if (connection_key) {
+            has_connection_header = PyDict_Contains(headers_obj, connection_key);
+            Py_DECREF(connection_key);
+        }
+    }
+
+    // Build the response headers string
+    char response_headers[2048];  // Increased buffer size
+    int offset = snprintf(response_headers, sizeof(response_headers),
         "HTTP/1.1 %d OK\r\n"
         "Content-Type: %s\r\n"
-        "Transfer-Encoding: chunked\r\n"
-        "Connection: keep-alive\r\n"
-        "\r\n",
+        "Transfer-Encoding: chunked\r\n",
         status, content_type_str);
 
+    // Add Connection header only if not already in custom headers
+    if (!has_connection_header) {
+        offset += snprintf(response_headers + offset,
+                          sizeof(response_headers) - offset,
+                          "Connection: keep-alive\r\n");
+    }
+
+    // Add custom headers if present
+    if (headers_obj && PyDict_Check(headers_obj)) {
+        PyObject* key, *value;
+        Py_ssize_t pos = 0;
+
+        while (PyDict_Next(headers_obj, &pos, &key, &value)) {
+            const char* key_str = PyUnicode_AsUTF8(key);
+            const char* value_str = PyUnicode_AsUTF8(value);
+
+            if (key_str && value_str && offset < sizeof(response_headers) - 100) {
+                offset += snprintf(response_headers + offset,
+                                 sizeof(response_headers) - offset,
+                                 "%s: %s\r\n", key_str, value_str);
+            }
+        }
+    }
+
+    // Add final CRLF to separate headers from body
+    if (offset < sizeof(response_headers) - 3) {
+        strcpy(response_headers + offset, "\r\n");
+        offset += 2;
+    }
+
+    // Clean up Python object reference
+    Py_XDECREF(headers_obj);
+
     // Send response headers using uv_write
-    uv_buf_t header_buf = uv_buf_init(response_headers, strlen(response_headers));
+    uv_buf_t header_buf = uv_buf_init(response_headers, offset);
     uv_write_t* header_req = malloc(sizeof(uv_write_t));
     if (header_req) {
         uv_write(header_req, client, &header_buf, 1, NULL);  // Fire and forget for now

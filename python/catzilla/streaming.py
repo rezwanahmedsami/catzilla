@@ -151,11 +151,8 @@ class StreamingResponse(Response):
         self._closed = False
         self._native_response = None
 
-        # Create headers dict if not provided
-        if headers is None:
-            headers = {}
-
         # Initialize the Response with the collected content or marker
+        # Pass the original headers parameter to parent (it handles None properly)
         super().__init__(
             status_code=status_code,
             content_type=content_type,
@@ -164,9 +161,11 @@ class StreamingResponse(Response):
         )
 
         # Make sure custom headers are directly accessible via get method
-        if headers:
-            for key, value in headers.items():
-                self._headers[key.lower()] = value
+        # Use self._headers which is set by the parent Response class
+        if self._headers:
+            for key, value in self._headers.items():
+                # Headers are already lowercase from parent class
+                pass  # No additional processing needed
 
         # Register this streaming response globally so server can find it
         if self._is_streaming and _HAS_C_STREAMING and self._streaming_id:
