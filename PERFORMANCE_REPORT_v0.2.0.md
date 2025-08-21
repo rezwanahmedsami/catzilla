@@ -217,7 +217,6 @@ Input validation and data processing performance.
 
 ![Catzilla Advantage Analysis](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/catzilla_advantage_analysis.png)
 
-![Performance Heatmap](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/performance_heatmap.png)
 
 ## Latency Analysis
 
