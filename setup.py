@@ -18,12 +18,28 @@ class CMakeBuild(build_ext):
         subprocess.check_call(['cmake', '--version'])
         super().run()
 
-    def build_extensions(self):
+    def build_extension(self, ext):
+        """Build the C extension module using CMake"""
+        # Ensure build directory is clean for CI builds
         build_dir = os.path.abspath(self.build_temp)
+
+        # For CI environments, clean build directory to avoid corruption
+        if os.getenv('CI') or os.getenv('CIBUILDWHEEL'):
+            import shutil
+            if os.path.exists(build_dir):
+                shutil.rmtree(build_dir)
+
         os.makedirs(build_dir, exist_ok=True)
 
         # Check for jemalloc environment variable
-        use_jemalloc = os.getenv('CATZILLA_USE_JEMALLOC', '1') == '1'
+        # Determine if we should use jemalloc (disable for CI builds with issues)
+        use_jemalloc = os.getenv('USE_JEMALLOC', 'ON').upper() == 'ON'
+
+        # For CI builds, be more conservative with jemalloc
+        if os.getenv('CI') or os.getenv('CIBUILDWHEEL'):
+            # Disable jemalloc for CI builds to avoid complex prefix detection issues
+            use_jemalloc = False
+            print("CI environment detected: Disabling jemalloc for reliable builds")
 
         # Python version compatibility checks
         python_version = sys.version_info
@@ -51,9 +67,20 @@ class CMakeBuild(build_ext):
             configure_cmd.extend([
                 '-DCMAKE_C_COMPILER=/usr/bin/clang',
                 '-DCMAKE_CXX_COMPILER=/usr/bin/clang++',
-                # Force architecture detection for M1/Intel compatibility
-                f'-DCMAKE_OSX_ARCHITECTURES={platform.machine()}'
             ])
+
+            # Handle architecture based on environment (cibuildwheel vs local build)
+            if os.getenv('CIBW_ARCHS_MACOS') or os.getenv('CMAKE_OSX_ARCHITECTURES'):
+                # CI/wheel building: Use environment-specified architecture
+                arch = os.getenv('CMAKE_OSX_ARCHITECTURES', os.getenv('CIBW_ARCHS_MACOS', platform.machine()))
+                if arch == 'universal2':
+                    # For universal2, let CMake handle it automatically
+                    configure_cmd.append('-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64')
+                else:
+                    configure_cmd.append(f'-DCMAKE_OSX_ARCHITECTURES={arch}')
+            else:
+                # Local development: Use current machine architecture
+                configure_cmd.append(f'-DCMAKE_OSX_ARCHITECTURES={platform.machine()}')
         elif sys.platform.startswith('linux'):
             # Linux: Set compilers for Ubuntu CI compatibility
             configure_cmd.extend([
