@@ -1,4 +1,4 @@
-# Catzilla Udi Category Performance Report
+# Catzilla Di Category Performance Report
 
 ## Test Configuration
 - **Category**: di
@@ -6,30 +6,27 @@
 - **Connections**: 100
 - **Threads**: 4
 - **Tool**: wrk
-- **Date**: Sun Aug 17 20:37:31 +06 2025
+- **Date**: Thu Aug 21 05:46:51 UTC 2025
 
 ## Performance Results
 
 | Framework | Endpoint | Requests/sec | Avg Latency | 99% Latency |
 |-----------|----------|--------------|-------------|-------------|
-| catzilla | di_complex_di_chain | 13571.29 | 8.59ms | 61.04ms |
-| catzilla | di_request_scoped_di | 14808.92 | 7.26ms | 11.13ms |
-| catzilla | di_simple_di | 17166.64 | 6.54ms | 33.36ms |
-| catzilla | di_singleton_di | 14420.93 | 7.45ms | 15.51ms |
-| catzilla | di_transient_di | 15725.93 | 6.82ms | 11.49ms |
-| catzilla | sqlalchemy-di_complex_di_chain | 9671.26 | 14.44ms | 146.37ms |
-| django | di_complex_di_chain | 1.29 | 6.94ms | 18.74ms |
-| django | di_request_scoped_di | 0.60 | 2.99ms | 6.70ms |
-| django | di_simple_di | 1091.05 | 58.63ms | 80.85ms |
-| django | di_singleton_di | 1661.58 | 48.76ms | 61.99ms |
-| django | di_transient_di | 1.09 | 5.11ms | 13.48ms |
-| fastapi | di_complex_di_chain | 2446.13 | 40.79ms | 54.90ms |
-| fastapi | di_request_scoped_di | 2433.76 | 40.96ms | 55.38ms |
-| fastapi | di_simple_di | 2575.93 | 38.84ms | 55.97ms |
-| fastapi | di_singleton_di | 2347.37 | 44.01ms | 154.93ms |
-| fastapi | di_transient_di | 2535.67 | 39.29ms | 50.13ms |
-| fastapi | sqlalchemy-di_complex_di_chain | 1813.77 | 55.54ms | 136.55ms |
-| flask | sqlalchemy-di_complex_di_chain | 890.20 | 45.31ms | 68.91ms |
+| catzilla | di_complex_di_chain | 35332.76 | 3.10ms | 15.59ms |
+| catzilla | di_request_scoped_di | 35451.77 | 2.97ms | 12.41ms |
+| catzilla | di_simple_di | 34721.43 | 3.23ms | 18.85ms |
+| catzilla | di_singleton_di | 34947.44 | 3.10ms | 15.66ms |
+| catzilla | di_transient_di | 34585.82 | 3.06ms | 14.17ms |
+| django | di_complex_di_chain | 14585.52 | 6.85ms | 20.48ms |
+| django | di_request_scoped_di | 15010.18 | 6.50ms | 18.56ms |
+| django | di_simple_di | 15186.14 | 6.38ms | 19.35ms |
+| django | di_singleton_di | 15080.14 | 6.41ms | 17.56ms |
+| django | di_transient_di | 15221.91 | 6.38ms | 19.26ms |
+| fastapi | di_complex_di_chain | 5669.73 | 17.61ms | 34.81ms |
+| fastapi | di_request_scoped_di | 5695.35 | 17.53ms | 35.26ms |
+| fastapi | di_simple_di | 5596.69 | 18.32ms | 50.78ms |
+| fastapi | di_singleton_di | 5777.91 | 17.27ms | 34.57ms |
+| fastapi | di_transient_di | 5783.88 | 17.29ms | 35.25ms |
 
 ## Catzilla Performance Advantage
 

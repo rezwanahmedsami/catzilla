@@ -1,4 +1,4 @@
-# Catzilla Usqlalchemy-di Category Performance Report
+# Catzilla Sqlalchemy-di Category Performance Report
 
 ## Test Configuration
 - **Category**: sqlalchemy-di
@@ -6,36 +6,36 @@
 - **Connections**: 100
 - **Threads**: 4
 - **Tool**: wrk
-- **Date**: Sun Aug 17 20:44:16 +06 2025
+- **Date**: Thu Aug 21 05:56:08 UTC 2025
 
 ## Performance Results
 
 | Framework | Endpoint | Requests/sec | Avg Latency | 99% Latency |
 |-----------|----------|--------------|-------------|-------------|
-| catzilla | sqlalchemy-di_complex_db_operations | 13346.14 | 8.58ms | 8.58ms |
-| catzilla | sqlalchemy-di_complex_di_chain | 13839.62 | 7.96ms | 11.90ms |
-| catzilla | sqlalchemy-di_db_posts_list | 14092.92 | 7.70ms | 11.22ms |
-| catzilla | sqlalchemy-di_db_user_detail | 14308.89 | 7.72ms | 11.68ms |
-| catzilla | sqlalchemy-di_db_users_list | 14429.21 | 8.40ms | 70.44ms |
-| catzilla | sqlalchemy-di_health_check | 1059.34 | 104.14ms | 992.54ms |
-| catzilla | sqlalchemy-di_simple_di | 17915.25 | 5.94ms | 8.27ms |
-| catzilla | sqlalchemy-di_transient_di | 14901.48 | 8.00ms | 68.86ms |
-| fastapi | sqlalchemy-di_complex_db_operations | 2335.82 | 43.39ms | 117.53ms |
-| fastapi | sqlalchemy-di_complex_di_chain | 2416.54 | 41.26ms | 65.56ms |
-| fastapi | sqlalchemy-di_db_posts_list | 2308.43 | 44.03ms | 126.79ms |
-| fastapi | sqlalchemy-di_db_user_detail | 2393.85 | 41.64ms | 62.39ms |
-| fastapi | sqlalchemy-di_db_users_list | 2417.82 | 41.26ms | 65.88ms |
-| fastapi | sqlalchemy-di_health_check | 564.97 | 175.51ms | 253.99ms |
-| fastapi | sqlalchemy-di_simple_di | 2353.17 | 43.76ms | 144.49ms |
-| fastapi | sqlalchemy-di_transient_di | 2379.57 | 42.29ms | 93.08ms |
-| flask | sqlalchemy-di_complex_db_operations | 4.67 | 13.38ms | 33.64ms |
-| flask | sqlalchemy-di_complex_di_chain | 1655.56 | 44.74ms | 57.12ms |
-| flask | sqlalchemy-di_db_posts_list | 954.85 | 51.62ms | 140.68ms |
-| flask | sqlalchemy-di_db_user_detail | 0.89 | 5.43ms | 26.91ms |
-| flask | sqlalchemy-di_db_users_list | 507.06 | 52.30ms | 76.09ms |
-| flask | sqlalchemy-di_health_check | 855.60 | 115.82ms | 139.17ms |
-| flask | sqlalchemy-di_simple_di | 18.54 | 30.66ms | 89.44ms |
-| flask | sqlalchemy-di_transient_di | 494.42 | 30.42ms | 64.90ms |
+| catzilla | sqlalchemy-di_complex_db_operations | 36170.33 | 2.95ms | 13.21ms |
+| catzilla | sqlalchemy-di_complex_di_chain | 35372.58 | 3.19ms | 18.81ms |
+| catzilla | sqlalchemy-di_db_posts_list | 35713.69 | 3.09ms | 18.08ms |
+| catzilla | sqlalchemy-di_db_user_detail | 35983.91 | 2.98ms | 14.73ms |
+| catzilla | sqlalchemy-di_db_users_list | 34969.17 | 3.11ms | 16.14ms |
+| catzilla | sqlalchemy-di_health_check | 1985.54 | 71.04ms | 914.36ms |
+| catzilla | sqlalchemy-di_simple_di | 34646.11 | 3.22ms | 17.96ms |
+| catzilla | sqlalchemy-di_transient_di | 34772.48 | 3.22ms | 15.77ms |
+| fastapi | sqlalchemy-di_complex_db_operations | 5736.77 | 17.42ms | 33.69ms |
+| fastapi | sqlalchemy-di_complex_di_chain | 5627.35 | 17.69ms | 34.89ms |
+| fastapi | sqlalchemy-di_db_posts_list | 5747.94 | 17.38ms | 33.76ms |
+| fastapi | sqlalchemy-di_db_user_detail | 5721.40 | 17.51ms | 34.48ms |
+| fastapi | sqlalchemy-di_db_users_list | 5691.37 | 17.66ms | 35.35ms |
+| fastapi | sqlalchemy-di_health_check | 1166.30 | 85.18ms | 130.32ms |
+| fastapi | sqlalchemy-di_simple_di | 5765.49 | 17.33ms | 33.82ms |
+| fastapi | sqlalchemy-di_transient_di | 5590.27 | 17.94ms | 35.27ms |
+| flask | sqlalchemy-di_complex_db_operations | 14946.33 | 6.71ms | 17.77ms |
+| flask | sqlalchemy-di_complex_di_chain | 15032.60 | 6.65ms | 14.79ms |
+| flask | sqlalchemy-di_db_posts_list | 14948.34 | 6.72ms | 18.02ms |
+| flask | sqlalchemy-di_db_user_detail | 15221.05 | 6.54ms | 17.89ms |
+| flask | sqlalchemy-di_db_users_list | 15291.28 | 6.50ms | 18.30ms |
+| flask | sqlalchemy-di_health_check | 5398.86 | 18.47ms | 36.89ms |
+| flask | sqlalchemy-di_simple_di | 15446.14 | 6.42ms | 17.81ms |
+| flask | sqlalchemy-di_transient_di | 15396.63 | 6.44ms | 17.66ms |
 
 ## Catzilla Performance Advantage
 
