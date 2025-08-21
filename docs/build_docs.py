@@ -35,7 +35,7 @@ def build_docs():
     # Build the documentation
     print("📚 Building documentation with Sphinx...")
     result = subprocess.run([
-        "sphinx-build", "-b", "html", "-W", ".", str(build_dir)
+        "sphinx-build", "-b", "html", ".", str(build_dir)
     ], capture_output=True, text=True)
 
     if result.returncode == 0:

@@ -176,7 +176,7 @@ Control service lifetimes with different scopes:
            return self.created_at
 
 Named Service Registration
-~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Use named services for better organization and explicit dependencies:
 
@@ -273,7 +273,7 @@ Create services that support async operations:
        return JSONResponse({"user": user, "type": "async_dependency_injection"})
 
 Database Connection Management
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Practical async database service with connection management:
 
