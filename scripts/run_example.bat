@@ -13,22 +13,22 @@ set EXAMPLE_PATH=
 
 REM Function to print usage
 :print_usage
-echo [33mUsage: %~nx0 [debug_options] ^<example_path^>[0m
+echo Usage: %~nx0 [debug_options] ^<example_path^>
 echo.
-echo [34mDebug Options:[0m
-echo   [36m--debug[0m     Enable both C and Python debug logging
-echo   [36m--debug_c[0m   Enable C debug logging only
-echo   [36m--debug_py[0m  Enable Python debug logging only
+echo Debug Options:
+echo   --debug     Enable both C and Python debug logging
+echo   --debug_c   Enable C debug logging only
+echo   --debug_py  Enable Python debug logging only
 echo.
-echo [34mExamples:[0m
+echo Examples:
 echo   %~nx0 examples\hello_world\main.py
 echo   %~nx0 --debug examples\hello_world\main.py
 echo   %~nx0 --debug_c examples\hello_world\main.py
 echo   %~nx0 --debug_py examples\hello_world\main.py
 echo.
-echo [34mDebug Environment Variables:[0m
-echo   [36mCATZILLA_C_DEBUG=1[0m  - Shows C-level debugging (server, router, HTTP parsing)
-echo   [36mCATZILLA_DEBUG=1[0m    - Shows Python-level debugging (types, app, request processing)
+echo Debug Environment Variables:
+echo   CATZILLA_C_DEBUG=1  - Shows C-level debugging (server, router, HTTP parsing)
+echo   CATZILLA_DEBUG=1    - Shows Python-level debugging (types, app, request processing)
 goto :eof
 
 REM Parse command line arguments
@@ -64,7 +64,7 @@ exit /b 0
 
 :check_example_path
 if "%EXAMPLE_PATH%"=="" (
-    echo [31mError: No example path provided[0m
+    echo Error: No example path provided
     echo.
     call :print_usage
     exit /b 1
@@ -72,20 +72,28 @@ if "%EXAMPLE_PATH%"=="" (
 
 REM Check if example file exists
 if not exist "%PROJECT_ROOT%\%EXAMPLE_PATH%" (
-    echo [31mError: Example file '%EXAMPLE_PATH%' not found[0m
-    echo [33mMake sure the path is relative to the project root.[0m
+    echo Error: Example file '%EXAMPLE_PATH%' not found
+    echo Make sure the path is relative to the project root.
     exit /b 1
 )
 
 REM Set debug environment variables
 if %DEBUG_C%==1 (
-    echo [36mEnabling C debug logging...[0m
+    echo Enabling C debug logging...
     set CATZILLA_C_DEBUG=1
 )
 
 if %DEBUG_PY%==1 (
-    echo [36mEnabling Python debug logging...[0m
+    echo Enabling Python debug logging...
     set CATZILLA_DEBUG=1
+)
+
+REM Configure jemalloc for optimal performance
+call "%SCRIPT_DIR%jemalloc_helper.bat"
+if %errorlevel% neq 0 (
+    echo Warning: jemalloc configuration failed. Example may run slower.
+) else (
+    echo jemalloc configured successfully
 )
 
 REM Set PYTHONPATH to include the python directory
@@ -95,14 +103,14 @@ REM Change to project root directory
 cd /d "%PROJECT_ROOT%"
 
 REM Display startup message
-echo [32m🚀 Starting Catzilla example: %EXAMPLE_PATH%[0m
+echo 🚀 Starting Catzilla example: %EXAMPLE_PATH%
 echo.
 
-if %DEBUG_C%==1 echo [36mC Debug Mode: ENABLED[0m
-if %DEBUG_PY%==1 echo [36mPython Debug Mode: ENABLED[0m
-if %DEBUG_C%==0 if %DEBUG_PY%==0 echo [33mDebug Mode: DISABLED (use --debug to enable)[0m
+if %DEBUG_C%==1 echo C Debug Mode: ENABLED
+if %DEBUG_PY%==1 echo Python Debug Mode: ENABLED
+if %DEBUG_C%==0 if %DEBUG_PY%==0 echo Debug Mode: DISABLED (use --debug to enable)
 
-echo [33m────────────────────────────────────────[0m
+echo ────────────────────────────────────────
 echo.
 
 REM Run the example
@@ -110,12 +118,12 @@ python "%EXAMPLE_PATH%"
 set exit_code=%errorlevel%
 
 echo.
-echo [33m────────────────────────────────────────[0m
+echo ────────────────────────────────────────
 
 if %exit_code%==0 (
-    echo [32m✅ Example completed successfully[0m
+    echo ✅ Example completed successfully
 ) else (
-    echo [31m❌ Example failed with exit code %exit_code%[0m
+    echo ❌ Example failed with exit code %exit_code%
 )
 
 exit /b %exit_code%

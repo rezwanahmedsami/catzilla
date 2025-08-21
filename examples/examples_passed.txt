@@ -1,0 +1,32 @@
+examples/core/basic_routing.py - PASSED
+examples/core/debug_logging.py - PASSED
+examples/core/error_handling.py - PASSED
+examples/core/response_types.py - PASSED
+examples/core/router_groups.py - PASSED
+
+examples/validation/models_and_fields.py - PASSED
+examples/validation/query_header_form.py - PASSED
+
+examples/dependency_injection/simple_di.py - PASSED
+examples/dependency_injection/factories.py - PASSED
+examples/dependency_injection/scoped_services.py - PASSED
+examples/dependency_injection/sqlalchemy_example.py - PASSED
+
+examples/middleware/basic_middleware.py - PASSED
+examples/middleware/custom_hooks.py - PASSED
+examples/middleware/ordering.py - PASSED
+
+examples/background_tasks/monitoring.py - PASSED
+examples/background_tasks/scheduling.py - PASSED
+
+examples/cache/multi_layer.py - PASSED
+examples/cache/performance_optimization.py - PASSED
+
+examples/files/static_serving.py - PASSED
+examples/files/upload_handling.py - PASSED
+
+examples/streaming/response_streams.py - PASSED
+examples/streaming/connection_management.py - PASSED
+
+examples/recipes/rest_api_patterns.py - PASSED
+examples/recipes/auth_patterns.py - PASSED

@@ -30,19 +30,19 @@ typedef struct catzilla_route_param_s {
 /**
  * Route match result
  */
-typedef struct catzilla_route_match_s {
+struct catzilla_route_match_s {
     catzilla_route_t* route;                          // Matched route or NULL
     catzilla_route_param_t params[CATZILLA_MAX_PATH_PARAMS]; // Path parameters
     int param_count;                                  // Number of path parameters
     char allowed_methods[256];                        // Comma-separated allowed methods
     bool has_allowed_methods;                         // Whether path exists but method mismatched
     int status_code;                                  // Suggested HTTP status code
-} catzilla_route_match_t;
+};
 
 /**
  * Route node in the trie structure
  */
-typedef struct catzilla_route_node_s {
+struct catzilla_route_node_s {
     // Static path segment children
     struct catzilla_route_node_s** children;
     char** child_segments;
@@ -62,12 +62,23 @@ typedef struct catzilla_route_node_s {
     // All allowed methods for this path (for 405 responses)
     char allowed_methods[256];
     bool has_handlers;
-} catzilla_route_node_t;
+};
+
+/**
+ * Per-route middleware chain for zero-allocation execution
+ */
+typedef struct catzilla_route_middleware_s {
+    void** middleware_functions;       // Array of C-compiled middleware functions
+    int middleware_count;             // Number of middleware functions
+    int middleware_capacity;          // Current capacity
+    uint32_t* middleware_priorities;  // Execution priorities (sorted)
+    uint32_t* middleware_flags;       // Per-middleware execution flags
+} catzilla_route_middleware_t;
 
 /**
  * Route definition
  */
-typedef struct catzilla_route_s {
+struct catzilla_route_s {
     char method[CATZILLA_METHOD_MAX];
     char path[CATZILLA_PATH_MAX];
     void* handler;                    // Python handler function
@@ -78,18 +89,21 @@ typedef struct catzilla_route_s {
     int param_count;                  // Number of parameters
     bool overwrite;                   // Whether this route can overwrite existing ones
     uint32_t id;                      // Unique route ID
-} catzilla_route_t;
+
+    // Per-route middleware (NEW!)
+    catzilla_route_middleware_t* middleware_chain;  // Per-route middleware
+};
 
 /**
  * Advanced router with trie-based routing
  */
-typedef struct catzilla_router_s {
+struct catzilla_router_s {
     catzilla_route_node_t* root;      // Root of the routing trie
     catzilla_route_t** routes;        // Array of all routes for introspection
     int route_count;                  // Number of registered routes
     int route_capacity;               // Current capacity of routes array
     uint32_t next_route_id;           // Next route ID to assign
-} catzilla_router_t;
+};
 
 /**
  * Initialize a new router
@@ -103,6 +117,29 @@ int catzilla_router_init(catzilla_router_t* router);
  * @param router Pointer to router structure
  */
 void catzilla_router_cleanup(catzilla_router_t* router);
+
+/**
+ * Add a route to the router with per-route middleware support
+ * @param router Pointer to router structure
+ * @param method HTTP method (e.g., "GET", "POST")
+ * @param path URL path pattern (e.g., "/users/{user_id}")
+ * @param handler Function pointer to route handler
+ * @param user_data Optional user data
+ * @param overwrite Whether to allow overwriting existing routes
+ * @param middleware_functions Array of middleware function pointers (can be NULL)
+ * @param middleware_count Number of middleware functions
+ * @param middleware_priorities Array of priorities for middleware (can be NULL for default)
+ * @return Route ID on success, 0 on failure
+ */
+uint32_t catzilla_router_add_route_with_middleware(catzilla_router_t* router,
+                                                   const char* method,
+                                                   const char* path,
+                                                   void* handler,
+                                                   void* user_data,
+                                                   bool overwrite,
+                                                   void** middleware_functions,
+                                                   int middleware_count,
+                                                   uint32_t* middleware_priorities);
 
 /**
  * Add a route to the router

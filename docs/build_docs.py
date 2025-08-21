@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-Simple script to build and optionally serve Catzilla documentation.
+Build script for Catzilla v0.2.0 documentation.
 """
 
 import subprocess
 import sys
 import os
+import shutil
 from pathlib import Path
 
 def build_docs():
     """Build the documentation using Sphinx."""
-    print("Building Catzilla documentation...")
+    print("🚀 Building Catzilla v0.2.0 Documentation...")
 
     docs_dir = Path(__file__).parent
     build_dir = docs_dir / "_build" / "html"
@@ -20,22 +21,32 @@ def build_docs():
     # Ensure we're in the docs directory
     os.chdir(docs_dir)
 
-    # Copy logo if it exists and target is missing or older
+    # Copy logo if it exists
     if logo_source.exists():
         if not logo_dest.exists() or logo_source.stat().st_mtime > logo_dest.stat().st_mtime:
             print("📸 Copying logo to _static directory...")
-            import shutil
             shutil.copy2(logo_source, logo_dest)
 
+    # Clean previous build
+    if build_dir.exists():
+        print("🧹 Cleaning previous build...")
+        shutil.rmtree(build_dir)
+
     # Build the documentation
+    print("📚 Building documentation with Sphinx...")
     result = subprocess.run([
-        "sphinx-build", "-b", "html", ".", str(build_dir)
+        "sphinx-build", "-b", "html", "-W", ".", str(build_dir)
     ], capture_output=True, text=True)
 
     if result.returncode == 0:
-        print(f"✅ Documentation built successfully!")
+        print("✅ Documentation built successfully!")
         print(f"📂 Output directory: {build_dir}")
         print(f"🌐 Open: file://{build_dir.absolute()}/index.html")
+
+        # Show some stats
+        html_files = list(build_dir.rglob("*.html"))
+        print(f"📄 Generated {len(html_files)} HTML pages")
+
         return True
     else:
         print("❌ Documentation build failed!")
@@ -49,53 +60,107 @@ def serve_docs(port=8080):
     build_dir = docs_dir / "_build" / "html"
 
     if not build_dir.exists():
-        print("❌ Documentation not built yet. Run with 'build' first.")
+        print("❌ Documentation not built yet. Run build first.")
         return False
 
-    print(f"📡 Serving documentation on http://localhost:{port}")
-    print("Press Ctrl+C to stop the server.")
+    print(f"🌐 Serving documentation on http://localhost:{port}")
+    print("📖 Press Ctrl+C to stop the server")
 
     os.chdir(build_dir)
-    subprocess.run([sys.executable, "-m", "http.server", str(port)])
-    return True
 
-def clean_docs():
-    """Clean the built documentation."""
+    try:
+        subprocess.run([
+            sys.executable, "-m", "http.server", str(port)
+        ])
+    except KeyboardInterrupt:
+        print("\\n📖 Documentation server stopped")
+        return True
+
+def clean_build():
+    """Clean the build directory."""
     docs_dir = Path(__file__).parent
     build_dir = docs_dir / "_build"
 
     if build_dir.exists():
-        print("🧹 Cleaning documentation build directory...")
-        import shutil
+        print("🧹 Cleaning build directory...")
         shutil.rmtree(build_dir)
-        print("✅ Build directory cleaned.")
+        print("✅ Build directory cleaned")
     else:
-        print("ℹ️  Build directory doesn't exist, nothing to clean.")
+        print("ℹ️  Build directory doesn't exist")
+
+def check_dependencies():
+    """Check if required dependencies are installed."""
+    print("🔍 Checking documentation dependencies...")
+
+    required_packages = [
+        "sphinx",
+        "sphinx_rtd_theme",
+        "myst_parser",
+        "sphinx_sitemap"
+    ]
+
+    missing_packages = []
+
+    for package in required_packages:
+        try:
+            __import__(package.replace("-", "_"))
+            print(f"✅ {package}")
+        except ImportError:
+            print(f"❌ {package}")
+            missing_packages.append(package)
+
+    if missing_packages:
+        print(f"\\n📦 Install missing packages:")
+        print(f"pip install {' '.join(missing_packages)}")
+        return False
+
+    print("✅ All dependencies are installed")
     return True
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python build_docs.py [build|serve|build-serve|clean]")
-        print("  build       - Build the documentation")
-        print("  serve       - Serve the documentation (requires build first)")
-        print("  build-serve - Build and then serve the documentation")
-        print("  clean       - Clean the build directory")
-        sys.exit(1)
+    """Main CLI interface."""
+    import argparse
 
-    command = sys.argv[1].lower()
+    parser = argparse.ArgumentParser(
+        description="Catzilla v0.2.0 Documentation Builder"
+    )
 
-    if command == "build":
-        build_docs()
-    elif command == "serve":
-        serve_docs()
-    elif command == "build-serve":
-        if build_docs():
-            serve_docs()
-    elif command == "clean":
-        clean_docs()
-    else:
-        print(f"❌ Unknown command: {command}")
-        sys.exit(1)
+    parser.add_argument(
+        "command",
+        choices=["build", "serve", "clean", "check"],
+        help="Command to run"
+    )
+
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8080,
+        help="Port for serve command (default: 8080)"
+    )
+
+    args = parser.parse_args()
+
+    print("📚 Catzilla v0.2.0 Documentation Builder")
+    print("=" * 50)
+
+    if args.command == "check":
+        success = check_dependencies()
+        sys.exit(0 if success else 1)
+
+    elif args.command == "clean":
+        clean_build()
+
+    elif args.command == "build":
+        if not check_dependencies():
+            sys.exit(1)
+        success = build_docs()
+        sys.exit(0 if success else 1)
+
+    elif args.command == "serve":
+        if not check_dependencies():
+            sys.exit(1)
+        success = serve_docs(args.port)
+        sys.exit(0 if success else 1)
 
 if __name__ == "__main__":
     main()

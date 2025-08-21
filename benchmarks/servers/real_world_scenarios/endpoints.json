@@ -1,0 +1,185 @@
+{
+  "name": "real_world_scenarios",
+  "description": "Complete real-world application scenarios combining multiple features",
+  "endpoints": [
+    {
+      "path": "/api/products",
+      "method": "GET",
+      "description": "Product listing with pagination, filtering, and search",
+      "params": {
+        "page": [1, 2, 3],
+        "limit": [20, 50],
+        "category_id": [1, 2, 3, null],
+        "search": ["laptop", "phone", "book", null],
+        "sort_by": ["name", "price", "created_at", "popularity"],
+        "sort_order": ["asc", "desc"]
+      },
+      "weight": 3
+    },
+    {
+      "path": "/api/products/{product_id}",
+      "method": "GET",
+      "description": "Get single product with view tracking",
+      "path_params": {
+        "product_id": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+      },
+      "headers": {
+        "X-User-ID": [1, 2, 3, null]
+      },
+      "weight": 2
+    },
+    {
+      "path": "/api/orders",
+      "method": "POST",
+      "description": "Create new order with validation and processing",
+      "headers": {
+        "X-User-ID": [1, 2, 3, 4, 5],
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "user_id": 1,
+        "status": "pending",
+        "total_amount": 199.99,
+        "shipping_address": {
+          "street": "123 Main St",
+          "city": "New York",
+          "state": "NY",
+          "zip_code": "10001",
+          "country": "USA"
+        },
+        "billing_address": {
+          "street": "123 Main St",
+          "city": "New York",
+          "state": "NY",
+          "zip_code": "10001",
+          "country": "USA"
+        },
+        "items": [
+          {
+            "product_id": 1,
+            "quantity": 2
+          }
+        ],
+        "payment_method": "credit_card"
+      },
+      "weight": 1
+    },
+    {
+      "path": "/api/blog/posts",
+      "method": "GET",
+      "description": "Blog post listing with filtering",
+      "params": {
+        "page": [1, 2, 3],
+        "limit": [10, 20],
+        "status": ["published"],
+        "tag": ["tech", "business", "lifestyle", null],
+        "search": ["tutorial", "guide", "news", null]
+      },
+      "weight": 2
+    },
+    {
+      "path": "/api/blog/posts/{post_id}",
+      "method": "GET",
+      "description": "Get single blog post with comments",
+      "path_params": {
+        "post_id": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+      },
+      "weight": 2
+    },
+    {
+      "path": "/api/analytics/dashboard",
+      "method": "GET",
+      "description": "Analytics dashboard with real-time metrics",
+      "headers": {
+        "X-User-ID": [1]
+      },
+      "params": {
+        "date_from": [null, "2024-01-01"],
+        "date_to": [null, "2024-12-31"]
+      },
+      "weight": 1
+    },
+    {
+      "path": "/api/analytics/track",
+      "method": "POST",
+      "description": "Track analytics event",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "event_type": "page_view",
+        "user_id": 1,
+        "session_id": "session_1234",
+        "page_url": "https://example.com/products",
+        "referrer": "https://google.com",
+        "user_agent": "Mozilla/5.0 (compatible; benchmark)",
+        "ip_address": "192.168.1.1",
+        "properties": {
+          "test_scenario": "real_world_benchmark"
+        }
+      },
+      "weight": 3
+    },
+    {
+      "path": "/health",
+      "method": "GET",
+      "description": "Health check with system metrics",
+      "weight": 1
+    }
+  ],
+  "concurrent_users": [10, 25, 50, 100],
+  "test_duration": 60,
+  "ramp_up_time": 10,
+  "scenarios": [
+    {
+      "name": "product_browsing",
+      "description": "Heavy product browsing with filtering and search",
+      "duration": 30,
+      "weight_distribution": {
+        "/api/products": 5,
+        "/api/products/{product_id}": 3
+      }
+    },
+    {
+      "name": "order_processing",
+      "description": "Order creation and processing workflow",
+      "duration": 30,
+      "weight_distribution": {
+        "/api/products": 2,
+        "/api/products/{product_id}": 2,
+        "/api/orders": 1
+      }
+    },
+    {
+      "name": "content_consumption",
+      "description": "Blog content reading and interaction",
+      "duration": 30,
+      "weight_distribution": {
+        "/api/blog/posts": 3,
+        "/api/blog/posts/{post_id}": 2
+      }
+    },
+    {
+      "name": "analytics_heavy",
+      "description": "Analytics tracking and dashboard access",
+      "duration": 30,
+      "weight_distribution": {
+        "/api/analytics/track": 5,
+        "/api/analytics/dashboard": 1
+      }
+    },
+    {
+      "name": "mixed_workload",
+      "description": "Mixed real-world usage patterns",
+      "duration": 60,
+      "weight_distribution": {
+        "/api/products": 4,
+        "/api/products/{product_id}": 3,
+        "/api/blog/posts": 2,
+        "/api/blog/posts/{post_id}": 2,
+        "/api/orders": 1,
+        "/api/analytics/track": 3
+      }
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+# Multi-platform Docker Compose for Catzilla Testing
+# Uses buildx for cross-platform container building
+version: '3.8'
+
+services:
+  # Linux testing environment (Ubuntu 22.04)
+  catzilla-linux:
+    build:
+      context: ..
+      dockerfile: docker/linux/Dockerfile
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    image: catzilla:linux
+    container_name: catzilla-test-linux
+    volumes:
+      - ..:/catzilla
+      - /tmp:/tmp
+    working_dir: /catzilla
+    command: ["./docker/linux/test.sh"]
+    environment:
+      - CATZILLA_FORCE_JEMALLOC=1
+      - PYTHONPATH=/catzilla/python
+    mem_limit: 2g
+    cpus: 2.0
+    networks:
+      - catzilla-test
+
+  # Windows simulation using Wine on Linux
+  catzilla-windows-sim:
+    build:
+      context: ..
+      dockerfile: docker/windows-sim/Dockerfile
+    image: catzilla:windows-sim
+    container_name: catzilla-test-windows-sim
+    volumes:
+      - ..:/catzilla
+    working_dir: /catzilla
+    command: ["./docker/windows-sim/test.sh"]
+    environment:
+      - CATZILLA_FORCE_JEMALLOC=1
+      - PYTHONPATH=/catzilla/python
+      - WINEDEBUG=fixme-all
+    mem_limit: 3g
+    cpus: 2.0
+    networks:
+      - catzilla-test
+
+networks:
+  catzilla-test:
+    driver: bridge

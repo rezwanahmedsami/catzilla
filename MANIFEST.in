@@ -1,16 +1,18 @@
 include CMakeLists.txt
 include LICENSE
-include debug_import.py
 recursive-include src *
 recursive-include deps *
 recursive-include python/catzilla *
 recursive-include tests *
 recursive-include examples *
 recursive-include scripts *
+recursive-include cmake *
 global-exclude *.pyc
 global-exclude __pycache__
 global-exclude .git*
-global-exclude *.so
+# Exclude .so files from source distribution, but allow them in wheels via setuptools config
+exclude deps/**/*.so
+exclude build/**/*.so
 global-exclude *.dll
 global-exclude *.dylib
 global-exclude build/*

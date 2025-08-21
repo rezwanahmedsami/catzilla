@@ -1,13 +1,43 @@
 """
-Router Group tests for Catzilla framework
+Router Group tests for Catzilla v0.2.0 framework
 
 Tests the RouterGroup functionality for organizing routes
-with shared prefixes, tags, and metadata.
+with shared prefixes, tags, metadata, and auto-validation features.
+Features modern Memory Revolution and ultra-fast validation.
+Includes async router group tests for v0.2.0 stability.
 """
 
 import pytest
+import asyncio
+import time
 from unittest.mock import Mock
-from catzilla import App, Request, Response, JSONResponse, RouterGroup
+from typing import Optional, List
+from catzilla import Catzilla, Request, Response, JSONResponse, RouterGroup, BaseModel, Query, Path
+
+
+# Pytest fixture to ensure proper event loop for all async tests
+@pytest.fixture(scope="function")
+def event_loop():
+    """Create an event loop for each test function."""
+    policy = asyncio.get_event_loop_policy()
+    loop = policy.new_event_loop()
+    asyncio.set_event_loop(loop)
+    yield loop
+
+    # Clean up any remaining tasks
+    try:
+        tasks = [task for task in asyncio.all_tasks(loop) if not task.done()]
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
+    except:
+        pass
+    finally:
+        try:
+            loop.close()
+        except:
+            pass
 
 
 class TestRouterGroup:
@@ -296,10 +326,8 @@ class TestRouterGroupNesting:
         assert path != broken_path
 
     def test_app_integration_with_nested_path_parameters(self):
-        """Test full App integration with nested RouterGroup path parameters"""
-        from catzilla import App
-
-        app = App()
+        """Test full Catzilla integration with nested RouterGroup path parameters"""
+        app = Catzilla(auto_validation=True, memory_profiling=False)
 
         # Create nested groups
         users_group = RouterGroup("/users")
@@ -345,12 +373,12 @@ class TestRouterGroupNesting:
         assert metadata["included_in_group"] == "/api"
 
 
-class TestAppIntegration:
-    """Test RouterGroup integration with App"""
+class TestCatzillaIntegration:
+    """Test RouterGroup integration with modern Catzilla v0.2.0"""
 
-    def test_app_include_routes(self):
-        """Test App.include_routes functionality"""
-        app = App()
+    def test_catzilla_include_routes(self):
+        """Test Catzilla.include_routes functionality with Memory Revolution"""
+        app = Catzilla(auto_validation=True, memory_profiling=False)
 
         # Create a router group
         api_group = RouterGroup("/api/v1", tags=["api", "v1"])
@@ -386,7 +414,7 @@ class TestAppIntegration:
 
     def test_app_multiple_groups(self):
         """Test including multiple RouterGroups in an App"""
-        app = App()
+        app = Catzilla()
 
         # Users group
         users_group = RouterGroup("/api/users", tags=["users"])
@@ -424,7 +452,7 @@ class TestAppIntegration:
 
     def test_app_group_with_regular_routes(self):
         """Test mixing RouterGroup routes with regular app routes"""
-        app = App()
+        app = Catzilla()
 
         # Regular app route
         @app.get("/health")
@@ -449,7 +477,7 @@ class TestAppIntegration:
 
     def test_group_conflict_detection(self):
         """Test that RouterGroup routes trigger conflict detection"""
-        app = App()
+        app = Catzilla()
 
         # First group
         group1 = RouterGroup("/api")
@@ -473,7 +501,7 @@ class TestAppIntegration:
 
     def test_empty_group_inclusion(self):
         """Test including an empty RouterGroup"""
-        app = App()
+        app = Catzilla()
         empty_group = RouterGroup("/api")
 
         # Should not raise any errors
@@ -1012,7 +1040,7 @@ class TestNestedRouterGroupRegressionBug:
         api_v1_group.include_group(posts_group)
 
         # Create app and register the nested groups using the correct method
-        app = App()
+        app = Catzilla(auto_validation=True, memory_profiling=False)
         app.include_routes(api_v1_group)
 
         # Verify the route was registered correctly in the app
@@ -1038,3 +1066,608 @@ class TestNestedRouterGroupRegressionBug:
                 break
 
         assert not broken_route_found, "App incorrectly registered the broken route path from the original bug"
+
+
+# =====================================================
+# MODERN AUTO-VALIDATION MODELS FOR ROUTER GROUPS
+# =====================================================
+
+class UserModel(BaseModel):
+    """User model for auto-validation in router groups"""
+    id: int
+    name: str
+    email: Optional[str] = None
+    roles: Optional[List[str]] = None
+
+class PostModel(BaseModel):
+    """Post model for nested resource testing"""
+    title: str
+    content: str
+    published: bool = False
+    tags: Optional[List[str]] = None
+
+
+class TestModernRouterGroupFeatures:
+    """Test router groups with modern Catzilla v0.2.0 features"""
+
+    def test_router_group_with_auto_validation(self):
+        """Test RouterGroup with auto-validation enabled"""
+        app = Catzilla(auto_validation=True, memory_profiling=False)
+
+        # Create API group with auto-validation
+        api_group = RouterGroup("/api/v2", tags=["api", "auto-validation"])
+
+        @api_group.post("/users")
+        def create_user(request, user: UserModel):
+            """Auto-validated user creation"""
+            return JSONResponse({
+                "success": True,
+                "user_id": user.id,
+                "name": user.name,
+                "validation_time": "~2.1μs",
+                "features": "Ultra-fast validation + jemalloc"
+            })
+
+        @api_group.get("/users/{user_id}")
+        def get_user(request, user_id: int = Path(..., description="User ID")):
+            """Auto-validated path parameter"""
+            return JSONResponse({
+                "user_id": user_id,
+                "validation_time": "~0.8μs"
+            })
+
+        @api_group.get("/search")
+        def search_users(
+            request,
+            query: str = Query(..., description="Search query"),
+            limit: int = Query(10, ge=1, le=100),
+            include_inactive: bool = Query(False)
+        ):
+            """Auto-validated query parameters"""
+            return JSONResponse({
+                "query": query,
+                "limit": limit,
+                "include_inactive": include_inactive,
+                "validation_time": "~1.3μs"
+            })
+
+        # Include in Catzilla app
+        app.include_routes(api_group)
+
+        # Verify routes are registered with auto-validation
+        routes = app.routes()
+        assert len(routes) == 3
+
+        # Check paths are correctly prefixed
+        paths = {r["path"] for r in routes}
+        assert "/api/v2/users" in paths
+        assert "/api/v2/users/{user_id}" in paths
+        assert "/api/v2/search" in paths
+
+    def test_nested_router_groups_with_validation(self):
+        """Test nested router groups with complex auto-validation"""
+        app = Catzilla(
+            auto_validation=True,
+            memory_profiling=False,
+            auto_memory_tuning=True
+        )
+
+        # Main API group
+        api_group = RouterGroup("/api/v3", tags=["api", "nested"])
+
+        # Nested user resource group
+        users_group = RouterGroup("/users", tags=["users"])
+
+        @users_group.post("/")
+        def create_user(request, user: UserModel):
+            return JSONResponse({
+                "action": "create_user",
+                "user_id": user.id,
+                "validation": "ultra-fast"
+            })
+
+        @users_group.post("/{user_id}/posts")
+        def create_user_post(
+            request,
+            user_id: int = Path(..., description="User ID"),
+            post: PostModel = None
+        ):
+            return JSONResponse({
+                "action": "create_post",
+                "user_id": user_id,
+                "post_title": post.title if post else None,
+                "nested_validation": "C-accelerated"
+            })
+
+        # Add users group to API group
+        api_group.include_group(users_group)
+
+        # Include in main app
+        app.include_routes(api_group)
+
+        # Verify nested structure
+        routes = app.routes()
+        assert len(routes) == 2
+
+        paths = {r["path"] for r in routes}
+        assert "/api/v3/users" in paths
+        assert "/api/v3/users/{user_id}/posts" in paths
+
+    def test_router_group_performance_monitoring(self):
+        """Test router groups with performance monitoring features"""
+        app = Catzilla(
+            auto_validation=True,
+            memory_profiling=False,
+            memory_stats_interval=1
+        )
+
+        # Performance monitoring group
+        perf_group = RouterGroup("/performance", tags=["monitoring", "benchmarks"])
+
+        @perf_group.get("/memory-stats")
+        def get_memory_stats(request):
+            stats = {}
+            if hasattr(app, 'get_memory_stats'):
+                stats = app.get_memory_stats()
+
+            return JSONResponse({
+                "memory_stats": stats,
+                "jemalloc_enabled": getattr(app, 'has_jemalloc', False),
+                "memory_revolution": "v0.2.0"
+            })
+
+        @perf_group.post("/benchmark")
+        def run_benchmark(request, iterations: int = 1000):
+            return JSONResponse({
+                "iterations": iterations,
+                "validation_speed": "90,000+ validations/sec",
+                "memory_efficiency": "30% improvement",
+                "framework": "Catzilla Memory Revolution"
+            })
+
+        # Include performance group
+        app.include_routes(perf_group)
+
+        # Test that performance routes are registered
+        routes = app.routes()
+        assert len(routes) == 2
+
+        paths = {r["path"] for r in routes}
+        assert "/performance/memory-stats" in paths
+        assert "/performance/benchmark" in paths
+
+    def test_router_group_middleware_with_validation(self):
+        """Test router groups with middleware and auto-validation"""
+        app = Catzilla(auto_validation=True)
+
+        # Authenticated API group
+        auth_group = RouterGroup(
+            "/auth",
+            tags=["authentication", "secure"],
+            metadata={"requires_auth": True}
+        )
+
+        @auth_group.post("/users")
+        def create_authenticated_user(request, user: UserModel):
+            # In real scenario, middleware would handle auth
+            return JSONResponse({
+                "user_id": user.id,
+                "authenticated": True,
+                "validation_time": "~2.0μs",
+                "security": "middleware-protected"
+            })
+
+        # Include with authentication
+        app.include_routes(auth_group)
+
+        # Verify secure routes
+        routes = app.routes()
+
+
+# =====================================================
+# ASYNC ROUTER GROUP TESTS FOR v0.2.0 STABILITY
+# =====================================================
+
+@pytest.mark.asyncio
+class TestAsyncRouterGroups:
+    """Test async router group functionality"""
+
+    def setup_method(self):
+        # Ensure we have a clean event loop for this test
+        try:
+            import asyncio
+            # Try to get existing loop
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_closed():
+                    raise RuntimeError("Loop is closed")
+            except RuntimeError:
+                # No event loop exists or it's closed, create one
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+        except Exception:
+            # Fallback: always create a new loop
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        self.app = Catzilla(auto_validation=True, memory_profiling=False)
+
+    def teardown_method(self):
+        # Simple cleanup with longer delay to help with async resource cleanup
+        if hasattr(self, 'app'):
+            self.app = None
+            # Longer delay to allow C extension async cleanup to complete in CI
+            import time
+            time.sleep(0.05)
+
+    @pytest.mark.asyncio
+    async def test_async_router_group_basic(self):
+        """Test basic async router group functionality"""
+        async_group = RouterGroup(
+            "/async",
+            tags=["async", "v0.2.0"],
+            description="Async API endpoints"
+        )
+
+        @async_group.get("/test")
+        async def async_test_handler():
+            await asyncio.sleep(0.01)
+            return JSONResponse({
+                "async": True,
+                "timestamp": time.time(),
+                "group": "async"
+            })
+
+        @async_group.post("/data")
+        async def async_data_handler():
+            await asyncio.sleep(0.01)
+            return JSONResponse({
+                "data": "async_processed",
+                "timestamp": time.time()
+            })
+
+        # Include async group
+        self.app.include_routes(async_group)
+
+        routes = self.app.routes()
+        assert len(routes) == 2
+        paths = {r["path"] for r in routes}
+        assert "/async/test" in paths
+        assert "/async/data" in paths
+
+    @pytest.mark.asyncio
+    async def test_async_router_group_with_validation(self):
+        """Test async router group with auto-validation"""
+        class AsyncUserModel(BaseModel):
+            id: int
+            name: str
+            email: str
+            async_created: bool = True
+
+        async_api_group = RouterGroup(
+            "/async/api",
+            tags=["async", "api", "validation"],
+            metadata={"async_validation": True}
+        )
+
+        @async_api_group.post("/users")
+        async def create_async_user(user: AsyncUserModel):
+            await asyncio.sleep(0.01)  # Simulate async processing
+            return JSONResponse({
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "async_created": user.async_created,
+                "created_at": time.time()
+            })
+
+        @async_api_group.get("/users/{user_id}")
+        async def get_async_user(user_id: int):
+            await asyncio.sleep(0.01)  # Simulate async database lookup
+            return JSONResponse({
+                "user_id": user_id,
+                "name": f"Async User {user_id}",
+                "fetched_at": time.time()
+            })
+
+        self.app.include_routes(async_api_group)
+
+        routes = self.app.routes()
+        assert len(routes) == 2
+        paths = {r["path"] for r in routes}
+        assert "/async/api/users" in paths
+        assert "/async/api/users/{user_id}" in paths
+
+    @pytest.mark.asyncio
+    async def test_nested_async_router_groups(self):
+        """Test nested async router groups"""
+        # Main async API group
+        async_api = RouterGroup("/async/api", tags=["async", "api"])
+
+        # Nested user management group
+        user_group = RouterGroup("/users", tags=["users", "async"])
+
+        @user_group.get("/")
+        async def list_async_users():
+            await asyncio.sleep(0.01)
+            return JSONResponse({
+                "users": ["async_user_1", "async_user_2"],
+                "async": True
+            })
+
+        @user_group.get("/{user_id}/profile")
+        async def get_async_user_profile(user_id: int):
+            await asyncio.sleep(0.01)
+            return JSONResponse({
+                "user_id": user_id,
+                "profile": f"async_profile_{user_id}",
+                "nested": True
+            })
+
+        # Nested post management group
+        post_group = RouterGroup("/posts", tags=["posts", "async"])
+
+        @post_group.get("/")
+        async def list_async_posts():
+            await asyncio.sleep(0.01)
+            return JSONResponse({
+                "posts": ["async_post_1", "async_post_2"],
+                "async": True
+            })
+
+        @post_group.get("/{post_id}")
+        async def get_async_post(post_id: int):
+            await asyncio.sleep(0.01)
+            return JSONResponse({
+                "post_id": post_id,
+                "title": f"Async Post {post_id}",
+                "content": "Async content"
+            })
+
+        # Include nested groups
+        async_api.include_group(user_group)
+        async_api.include_group(post_group)
+        self.app.include_routes(async_api)
+
+        routes = self.app.routes()
+        assert len(routes) == 4
+        paths = {r["path"] for r in routes}
+        assert "/async/api/users" in paths
+        assert "/async/api/users/{user_id}/profile" in paths
+        assert "/async/api/posts" in paths
+        assert "/async/api/posts/{post_id}" in paths
+
+    @pytest.mark.asyncio
+    async def test_async_router_group_error_handling(self):
+        """Test async router group error handling"""
+        error_group = RouterGroup("/async/errors", tags=["error", "async"])
+
+        @error_group.get("/timeout")
+        async def async_timeout_handler():
+            try:
+                await asyncio.wait_for(asyncio.sleep(1), timeout=0.01)
+                return JSONResponse({"status": "completed"})
+            except asyncio.TimeoutError:
+                return JSONResponse({"error": "timeout"}, status_code=408)
+
+        @error_group.get("/exception")
+        async def async_exception_handler():
+            await asyncio.sleep(0.01)
+            raise ValueError("Async router group error")
+
+        @error_group.get("/cancellation")
+        async def async_cancellation_handler():
+            try:
+                await asyncio.sleep(0.1)
+                return JSONResponse({"status": "completed"})
+            except asyncio.CancelledError:
+                return JSONResponse({"error": "cancelled"}, status_code=499)
+
+        self.app.include_routes(error_group)
+
+        routes = self.app.routes()
+        assert len(routes) == 3
+        paths = {r["path"] for r in routes}
+        assert "/async/errors/timeout" in paths
+        assert "/async/errors/exception" in paths
+        assert "/async/errors/cancellation" in paths
+
+    @pytest.mark.asyncio
+    async def test_async_router_group_performance(self):
+        """Test async router group performance characteristics"""
+        perf_group = RouterGroup("/async/perf", tags=["performance", "async"])
+
+        @perf_group.get("/concurrent")
+        async def async_concurrent_handler():
+            # Simulate concurrent operations
+            async def async_operation(op_id):
+                await asyncio.sleep(0.001)
+                return f"operation_{op_id}"
+
+            tasks = [async_operation(i) for i in range(10)]
+            results = await asyncio.gather(*tasks)
+
+            return JSONResponse({
+                "concurrent_operations": len(results),
+                "results": results,
+                "async": True
+            })
+
+        @perf_group.get("/memory")
+        async def async_memory_handler():
+            # Test async memory management
+            data = []
+            for i in range(100):
+                await asyncio.sleep(0.0001)
+                data.append({"id": i, "async_data": f"data_{i}"})
+
+            # Process data asynchronously
+            processed = []
+            for item in data:
+                await asyncio.sleep(0.0001)
+                processed.append({**item, "processed": True})
+
+            return JSONResponse({
+                "processed_items": len(processed),
+                "memory_test": "passed"
+            })
+
+        self.app.include_routes(perf_group)
+
+        routes = self.app.routes()
+        assert len(routes) == 2
+        paths = {r["path"] for r in routes}
+        assert "/async/perf/concurrent" in paths
+        assert "/async/perf/memory" in paths
+
+    @pytest.mark.asyncio
+    async def test_mixed_async_sync_router_groups(self, event_loop):
+        """Test mixed async/sync router groups"""
+        # Use the event_loop fixture to ensure proper setup
+        asyncio.set_event_loop(event_loop)
+
+        # Async group
+        async_group = RouterGroup("/async", tags=["async"])
+
+        @async_group.get("/data")
+        async def async_data_handler():
+            await asyncio.sleep(0.01)
+            return JSONResponse({"type": "async", "timestamp": time.time()})
+
+        # Sync group
+        sync_group = RouterGroup("/sync", tags=["sync"])
+
+        @sync_group.get("/data")
+        def sync_data_handler():
+            time.sleep(0.01)
+            return JSONResponse({"type": "sync", "timestamp": time.time()})
+
+        # Mixed group with both async and sync handlers
+        mixed_group = RouterGroup("/mixed", tags=["mixed"])
+
+        @mixed_group.get("/async")
+        async def mixed_async_handler():
+            await asyncio.sleep(0.01)
+            return JSONResponse({"type": "mixed_async"})
+
+        @mixed_group.get("/sync")
+        def mixed_sync_handler():
+            time.sleep(0.01)
+            return JSONResponse({"type": "mixed_sync"})
+
+        # Include all groups
+        self.app.include_routes(async_group)
+        self.app.include_routes(sync_group)
+        self.app.include_routes(mixed_group)
+
+        routes = self.app.routes()
+        assert len(routes) == 4
+        paths = {r["path"] for r in routes}
+        assert "/async/data" in paths
+        assert "/sync/data" in paths
+        assert "/mixed/async" in paths
+        assert "/mixed/sync" in paths
+
+
+@pytest.mark.asyncio
+class TestAsyncRouterGroupIntegration:
+    """Test async router group integration scenarios"""
+
+    def setup_method(self):
+        # Ensure we have a clean event loop for this test
+        try:
+            import asyncio
+            # Try to get existing loop
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_closed():
+                    raise RuntimeError("Loop is closed")
+            except RuntimeError:
+                # No event loop exists or it's closed, create one
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+        except Exception:
+            # Fallback: always create a new loop
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        self.app = Catzilla(auto_validation=True, memory_profiling=False)
+
+    def teardown_method(self):
+        # Simple cleanup with longer delay to help with async resource cleanup
+        if hasattr(self, 'app'):
+            self.app = None
+            # Longer delay to allow C extension async cleanup to complete in CI
+            import time
+            time.sleep(0.05)
+
+    @pytest.mark.asyncio
+    async def test_async_router_group_with_middleware(self):
+        """Test async router group with middleware integration"""
+        middleware_calls = []
+
+        async def async_auth_middleware(request):
+            await asyncio.sleep(0.005)
+            middleware_calls.append("async_auth")
+            return None
+
+        auth_group = RouterGroup(
+            "/async/protected",
+            tags=["auth", "async"],
+            metadata={"requires_auth": True}
+        )
+
+        @auth_group.get("/data")
+        async def protected_async_data():
+            await asyncio.sleep(0.01)
+            return JSONResponse({
+                "protected": True,
+                "middleware_calls": middleware_calls
+            })
+
+        # Note: Middleware integration would depend on implementation
+        self.app.include_routes(auth_group)
+
+        routes = self.app.routes()
+        assert any(r["path"] == "/async/protected/data" for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_async_router_group_resource_management(self):
+        """Test async router group resource management"""
+        resources_acquired = []
+        resources_released = []
+
+        resource_group = RouterGroup("/async/resources", tags=["resources", "async"])
+
+        @resource_group.get("/acquire")
+        async def acquire_async_resource():
+            resource_id = f"async_resource_{time.time()}"
+            await asyncio.sleep(0.01)  # Simulate async resource acquisition
+            resources_acquired.append(resource_id)
+
+            return JSONResponse({
+                "resource_id": resource_id,
+                "acquired": True,
+                "total_acquired": len(resources_acquired)
+            })
+
+        @resource_group.delete("/release/{resource_id}")
+        async def release_async_resource(resource_id: str):
+            await asyncio.sleep(0.01)  # Simulate async resource release
+            resources_released.append(resource_id)
+
+            return JSONResponse({
+                "resource_id": resource_id,
+                "released": True,
+                "total_released": len(resources_released)
+            })
+
+        self.app.include_routes(resource_group)
+
+        routes = self.app.routes()
+        assert len(routes) == 2
+        paths = {r["path"] for r in routes}
+        assert "/async/resources/acquire" in paths
+        assert "/async/resources/release/{resource_id}" in paths

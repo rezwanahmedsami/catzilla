@@ -1,0 +1,26 @@
+{
+  "name": "catzilla-static-demo",
+  "version": "1.0.0",
+  "description": "Development files for Catzilla static server demo",
+  "type": "development",
+  "features": {
+    "directory_listing": true,
+    "hot_cache": false,
+    "cache_ttl": "10 seconds",
+    "security": {
+      "hidden_files": false,
+      "path_traversal_protection": true
+    }
+  },
+  "performance": {
+    "cache_strategy": "minimal",
+    "compression": "auto",
+    "range_requests": true
+  },
+  "use_cases": [
+    "Development debugging",
+    "File browsing",
+    "Rapid iteration",
+    "Content exploration"
+  ]
+}

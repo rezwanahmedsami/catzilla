@@ -4,14 +4,17 @@
 # --------------------------------------
 
 # --- Web frameworks for comparison ---
-fastapi==0.110.2
-uvicorn==0.33.0
-flask==2.3.3
-django==4.2.13
-gunicorn==21.2.0  # WSGI server for Flask and Django
+fastapi==0.95.2  # Last version before Pydantic v2 support
+aiofiles==24.1.0
+python-multipart==0.0.20
+pydantic==1.10.15
+uvicorn==0.23.2
+flask
+django
+gunicorn  # WSGI server for Flask and Django
 
 # --- System information collection ---
-psutil==5.9.8  # For collecting system specs (CPU, RAM, etc.)
+psutil==6.1.0  # For collecting system specs (CPU, RAM, etc.)
 
 # --- Data processing and plotting ---
 numpy==1.24.4

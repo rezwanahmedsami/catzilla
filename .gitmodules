@@ -4,3 +4,6 @@
 [submodule "deps/unity"]
 	path = deps/unity
 	url = https://github.com/ThrowTheSwitch/Unity.git
+[submodule "deps/jemalloc"]
+	path = deps/jemalloc
+	url = https://github.com/jemalloc/jemalloc.git

@@ -12,6 +12,9 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
+# Note: Catzilla statically links jemalloc at build time
+# No need for system jemalloc preloading
+
 # Debug flags
 DEBUG_C=0
 DEBUG_PY=0
@@ -92,6 +95,9 @@ fi
 export PYTHONPATH="$PROJECT_ROOT/python:$PYTHONPATH"
 
 # Set debug environment variables
+unset CATZILLA_C_DEBUG
+unset CATZILLA_DEBUG
+
 if [ $DEBUG_C -eq 1 ]; then
     export CATZILLA_C_DEBUG=1
 fi

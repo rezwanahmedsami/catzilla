@@ -1,11 +1,24 @@
-#include "server.h"
-#include "router.h"
-#include "logging.h"
-#include "windows_compat.h"
+// Platform compatibility
+#include "platform_compat.h"
+
+// System headers
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <signal.h>
+
+// Project headers
+#include "server.h"
+#include "static_server.h"
+#include "router.h"
+#include "middleware.h"
+#include "logging.h"
+#include "windows_compat.h"
+#include "memory.h"
+#include "upload_parser.h"
+#include "streaming.h"
+
+// Python headers (after system headers to avoid conflicts)
 #include <Python.h>
 #include <yyjson.h>
 
@@ -25,10 +38,16 @@ typedef struct {
     size_t body_length;
     size_t body_size;
     content_type_t content_type;  // Keep this aligned with 4-byte boundary
+    char* content_type_header;  // Store full Content-Type header value
     bool parsing_content_type;
     bool keep_alive;  // Track if client wants keep-alive
     bool parsing_connection;  // Track if we're parsing Connection header
     bool has_connection_header;  // Track if Connection header was sent
+    // Header storage for all headers
+    catzilla_header_t headers[CATZILLA_MAX_HEADERS];
+    int header_count;
+    char* current_header_name;  // Buffer for header name being parsed
+    size_t current_header_name_len;
     char _padding[0];  // Add padding to ensure proper alignment
 } client_context_t;
 
@@ -41,6 +60,7 @@ static void after_write(uv_write_t* req, int status);
 static void signal_handler(uv_signal_t* handle, int signum);
 static int on_message_complete(llhttp_t* parser);
 static void send_response_with_connection(uv_stream_t* client, int status_code, const char* headers, const char* body, size_t body_len, bool keep_alive);
+static void request_capsule_destructor(PyObject* capsule);
 int parse_query_params(catzilla_request_t* request, const char* query_string);
 void url_decode(const char* src, char* dst);
 
@@ -57,7 +77,7 @@ static int on_message_begin(llhttp_t* parser) {
     client_context_t* context = (client_context_t*)parser->data;
     context->url[0] = '\0';
     context->method[0] = '\0';
-    free(context->body);
+    catzilla_request_free(context->body);
     context->body = NULL;
     context->body_length = 0;
     context->body_size = 0;
@@ -83,6 +103,18 @@ static int on_header_field(llhttp_t* parser, const char* at, size_t length) {
     context->parsing_content_type = false;  // Reset flags by default
     context->parsing_connection = false;
 
+    // Store the header name for later use in on_header_value
+    if (context->current_header_name) {
+        catzilla_cache_free(context->current_header_name);
+    }
+    context->current_header_name = catzilla_cache_alloc(length + 1);
+    if (context->current_header_name) {
+        memcpy(context->current_header_name, at, length);
+        context->current_header_name[length] = '\0';
+        context->current_header_name_len = length;
+    }
+
+    // Check for specific headers that need special handling
     if (length == 12 && strncasecmp(at, "Content-Type", 12) == 0) {
         LOG_HTTP_DEBUG("Found Content-Type header");
         context->parsing_content_type = true;
@@ -99,6 +131,17 @@ static int on_header_value(llhttp_t* parser, const char* at, size_t length) {
     if (context->parsing_content_type) {
         LOG_HTTP_DEBUG("Processing Content-Type header: '%.*s'", (int)length, at);
 
+        // Store the full Content-Type header value for multipart boundary extraction
+        if (context->content_type_header) {
+            catzilla_cache_free(context->content_type_header);
+        }
+        context->content_type_header = catzilla_cache_alloc(length + 1);
+        if (context->content_type_header) {
+            memcpy(context->content_type_header, at, length);
+            context->content_type_header[length] = '\0';
+            LOG_HTTP_DEBUG("Stored full Content-Type header: %s", context->content_type_header);
+        }
+
         // Store content type for later use in JSON/form parsing
         content_type_t new_type = CONTENT_TYPE_NONE;
 
@@ -106,14 +149,17 @@ static int on_header_value(llhttp_t* parser, const char* at, size_t length) {
             new_type = CONTENT_TYPE_JSON;
         } else if (length >= 33 && strncasecmp(at, "application/x-www-form-urlencoded", 33) == 0) {
             new_type = CONTENT_TYPE_FORM;
+        } else if (length >= 19 && strncasecmp(at, "multipart/form-data", 19) == 0) {
+            new_type = CONTENT_TYPE_MULTIPART;
         }
 
         // Validate and set the content type
-        if (new_type >= CONTENT_TYPE_NONE && new_type <= CONTENT_TYPE_FORM) {
+        if (new_type >= CONTENT_TYPE_NONE && new_type <= CONTENT_TYPE_MULTIPART) {
             context->content_type = new_type;
             LOG_HTTP_DEBUG("Content-Type set to: %s (type=%d)",
                 new_type == CONTENT_TYPE_JSON ? "application/json" :
-                new_type == CONTENT_TYPE_FORM ? "application/x-www-form-urlencoded" : "none",
+                new_type == CONTENT_TYPE_FORM ? "application/x-www-form-urlencoded" :
+                new_type == CONTENT_TYPE_MULTIPART ? "multipart/form-data" : "none",
                 (int)context->content_type);
         } else {
             context->content_type = CONTENT_TYPE_NONE;
@@ -135,6 +181,41 @@ static int on_header_value(llhttp_t* parser, const char* at, size_t length) {
 
         context->parsing_connection = false;
     }
+
+    // Store ALL headers in the headers array for later access from Python
+    if (context->current_header_name && context->header_count < CATZILLA_MAX_HEADERS) {
+        catzilla_header_t* header = &context->headers[context->header_count];
+
+        // Allocate and copy header name
+        header->name = catzilla_cache_alloc(context->current_header_name_len + 1);
+        if (header->name) {
+            strcpy(header->name, context->current_header_name);
+        }
+
+        // Allocate and copy header value
+        header->value = catzilla_cache_alloc(length + 1);
+        if (header->value) {
+            memcpy(header->value, at, length);
+            header->value[length] = '\0';
+        }
+
+        // Only increment if both allocations succeeded
+        if (header->name && header->value) {
+            context->header_count++;
+            LOG_HTTP_DEBUG("Stored header: %s = %s", header->name, header->value);
+        } else {
+            // Clean up failed allocation
+            if (header->name) {
+                catzilla_cache_free(header->name);
+                header->name = NULL;
+            }
+            if (header->value) {
+                catzilla_cache_free(header->value);
+                header->value = NULL;
+            }
+        }
+    }
+
     return 0;
 }
 
@@ -159,20 +240,29 @@ static int on_body(llhttp_t* parser, const char* at, size_t length) {
     client_context_t* context = (client_context_t*)parser->data;
     if (context->body == NULL) {
         context->body_size = length > 1024 ? length : 1024;
-        context->body = malloc(context->body_size + 1);
+        context->body = catzilla_request_alloc(context->body_size + 1);
         if (!context->body) return -1;
         context->body_length = 0;
     } else if (context->body_length + length > context->body_size) {
+        // Calculate new size to accommodate current chunk + some extra space
+        size_t required_size = context->body_length + length;
         size_t new_size = context->body_size * 2;
-        char* new_body = realloc(context->body, new_size + 1);
+
+        // Ensure new_size is at least large enough for the required size
+        while (new_size < required_size) {
+            new_size *= 2;
+        }
+
+        char* new_body = catzilla_request_realloc(context->body, new_size + 1);
         if (!new_body) return -1;
         context->body = new_body;
         context->body_size = new_size;
+        LOG_HTTP_DEBUG("Reallocated body buffer: %zu bytes -> %zu bytes", context->body_length, new_size);
     }
     memcpy(context->body + context->body_length, at, length);
     context->body_length += length;
     context->body[context->body_length] = '\0';
-    LOG_HTTP_DEBUG("Received body chunk: %zu bytes", length);
+    LOG_HTTP_DEBUG("Received body chunk: %zu bytes (total: %zu bytes)", length, context->body_length);
     return 0;
 }
 
@@ -232,12 +322,46 @@ void catzilla_python_route_handler(uv_stream_t* client) {
     catzilla_send_response(client, 500, "text/plain", body, strlen(body));
 }
 
+// Capsule destructor for proper request memory management
+static void request_capsule_destructor(PyObject* capsule) {
+    catzilla_request_t* request = PyCapsule_GetPointer(capsule, "catzilla.request");
+    if (request) {
+        if (request->json_doc) yyjson_doc_free(request->json_doc);
+
+        // Clean up copied headers
+        for (int i = 0; i < request->header_count; i++) {
+            if (request->headers[i].name) {
+                catzilla_cache_free(request->headers[i].name);
+                request->headers[i].name = NULL;
+            }
+            if (request->headers[i].value) {
+                catzilla_cache_free(request->headers[i].value);
+                request->headers[i].value = NULL;
+            }
+        }
+
+        // Clean up uploaded files
+        if (request->has_files) {
+            for (int i = 0; i < request->file_count; i++) {
+                if (request->files[i]) {
+                    catzilla_upload_file_unref(request->files[i]);
+                    request->files[i] = NULL;
+                }
+            }
+        }
+        catzilla_request_free(request->body);
+        catzilla_request_free(request);
+    }
+}
+
 // Python callback helper
 PyObject* handle_request_in_server(PyObject* callback,
     PyObject* client_capsule,
     const char* method,
     const char* path,
-    const char* body)
+    const char* body,
+    size_t body_length,
+    client_context_t* client_ctx)  // Renamed from context to client_ctx
 {
     if (!callback || !PyCallable_Check(callback)) {
         PyErr_SetString(PyExc_TypeError, "Callback is not callable");
@@ -245,7 +369,7 @@ PyObject* handle_request_in_server(PyObject* callback,
     }
 
     // Create a request structure
-    catzilla_request_t* request = malloc(sizeof(catzilla_request_t));
+    catzilla_request_t* request = catzilla_request_alloc(sizeof(catzilla_request_t));
     if (!request) {
         PyErr_NoMemory();
         return NULL;
@@ -258,20 +382,67 @@ PyObject* handle_request_in_server(PyObject* callback,
     strncpy(request->path, path, CATZILLA_PATH_MAX-1);
     request->path[CATZILLA_PATH_MAX-1] = '\0';
 
+    // Copy headers from context if available
+    if (client_ctx && client_ctx->header_count > 0) {
+        request->header_count = client_ctx->header_count < CATZILLA_MAX_HEADERS ?
+                               client_ctx->header_count : CATZILLA_MAX_HEADERS;
+
+        for (int i = 0; i < request->header_count; i++) {
+            if (client_ctx->headers[i].name) {
+                size_t name_len = strlen(client_ctx->headers[i].name);
+                request->headers[i].name = catzilla_cache_alloc(name_len + 1);
+                if (request->headers[i].name) {
+                    strcpy(request->headers[i].name, client_ctx->headers[i].name);
+                }
+            }
+
+            if (client_ctx->headers[i].value) {
+                size_t value_len = strlen(client_ctx->headers[i].value);
+                request->headers[i].value = catzilla_cache_alloc(value_len + 1);
+                if (request->headers[i].value) {
+                    strcpy(request->headers[i].value, client_ctx->headers[i].value);
+                }
+            }
+        }
+        LOG_HTTP_DEBUG("Copied %d headers from context to request", request->header_count);
+    }
+
+    // Copy data into request
+    strncpy(request->method, method, CATZILLA_METHOD_MAX-1);
+    request->method[CATZILLA_METHOD_MAX-1] = '\0';
+    strncpy(request->path, path, CATZILLA_PATH_MAX-1);
+    request->path[CATZILLA_PATH_MAX-1] = '\0';
+
     // Parse query parameters if present
     const char* query = strchr(path, '?');
     if (query) {
         query++; // Skip the '?' character
+        LOG_HTTP_DEBUG("About to call parse_query_params with query: %s", query);
         if (parse_query_params(request, query) == 0) {
             LOG_HTTP_DEBUG("Successfully parsed query parameters");
+            LOG_HTTP_DEBUG("Request now has %d query params", request->query_param_count);
+            for (int i = 0; i < request->query_param_count; i++) {
+                LOG_HTTP_DEBUG("  Param %d: %s=%s (ptrs: %p/%p)", i,
+                    request->query_params[i], request->query_values[i],
+                    request->query_params[i], request->query_values[i]);
+            }
+            LOG_HTTP_DEBUG("Query parameter parsing completed successfully");
         } else {
             LOG_HTTP_DEBUG("Failed to parse query parameters");
         }
+        LOG_HTTP_DEBUG("After query parameter section, continuing...");
     }
 
-    if (body) {
-        request->body = strdup(body);
-        request->body_length = strlen(body);
+    if (body && body_length > 0) {
+        request->body = malloc(body_length);
+        if (request->body) {
+            memcpy(request->body, body, body_length);
+            request->body_length = body_length;
+        } else {
+            PyErr_NoMemory();
+            catzilla_request_free(request);
+            return NULL;
+        }
     }
 
     // Get the client context using our new helper function
@@ -297,11 +468,19 @@ PyObject* handle_request_in_server(PyObject* callback,
                 LOG_HTTP_DEBUG("JSON parsing failed");
             }
         } else if (request->content_type == CONTENT_TYPE_FORM) {
-            LOG_HTTP_DEBUG("Pre-parsing form content");
+            LOG_HTTP_DEBUG("Parsing form data");
             if (catzilla_parse_form(request) == 0) {
                 LOG_HTTP_DEBUG("Form parsing successful");
             } else {
                 LOG_HTTP_DEBUG("Form parsing failed");
+            }
+        } else if (request->content_type == CONTENT_TYPE_MULTIPART) {
+            LOG_HTTP_DEBUG("Pre-parsing multipart content");
+            // Pass the context for boundary extraction
+            if (catzilla_parse_multipart_with_context(request, context) == 0) {
+                LOG_HTTP_DEBUG("Multipart parsing successful");
+            } else {
+                LOG_HTTP_DEBUG("Multipart parsing failed");
             }
         } else {
             LOG_HTTP_DEBUG("Unknown content type: %d", request->content_type);
@@ -311,32 +490,37 @@ PyObject* handle_request_in_server(PyObject* callback,
         request->content_type = CONTENT_TYPE_NONE;
     }
 
-    // Create request capsule
-    PyObject* request_capsule = PyCapsule_New(request, "catzilla.request", NULL);
+    // Create request capsule with destructor
+    PyObject* request_capsule = PyCapsule_New(request, "catzilla.request", request_capsule_destructor);
     if (!request_capsule) {
         if (request->json_doc) yyjson_doc_free(request->json_doc);
-        free(request->body);
-        free(request);
+        catzilla_request_free(request->body);
+        catzilla_request_free(request);
         return NULL;
     }
 
     // Build arguments tuple: (client_capsule, method, path, body, request_capsule)
-    PyObject* args = Py_BuildValue("(OsssO)", client_capsule, method, path, body ? body : "", request_capsule);
+    // For multipart/form-data, we don't need the raw body in Python since files are handled separately
+    const char* body_for_python;
+    if (request->content_type == CONTENT_TYPE_MULTIPART) {
+        // For multipart, use empty string since files are accessed via get_files()
+        body_for_python = "";
+    } else {
+        // For other content types, use the body as string (safe for text data)
+        body_for_python = body ? body : "";
+    }
+    PyObject* args = Py_BuildValue("(OsssO)", client_capsule, method, path, body_for_python, request_capsule);
     if (!args) {
-        Py_DECREF(request_capsule);
-        if (request->json_doc) yyjson_doc_free(request->json_doc);
-        free(request->body);
-        free(request);
+        Py_DECREF(request_capsule);  // This will call the destructor to free request memory
         return NULL;
     }
 
     // Call the Python function
     PyObject* result = PyObject_CallObject(callback, args);
     Py_DECREF(args);
-    Py_DECREF(request_capsule);
-    if (request->json_doc) yyjson_doc_free(request->json_doc);
-    free(request->body);
-    free(request);
+    // DO NOT DECREF request_capsule here - let Python manage the capsule lifecycle
+    // The Request object will hold a reference to the capsule and the destructor
+    // will be called when the Request object is garbage collected
 
     if (!result) {
         PyErr_Print();
@@ -436,6 +620,8 @@ int catzilla_parse_form(catzilla_request_t* request) {
     char* rest = body;
 
     while ((token = strtok_r(rest, "&", &rest))) {
+        if (!token) break;  // Safety check
+
         char* key = token;
         char* value = strchr(token, '=');
 
@@ -443,14 +629,20 @@ int catzilla_parse_form(catzilla_request_t* request) {
             *value = '\0';  // Split key=value
             value++;
 
+            // Check for empty key or value
+            if (!key || strlen(key) == 0) {
+                LOG_HTTP_DEBUG("Form parse warning: empty key found");
+                continue;
+            }
+
             // URL decode key and value
-            char* decoded_key = malloc(strlen(key) + 1);
-            char* decoded_value = malloc(strlen(value) + 1);
+            char* decoded_key = catzilla_request_alloc(strlen(key) + 1);
+            char* decoded_value = catzilla_request_alloc(strlen(value) + 1);
 
             if (!decoded_key || !decoded_value) {
-                free(decoded_key);
-                free(decoded_value);
-                free(body);
+                catzilla_request_free(decoded_key);
+                catzilla_request_free(decoded_value);
+                free(body);  // Use regular free for strdup
                 LOG_HTTP_DEBUG("Form parse error: memory allocation failed");
                 request->is_form_parsed = true;  // Mark as parsed even if failed
                 return -1;
@@ -467,16 +659,211 @@ int catzilla_parse_form(catzilla_request_t* request) {
                 request->form_values[request->form_field_count] = decoded_value;
                 request->form_field_count++;
             } else {
-                free(decoded_key);
-                free(decoded_value);
-            break;
+                LOG_HTTP_DEBUG("Form parse warning: maximum field count reached");
+                catzilla_request_free(decoded_key);
+                catzilla_request_free(decoded_value);
+                break;
             }
+        } else {
+            LOG_HTTP_DEBUG("Form parse warning: field without '=' found: %s", token);
         }
     }
 
-    free(body);
+    free(body);  // Use regular free for strdup
     LOG_HTTP_DEBUG("Form parsed successfully with %d fields", request->form_field_count);
     request->is_form_parsed = true;
+    return 0;
+}
+
+int catzilla_parse_multipart(catzilla_request_t* request) {
+    if (!request || !request->body || request->body_length == 0) {
+        LOG_HTTP_DEBUG("Multipart parse failed: no request, body, or zero length");
+        return -1;
+    }
+
+    // Check content type - only parse if it's multipart type
+    if (request->content_type != CONTENT_TYPE_MULTIPART) {
+        LOG_HTTP_DEBUG("Multipart parse failed: wrong content type (%d)", request->content_type);
+        return -1;
+    }
+
+    LOG_HTTP_DEBUG("Parsing multipart data: %zu bytes", request->body_length);
+
+    // Initialize multipart parser - allocate on heap to avoid stack issues
+    multipart_parser_t* parser = catzilla_request_alloc(sizeof(multipart_parser_t));
+    if (!parser) {
+        LOG_HTTP_DEBUG("Failed to allocate multipart parser");
+        return -1;
+    }
+    memset(parser, 0, sizeof(multipart_parser_t));
+
+    // For now, we need the content-type header to extract boundary
+    // This is a simplified implementation - in practice, we'd need access to the full Content-Type header
+    // to extract the boundary parameter
+    const char* dummy_content_type = "multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW";
+
+    if (catzilla_multipart_parse_init(parser, dummy_content_type) != 0) {
+        LOG_HTTP_DEBUG("Failed to initialize multipart parser");
+        catzilla_request_free(parser);
+        return -1;
+    }
+
+    // Parse the multipart data
+    int parse_result = catzilla_multipart_parse_chunk(parser, request->body, request->body_length);
+    if (parse_result != 0) {
+        LOG_HTTP_DEBUG("Failed to parse multipart data (error: %d)", parse_result);
+        catzilla_multipart_parser_cleanup(parser);
+        catzilla_request_free(parser);
+        return -1;
+    }
+
+    parse_result = catzilla_multipart_parse_complete(parser);
+    if (parse_result != 0) {
+        LOG_HTTP_DEBUG("Failed to complete multipart parsing (error: %d)", parse_result);
+        catzilla_multipart_parser_cleanup(parser);
+        catzilla_request_free(parser);
+        return -1;
+    }
+
+    LOG_HTTP_DEBUG("Multipart parsing completed, found %zu files", parser->files_count);
+
+    // Store the parsed files in the request structure
+    request->file_count = 0;
+    request->has_files = false;
+
+    if (parser->files && parser->files_count > 0) {
+        size_t files_to_copy = parser->files_count;
+        if (files_to_copy > CATZILLA_MAX_FILES) {
+            files_to_copy = CATZILLA_MAX_FILES;
+            LOG_HTTP_DEBUG("Warning: truncating files from %zu to %d", parser->files_count, CATZILLA_MAX_FILES);
+        }
+
+        for (size_t i = 0; i < files_to_copy; i++) {
+            if (parser->files[i]) {
+                request->files[i] = parser->files[i];
+                // Increase reference count since we're storing it in the request
+                catzilla_upload_file_ref(parser->files[i]);
+                request->file_count++;
+
+                LOG_HTTP_DEBUG("File %zu: filename=%s, size=%llu, temp_path=%s",
+                              i,
+                              parser->files[i]->filename ? parser->files[i]->filename : "unknown",
+                              (unsigned long long)parser->files[i]->size,
+                              parser->files[i]->temp_file_path ? parser->files[i]->temp_file_path : "none");
+            }
+        }
+
+        if (request->file_count > 0) {
+            request->has_files = true;
+            LOG_HTTP_DEBUG("Stored %d files in request", request->file_count);
+        }
+    } else {
+        LOG_HTTP_DEBUG("No files found in multipart data");
+    }
+
+    // Clean up
+    catzilla_multipart_parser_cleanup(parser);
+    catzilla_request_free(parser);
+    return 0;
+}
+
+// Enhanced multipart parsing with context for boundary extraction
+int catzilla_parse_multipart_with_context(catzilla_request_t* request, void* context_ptr) {
+    client_context_t* context = (client_context_t*)context_ptr;
+    if (!request || !request->body || request->body_length == 0) {
+        LOG_HTTP_DEBUG("Multipart parse failed: no request, body, or zero length");
+        return -1;
+    }
+
+    // Check content type - only parse if it's multipart type
+    if (request->content_type != CONTENT_TYPE_MULTIPART) {
+        LOG_HTTP_DEBUG("Multipart parse failed: wrong content type (%d)", request->content_type);
+        return -1;
+    }
+
+    LOG_HTTP_DEBUG("Parsing multipart data: %zu bytes", request->body_length);
+
+    // Initialize multipart parser - allocate on heap to avoid stack issues
+    multipart_parser_t* parser = catzilla_request_alloc(sizeof(multipart_parser_t));
+    if (!parser) {
+        LOG_HTTP_DEBUG("Failed to allocate multipart parser");
+        return -1;
+    }
+    memset(parser, 0, sizeof(multipart_parser_t));
+
+    // Use the real Content-Type header from context if available
+    const char* content_type_header = NULL;
+    if (context && context->content_type_header) {
+        content_type_header = context->content_type_header;
+        LOG_HTTP_DEBUG("Using real Content-Type header: %s", content_type_header);
+    } else {
+        // Fallback to dummy header
+        content_type_header = "multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW";
+        LOG_HTTP_DEBUG("Using fallback Content-Type header: %s", content_type_header);
+    }
+
+    if (catzilla_multipart_parse_init(parser, content_type_header) != 0) {
+        LOG_HTTP_DEBUG("Failed to initialize multipart parser");
+        catzilla_request_free(parser);
+        return -1;
+    }
+
+    // Parse the multipart data
+    int parse_result = catzilla_multipart_parse_chunk(parser, request->body, request->body_length);
+    if (parse_result != 0) {
+        LOG_HTTP_DEBUG("Failed to parse multipart data (error: %d)", parse_result);
+        catzilla_multipart_parser_cleanup(parser);
+        catzilla_request_free(parser);
+        return -1;
+    }
+
+    parse_result = catzilla_multipart_parse_complete(parser);
+    if (parse_result != 0) {
+        LOG_HTTP_DEBUG("Failed to complete multipart parsing (error: %d)", parse_result);
+        catzilla_multipart_parser_cleanup(parser);
+        catzilla_request_free(parser);
+        return -1;
+    }
+
+    LOG_HTTP_DEBUG("Multipart parsing completed, found %zu files", parser->files_count);
+
+    // Store the parsed files in the request structure
+    request->file_count = 0;
+    request->has_files = false;
+
+    if (parser->files && parser->files_count > 0) {
+        size_t files_to_copy = parser->files_count;
+        if (files_to_copy > CATZILLA_MAX_FILES) {
+            files_to_copy = CATZILLA_MAX_FILES;
+            LOG_HTTP_DEBUG("Warning: truncating files from %zu to %d", parser->files_count, CATZILLA_MAX_FILES);
+        }
+
+        for (size_t i = 0; i < files_to_copy; i++) {
+            if (parser->files[i]) {
+                request->files[i] = parser->files[i];
+                // Increase reference count since we're storing it in the request
+                catzilla_upload_file_ref(parser->files[i]);
+                request->file_count++;
+
+                LOG_HTTP_DEBUG("File %zu: filename=%s, size=%llu, temp_path=%s",
+                              i,
+                              parser->files[i]->filename ? parser->files[i]->filename : "unknown",
+                              (unsigned long long)parser->files[i]->size,
+                              parser->files[i]->temp_file_path ? parser->files[i]->temp_file_path : "none");
+            }
+        }
+
+        if (request->file_count > 0) {
+            request->has_files = true;
+            LOG_HTTP_DEBUG("Stored %d files in request", request->file_count);
+        }
+    } else {
+        LOG_HTTP_DEBUG("No files found in multipart data");
+    }
+
+    // Clean up
+    catzilla_multipart_parser_cleanup(parser);
+    catzilla_request_free(parser);
     return 0;
 }
 
@@ -521,10 +908,13 @@ const char* catzilla_get_content_type_str(catzilla_request_t* request) {
         case CONTENT_TYPE_FORM:
             LOG_HTTP_DEBUG("get_content_type_str: returning application/x-www-form-urlencoded");
             return "application/x-www-form-urlencoded";
+        case CONTENT_TYPE_MULTIPART:
+            LOG_HTTP_DEBUG("get_content_type_str: returning multipart/form-data");
+            return "multipart/form-data";
         case CONTENT_TYPE_NONE:
         default:
-            LOG_HTTP_DEBUG("get_content_type_str: returning empty string");
-            return "";
+            LOG_HTTP_DEBUG("get_content_type_str: returning text/plain");
+            return "text/plain";
     }
 }
 
@@ -565,6 +955,11 @@ int catzilla_server_init(catzilla_server_t* server) {
     if (rc) return rc;
     server->sig_handle.data = server;
 
+    // Initialize SIGTERM handler
+    rc = uv_signal_init(server->loop, &server->sigterm_handle);
+    if (rc) return rc;
+    server->sigterm_handle.data = server;
+
     // Initialize advanced router
     rc = catzilla_router_init(&server->router);
     if (rc) {
@@ -585,6 +980,10 @@ int catzilla_server_init(catzilla_server_t* server) {
     server->is_running = false;
     server->py_request_callback = NULL;
 
+    // Initialize static file mounts
+    server->static_mounts = NULL;
+    server->static_mount_count = 0;
+
     // Set global reference for signal handling
     active_server = server;
 
@@ -593,9 +992,13 @@ int catzilla_server_init(catzilla_server_t* server) {
 }
 
 void signal_handler(uv_signal_t* handle, int signum) {
-    LOG_SERVER_INFO("Signal %d received, stopping server...", signum);
     catzilla_server_t* server = (catzilla_server_t*)handle->data;
-    catzilla_server_stop(server);
+
+    LOG_SERVER_INFO("Signal %d received, initiating graceful shutdown...", signum);
+
+    if (server && server->is_running) {
+        catzilla_server_stop(server);
+    }
 }
 
 void catzilla_server_cleanup(catzilla_server_t* server) {
@@ -606,6 +1009,7 @@ void catzilla_server_cleanup(catzilla_server_t* server) {
 
     uv_close((uv_handle_t*)&server->server, NULL);
     uv_close((uv_handle_t*)&server->sig_handle, NULL);
+    uv_close((uv_handle_t*)&server->sigterm_handle, NULL);
     uv_run(server->loop, UV_RUN_DEFAULT);
     active_server = NULL;
 }
@@ -625,7 +1029,7 @@ int catzilla_server_listen(catzilla_server_t* server, const char* host, int port
         LOG_SERVER_ERROR("Bind %s:%d: %s", bind_host, port, uv_strerror(rc));
         return rc;
     }
-    rc = uv_listen((uv_stream_t*)&server->server, 128, on_connection);
+    rc = uv_listen((uv_stream_t*)&server->server, 4096, on_connection);
     if (rc) {
         LOG_SERVER_ERROR("Listen %s:%d: %s", bind_host, port, uv_strerror(rc));
         return rc;
@@ -634,7 +1038,22 @@ int catzilla_server_listen(catzilla_server_t* server, const char* host, int port
     // Set up signal handler for graceful shutdown
     rc = uv_signal_start(&server->sig_handle, signal_handler, SIGINT);
     if (rc) {
-        LOG_SERVER_ERROR("Failed to set up signal handler: %s", uv_strerror(rc));
+        LOG_SERVER_ERROR("Failed to set up SIGINT handler: %s", uv_strerror(rc));
+        return rc;
+    }
+
+    // Also handle SIGTERM for proper shutdown
+    uv_signal_t* sigterm_handle = &server->sigterm_handle;
+    rc = uv_signal_init(server->loop, sigterm_handle);
+    if (rc) {
+        LOG_SERVER_ERROR("Failed to initialize SIGTERM handler: %s", uv_strerror(rc));
+        return rc;
+    }
+    sigterm_handle->data = server;
+
+    rc = uv_signal_start(sigterm_handle, signal_handler, SIGTERM);
+    if (rc) {
+        LOG_SERVER_ERROR("Failed to set up SIGTERM handler: %s", uv_strerror(rc));
         return rc;
     }
 
@@ -655,9 +1074,10 @@ void catzilla_server_stop(catzilla_server_t* server) {
     //  Stop the loop so the outer uv_run in listen() will exit
     uv_stop(server->loop);
 
-    // Stop the signal handler but don't close it yet
+    // Stop both signal handlers but don't close them yet
     uv_signal_stop(&server->sig_handle);
-    LOG_SERVER_INFO("Stopped signal handler...");
+    uv_signal_stop(&server->sigterm_handle);
+    LOG_SERVER_INFO("Stopped signal handlers...");
 
     // Walk and close all active handles
     // This will include server->server and server->sig_handle
@@ -721,7 +1141,7 @@ static void send_response_with_connection(uv_stream_t* client,
                                         const char* body,
                                         size_t body_len,
                                         bool keep_alive) {
-    write_req_t* req = malloc(sizeof(*req));
+    write_req_t* req = catzilla_response_alloc(sizeof(*req));
     if (!req) return;
 
     // Store keep_alive info in the request for after_write callback
@@ -749,8 +1169,8 @@ static void send_response_with_connection(uv_stream_t* client,
     size_t separator_len = 2; // "\r\n" to separate headers from body
     size_t total_header_len = status_line_len + headers_len + connection_header_len + separator_len;
 
-    char* response = malloc(total_header_len + body_len);
-    if (!response) { free(req); return; }
+    char* response = catzilla_response_alloc(total_header_len + body_len);
+    if (!response) { catzilla_response_free(req); return; }
 
     // Build the response
     int offset = 0;
@@ -788,7 +1208,61 @@ void catzilla_send_response(uv_stream_t* client,
     // Get client context to determine keep-alive setting
     client_context_t* context = get_client_context(client);
     bool keep_alive = context ? context->keep_alive : false;
-    send_response_with_connection(client, status_code, headers, body, body_len, keep_alive);
+
+    // Check if this is a streaming response
+    if (body != NULL && body_len >= 24 && catzilla_is_streaming_response(body, body_len)) {
+        // Extract the streaming ID to connect to the Python StreamingResponse
+        const char* streaming_id = catzilla_extract_streaming_id(body, body_len);
+
+        if (streaming_id) {
+            // Connect to the Python StreamingResponse via the C extension
+            // This will start the streaming process immediately
+            PyGILState_STATE gstate = PyGILState_Ensure();
+
+            PyObject* streaming_module = PyImport_ImportModule("catzilla._catzilla._streaming");
+            if (streaming_module) {
+                PyObject* connect_func = PyObject_GetAttrString(streaming_module, "connect_streaming_response");
+                if (connect_func) {
+                    // Create a client capsule
+                    PyObject* client_capsule = PyCapsule_New(client, "catzilla.client", NULL);
+                    if (client_capsule) {
+                        // Call the connect function
+                        PyObject* args = Py_BuildValue("(Os)", client_capsule, streaming_id);
+                        if (args) {
+                            PyObject* result = PyObject_CallObject(connect_func, args);
+                            if (!result) {
+                                // Handle error - fall back to regular response
+                                PyErr_Clear();
+                                send_response_with_connection(client, 500, "text/plain",
+                                                             "500 Internal Server Error: Streaming connection failed",
+                                                             strlen("500 Internal Server Error: Streaming connection failed"),
+                                                             keep_alive);
+                            } else {
+                                Py_DECREF(result);
+                                // Streaming has started successfully, headers already sent by connect function
+                            }
+                            Py_DECREF(args);
+                        }
+                        Py_DECREF(client_capsule);
+                    }
+                    Py_DECREF(connect_func);
+                }
+                Py_DECREF(streaming_module);
+            }
+
+            PyGILState_Release(gstate);
+            free((void*)streaming_id);  // Free the allocated ID string
+        } else {
+            // Fallback to regular response if streaming ID extraction fails
+            send_response_with_connection(client, 500, "text/plain",
+                                         "500 Internal Server Error: Invalid streaming response",
+                                         strlen("500 Internal Server Error: Invalid streaming response"),
+                                         keep_alive);
+        }
+    } else {
+        // Regular, non-streaming response
+        send_response_with_connection(client, status_code, headers, body, body_len, keep_alive);
+    }
 }
 
 static void on_connection(uv_stream_t* server, int status) {
@@ -799,7 +1273,7 @@ static void on_connection(uv_stream_t* server, int status) {
     LOG_SERVER_DEBUG("New connection received");
     catzilla_server_t* srv = server->data;
 
-    client_context_t* ctx = malloc(sizeof(*ctx));
+    client_context_t* ctx = catzilla_cache_alloc(sizeof(*ctx));
     if (!ctx) return;
 
     // Initialize all fields to zero/NULL
@@ -819,7 +1293,7 @@ static void on_connection(uv_stream_t* server, int status) {
     LOG_SERVER_DEBUG("Initialized client context with content_type=%d", (int)ctx->content_type);
 
     if (uv_tcp_init(srv->loop, &ctx->client) != 0) {
-        free(ctx);
+        catzilla_cache_free(ctx);
         return;
     }
     ctx->client.data = ctx;
@@ -834,7 +1308,7 @@ static void on_connection(uv_stream_t* server, int status) {
 }
 
 static void alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
-    buf->base = malloc(suggested_size);
+    buf->base = catzilla_request_alloc(suggested_size);
     buf->len  = buf->base ? suggested_size : 0;
 }
 
@@ -850,15 +1324,34 @@ static void on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf) {
     } else if (nread < 0 && nread != UV_EOF) {
         LOG_SERVER_ERROR("Read error: %s", uv_strerror(nread));
     }
-    free(buf->base);
+    catzilla_request_free(buf->base);
     if (nread < 0) uv_close((uv_handle_t*)client, on_close);
 }
 
 static void on_close(uv_handle_t* handle) {
     client_context_t* ctx = handle->data;
     if (ctx) {
-    free(ctx->body);
-    free(ctx);
+        catzilla_request_free(ctx->body);
+        if (ctx->content_type_header) {
+            catzilla_cache_free(ctx->content_type_header);
+        }
+
+        // Clean up current header name buffer
+        if (ctx->current_header_name) {
+            catzilla_cache_free(ctx->current_header_name);
+        }
+
+        // Clean up all stored headers
+        for (int i = 0; i < ctx->header_count; i++) {
+            if (ctx->headers[i].name) {
+                catzilla_cache_free(ctx->headers[i].name);
+            }
+            if (ctx->headers[i].value) {
+                catzilla_cache_free(ctx->headers[i].value);
+            }
+        }
+
+        catzilla_cache_free(ctx);
     }
 }
 
@@ -877,8 +1370,8 @@ static void after_write(uv_write_t* req, int status) {
         // The client context and parser will handle subsequent requests
     }
 
-    free(wr->buf.base);
-    free(wr);
+    catzilla_response_free(wr->buf.base);
+    catzilla_response_free(wr);
 }
 
 static int on_message_complete(llhttp_t* parser) {
@@ -905,9 +1398,45 @@ static int on_message_complete(llhttp_t* parser) {
 
     // Check for 415 Unsupported Media Type before routing
     if (should_return_415(context)) {
-        const char* body = "415 Unsupported Media Type";
-        send_response_with_connection((uv_stream_t*)&context->client, 415, "text/plain", body, strlen(body), context->keep_alive);
+        const char* body = "415 Unsupported Media Type\r\nThe server cannot process the request because the content type is not supported.\r\n";
+        const char* headers = "Content-Type: text/plain\r\n";
+        send_response_with_connection((uv_stream_t*)&context->client, 415, headers, body, strlen(body), context->keep_alive);
         return 0;
+    }
+
+    // 🔥 STATIC FILE CHECK FIRST (before Python callback and router)
+    if (server->static_mount_count > 0) {
+        catzilla_server_mount_t* static_mount = NULL;
+        char relative_path[CATZILLA_PATH_MAX];
+
+        LOG_STATIC_DEBUG("Checking for static request: path='%s', mount_count=%d",
+                         path, server->static_mount_count);
+
+        if (catzilla_is_static_request(server, path, &static_mount, relative_path)) {
+            LOG_STATIC_INFO("Processing static request: mount='%s', relative='%s'",
+                           static_mount->mount_path, relative_path);
+
+            // Create request structure for static file serving
+            catzilla_request_t request;
+            memset(&request, 0, sizeof(request));
+            strncpy(request.method, context->method, CATZILLA_METHOD_MAX - 1);
+            strncpy(request.path, path, CATZILLA_PATH_MAX - 1);
+            request.body = context->body;
+            request.body_length = context->body_length;
+
+            // ⚡ Handle static file - bypass Python and router entirely
+            // Need to pass client stream correctly
+            int result = catzilla_static_serve_file_with_client(server, &request,
+                                                               static_mount, relative_path,
+                                                               (uv_stream_t*)&context->client);
+            if (result == 0) {
+                LOG_STATIC_INFO("Static file served successfully");
+                return 0;  // Static file handled successfully
+            } else {
+                LOG_STATIC_WARN("Static file serving failed with code: %d", result);
+            }
+            // If static file serving failed, fall through to normal routing
+        }
     }
 
     // 1) If Python callback is set, hand off to Python and return
@@ -923,7 +1452,9 @@ static int on_message_complete(llhttp_t* parser) {
                 client_capsule,
                 context->method,
                 context->url,
-                context->body ? context->body : ""  // Handle NULL body case
+                context->body ? context->body : "",  // Handle NULL body case
+                context->body_length,
+                context  // Pass context for headers
             );
             Py_XDECREF(result);
             Py_DECREF(client_capsule);
@@ -955,16 +1486,72 @@ static int on_message_complete(llhttp_t* parser) {
         request.body_length = context->body_length;
         request.content_type = context->content_type;
 
+        LOG_HTTP_DEBUG("Created request: body_length=%zu, context->body_length=%zu",
+                      request.body_length, context->body_length);
+
         populate_path_params(&request, &match);
 
-        // Call the handler
-        void (*handler_fn)(uv_stream_t*) = match.route->handler;
-        if (handler_fn != NULL) {
-            handler_fn((uv_stream_t*)&context->client);
-        } else {
-            // Handler is NULL
-            const char* body = "500 Internal Server Error: NULL handler";
-            send_response_with_connection((uv_stream_t*)&context->client, 500, "text/plain", body, strlen(body), context->keep_alive);
+        // Execute per-route middleware if present
+        bool should_execute_handler = true;
+        if (match.route->middleware_chain != NULL && match.route->middleware_chain->middleware_count > 0) {
+            // Create middleware context for per-route execution
+            catzilla_middleware_context_t middleware_ctx;
+            memset(&middleware_ctx, 0, sizeof(middleware_ctx));
+
+            // Initialize middleware context
+            middleware_ctx.request = &request;
+            middleware_ctx.route_match = &match;
+            middleware_ctx.should_continue = true;
+            middleware_ctx.should_skip_route = false;
+            middleware_ctx.current_middleware_index = 0;
+            middleware_ctx.execution_start_time = catzilla_middleware_get_timestamp();
+
+            // Execute per-route middleware chain
+            int middleware_result = catzilla_middleware_execute_per_route(
+                match.route->middleware_chain,
+                &middleware_ctx,
+                NULL  // TODO: Pass DI container if available
+            );
+
+            // Check middleware execution results
+            if (middleware_result != 0) {
+                // Middleware error - send error response
+                const char* error_body = "500 Internal Server Error: Middleware execution failed";
+                send_response_with_connection((uv_stream_t*)&context->client, 500, "text/plain",
+                                           error_body, strlen(error_body), context->keep_alive);
+                should_execute_handler = false;
+            } else if (middleware_ctx.should_skip_route) {
+                // Middleware requested to skip route execution
+                should_execute_handler = false;
+
+                // If middleware set a custom response, use it
+                if (middleware_ctx.response_status > 0) {
+                    const char* response_body = middleware_ctx.response_body ?
+                                              middleware_ctx.response_body : "";
+                    const char* content_type = middleware_ctx.response_content_type ?
+                                             middleware_ctx.response_content_type : "text/plain";
+                    send_response_with_connection((uv_stream_t*)&context->client,
+                                               middleware_ctx.response_status, content_type,
+                                               response_body, strlen(response_body), context->keep_alive);
+                } else {
+                    // Default response when route is skipped
+                    const char* skip_body = "200 OK: Request handled by middleware";
+                    send_response_with_connection((uv_stream_t*)&context->client, 200, "text/plain",
+                                               skip_body, strlen(skip_body), context->keep_alive);
+                }
+            }
+        }
+
+        // Call the handler if not skipped by middleware
+        if (should_execute_handler) {
+            void (*handler_fn)(uv_stream_t*) = match.route->handler;
+            if (handler_fn != NULL) {
+                handler_fn((uv_stream_t*)&context->client);
+            } else {
+                // Handler is NULL
+                const char* body = "500 Internal Server Error: NULL handler";
+                send_response_with_connection((uv_stream_t*)&context->client, 500, "text/plain", body, strlen(body), context->keep_alive);
+            }
         }
     } else {
         // Handle different error cases based on status code suggestion
@@ -986,11 +1573,11 @@ static int on_message_complete(llhttp_t* parser) {
                     strlen(response_body), match.allowed_methods, connection_header);
 
             // Send headers and body
-            write_req_t* write_req = malloc(sizeof(write_req_t));
+            write_req_t* write_req = catzilla_response_alloc(sizeof(write_req_t));
             if (write_req) {
                 write_req->keep_alive = context->keep_alive;  // Set keep_alive flag
                 size_t total_length = strlen(headers) + strlen(response_body);
-                char* response = malloc(total_length + 1);
+                char* response = catzilla_response_alloc(total_length + 1);
                 if (response) {
                     strcpy(response, headers);
                     strcat(response, response_body);
@@ -999,7 +1586,7 @@ static int on_message_complete(llhttp_t* parser) {
                     uv_write((uv_write_t*)write_req, (uv_stream_t*)&context->client,
                             &write_req->buf, 1, after_write);
                 } else {
-                    free(write_req);
+                    catzilla_response_free(write_req);
                     send_response_with_connection((uv_stream_t*)&context->client, 500, "text/plain",
                                          "500 Internal Server Error", strlen("500 Internal Server Error"), context->keep_alive);
                 }
@@ -1039,6 +1626,26 @@ static int on_message_complete(llhttp_t* parser) {
         }
     }
 
+    // Clean up headers from context for next request (keep-alive connections)
+    if (context->current_header_name) {
+        catzilla_cache_free(context->current_header_name);
+        context->current_header_name = NULL;
+        context->current_header_name_len = 0;
+    }
+
+    // Clean up stored headers for reuse of context
+    for (int i = 0; i < context->header_count; i++) {
+        if (context->headers[i].name) {
+            catzilla_cache_free(context->headers[i].name);
+            context->headers[i].name = NULL;
+        }
+        if (context->headers[i].value) {
+            catzilla_cache_free(context->headers[i].value);
+            context->headers[i].value = NULL;
+        }
+    }
+    context->header_count = 0;
+
     return 0;
 }
 
@@ -1055,14 +1662,18 @@ int parse_query_params(catzilla_request_t* request, const char* query_string) {
 
     LOG_HTTP_DEBUG("Parsing query string: %s", query_string);
 
-    // Create a copy we can modify
-    char* query = strdup(query_string);
+    // Create a copy we can modify using Catzilla memory allocator
+    size_t query_len = strlen(query_string) + 1;
+    char* query = catzilla_request_alloc(query_len);
     if (!query) return -1;
+    memcpy(query, query_string, query_len);
 
     char* token;
     char* rest = query;
+    char* saveptr;
 
-    while ((token = strtok_r(rest, "&", &rest))) {
+    token = strtok_r(rest, "&", &saveptr);
+    while (token) {
         char* key = token;
         char* value = strchr(token, '=');
 
@@ -1071,13 +1682,13 @@ int parse_query_params(catzilla_request_t* request, const char* query_string) {
             value++;
 
             // URL decode key and value
-            char* decoded_key = malloc(strlen(key) + 1);
-            char* decoded_value = malloc(strlen(value) + 1);
+            char* decoded_key = catzilla_request_alloc(strlen(key) + 1);
+            char* decoded_value = catzilla_request_alloc(strlen(value) + 1);
 
             if (!decoded_key || !decoded_value) {
-                free(decoded_key);
-                free(decoded_value);
-                free(query);
+                catzilla_request_free(decoded_key);
+                catzilla_request_free(decoded_value);
+                catzilla_request_free(query);
                 return -1;
             }
 
@@ -1085,22 +1696,38 @@ int parse_query_params(catzilla_request_t* request, const char* query_string) {
             url_decode(value, decoded_value);
 
             LOG_HTTP_DEBUG("Query param: %s = %s", decoded_key, decoded_value);
+            LOG_HTTP_DEBUG("Memory allocated - key at %p, value at %p", decoded_key, decoded_value);
 
             if (request->query_param_count < CATZILLA_MAX_QUERY_PARAMS) {
                 request->query_params[request->query_param_count] = decoded_key;
                 request->query_values[request->query_param_count] = decoded_value;
                 request->query_param_count++;
                 request->has_query_params = true;
+                LOG_HTTP_DEBUG("Stored query param %d: %s=%s at %p/%p",
+                    request->query_param_count - 1, decoded_key, decoded_value, decoded_key, decoded_value);
             } else {
-                free(decoded_key);
-                free(decoded_value);
+                catzilla_request_free(decoded_key);
+                catzilla_request_free(decoded_value);
+                LOG_HTTP_DEBUG("Max query params reached, freed extra params");
                 break;
             }
+        } else {
+            LOG_HTTP_DEBUG("Query param without value: %s", key);
         }
+        LOG_HTTP_DEBUG("End of loop iteration, continuing...");
+        LOG_HTTP_DEBUG("About to call strtok_r(NULL, \"&\", &saveptr), saveptr=%p", saveptr);
+
+        // Get next token
+        token = strtok_r(NULL, "&", &saveptr);
+        LOG_HTTP_DEBUG("strtok_r returned token=%p", token);
     }
 
-    free(query);
+    LOG_HTTP_DEBUG("Exited while loop successfully");
+
+    catzilla_request_free(query);
+    LOG_HTTP_DEBUG("Freed query string copy");
     LOG_HTTP_DEBUG("Query parsing complete with %d parameters", request->query_param_count);
+    LOG_HTTP_DEBUG("parse_query_params function returning 0 (success)");
     return 0;
 }
 

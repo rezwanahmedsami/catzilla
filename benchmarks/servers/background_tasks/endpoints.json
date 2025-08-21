@@ -1,0 +1,250 @@
+{
+  "name": "background_tasks",
+  "description": "Background task processing, scheduling, and monitoring performance tests",
+  "endpoints": [
+    {
+      "path": "/tasks",
+      "method": "POST",
+      "description": "Create a new background task",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "task_type": "computation",
+        "priority": "normal",
+        "payload": {
+          "iterations": 1000000
+        },
+        "delay_seconds": null,
+        "max_retries": 3,
+        "timeout_seconds": 60
+      },
+      "body_variants": [
+        {
+          "task_type": "computation",
+          "priority": "high",
+          "payload": {"iterations": 500000}
+        },
+        {
+          "task_type": "io_operation",
+          "priority": "normal",
+          "payload": {"file_size": 1024}
+        },
+        {
+          "task_type": "network_request",
+          "priority": "low",
+          "payload": {"url": "https://example.com"}
+        },
+        {
+          "task_type": "data_processing",
+          "priority": "normal",
+          "payload": {"records": 1000}
+        },
+        {
+          "task_type": "email_sending",
+          "priority": "high",
+          "payload": {"recipients": ["user@example.com"]}
+        },
+        {
+          "task_type": "report_generation",
+          "priority": "normal",
+          "payload": {"type": "summary"}
+        }
+      ],
+      "weight": 4
+    },
+    {
+      "path": "/tasks/batch",
+      "method": "POST",
+      "description": "Create multiple tasks in batch",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "tasks": [
+          {
+            "task_type": "computation",
+            "priority": "normal",
+            "payload": {"iterations": 100000},
+            "max_retries": 2
+          },
+          {
+            "task_type": "io_operation",
+            "priority": "normal",
+            "payload": {"file_size": 512},
+            "max_retries": 2
+          }
+        ],
+        "execute_parallel": true,
+        "max_concurrent": 5
+      },
+      "weight": 1
+    },
+    {
+      "path": "/tasks/{task_id}",
+      "method": "GET",
+      "description": "Get task status and details",
+      "path_params": {
+        "task_id": ["test-task-1", "test-task-2", "test-task-3"]
+      },
+      "weight": 3
+    },
+    {
+      "path": "/tasks",
+      "method": "GET",
+      "description": "List tasks with filtering",
+      "params": {
+        "status": ["pending", "running", "completed", "failed", null],
+        "task_type": ["computation", "io_operation", "network_request", null],
+        "priority": ["low", "normal", "high", "urgent", null],
+        "limit": [20, 50, 100],
+        "offset": [0, 20, 40]
+      },
+      "weight": 2
+    },
+    {
+      "path": "/tasks/{task_id}",
+      "method": "DELETE",
+      "description": "Cancel a pending or running task",
+      "path_params": {
+        "task_id": ["test-task-1", "test-task-2", "test-task-3"]
+      },
+      "weight": 1
+    },
+    {
+      "path": "/tasks/{task_id}/retry",
+      "method": "POST",
+      "description": "Retry a failed task",
+      "path_params": {
+        "task_id": ["test-task-1", "test-task-2", "test-task-3"]
+      },
+      "weight": 1
+    },
+    {
+      "path": "/stats",
+      "method": "GET",
+      "description": "Get system and task statistics",
+      "weight": 1
+    },
+    {
+      "path": "/health",
+      "method": "GET",
+      "description": "Health check",
+      "weight": 1
+    }
+  ],
+  "concurrent_users": [10, 20, 50, 100],
+  "test_duration": 60,
+  "ramp_up_time": 10,
+  "task_types": {
+    "computation": {
+      "description": "CPU-intensive computation tasks",
+      "avg_duration": "2-5 seconds",
+      "payload_examples": [
+        {"iterations": 100000},
+        {"iterations": 500000},
+        {"iterations": 1000000}
+      ]
+    },
+    "io_operation": {
+      "description": "File I/O and disk operations",
+      "avg_duration": "1-3 seconds",
+      "payload_examples": [
+        {"file_size": 1024},
+        {"file_size": 10240},
+        {"operation": "read_write"}
+      ]
+    },
+    "network_request": {
+      "description": "HTTP requests and network operations",
+      "avg_duration": "0.5-2 seconds",
+      "payload_examples": [
+        {"url": "https://example.com"},
+        {"url": "https://httpbin.org/delay/1"},
+        {"method": "POST", "data": {"test": "data"}}
+      ]
+    },
+    "data_processing": {
+      "description": "Data transformation and analysis",
+      "avg_duration": "2-4 seconds",
+      "payload_examples": [
+        {"records": 1000},
+        {"records": 5000},
+        {"operation": "aggregate"}
+      ]
+    },
+    "email_sending": {
+      "description": "Email composition and delivery",
+      "avg_duration": "1-2 seconds",
+      "payload_examples": [
+        {"recipients": ["user@example.com"]},
+        {"recipients": ["user1@example.com", "user2@example.com"]},
+        {"template": "welcome", "data": {}}
+      ]
+    },
+    "report_generation": {
+      "description": "Report creation and rendering",
+      "avg_duration": "3-8 seconds",
+      "payload_examples": [
+        {"type": "summary"},
+        {"type": "detailed", "format": "pdf"},
+        {"type": "analytics", "date_range": "last_30_days"}
+      ]
+    }
+  },
+  "scenarios": [
+    {
+      "name": "task_creation_heavy",
+      "description": "Heavy task creation load",
+      "duration": 30,
+      "weight_distribution": {
+        "/tasks": 5,
+        "/tasks/{task_id}": 2,
+        "/stats": 1
+      }
+    },
+    {
+      "name": "task_monitoring",
+      "description": "Task status monitoring and querying",
+      "duration": 30,
+      "weight_distribution": {
+        "/tasks/{task_id}": 4,
+        "/tasks": 3,
+        "/stats": 2
+      }
+    },
+    {
+      "name": "batch_processing",
+      "description": "Batch task creation and processing",
+      "duration": 30,
+      "weight_distribution": {
+        "/tasks/batch": 2,
+        "/tasks": 3,
+        "/tasks/{task_id}": 3,
+        "/stats": 1
+      }
+    },
+    {
+      "name": "task_lifecycle",
+      "description": "Complete task lifecycle testing",
+      "duration": 60,
+      "weight_distribution": {
+        "/tasks": 3,
+        "/tasks/{task_id}": 4,
+        "/tasks/{task_id}/retry": 1,
+        "/stats": 1
+      }
+    },
+    {
+      "name": "high_throughput",
+      "description": "High throughput task processing",
+      "duration": 90,
+      "weight_distribution": {
+        "/tasks": 5,
+        "/tasks/batch": 2,
+        "/tasks/{task_id}": 2,
+        "/stats": 1
+      }
+    }
+  ]
+}

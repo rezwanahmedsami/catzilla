@@ -1,99 +1,65 @@
-{# Enhanced SEO Layout Template for Catzilla Documentation #}
 {% extends "!layout.html" %}
 
 {% block extrahead %}
-  {{ super() }}
+    {{ super() }}
+    <!-- Structured Data for SEO -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Catzilla",
+        "description": "High-performance Python web framework with C-accelerated routing, 259% faster than FastAPI. Features async/sync hybrid architecture, dependency injection, streaming, and more.",
+        "url": "https://catzilla.rezwanahmedsami.com/",
+        "downloadUrl": "https://pypi.org/project/catzilla/",
+        "version": "0.2.0",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Cross-platform",
+        "programmingLanguage": {
+            "@type": "ComputerLanguage",
+            "name": "Python",
+            "url": "https://python.org"
+        },
+        "author": {
+            "@type": "Person",
+            "name": "Rezwan Ahmed Sami",
+            "url": "https://github.com/rezwanahmedsami"
+        },
+        "license": "https://opensource.org/licenses/MIT",
+        "codeRepository": "https://github.com/rezwanahmedsami/catzilla",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        },
+        "keywords": [
+            "python web framework",
+            "fastapi alternative",
+            "high performance python",
+            "async python framework",
+            "c accelerated routing",
+            "web development",
+            "api development"
+        ],
+        "applicationSubCategory": "Web Framework",
+        "softwareRequirements": "Python 3.8+",
+        "releaseNotes": "https://github.com/rezwanahmedsami/catzilla/releases",
+        "supportingData": {
+            "@type": "Dataset",
+            "name": "Performance Benchmarks",
+            "description": "Catzilla delivers exceptional performance with C-accelerated routing and optimized request handling"
+        }
+    }
+    </script>
 
-  <!-- Enhanced Meta Tags for Maximum SEO -->
-  <meta name="description" content="{% if metatags and metatags.description %}{{ metatags.description }}{% elif meta and meta.description %}{{ meta.description }}{% else %}The FastAPI killer is here! Lightning fast Python web framework with C-accelerated routing that outperforms FastAPI. Build blazing-fast APIs with minimal overhead and maximum speed.{% endif %}">
-  <meta name="keywords" content="{% if metatags and metatags.keywords %}{{ metatags.keywords }}{% elif meta and meta.keywords %}{{ meta.keywords }}{% else %}python, web framework, fast, performance, C accelerated, routing, API, REST, microframework, high performance, catzilla, fastapi killer, fastapi alternative, faster than fastapi{% endif %}">
-  <meta name="author" content="Rezwan Ahmed Sami">
-  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
-  <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
-  <meta name="bingbot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
-  <meta name="format-detection" content="telephone=no">
-  <meta name="referrer" content="origin-when-cross-origin">
+    <!-- Enhanced meta tags for better SEO -->
+    <meta name="google-site-verification" content="" />
+    <meta name="msvalidate.01" content="" />
+    <meta name="yandex-verification" content="" />
 
-  <!-- Open Graph / Facebook Enhanced -->
-  <meta property="og:type" content="{% if pagename == 'index' %}website{% else %}article{% endif %}">
-  <meta property="og:url" content="{{ pathto(pagename, 1)|e }}{{ file_suffix }}">
-  <meta property="og:title" content="{% if title %}{{ title }} - {% endif %}Catzilla - The FastAPI Killer">
-  <meta property="og:description" content="{% if metatags and metatags.description %}{{ metatags.description }}{% elif meta and meta.description %}{{ meta.description }}{% else %}The FastAPI killer is here! Lightning fast Python web framework with C-accelerated routing that outperforms FastAPI. Build blazing-fast APIs with minimal overhead.{% endif %}">
-  <meta property="og:image" content="http://catzilla.rezwanahmedsami.com/_static/catzilla-social.png">
-  <meta property="og:image:alt" content="Catzilla - The FastAPI Killer | Lightning Fast Python Web Framework">
-  <meta property="og:site_name" content="Catzilla - The FastAPI Killer">
-  <meta property="og:locale" content="en_US">
+    <!-- Preconnect to external domains for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
 
-  <!-- Twitter Card Enhanced -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:site" content="@rezwanahmedsami">
-  <meta name="twitter:creator" content="@rezwanahmedsami">
-  <meta name="twitter:url" content="{{ pathto(pagename, 1)|e }}{{ file_suffix }}">
-  <meta name="twitter:title" content="{% if title %}{{ title }} - {% endif %}Catzilla - The FastAPI Killer">
-  <meta name="twitter:description" content="{% if metatags and metatags.description %}{{ metatags.description }}{% elif meta and meta.description %}{{ meta.description }}{% else %}The FastAPI killer is here! Lightning fast Python web framework with C-accelerated routing that outperforms FastAPI.{% endif %}">
-  <meta name="twitter:image" content="http://catzilla.rezwanahmedsami.com/_static/catzilla-social.png">
-  <meta name="twitter:image:alt" content="Catzilla - The FastAPI Killer | Lightning Fast Python Web Framework">
-
-  <!-- Additional SEO Meta Tags -->
-  <meta name="theme-color" content="#2980b9">
-  <meta name="application-name" content="Catzilla - The FastAPI Killer">
-  <meta name="apple-mobile-web-app-title" content="Catzilla">
-
-  <!-- Canonical URL -->
-  <link rel="canonical" href="http://catzilla.rezwanahmedsami.com/">
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/x-icon" href="{{ pathto('_static/favicon.ico', 1) }}">
-
-  <!-- Performance Optimization -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="dns-prefetch" href="//github.com">
-
-  <!-- Structured Data (JSON-LD) -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "{% if pagename == 'index' %}WebSite{% else %}TechArticle{% endif %}",
-    "name": "Catzilla - The FastAPI Killer",
-    "url": "http://catzilla.rezwanahmedsami.com/",
-    "headline": "{% if title %}{{ title }}{% else %}Catzilla - The FastAPI Killer | Lightning Fast Python Web Framework{% endif %}",
-    "description": "{% if metatags and metatags.description %}{{ metatags.description }}{% elif meta and meta.description %}{{ meta.description }}{% else %}The FastAPI killer is here! Lightning fast Python web framework with C-accelerated routing that outperforms FastAPI. Build blazing-fast APIs with minimal overhead.{% endif %}",
-    "author": {
-      "@type": "Person",
-      "name": "Rezwan Ahmed Sami",
-      "url": "https://github.com/rezwanahmedsami"
-    },
-    "publisher": {
-      "@type": "Organization",
-      "name": "Catzilla - The FastAPI Killer",
-      "logo": {
-        "@type": "ImageObject",
-        "url": "http://catzilla.rezwanahmedsami.com/_static/logo.png"
-      }
-    },
-    "datePublished": "2025-01-01",
-    "dateModified": "2025-05-28",
-    "image": "http://catzilla.rezwanahmedsami.com/_static/catzilla-social.png",
-    "inLanguage": "en-US"
-  }
-  </script>
-
-{% endblock %}
-
-{% block footer %}
-  {{ super() }}
-
-  <!-- Enhanced footer with microdata -->
-  <div style="display: none;" itemscope itemtype="https://schema.org/SoftwareApplication">
-    <span itemprop="name">Catzilla - The FastAPI Killer</span>
-    <span itemprop="description">The FastAPI killer - Lightning fast Python web framework with C-accelerated routing that outperforms FastAPI</span>
-    <span itemprop="version">0.1.0</span>
-    <span itemprop="operatingSystem">Cross-platform</span>
-    <span itemprop="programmingLanguage">Python</span>
-    <span itemprop="applicationCategory">WebApplication</span>
-    <div itemprop="author" itemscope itemtype="https://schema.org/Person">
-      <span itemprop="name">Rezwan Ahmed Sami</span>
-    </div>
-  </div>
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://catzilla.rezwanahmedsami.com{{ pagename }}.html">
 {% endblock %}

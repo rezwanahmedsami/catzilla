@@ -34,11 +34,13 @@ python/**/*.cpp
 env/
 venv/
 ENV/
+benchmarks/results/*.pid
 
 # Sphinx docs build
 docs/_build/
-docs/api/
-
+# docs/api/
+docs_new/_build/
+# docs_new/api/
 # Submodule temp files
 deps/**/.git
 
@@ -67,3 +69,10 @@ benchmarks/results/temp_*
 
 # wheelhouse
 wheelhouse/
+
+uploads/
+catzilla_example.db
+
+
+# ignore lua script in benchmarks/results
+benchmarks/results/*.lua

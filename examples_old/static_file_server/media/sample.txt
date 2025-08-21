@@ -1,0 +1,30 @@
+This is a sample media file for testing Catzilla's high-performance media serving capabilities.
+
+The media mount is configured for:
+- Large cache size (500MB)
+- 2-hour cache TTL
+- Range request support (perfect for video streaming)
+- No compression (media files are already optimized)
+- Large file support (up to 500MB)
+
+This configuration is ideal for:
+✅ Video streaming
+✅ Audio files
+✅ Large images
+✅ PDF documents
+✅ Any binary media content
+
+Range request support means browsers can:
+- Seek to any position in videos
+- Resume interrupted downloads
+- Stream large files efficiently
+- Cache partial content
+
+Try testing with:
+curl -H "Range: bytes=0-100" http://localhost:8002/media/sample.txt
+
+Performance characteristics:
+- First request: File system read + cache storage
+- Subsequent requests: Memory cache (ultra-fast)
+- Large files: Zero-copy sendfile from kernel
+- Range requests: Efficient byte-range serving

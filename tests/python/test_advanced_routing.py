@@ -7,8 +7,8 @@ route conflict detection, 405/415 responses, and performance.
 
 import pytest
 from unittest.mock import Mock
-from catzilla import App, Request, Response, JSONResponse
-from catzilla.routing import Router, Route
+from catzilla import Catzilla, Request, Response, JSONResponse, BaseModel, Query, Path
+from catzilla.router import Route, CAcceleratedRouter
 
 
 class TestDynamicRouting:
@@ -16,7 +16,7 @@ class TestDynamicRouting:
 
     def test_basic_dynamic_route(self):
         """Test basic dynamic route registration and matching"""
-        router = Router()
+        router = CAcceleratedRouter()
 
         def handler(request):
             return {"user_id": request.path_params["user_id"]}
@@ -31,7 +31,7 @@ class TestDynamicRouting:
 
     def test_multiple_path_parameters(self):
         """Test routes with multiple path parameters"""
-        router = Router()
+        router = CAcceleratedRouter()
 
         def handler(request):
             return {
@@ -47,7 +47,7 @@ class TestDynamicRouting:
 
     def test_mixed_static_dynamic_segments(self):
         """Test routes mixing static and dynamic segments"""
-        router = Router()
+        router = CAcceleratedRouter()
 
         def handler1(request):
             return {"type": "static"}
@@ -72,7 +72,7 @@ class TestDynamicRouting:
 
     def test_route_not_found(self):
         """Test behavior when route is not found"""
-        router = Router()
+        router = CAcceleratedRouter()
 
         def handler(request):
             return {"message": "hello"}
@@ -87,7 +87,7 @@ class TestDynamicRouting:
 
     def test_method_not_allowed(self):
         """Test 405 Method Not Allowed detection"""
-        router = Router()
+        router = CAcceleratedRouter()
 
         def handler(request):
             return {"message": "hello"}
@@ -99,11 +99,12 @@ class TestDynamicRouting:
         route, params, methods = router.match("PUT", "/hello")
         assert route is None
         assert params == {}
-        assert methods == {"GET", "POST"}
+        # HEAD is automatically supported for GET routes
+        assert methods == {"GET", "HEAD", "POST"}
 
     def test_parameter_extraction_special_chars(self):
         """Test parameter extraction with special characters"""
-        router = Router()
+        router = CAcceleratedRouter()
 
         def handler(request):
             return {"id": request.path_params["id"]}
@@ -121,7 +122,7 @@ class TestRouteConflicts:
 
     def test_route_conflict_warning(self):
         """Test that route conflicts generate warnings"""
-        router = Router()
+        router = CAcceleratedRouter()
 
         def handler1(request):
             return {"type": "dynamic"}
@@ -133,12 +134,12 @@ class TestRouteConflicts:
         router.add_route("GET", "/users/{user_id}", handler1)
 
         # Add potentially conflicting static route
-        with pytest.warns(RuntimeWarning, match="Route conflict"):
+        with pytest.warns(UserWarning, match="Route conflict"):
             router.add_route("GET", "/users/{user_id}", handler2, overwrite=False)
 
     def test_route_overwrite_allowed(self):
         """Test that overwrite=True suppresses warnings"""
-        router = Router()
+        router = CAcceleratedRouter()
 
         def handler1(request):
             return {"version": 1}
@@ -157,7 +158,7 @@ class TestRouteConflicts:
 
     def test_complex_conflict_scenarios(self):
         """Test complex route conflict scenarios"""
-        router = Router()
+        router = CAcceleratedRouter()
 
         def handler(request):
             return {}
@@ -182,7 +183,7 @@ class TestRouteIntrospection:
 
     def test_list_routes(self):
         """Test getting list of all registered routes"""
-        router = Router()
+        router = CAcceleratedRouter()
 
         def handler1(request):
             return {}
@@ -208,7 +209,7 @@ class TestRouteIntrospection:
 
     def test_route_handler_names(self):
         """Test that handler names are correctly reported"""
-        router = Router()
+        router = CAcceleratedRouter()
 
         def get_user(request):
             return {}
@@ -230,7 +231,7 @@ class TestRouteDecorators:
 
     def test_http_method_decorators(self):
         """Test all HTTP method decorators"""
-        router = Router()
+        router = CAcceleratedRouter()
 
         @router.get("/get")
         def get_handler(request):
@@ -259,7 +260,7 @@ class TestRouteDecorators:
 
     def test_multi_method_decorator(self):
         """Test route decorator with multiple methods"""
-        router = Router()
+        router = CAcceleratedRouter()
 
         @router.route("/api/data", ["GET", "POST"])
         def data_handler(request):
@@ -279,8 +280,8 @@ class TestAppIntegration:
     """Test integration with App class"""
 
     def test_app_dynamic_routing(self):
-        """Test that App class supports dynamic routing"""
-        app = App()
+        """Test that Catzilla class supports dynamic routing with Memory Revolution"""
+        app = Catzilla(auto_validation=True, memory_profiling=False)
 
         @app.get("/users/{user_id}")
         def get_user(request):
@@ -301,8 +302,8 @@ class TestAppIntegration:
         assert "/users/{user_id}/posts" in paths
 
     def test_app_route_conflicts_detected(self):
-        """Test that App detects route conflicts"""
-        app = App()
+        """Test that Catzilla detects route conflicts with auto-validation"""
+        app = Catzilla(auto_validation=True)
 
         @app.get("/api/{version}")
         def api_version(request):
@@ -320,7 +321,7 @@ class TestErrorHandling:
 
     def test_invalid_route_patterns(self):
         """Test handling of invalid route patterns"""
-        router = Router()
+        router = CAcceleratedRouter()
 
         def handler(request):
             return {}
@@ -335,7 +336,7 @@ class TestErrorHandling:
 
     def test_empty_and_root_routes(self):
         """Test edge cases with empty and root routes"""
-        router = Router()
+        router = CAcceleratedRouter()
 
         def root_handler(request):
             return {"path": "root"}
@@ -353,7 +354,7 @@ class TestErrorHandling:
 
     def test_case_sensitivity(self):
         """Test case sensitivity in routes"""
-        router = Router()
+        router = CAcceleratedRouter()
 
         def handler(request):
             return {}
@@ -371,7 +372,7 @@ class TestErrorHandling:
 
     def test_method_case_insensitivity(self):
         """Test that HTTP methods are case insensitive"""
-        router = Router()
+        router = CAcceleratedRouter()
 
         def handler(request):
             return {}
@@ -394,7 +395,7 @@ class TestPerformance:
 
     def test_many_static_routes(self):
         """Test performance with many static routes"""
-        router = Router()
+        router = CAcceleratedRouter()
 
         def handler(request):
             return {}
@@ -410,7 +411,7 @@ class TestPerformance:
 
     def test_many_dynamic_routes(self):
         """Test performance with many dynamic routes"""
-        router = Router()
+        router = CAcceleratedRouter()
 
         def handler(request):
             return {}
@@ -427,7 +428,7 @@ class TestPerformance:
 
     def test_deep_nesting(self):
         """Test performance with deeply nested routes"""
-        router = Router()
+        router = CAcceleratedRouter()
 
         def handler(request):
             return {}

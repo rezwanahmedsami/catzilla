@@ -1,393 +1,143 @@
-/* Custom CSS for Catzilla Documentation with SEO and Accessibility Enhancements */
+/* Enhanced SEO and UX styling for Catzilla Documentation */
 
-/* Variables for consistent theming */
-:root {
-  --primary-color: #3B82F6;
-  --primary-dark: #1E40AF;
-  --secondary-color: #10B981;
-  --accent-color: #F59E0B;
-  --text-color: #ffffff;
-  --text-light: #6B7280;
-  --bg-color: #FFFFFF;
-  --bg-light: #F9FAFB;
-  --border-color: #E5E7EB;
-  --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-}
-
-/* Enhanced typography for better readability and SEO */
+/* Improve readability and SEO score */
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  line-height: 1.6;
-  color: var(--text-color);
-  background-color: var(--bg-color);
+    line-height: 1.6;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
-/* Heading hierarchy for better SEO structure */
-h1, h2, h3, h4, h5, h6 {
-  font-weight: 600;
-  line-height: 1.3;
-  margin-top: 2rem;
-  margin-bottom: 1rem;
-  color: var(--text-color);
-}
-
+/* Better heading hierarchy for SEO */
 h1 {
-  font-size: 2.5rem;
-  border-bottom: 3px solid var(--primary-color);
-  padding-bottom: 0.5rem;
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
 }
 
 h2 {
-  font-size: 2rem;
-  border-bottom: 2px solid var(--secondary-color);
-  padding-bottom: 0.3rem;
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 0.8rem;
 }
 
 h3 {
-  font-size: 1.5rem;
-  color: var(--primary-dark);
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.6rem;
 }
 
-/* Enhanced navigation for better UX */
-.wy-nav-top {
-  background-color: var(--primary-color);
-  background-image: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-}
-
-.wy-side-nav-search {
-  background-color: var(--primary-dark);
-}
-
-.wy-menu-vertical a {
-  color: var(--text-color);
-  transition: all 0.2s ease;
-}
-
-.wy-menu-vertical a:hover {
-  background-color: var(--bg-light);
-  color: var(--primary-color);
-}
-
-/* Code blocks with better syntax highlighting */
-.highlight {
-  background-color: var(--bg-light);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 1rem;
-  margin: 1rem 0;
-  overflow-x: auto;
-}
-
-code {
-  background-color: var(--bg-light);
-  color: var(--primary-dark);
-  padding: 0.2rem 0.4rem;
-  border-radius: 3px;
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace;
-  font-size: 0.9rem;
-}
-
-/* Enhanced tables for benchmark data */
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 1.5rem 0;
-  box-shadow: var(--shadow);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-th, td {
-  padding: 0.75rem 1rem;
-  text-align: left;
-  border-bottom: 1px solid var(--border-color);
-}
-
-th {
-  background-color: var(--primary-color);
-  color: white;
-  font-weight: 600;
-}
-
-tr:nth-child(even) {
-  background-color: var(--bg-light);
-}
-
-tr:hover {
-  background-color: rgba(59, 130, 246, 0.1);
-}
-
-/* Performance badge styles */
+/* Performance badges styling */
 .performance-badge {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.025em;
+    display: inline-block;
+    background: linear-gradient(45deg, #2980B9, #3498DB);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 25px;
+    font-weight: bold;
+    text-decoration: none;
+    margin: 0.25rem;
+    box-shadow: 0 2px 10px rgba(41, 128, 185, 0.3);
+    transition: transform 0.2s ease;
 }
 
-.performance-badge.fastest {
-  background-color: var(--secondary-color);
-  color: white;
+.performance-badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(41, 128, 185, 0.4);
 }
 
-.performance-badge.fast {
-  background-color: var(--accent-color);
-  color: white;
+/* Code block enhancements for better UX */
+.highlight {
+    border-left: 4px solid #2980B9;
+    border-radius: 4px;
+    overflow-x: auto;
 }
 
-.performance-badge.moderate {
-  background-color: var(--text-light);
-  color: white;
+/* Navigation improvements */
+.wy-nav-side {
+    background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
 }
 
-/* Call-to-action buttons */
-.cta-button {
-  display: inline-block;
-  padding: 0.75rem 1.5rem;
-  background-color: var(--primary-color);
-  color: white;
-  text-decoration: none;
-  border-radius: 6px;
-  font-weight: 600;
-  transition: all 0.2s ease;
-  box-shadow: var(--shadow);
+/* Logo styling */
+.wy-side-nav-search {
+    background: #2980B9;
 }
 
-.cta-button:hover {
-  background-color: var(--primary-dark);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-lg);
-  color: white;
-  text-decoration: none;
+/* Table styling for performance comparisons */
+table.performance-table {
+    margin: 1rem 0;
+    border-collapse: collapse;
+    width: 100%;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
 
-/* Accessibility improvements */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+table.performance-table th,
+table.performance-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
 }
 
-/* Focus styles for keyboard navigation */
-a:focus,
-button:focus,
-input:focus,
-textarea:focus,
-select:focus {
-  outline: 2px solid var(--primary-color);
-  outline-offset: 2px;
+table.performance-table th {
+    background-color: #2980B9;
+    color: white;
+    font-weight: 600;
 }
 
-/* Skip link for accessibility */
-.skip-link {
-  position: absolute;
-  top: -40px;
-  left: 6px;
-  background: var(--primary-color);
-  color: white;
-  padding: 8px;
-  text-decoration: none;
-  border-radius: 0 0 4px 4px;
-  z-index: 9999;
+table.performance-table tr:nth-child(even) {
+    background-color: #f8f9fa;
 }
 
-.skip-link:focus {
-  top: 0;
+/* Feature list styling */
+.feature-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
 }
 
-/* Enhanced admonitions */
-.admonition {
-  margin: 1.5rem 0;
-  padding: 1rem;
-  border-left: 4px solid var(--primary-color);
-  border-radius: 0 6px 6px 0;
-  background-color: var(--bg-light);
-  box-shadow: var(--shadow);
+.feature-item {
+    padding: 1rem;
+    border: 1px solid #e1e8ed;
+    border-radius: 8px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease;
 }
 
-.admonition.note {
-  border-left-color: var(--primary-color);
-}
-
-.admonition.warning {
-  border-left-color: var(--accent-color);
-  background-color: rgba(245, 158, 11, 0.1);
-}
-
-.admonition.tip {
-  border-left-color: var(--secondary-color);
-  background-color: rgba(16, 185, 129, 0.1);
+.feature-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
 /* Responsive design improvements */
 @media (max-width: 768px) {
-  h1 {
-    font-size: 2rem;
-  }
+    .feature-list {
+        grid-template-columns: 1fr;
+    }
 
-  h2 {
-    font-size: 1.5rem;
-  }
+    h1 {
+        font-size: 2rem;
+    }
 
-  .wy-nav-content {
-    padding: 1rem;
-  }
-
-  table {
-    font-size: 0.875rem;
-  }
-
-  th, td {
-    padding: 0.5rem;
-  }
+    h2 {
+        font-size: 1.5rem;
+    }
 }
 
-/* Print styles for documentation */
+/* Accessibility improvements */
+a:focus,
+button:focus {
+    outline: 2px solid #2980B9;
+    outline-offset: 2px;
+}
+
+/* Print styles */
 @media print {
-  .wy-nav-side,
-  .wy-nav-top,
-  .rst-versions {
-    display: none !important;
-  }
+    .wy-nav-side,
+    .wy-nav-content-wrap .wy-nav-top {
+        display: none;
+    }
 
-  .wy-nav-content-wrap {
-    margin-left: 0 !important;
-  }
-
-  a[href]:after {
-    content: " (" attr(href) ")";
-    font-size: 0.8rem;
-    color: var(--text-light);
-  }
-
-  .cta-button {
-    border: 2px solid var(--primary-color);
-    background: none;
-    color: var(--primary-color);
-  }
-}
-
-/* Animation for loading states */
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-.loading {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--bg-light);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--text-light);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--primary-color);
-}
-
-/* Social sharing buttons */
-.social-share {
-  margin: 2rem 0;
-  padding: 1rem;
-  background-color: var(--bg-light);
-  border-radius: 6px;
-  text-align: center;
-}
-
-.social-share h4 {
-  margin-bottom: 1rem;
-  color: var(--text-color);
-}
-
-.social-button {
-  display: inline-block;
-  margin: 0 0.5rem;
-  padding: 0.5rem 1rem;
-  background-color: var(--primary-color);
-  color: white;
-  text-decoration: none;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  transition: all 0.2s ease;
-}
-
-.social-button:hover {
-  background-color: var(--primary-dark);
-  transform: translateY(-1px);
-  color: white;
-  text-decoration: none;
-}
-
-.social-button.twitter {
-  background-color: #1DA1F2;
-}
-
-.social-button.linkedin {
-  background-color: #0077B5;
-}
-
-.social-button.github {
-  background-color: #333;
-}
-
-/* Breadcrumb improvements */
-.wy-breadcrumbs {
-  margin-bottom: 1.5rem;
-}
-
-.wy-breadcrumbs a {
-  color: var(--primary-color);
-  text-decoration: none;
-}
-
-.wy-breadcrumbs a:hover {
-  text-decoration: underline;
-}
-
-/* Footer enhancements */
-.footer {
-  margin-top: 3rem;
-  padding: 2rem 0;
-  border-top: 2px solid var(--border-color);
-  background-color: var(--bg-light);
-  text-align: center;
-}
-
-.footer p {
-  margin: 0.5rem 0;
-  color: var(--text-light);
-}
-
-.footer a {
-  color: var(--primary-color);
-  text-decoration: none;
-}
-
-.footer a:hover {
-  text-decoration: underline;
+    .wy-nav-content {
+        margin-left: 0;
+    }
 }

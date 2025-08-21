@@ -1,0 +1,10 @@
+This is a sample file in a subdirectory to demonstrate directory listing functionality.
+
+When you visit /files/ in your browser, you'll see:
+- README.md
+- config.json
+- subdirectory/ (this directory)
+
+When you click on subdirectory/, you'll see this file.
+
+This demonstrates Catzilla's secure directory browsing capabilities.

@@ -1,76 +1,88 @@
 # 🚀 Catzilla Performance Benchmark Report
 
-Generated on: 2025-05-25 18:09:30
+Generated on: 2025-08-10 15:14:11
 
 ## 📊 Executive Summary
 
 - **Best Overall RPS Framework**: catzilla
-- **Best Overall Latency Framework**: catzilla
-- **Catzilla vs Django**: +671.2% requests/sec
-- **Catzilla vs Fastapi**: +662.1% requests/sec
-- **Catzilla vs Flask**: +540.7% requests/sec
+- **Best Overall Latency Framework**: unknown
+- **Catzilla vs Fastapi**: +453.1% requests/sec
+- **Catzilla vs Flask**: +2140.7% requests/sec
 
 ## 📈 Detailed Framework Statistics
 
 ### Catzilla
-- **Avg RPS**: 16818 (±5022)
-- **Max RPS**: 24758
-- **Avg Latency**: 6.37ms (±1.77)
-- **Min Latency**: 4.07ms
-
-### Django
-- **Avg RPS**: 2181 (±132)
-- **Max RPS**: 2339
-- **Avg Latency**: 45.76ms (±2.87)
-- **Min Latency**: 42.56ms
+- **Avg RPS**: 12231 (±4833)
+- **Max RPS**: 16752
+- **Avg Latency**: 12.33ms (±23.78)
+- **Min Latency**: 2.91ms
 
 ### Fastapi
-- **Avg RPS**: 2207 (±531)
-- **Max RPS**: 2844
-- **Avg Latency**: 47.70ms (±13.54)
-- **Min Latency**: 35.04ms
+- **Avg RPS**: 2211 (±701)
+- **Max RPS**: 2584
+- **Avg Latency**: 29.31ms (±27.81)
+- **Min Latency**: 18.44ms
 
 ### Flask
-- **Avg RPS**: 2625 (±168)
-- **Max RPS**: 2875
-- **Avg Latency**: 38.03ms (±2.38)
-- **Min Latency**: 34.60ms
+- **Avg RPS**: 546 (±315)
+- **Max RPS**: 864
+- **Avg Latency**: 73.15ms (±31.78)
+- **Min Latency**: 52.79ms
+
+### Unknown
+- **Avg RPS**: 0 (±0)
+- **Max RPS**: 0
+- **Avg Latency**: 0.00ms (±0.00)
+- **Min Latency**: 0.00ms
 
 ## 🎯 Endpoint Performance Breakdown
 
-### Complex Json
-🥇 **Catzilla**: 14842 req/s
-🥈 **Flask**: 2521 req/s
-🥉 **Django**: 2162 req/s
-   **Fastapi**: 2008 req/s
+### Unknown
+🥇 **Unknown**: 0 req/s
 
-### Hello World
-🥇 **Catzilla**: 24758 req/s
-🥈 **Flask**: 2875 req/s
-🥉 **Fastapi**: 2844 req/s
-   **Django**: 2339 req/s
+### Sqlalchemy-Di Complex Db Operations
+🥇 **Catzilla**: 12770 req/s
+🥈 **Fastapi**: 2436 req/s
+🥉 **Flask**: 152 req/s
 
-### Json Response
-🥇 **Catzilla**: 15754 req/s
-🥈 **Flask**: 2672 req/s
-🥉 **Fastapi**: 2421 req/s
-   **Django**: 2208 req/s
+### Sqlalchemy-Di Complex Di Chain
+🥇 **Catzilla**: 12664 req/s
+🥈 **Fastapi**: 2466 req/s
+🥉 **Flask**: 864 req/s
 
-### Path Params
-🥇 **Catzilla**: 17590 req/s
-🥈 **Flask**: 2624 req/s
-🥉 **Fastapi**: 2341 req/s
-   **Django**: 2219 req/s
+### Sqlalchemy-Di Db Posts List
+🥇 **Catzilla**: 11772 req/s
+🥈 **Fastapi**: 2472 req/s
+🥉 **Flask**: 732 req/s
 
-### Query Params
-🥇 **Catzilla**: 11145 req/s
-🥈 **Flask**: 2431 req/s
-🥉 **Django**: 1975 req/s
-   **Fastapi**: 1419 req/s
+### Sqlalchemy-Di Db User Detail
+🥇 **Catzilla**: 13367 req/s
+🥈 **Fastapi**: 2375 req/s
+🥉 **Flask**: 747 req/s
+
+### Sqlalchemy-Di Db Users List
+🥇 **Catzilla**: 14257 req/s
+🥈 **Fastapi**: 2474 req/s
+🥉 **Flask**: 65 req/s
+
+### Sqlalchemy-Di Health Check
+🥇 **Catzilla**: 943 req/s
+🥈 **Fastapi**: 483 req/s
+🥉 **Flask**: 316 req/s
+
+### Sqlalchemy-Di Simple Di
+🥇 **Catzilla**: 16752 req/s
+🥈 **Fastapi**: 2584 req/s
+🥉 **Flask**: 749 req/s
+
+### Sqlalchemy-Di Transient Di
+🥇 **Catzilla**: 15327 req/s
+🥈 **Fastapi**: 2401 req/s
+🥉 **Flask**: 742 req/s
 
 ## ⚙️ Test Configuration
 
-- **Duration**: 10s
-- **Connections**: 100
+- **Duration**: 5s
+- **Connections**: 50
 - **Threads**: 4
 - **Tool**: wrk

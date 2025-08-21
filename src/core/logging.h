@@ -103,4 +103,57 @@ static inline int catzilla_debug_enabled() {
 #define LOG_HTTP_ERROR(fmt, ...)   LOG_ERROR("HTTP", fmt, ##__VA_ARGS__)
 #define LOG_HTTP_WARN(fmt, ...)    LOG_WARN("HTTP", fmt, ##__VA_ARGS__)
 
+// 🚀 REVOLUTIONARY: Validation engine logging macros
+#define LOG_VALIDATION_DEBUG(fmt, ...) LOG_DEBUG("Validation", fmt, ##__VA_ARGS__)
+#define LOG_VALIDATION_INFO(fmt, ...)  LOG_INFO("Validation", fmt, ##__VA_ARGS__)
+#define LOG_VALIDATION_ERROR(fmt, ...) LOG_ERROR("Validation", fmt, ##__VA_ARGS__)
+#define LOG_VALIDATION_WARN(fmt, ...)  LOG_WARN("Validation", fmt, ##__VA_ARGS__)
+
+// 🚀 C-NATIVE: Static file server logging macros
+#define LOG_STATIC_DEBUG(fmt, ...)     LOG_DEBUG("Static", fmt, ##__VA_ARGS__)
+#define LOG_STATIC_INFO(fmt, ...)      LOG_INFO("Static", fmt, ##__VA_ARGS__)
+#define LOG_STATIC_ERROR(fmt, ...)     LOG_ERROR("Static", fmt, ##__VA_ARGS__)
+#define LOG_STATIC_WARN(fmt, ...)      LOG_WARN("Static", fmt, ##__VA_ARGS__)
+
+// 🚀 REVOLUTIONARY: File upload system logging macros
+#define LOG_UPLOAD_DEBUG(fmt, ...)     LOG_DEBUG("Upload", fmt, ##__VA_ARGS__)
+#define LOG_UPLOAD_INFO(fmt, ...)      LOG_INFO("Upload", fmt, ##__VA_ARGS__)
+#define LOG_UPLOAD_ERROR(fmt, ...)     LOG_ERROR("Upload", fmt, ##__VA_ARGS__)
+#define LOG_UPLOAD_WARN(fmt, ...)      LOG_WARN("Upload", fmt, ##__VA_ARGS__)
+
+#define LOG_PARSER_DEBUG(fmt, ...)     LOG_DEBUG("Parser", fmt, ##__VA_ARGS__)
+#define LOG_PARSER_INFO(fmt, ...)      LOG_INFO("Parser", fmt, ##__VA_ARGS__)
+#define LOG_PARSER_ERROR(fmt, ...)     LOG_ERROR("Parser", fmt, ##__VA_ARGS__)
+#define LOG_PARSER_WARN(fmt, ...)      LOG_WARN("Parser", fmt, ##__VA_ARGS__)
+
+#define LOG_MEMORY_DEBUG(fmt, ...)     LOG_DEBUG("Memory", fmt, ##__VA_ARGS__)
+#define LOG_MEMORY_INFO(fmt, ...)      LOG_INFO("Memory", fmt, ##__VA_ARGS__)
+#define LOG_MEMORY_ERROR(fmt, ...)     LOG_ERROR("Memory", fmt, ##__VA_ARGS__)
+#define LOG_MEMORY_WARN(fmt, ...)      LOG_WARN("Memory", fmt, ##__VA_ARGS__)
+
+#define LOG_STREAM_DEBUG(fmt, ...)     LOG_DEBUG("Stream", fmt, ##__VA_ARGS__)
+#define LOG_STREAM_INFO(fmt, ...)      LOG_INFO("Stream", fmt, ##__VA_ARGS__)
+#define LOG_STREAM_ERROR(fmt, ...)     LOG_ERROR("Stream", fmt, ##__VA_ARGS__)
+#define LOG_STREAM_WARN(fmt, ...)      LOG_WARN("Stream", fmt, ##__VA_ARGS__)
+
+#define LOG_SECURITY_DEBUG(fmt, ...)   LOG_DEBUG("Security", fmt, ##__VA_ARGS__)
+#define LOG_SECURITY_INFO(fmt, ...)    LOG_INFO("Security", fmt, ##__VA_ARGS__)
+#define LOG_SECURITY_ERROR(fmt, ...)   LOG_ERROR("Security", fmt, ##__VA_ARGS__)
+#define LOG_SECURITY_WARN(fmt, ...)    LOG_WARN("Security", fmt, ##__VA_ARGS__)
+
+#define LOG_CLAMAV_DEBUG(fmt, ...)     LOG_DEBUG("ClamAV", fmt, ##__VA_ARGS__)
+#define LOG_CLAMAV_INFO(fmt, ...)      LOG_INFO("ClamAV", fmt, ##__VA_ARGS__)
+#define LOG_CLAMAV_ERROR(fmt, ...)     LOG_ERROR("ClamAV", fmt, ##__VA_ARGS__)
+#define LOG_CLAMAV_WARN(fmt, ...)      LOG_WARN("ClamAV", fmt, ##__VA_ARGS__)
+
+#define LOG_PERF_DEBUG(fmt, ...)       LOG_DEBUG("Performance", fmt, ##__VA_ARGS__)
+#define LOG_PERF_INFO(fmt, ...)        LOG_INFO("Performance", fmt, ##__VA_ARGS__)
+#define LOG_PERF_ERROR(fmt, ...)       LOG_ERROR("Performance", fmt, ##__VA_ARGS__)
+#define LOG_PERF_WARN(fmt, ...)        LOG_WARN("Performance", fmt, ##__VA_ARGS__)
+
+// Missing function declaration for compatibility
+#ifndef strcasestr
+char* strcasestr(const char* haystack, const char* needle);
+#endif
+
 #endif // CATZILLA_LOGGING_H

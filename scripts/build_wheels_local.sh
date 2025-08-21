@@ -42,12 +42,41 @@ if [ -f "$WHEEL_FILE" ]; then
     echo -e "${BLUE}Installing: $(basename "$WHEEL_FILE")${NC}"
     python3 -m pip install "$WHEEL_FILE" --force-reinstall --no-deps
 
+    # Set up jemalloc preloading
+    OS_NAME=$(uname -s)
+    if [ "$OS_NAME" = "Linux" ]; then
+        if [ -f "/lib/x86_64-linux-gnu/libjemalloc.so.2" ]; then
+            echo -e "${GREEN}Setting up jemalloc preloading on Linux${NC}"
+            if [ -z "$LD_PRELOAD" ]; then
+                export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2
+            else
+                export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
+            fi
+        fi
+    elif [ "$OS_NAME" = "Darwin" ]; then
+        if [ -f "/usr/local/lib/libjemalloc.dylib" ]; then
+            echo -e "${GREEN}Setting up jemalloc preloading on macOS${NC}"
+            if [ -z "$DYLD_INSERT_LIBRARIES" ]; then
+                export DYLD_INSERT_LIBRARIES=/usr/local/lib/libjemalloc.dylib
+            else
+                export DYLD_INSERT_LIBRARIES=/usr/local/lib/libjemalloc.dylib:$DYLD_INSERT_LIBRARIES
+            fi
+        elif [ -f "/opt/homebrew/lib/libjemalloc.dylib" ]; then
+            echo -e "${GREEN}Setting up jemalloc preloading on Apple Silicon macOS${NC}"
+            if [ -z "$DYLD_INSERT_LIBRARIES" ]; then
+                export DYLD_INSERT_LIBRARIES=/opt/homebrew/lib/libjemalloc.dylib
+            else
+                export DYLD_INSERT_LIBRARIES=/opt/homebrew/lib/libjemalloc.dylib:$DYLD_INSERT_LIBRARIES
+            fi
+        fi
+    fi
+
     # Test import
     echo -e "${YELLOW}Testing wheel functionality...${NC}"
     python3 -c "
-from catzilla import App, JSONResponse
+from catzilla import Catzilla, JSONResponse
 print('✅ Wheel import successful')
-app = App()
+app = Catzilla(auto_validation=True, memory_profiling=False)
 @app.get('/')
 def test(request):
     return JSONResponse({'status': 'ok', 'version': '0.1.0'})

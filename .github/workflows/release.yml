@@ -27,8 +27,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Full matrix for releases - ensure quality
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
+        # Full matrix for releases - ensure quality (Python 3.9+)
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
@@ -52,7 +52,7 @@ jobs:
 
     - name: Install system dependencies (macOS)
       if: runner.os == 'macOS'
-      run: brew install cmake
+      run: brew install cmake autoconf automake libtool
 
     - name: Install system dependencies (Windows)
       if: runner.os == 'Windows'
@@ -68,6 +68,9 @@ jobs:
       run: |
         chmod +x scripts/build.sh scripts/run_tests.sh
         ./scripts/build.sh
+        if [ "$RUNNER_OS" = "Linux" ]; then
+          export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
+        fi
         ./scripts/run_tests.sh
 
     - name: Build and test Catzilla (Windows)
@@ -78,10 +81,13 @@ jobs:
 
     - name: Validate package functionality
       run: |
+        if [ "$RUNNER_OS" = "Linux" ]; then
+          export LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so.2:$LD_PRELOAD
+        fi
         python -c "
-        from catzilla import App, JSONResponse
+        from catzilla import Catzilla, JSONResponse
         print('Catzilla imported successfully')
-        app = App()
+        app = Catzilla(auto_validation=True, memory_profiling=False)
         @app.get('/')
         def test(request): return JSONResponse({'status': 'ok'})
         print('Release validation passed')
@@ -292,21 +298,21 @@ jobs:
           ## Quick Start
 
           ```python
-          from catzilla import App, JSONResponse
+          from catzilla import Catzilla, JSONResponse
 
-          app = App()
+          app = Catzilla(auto_validation=True, memory_profiling=False)
 
           @app.get('/')
           def hello(request):
               return JSONResponse({"message": "Hello from Catzilla!"})
 
           if __name__ == "__main__":
-              app.listen(8080)
+              app.listen(host="127.0.0.1", port=8080)
           ```
 
           ## Tested Platforms
 
-          - **Python:** 3.8, 3.9, 3.10, 3.11, 3.12
+          - **Python:** 3.9, 3.10, 3.11, 3.12, 3.13
           - **OS:** Ubuntu, Windows, macOS
           - **Architectures:** x86_64, arm64 (Apple Silicon)
           - **Quality:** 15 test combinations (3 OS × 5 Python versions)
@@ -314,7 +320,7 @@ jobs:
           ## Professional Wheel Building
 
           All wheels are built using **cibuildwheel** with proper platform tags:
-          - `cp38-cp38-linux_x86_64` (Python 3.8 on Linux x64)
+          - `cp39-cp39-linux_x86_64` (Python 3.9 on Linux x64)
           - `cp311-cp311-macosx_12_0_arm64` (Python 3.11 on macOS Apple Silicon)
           - `cp312-cp312-win_amd64` (Python 3.12 on Windows x64)
           - And more...

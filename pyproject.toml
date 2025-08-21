@@ -12,7 +12,7 @@ name = "catzilla"
 version = "0.1.0"
 description = "Ultra-fast Python web framework with C-accelerated routing"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "Rezwan Ahmed Sami", email = "samiahmed0f0@gmail.com"}
 ]
@@ -35,7 +35,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -54,8 +53,10 @@ classifiers = [
     "Framework :: AsyncIO",
     "Typing :: Typed"
 ]
-requires-python = ">=3.8"
-dependencies = []
+requires-python = ">=3.9"
+dependencies = [
+    "psutil>=5.9.0"
+]
 
 [project.optional-dependencies]
 dev = [
@@ -74,10 +75,9 @@ benchmarks = [
     "flask>=2.3.0",
     "django>=4.2.0",
     "gunicorn>=21.2.0",
-    "psutil>=5.9.0",
     "matplotlib>=3.7.0",
     "pandas>=2.0.0",
-    "seaborn>=0.12.0",
+    "seaborn>=3.12.0",
     "numpy>=1.24.0",
     "requests>=2.31.0",
     "pillow>=10.0.0",
@@ -93,6 +93,7 @@ test = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "pytest-benchmark>=4.0.0",
+    "pytest-asyncio>=0.23.0",
     "requests>=2.31.0"
 ]
 
@@ -109,10 +110,12 @@ Changelog = "https://github.com/rezwanahmedsami/catzilla/blob/main/CHANGELOG.md"
 catzilla-server = "catzilla.cli:main"
 
 [tool.setuptools]
-packages = ["catzilla"]
-package-dir = {"catzilla" = "python/catzilla"}
+package-dir = {"" = "python"}
 include-package-data = true
 zip-safe = false
+
+[tool.setuptools.packages.find]
+where = ["python"]
 
 [tool.setuptools.package-data]
 catzilla = [
@@ -176,16 +179,20 @@ testpaths = ["tests/python"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 python_classes = ["Test*"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 addopts = [
     "--strict-markers",
     "--strict-config",
     "--verbose",
-    "--tb=short"
+    "--tb=short",
+    "-v"
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
-    "benchmark: marks tests as benchmark tests"
+    "benchmark: marks tests as benchmark tests",
+    "asyncio: marks tests as async tests"
 ]
 filterwarnings = [
     "error",
@@ -242,8 +249,8 @@ line_length = 88
 
 # cibuildwheel configuration for professional wheel building
 [tool.cibuildwheel]
-# Build for Python 3.8-3.13 across all platforms
-build = "cp38-* cp39-* cp310-* cp311-* cp312-* cp313-*"
+# Build for Python 3.9-3.13 across all platforms
+build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
 
 # Skip problematic builds
 skip = [
