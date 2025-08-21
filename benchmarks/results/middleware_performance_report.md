@@ -1,4 +1,4 @@
-# Catzilla Umiddleware Category Performance Report
+# Catzilla Middleware Category Performance Report
 
 ## Test Configuration
 - **Category**: middleware
@@ -6,44 +6,36 @@
 - **Connections**: 100
 - **Threads**: 4
 - **Tool**: wrk
-- **Date**: Sun Aug 17 20:51:00 +06 2025
+- **Date**: Thu Aug 21 05:13:03 UTC 2025
 
 ## Performance Results
 
 | Framework | Endpoint | Requests/sec | Avg Latency | 99% Latency |
 |-----------|----------|--------------|-------------|-------------|
-| catzilla | middleware_auth_middleware | 8575.40 | 13.98ms | 95.45ms |
-| catzilla | middleware_compression_middleware | 13056.76 | 9.63ms | 96.11ms |
-| catzilla | middleware_cors_middleware | 14143.89 | 7.81ms | 12.06ms |
-| catzilla | middleware_health_check | 10373.25 | 10.75ms | 16.98ms |
-| catzilla | middleware_heavy_middleware | 8363.97 | 13.89ms | 80.38ms |
-| catzilla | middleware_home | 11458.31 | 4.87ms | 14.95ms |
-| catzilla | middleware_light_middleware | 9399.07 | 11.95ms | 11.95ms |
-| catzilla | middleware_logging_middleware | 13976.50 | 7.85ms | 11.93ms |
-| django | middleware_auth_middleware | 286.55 | 8.59ms | 103.99ms |
-| django | middleware_compression_middleware | 1145.55 | 86.49ms | 103.04ms |
-| django | middleware_cors_middleware | 967.37 | 88.15ms | 123.60ms |
-| django | middleware_health_check | 0.50 | 6.54ms | 10.64ms |
-| django | middleware_heavy_middleware | 191.49 | 99.23ms | 143.37ms |
-| django | middleware_home | 1008.14 | 98.27ms | 118.41ms |
-| django | middleware_light_middleware | 1156.18 | 85.68ms | 99.14ms |
-| django | middleware_logging_middleware | 33.46 | 51.09ms | 121.26ms |
-| fastapi | middleware_auth_middleware | 239.49 | 402.70ms | 488.75ms |
-| fastapi | middleware_compression_middleware | 248.62 | 392.02ms | 459.63ms |
-| fastapi | middleware_cors_middleware | 258.20 | 384.94ms | 477.92ms |
-| fastapi | middleware_health_check | 455.08 | 218.17ms | 254.66ms |
-| fastapi | middleware_heavy_middleware | 368.90 | 273.46ms | 617.08ms |
-| fastapi | middleware_home | 448.35 | 221.75ms | 259.45ms |
-| fastapi | middleware_light_middleware | 448.62 | 219.85ms | 273.18ms |
-| fastapi | middleware_logging_middleware | 248.25 | 393.16ms | 462.47ms |
-| flask | middleware_auth_middleware | 0.00 | 0.00us | 0.00us |
-| flask | middleware_compression_middleware | 1579.07 | 55.57ms | 103.04ms |
-| flask | middleware_cors_middleware | 970.32 | 53.28ms | 93.88ms |
-| flask | middleware_health_check | 1.19 | 8.35ms | 28.73ms |
-| flask | middleware_heavy_middleware | 3.59 | 5.44ms | 17.05ms |
-| flask | middleware_home | 894.51 | 47.84ms | 141.71ms |
-| flask | middleware_light_middleware | 1654.05 | 47.00ms | 63.32ms |
-| flask | middleware_logging_middleware | 2.19 | 4.54ms | 11.75ms |
+| catzilla | middleware_auth_middleware | 19279.74 | 5.47ms | 22.40ms |
+| catzilla | middleware_compression_middleware | 35501.39 | 3.11ms | 18.08ms |
+| catzilla | middleware_cors_middleware | 36191.91 | 2.99ms | 15.31ms |
+| catzilla | middleware_health_check | 20584.69 | 5.00ms | 16.00ms |
+| catzilla | middleware_heavy_middleware | 18719.39 | 5.58ms | 18.00ms |
+| catzilla | middleware_home | 20205.14 | 5.13ms | 17.97ms |
+| catzilla | middleware_light_middleware | 19316.86 | 5.40ms | 17.98ms |
+| catzilla | middleware_logging_middleware | 36307.13 | 3.00ms | 15.54ms |
+| django | middleware_auth_middleware | 14951.03 | 6.63ms | 22.65ms |
+| django | middleware_compression_middleware | 14705.00 | 6.73ms | 20.08ms |
+| django | middleware_cors_middleware | 14595.10 | 6.81ms | 20.53ms |
+| django | middleware_health_check | 15070.40 | 6.46ms | 17.49ms |
+| django | middleware_heavy_middleware | 15020.70 | 6.54ms | 20.96ms |
+| django | middleware_home | 14973.02 | 6.55ms | 19.24ms |
+| django | middleware_light_middleware | 15018.05 | 6.57ms | 22.58ms |
+| django | middleware_logging_middleware | 14499.14 | 6.89ms | 22.70ms |
+| fastapi | middleware_auth_middleware | 1067.40 | 93.34ms | 119.05ms |
+| fastapi | middleware_compression_middleware | 1077.42 | 92.36ms | 118.19ms |
+| fastapi | middleware_cors_middleware | 1097.88 | 90.55ms | 117.96ms |
+| fastapi | middleware_health_check | 1117.48 | 88.55ms | 113.35ms |
+| fastapi | middleware_heavy_middleware | 1055.08 | 93.98ms | 120.03ms |
+| fastapi | middleware_home | 1117.91 | 88.89ms | 117.43ms |
+| fastapi | middleware_light_middleware | 1086.57 | 91.52ms | 116.21ms |
+| fastapi | middleware_logging_middleware | 1098.69 | 90.56ms | 133.31ms |
 
 ## Catzilla Performance Advantage
 

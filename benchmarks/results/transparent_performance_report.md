@@ -1,14 +1,14 @@
 # 🚀 Catzilla Framework - Transparent Performance Report
-Generated: 2025-08-16 03:07:40
+Generated: 2025-08-21 05:19:05
 
 ## 📋 Executive Summary
 
 This report provides a transparent, feature-by-feature comparison of Catzilla
 against leading Python web frameworks (FastAPI, Flask, Django).
 
-- **Total Benchmarks**: 184
+- **Total Benchmarks**: 188
 - **Frameworks Tested**: catzilla, django, fastapi, flask
-- **Feature Categories**: 7
+- **Feature Categories**: 8
 
 ## 🎯 Feature-by-Feature Analysis
 
@@ -16,114 +16,120 @@ against leading Python web frameworks (FastAPI, Flask, Django).
 
 | Framework | Avg RPS | Max RPS | Avg Latency (ms) | Min Latency (ms) |
 |-----------|---------|---------|------------------|------------------|
-| Catzilla | 14429 | 16768 | 8.00 | 6.56 |
-| Django | 454 | 605 | 221.37 | 163.43 |
-| Fastapi | 1262 | 1406 | 79.93 | 71.25 |
-| Flask | 726 | 1661 | 33.43 | 8.13 |
+| Catzilla | 12973 | 14118 | 8.78 | 7.80 |
+| Django | 479 | 569 | 207.33 | 173.85 |
+| Fastapi | 1129 | 1197 | 88.51 | 83.00 |
+| Flask | 500 | 1442 | 24.46 | 0.00 |
 
 **Catzilla Performance Advantage:**
 
-- **3075.7% faster** than Django
-- **1043.3% faster** than Fastapi
-- **1886.4% faster** than Flask
+- **2608.7% faster** than Django
+- **1048.8% faster** than Fastapi
+- **2496.6% faster** than Flask
 
 ### Basic
 
 | Framework | Avg RPS | Max RPS | Avg Latency (ms) | Min Latency (ms) |
 |-----------|---------|---------|------------------|------------------|
-| Catzilla | 8600 | 12483 | 15.01 | 9.61 |
-| Django | 626 | 1664 | 21.43 | 1.33 |
-| Fastapi | 2036 | 2558 | 52.05 | 38.97 |
-| Flask | 638 | 1613 | 24.06 | 5.03 |
+| Catzilla | 10360 | 14113 | 22.30 | 9.28 |
 
 **Catzilla Performance Advantage:**
 
-- **1274.6% faster** than Django
-- **322.4% faster** than Fastapi
-- **1247.2% faster** than Flask
 
 ### Di
 
 | Framework | Avg RPS | Max RPS | Avg Latency (ms) | Min Latency (ms) |
 |-----------|---------|---------|------------------|------------------|
-| Catzilla | 14065 | 17682 | 8.87 | 6.40 |
-| Django | 602 | 1661 | 20.69 | 2.97 |
-| Fastapi | 2778 | 3095 | 36.15 | 32.25 |
+| Catzilla | 15139 | 17167 | 7.33 | 6.54 |
+| Django | 551 | 1662 | 24.49 | 2.99 |
+| Fastapi | 2468 | 2576 | 40.78 | 38.84 |
 
 **Catzilla Performance Advantage:**
 
-- **2237.0% faster** than Django
-- **406.4% faster** than Fastapi
+- **2646.9% faster** than Django
+- **513.5% faster** than Fastapi
 
 ### File-Operations
 
 | Framework | Avg RPS | Max RPS | Avg Latency (ms) | Min Latency (ms) |
 |-----------|---------|---------|------------------|------------------|
-| Catzilla | 11218 | 13392 | 11.94 | 8.44 |
-| Django | 375 | 393 | 262.39 | 250.70 |
-| Fastapi | 2751 | 3140 | 36.71 | 31.77 |
-| Flask | 574 | 836 | 129.82 | 106.34 |
+| Catzilla | 13645 | 16669 | 8.90 | 6.44 |
+| Django | 407 | 606 | 189.15 | 4.13 |
+| Fastapi | 2454 | 2592 | 40.91 | 38.47 |
+| Flask | 649 | 1663 | 24.15 | 2.30 |
 
 **Catzilla Performance Advantage:**
 
-- **2889.5% faster** than Django
-- **307.8% faster** than Fastapi
-- **1852.7% faster** than Flask
+- **3254.5% faster** than Django
+- **456.0% faster** than Fastapi
+- **2002.4% faster** than Flask
 
 ### Middleware
 
 | Framework | Avg RPS | Max RPS | Avg Latency (ms) | Min Latency (ms) |
 |-----------|---------|---------|------------------|------------------|
-| Catzilla | 7239 | 10935 | 21.89 | 10.39 |
-| Django | 627 | 1569 | 43.05 | 2.34 |
-| Fastapi | 350 | 368 | 282.16 | 270.20 |
-| Flask | 638 | 1654 | 27.75 | 0.00 |
+| Catzilla | 25763 | 36307 | 4.46 | 2.99 |
+| Django | 14854 | 15070 | 6.65 | 6.46 |
+| Fastapi | 1090 | 1118 | 91.22 | 88.55 |
 
 **Catzilla Performance Advantage:**
 
-- **1054.8% faster** than Django
-- **1968.1% faster** than Fastapi
-- **1034.5% faster** than Flask
+- **73.4% faster** than Django
+- **2264.0% faster** than Fastapi
 
 ### Real-World
 
 | Framework | Avg RPS | Max RPS | Avg Latency (ms) | Min Latency (ms) |
 |-----------|---------|---------|------------------|------------------|
-| Catzilla | 7466 | 9914 | 17.64 | 11.98 |
-| Django | 410 | 1011 | 121.40 | 10.61 |
-| Fastapi | 1720 | 2908 | 64.39 | 34.30 |
-| Flask | 353 | 932 | 118.65 | 9.56 |
+| Catzilla | 9141 | 12720 | 13.68 | 8.72 |
+| Django | 388 | 1096 | 150.75 | 7.33 |
+| Fastapi | 1771 | 2581 | 62.07 | 38.65 |
+| Flask | 360 | 839 | 136.08 | 12.42 |
 
 **Catzilla Performance Advantage:**
 
-- **1720.4% faster** than Django
-- **334.0% faster** than Fastapi
-- **2012.9% faster** than Flask
+- **2256.5% faster** than Django
+- **416.1% faster** than Fastapi
+- **2438.6% faster** than Flask
+
+### Sqlalchemy-Di
+
+| Framework | Avg RPS | Max RPS | Avg Latency (ms) | Min Latency (ms) |
+|-----------|---------|---------|------------------|------------------|
+| Catzilla | 12987 | 17915 | 19.80 | 5.94 |
+| Fastapi | 2146 | 2418 | 59.14 | 41.26 |
+| Flask | 561 | 1656 | 43.05 | 5.43 |
+
+**Catzilla Performance Advantage:**
+
+- **505.1% faster** than Fastapi
+- **2213.0% faster** than Flask
 
 ### Validation
 
 | Framework | Avg RPS | Max RPS | Avg Latency (ms) | Min Latency (ms) |
 |-----------|---------|---------|------------------|------------------|
-| Catzilla | 5678 | 11686 | 39.47 | 10.02 |
-| Django | 473 | 922 | 38.14 | 1.12 |
-| Fastapi | 1272 | 2101 | 127.41 | 48.81 |
-| Flask | 899 | 1663 | 36.29 | 3.12 |
+| Catzilla | 3933 | 6460 | 44.57 | 15.75 |
+| Django | 570 | 1648 | 27.26 | 0.00 |
+| Fastapi | 1695 | 3066 | 104.02 | 32.55 |
+| Flask | 870 | 1627 | 33.67 | 2.03 |
 
 **Catzilla Performance Advantage:**
 
-- **1100.2% faster** than Django
-- **346.4% faster** than Fastapi
-- **531.4% faster** than Flask
+- **589.7% faster** than Django
+- **132.0% faster** than Fastapi
+- **352.0% faster** than Flask
 
 ## 🏆 Top Performers by Category
 
-- **Background-Tasks**: Catzilla (16768 RPS)
-- **Basic**: Catzilla (12483 RPS)
-- **Di**: Catzilla (17682 RPS)
-- **File-Operations**: Catzilla (13392 RPS)
-- **Middleware**: Catzilla (10935 RPS)
-- **Real-World**: Catzilla (9914 RPS)
-- **Validation**: Catzilla (11686 RPS)
+- **Background-Tasks**: Catzilla (14118 RPS)
+- **Basic**: Catzilla (14113 RPS)
+- **Di**: Catzilla (17167 RPS)
+- **File-Operations**: Catzilla (16669 RPS)
+- **Middleware**: Catzilla (36307 RPS)
+- **Real-World**: Catzilla (12720 RPS)
+- **Sqlalchemy-Di**: Catzilla (17915 RPS)
+- **Validation**: Catzilla (6460 RPS)
 
 ## 📊 Visualization Files
 
@@ -143,6 +149,7 @@ The following charts have been generated for detailed analysis:
 - `file_operations_performance_analysis.png` - File-Operations detailed analysis
 - `middleware_performance_analysis.png` - Middleware detailed analysis
 - `real_world_performance_analysis.png` - Real-World detailed analysis
+- `sqlalchemy_di_performance_analysis.png` - Sqlalchemy-Di detailed analysis
 - `validation_performance_analysis.png` - Validation detailed analysis
 
 ---
