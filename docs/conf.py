@@ -39,12 +39,12 @@ html_meta = {
 
 # -- General configuration ---------------------------------------------------
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.viewcode',
-    'sphinx.ext.napoleon',
+    # 'sphinx.ext.autodoc',  # Disabled - not needed for static documentation
+    # 'sphinx.ext.viewcode',  # Disabled - not needed for static documentation
+    # 'sphinx.ext.napoleon',  # Disabled - not needed for static documentation
     'sphinx.ext.intersphinx',
     'sphinx.ext.todo',
-    'sphinx.ext.coverage',
+    # 'sphinx.ext.coverage',  # Disabled - not needed for static documentation
     'myst_parser',
     'sphinx_sitemap',
     # 'sphinx.ext.autosectionlabel',  # Disabled to avoid duplicate label warnings

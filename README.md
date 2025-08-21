@@ -311,35 +311,38 @@ For detailed compatibility information, see [SYSTEM_COMPATIBILITY.md](SYSTEM_COM
 
 ## 📊 Performance Benchmarks
 
-Catzilla v0.1.0 has been extensively benchmarked against other popular Python web frameworks using `wrk` with 100 concurrent connections over 10 seconds on a **real production server**.
+Catzilla v0.2.0 has been extensively benchmarked against other popular Python web frameworks using `wrk` with 100 concurrent connections over 10 seconds across **comprehensive real-world scenarios**.
 
 ### 🏗️ Real Server Environment
-**Intel Xeon E3-1245 v5 @ 3.5GHz** | **31GB RAM** | **AlmaLinux 8.10** | **Python 3.8.12**
+**Production Server** | **wrk Benchmarking Tool** | **macOS** | **10s duration, 100 connections, 4 threads**
 
-This is authentic benchmark data collected from a real server environment, not synthetic or optimized conditions.
+This is authentic benchmark data collected from real testing environments, covering 8 different performance categories.
 
 ### 🚀 Exceptional Performance Results
 
-**Massive Throughput Advantage**: Catzilla delivers **extraordinary performance** compared to all competitors:
+**Massive Throughput Advantage**: Catzilla v0.2.0 delivers **extraordinary performance** across advanced features:
 
-| Endpoint | Catzilla | FastAPI | Django | Flask | vs FastAPI |
-|----------|----------|---------|---------|-------|------------|
-| **Hello World** | **24,759** | 2,844 | 2,339 | 2,875 | **+771% faster** |
-| **JSON Response** | **15,754** | 2,421 | 2,208 | 2,672 | **+551% faster** |
-| **Path Parameters** | **17,590** | 2,341 | 2,219 | 2,624 | **+651% faster** |
-| **Query Parameters** | **11,145** | 1,419 | 1,975 | 2,431 | **+685% faster** |
-| **Complex JSON** | **14,843** | 2,008 | 2,162 | 2,521 | **+639% faster** |
+#### Advanced Features Performance
+| Feature | Catzilla | FastAPI | Flask | Django | vs FastAPI |
+|---------|----------|---------|--------|---------|------------|
+| **Dependency Injection** | **34,947** | 5,778 | N/A | 15,080 | **+505% faster** |
+| **Database Operations** | **35,984** | 5,721 | 15,221 | N/A | **+529% faster** |
+| **Background Tasks** | **32,614** | 4,669 | 15,417 | 1,834 | **+598% faster** |
+| **Middleware Processing** | **21,574** | 1,108 | N/A | 15,049 | **+1,847% faster** |
+| **Validation** | **17,344** | 4,759 | 16,946 | 15,396 | **+264% faster** |
 
 **Ultra-Low Latency**: Catzilla consistently delivers **significantly lower latency**:
-- **Average Latency**: 5.97ms vs FastAPI's 47.69ms (**87% lower**)
-- **Hello World**: 4.07ms vs FastAPI's 35.04ms (**88% lower**)
-- **Complex JSON**: 6.79ms vs FastAPI's 49.63ms (**86% lower**)
+- **Basic Operations**: 5.5ms vs FastAPI's 22.1ms (**75% lower**)
+- **Dependency Injection**: 3.1ms vs FastAPI's 17.7ms (**82% lower**)
+- **Database Operations**: 3.1ms vs FastAPI's 17.6ms (**82% lower**)
+- **Background Tasks**: 3.3ms vs FastAPI's 21.3ms (**85% lower**)
 
 ### Performance Summary
-- **Average RPS**: 16,818 vs FastAPI's 2,207 (**+662% faster**)
-- **Peak Performance**: 24,759 RPS on hello world endpoint
-- **Ultra-Low Latency**: Sub-7ms average response times
-- **Framework Leadership**: Fastest Python web framework tested by massive margins
+- **Peak Performance**: 35,984 RPS (Database Operations)
+- **Average Performance**: 24,000+ RPS across all categories
+- **Latency Leadership**: 3-6x lower latency than FastAPI
+- **Feature Advantage**: Outstanding performance even with complex features
+- **Framework Leadership**: Fastest Python web framework across all tested scenarios
 
 > 📋 **[View Complete Performance Report](./PERFORMANCE_REPORT_v0.2.0.md)** - Detailed analysis with technical insights
 
@@ -352,10 +355,6 @@ This is authentic benchmark data collected from a real server environment, not s
 ![Overall Requests per Second](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/overall_requests_per_second.png)
 
 #### Key Performance Metrics
-
-![Requests per Second Comparison](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/requests_per_second.png)
-
-![Latency Comparison](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/latency_comparison.png)
 
 ![Catzilla Advantage Analysis](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/catzilla_advantage_analysis.png)
 
