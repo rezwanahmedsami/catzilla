@@ -96,7 +96,8 @@ def check_dependencies():
         "sphinx",
         "sphinx_rtd_theme",
         "myst_parser",
-        "sphinx_sitemap"
+        "sphinx_sitemap",
+        "sphinx_copybutton"
     ]
 
     missing_packages = []
