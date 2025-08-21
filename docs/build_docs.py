@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build script for Catzilla v0.2.0 documentation.
+Build script for Catzilla  documentation.
 """
 
 import subprocess
@@ -11,7 +11,7 @@ from pathlib import Path
 
 def build_docs():
     """Build the documentation using Sphinx."""
-    print("🚀 Building Catzilla v0.2.0 Documentation...")
+    print("🚀 Building Catzilla  Documentation...")
 
     docs_dir = Path(__file__).parent
     build_dir = docs_dir / "_build" / "html"
@@ -123,7 +123,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Catzilla v0.2.0 Documentation Builder"
+        description="Catzilla  Documentation Builder"
     )
 
     parser.add_argument(
@@ -141,7 +141,7 @@ def main():
 
     args = parser.parse_args()
 
-    print("📚 Catzilla v0.2.0 Documentation Builder")
+    print("📚 Catzilla  Documentation Builder")
     print("=" * 50)
 
     if args.command == "check":

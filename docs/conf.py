@@ -8,8 +8,8 @@ release = '0.2.0'
 version = '0.2.0'
 
 # SEO and Meta Information
-html_title = 'Catzilla v0.2.0 - The FastAPI Killer | Lightning Fast Python Web Framework Documentation'
-html_short_title = 'Catzilla v0.2.0 Documentation'
+html_title = 'Catzilla - The FastAPI Killer | Lightning Fast Python Web Framework Documentation'
+html_short_title = 'Catzilla  Documentation'
 
 # Enhanced meta tags for better SEO
 html_meta = {
@@ -73,8 +73,8 @@ html_baseurl = "https://catzilla.rezwanahmedsami.com/"
 # -- Options for HTML output -------------------------------------------------
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
-html_title = 'Catzilla v0.2.0 - The FastAPI Killer'
-html_short_title = 'Catzilla v0.2.0'
+html_title = 'Catzilla - The FastAPI Killer'
+html_short_title = 'Catzilla '
 
 # Custom CSS for enhanced styling and SEO
 html_css_files = [

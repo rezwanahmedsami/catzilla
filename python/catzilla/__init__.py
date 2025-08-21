@@ -1,24 +1,5 @@
 """
-Catzilla Web Framework - The Python Framework That BREAKS THE RULES
-
-Catzilla v0.2.0 Memory Revolution + Dependency Injection:
-- 🚀 30% less memory usage with jemalloc
-- ⚡ C-speed request processing + DI resolution
-- 🎯 Zero-configuration optimization
-- 📈 Gets faster over time
-- 🔄 Revolutionary C-compiled dependency injection
-
-Ultra-Fast Validation Engine:
-- 🔥 100x faster than Pydantic
-- ⚡ C-accelerated field validation
-- 🧠 jemalloc memory optimization
-- 🎯 Minimal memory footprint
-
-Revolutionary Dependency Injection:
-- ⚡ C-compiled service resolution (5-8x faster)
-- 🎯 FastAPI-style decorators and type hints
-- 🔄 Advanced scope management (singleton, request, etc.)
-- 🧠 Memory-optimized with jemalloc integration
+Catzilla is a revolutionary web framework designed to push the boundaries of Python web development.
 """
 
 from .app import Catzilla
@@ -132,7 +113,7 @@ from .validation import (
     reset_performance_stats,
 )
 
-__version__ = "0.2.0"
+__version__ = "0.1.0"
 
 __all__ = [
     # Core framework
