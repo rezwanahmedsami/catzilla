@@ -1,15 +1,15 @@
 {
   "metadata": {
     "created": "2025-08-16T22:04:12+06:00",
-    "last_updated": "2025-08-17T22:54:25+06:00",
+    "last_updated": "2025-08-21T11:30:17+06:00",
     "version": "3.0",
     "description": "Catzilla Framework Transparent Benchmarking System - Framework Keyed"
   },
   "categories": {
     "basic": {
-      "last_run": "2025-08-17T22:54:25+06:00",
+      "last_run": "2025-08-21T11:30:17+06:00",
       "test_params": {
-        "duration": "3s",
+        "duration": "1s",
         "connections": 100,
         "threads": 4,
         "tool": "wrk"
@@ -22,14 +22,14 @@
             "endpoint_name": "basic_complex_json",
             "benchmark_type": "basic",
             "method": "GET",
-            "duration": "3s",
+            "duration": "1s",
             "connections": 100,
             "threads": 4,
-            "requests_per_sec": "8682.17",
-            "avg_latency": "21.74ms",
-            "p99_latency": "361.69ms",
-            "transfer_per_sec": "3.91MB",
-            "timestamp": "2025-08-17T22:54:15+06:00"
+            "requests_per_sec": "9361.13",
+            "avg_latency": "23.67ms",
+            "p99_latency": "305.37ms",
+            "transfer_per_sec": "4.22MB",
+            "timestamp": "2025-08-21T11:30:06+06:00"
           },
           {
             "framework": "catzilla",
@@ -37,14 +37,14 @@
             "endpoint_name": "basic_hello_world",
             "benchmark_type": "basic",
             "method": "GET",
-            "duration": "3s",
+            "duration": "1s",
             "connections": 100,
             "threads": 4,
-            "requests_per_sec": "14112.74",
-            "avg_latency": "9.28ms",
-            "p99_latency": "108.68ms",
-            "transfer_per_sec": "1.36MB",
-            "timestamp": "2025-08-17T22:53:42+06:00"
+            "requests_per_sec": "14692.67",
+            "avg_latency": "13.01ms",
+            "p99_latency": "185.58ms",
+            "transfer_per_sec": "1.42MB",
+            "timestamp": "2025-08-21T11:29:40+06:00"
           },
           {
             "framework": "catzilla",
@@ -52,14 +52,14 @@
             "endpoint_name": "basic_json_response",
             "benchmark_type": "basic",
             "method": "GET",
-            "duration": "3s",
+            "duration": "1s",
             "connections": 100,
             "threads": 4,
-            "requests_per_sec": "12198.61",
-            "avg_latency": "11.39ms",
-            "p99_latency": "150.02ms",
-            "transfer_per_sec": "1.81MB",
-            "timestamp": "2025-08-17T22:53:50+06:00"
+            "requests_per_sec": "12303.06",
+            "avg_latency": "16.54ms",
+            "p99_latency": "227.10ms",
+            "transfer_per_sec": "1.83MB",
+            "timestamp": "2025-08-21T11:29:47+06:00"
           },
           {
             "framework": "catzilla",
@@ -67,14 +67,14 @@
             "endpoint_name": "basic_path_params",
             "benchmark_type": "basic",
             "method": "GET",
-            "duration": "3s",
+            "duration": "1s",
             "connections": 100,
             "threads": 4,
-            "requests_per_sec": "10844.86",
-            "avg_latency": "12.77ms",
-            "p99_latency": "166.80ms",
-            "transfer_per_sec": "2.03MB",
-            "timestamp": "2025-08-17T22:53:58+06:00"
+            "requests_per_sec": "8880.57",
+            "avg_latency": "30.56ms",
+            "p99_latency": "268.90ms",
+            "transfer_per_sec": "1.66MB",
+            "timestamp": "2025-08-21T11:29:53+06:00"
           },
           {
             "framework": "catzilla",
@@ -82,17 +82,33 @@
             "endpoint_name": "basic_query_params",
             "benchmark_type": "basic",
             "method": "GET",
-            "duration": "3s",
+            "duration": "1s",
             "connections": 100,
             "threads": 4,
-            "requests_per_sec": "5959.13",
-            "avg_latency": "56.32ms",
-            "p99_latency": "752.30ms",
-            "transfer_per_sec": "7.89MB",
-            "timestamp": "2025-08-17T22:54:06+06:00"
+            "requests_per_sec": "7166.67",
+            "avg_latency": "40.01ms",
+            "p99_latency": "462.00ms",
+            "transfer_per_sec": "9.49MB",
+            "timestamp": "2025-08-21T11:29:59+06:00"
           }
         ],
-        "fastapi": [],
+        "fastapi": [
+          {
+            "framework": "fastapi",
+            "endpoint": "/",
+            "endpoint_name": "basic_hello_world",
+            "benchmark_type": "basic",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "2964.48",
+            "avg_latency": "33.81ms",
+            "p99_latency": "52.76ms",
+            "transfer_per_sec": "425.59KB",
+            "timestamp": "2025-08-21T09:35:50+06:00"
+          }
+        ],
         "flask": [],
         "django": []
       }
@@ -3092,6 +3108,83 @@
           }
         ]
       }
+    }
+  },
+  "system_info": {
+    "collection_timestamp": "2025-08-21T11:30:17.210275",
+    "os": {
+      "system": "Darwin",
+      "machine": "x86_64",
+      "architecture": "64bit",
+      "macos_details": {
+        "ProductName": "macOS",
+        "ProductVersion": "15.5"
+      }
+    },
+    "cpu": {
+      "processor": "i386",
+      "machine": "x86_64",
+      "architecture": "64bit",
+      "cpu_count_logical": 8,
+      "cpu_count_physical": 4,
+      "cpu_freq": {
+        "current": 1100,
+        "min": 1100,
+        "max": 1100
+      },
+      "model": "Quad-Core Intel Core i5",
+      "speed": "1.1 GHz",
+      "processors": "1",
+      "total_cores": "4"
+    },
+    "memory": {
+      "total": 8589934592,
+      "available": 3316256768,
+      "used": 4430409728,
+      "free": 1261510656,
+      "percent_used": 61.4,
+      "total_gb": 8.0,
+      "available_gb": 3.09,
+      "used_gb": 4.13,
+      "swap": {
+        "total": 2147483648,
+        "used": 1309671424,
+        "free": 837812224,
+        "percent": 61.0,
+        "total_gb": 2.0
+      }
+    },
+    "disk": {
+      "total_gb": 418.16,
+      "free_gb": 9.62,
+      "percent_used": 93.8
+    },
+    "network": {
+      "interface_count": 13,
+      "has_ipv4": true,
+      "has_ipv6": true
+    },
+    "python": {
+      "version_info": {
+        "major": 3,
+        "minor": 10,
+        "micro": 11,
+        "releaselevel": "final"
+      },
+      "platform": "darwin",
+      "implementation": {
+        "name": "cpython",
+        "version": "3.10.11"
+      }
+    },
+    "process": {
+      "name": "Python",
+      "memory_usage_mb": 12.07
+    },
+    "load_average": {
+      "1min": 2.51,
+      "5min": 2.55,
+      "15min": 2.34
     }
   }
 }

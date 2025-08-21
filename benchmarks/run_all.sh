@@ -696,6 +696,22 @@ generate_summary() {
     # Create new structure with framework-keyed organization
     local temp_file="/tmp/benchmark_summary_new.json"
 
+    # Collect system information
+    print_status "Collecting system information..."
+    local system_info_json=""
+    if [ -f "$BENCHMARK_DIR/tools/system_info.py" ]; then
+        # Run system_info.py and capture output
+        cd "$PROJECT_ROOT"  # Run from project root
+        if [ -f "$VENV_PATH/bin/activate" ]; then
+            source "$VENV_PATH/bin/activate"
+        fi
+        system_info_json=$(python3 "$BENCHMARK_DIR/tools/system_info.py" --format json 2>/dev/null || echo "{}")
+        print_success "System information collected"
+    else
+        print_warning "system_info.py not found, skipping system information collection"
+        system_info_json="{}"
+    fi
+
     if [ "$should_create_new" = true ]; then
         # Create completely new structure
         cat > "$temp_file" << EOF
@@ -706,6 +722,7 @@ generate_summary() {
     "version": "3.0",
     "description": "Catzilla Framework Transparent Benchmarking System - Framework Keyed"
   },
+  "system_info": $system_info_json,
   "categories": {
     "$current_benchmark_type": {
       "last_run": "$(date -Iseconds)",
@@ -803,8 +820,8 @@ EOF
 
         # Now merge with existing summary using jq
         local final_temp="/tmp/benchmark_summary_final.json"
-        echo "$existing_summary" | jq --argjson newcat "$(cat "$temp_file")" \
-            '.metadata.last_updated = "'$(date -Iseconds)'" | .categories."'$current_benchmark_type'" = $newcat' \
+        echo "$existing_summary" | jq --argjson newcat "$(cat "$temp_file")" --argjson sysinfo "$system_info_json" \
+            '.metadata.last_updated = "'$(date -Iseconds)'" | .system_info = $sysinfo | .categories."'$current_benchmark_type'" = $newcat' \
             > "$final_temp" 2>/dev/null
 
         if [ $? -eq 0 ] && [ -s "$final_temp" ]; then
@@ -812,7 +829,7 @@ EOF
         else
             print_warning "jq merge failed, falling back to simple replacement"
             # Fallback: create new structure with existing categories preserved manually
-            echo "$existing_summary" | jq '.metadata.last_updated = "'$(date -Iseconds)'"' > "$final_temp" 2>/dev/null
+            echo "$existing_summary" | jq --argjson sysinfo "$system_info_json" '.metadata.last_updated = "'$(date -Iseconds)'" | .system_info = $sysinfo' > "$final_temp" 2>/dev/null
             if [ $? -eq 0 ]; then
                 # Add the new category data
                 local new_summary=$(cat "$final_temp")
