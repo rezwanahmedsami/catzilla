@@ -36,12 +36,16 @@ class CMakeBuild(build_ext):
         use_jemalloc = os.getenv('USE_JEMALLOC', 'ON').upper() == 'ON'
 
         # For CI builds, be more conservative with jemalloc
-        if os.getenv('CI') or os.getenv('CIBUILDWHEEL'):
+        if os.getenv('CI') or os.getenv('CIBUILDWHEEL') or os.getenv('GITHUB_ACTIONS'):
             # Disable jemalloc for CI builds to avoid complex prefix detection issues
             use_jemalloc = False
             print("CI environment detected: Disabling jemalloc for reliable builds")
 
-        # Python version compatibility checks
+        # Additional check: if jemalloc source/lib is missing, disable it
+        jemalloc_lib_path = os.path.join(source_dir, 'deps', 'jemalloc', 'lib')
+        if use_jemalloc and not os.path.exists(jemalloc_lib_path):
+            use_jemalloc = False
+            print(f"jemalloc library not found at {jemalloc_lib_path}, disabling jemalloc")        # Python version compatibility checks
         python_version = sys.version_info
         print(f"Building for Python {python_version.major}.{python_version.minor}.{python_version.micro} on {platform.system()}")
 
@@ -159,10 +163,50 @@ class CMakeBuild(build_ext):
             source_dir = os.path.dirname(os.path.abspath(__file__))
             os.chdir(source_dir)
 
+            print(f"Running CMake configure: {' '.join(configure_cmd)}")
             subprocess.check_call(configure_cmd, env=env, cwd=source_dir)
+            print("✅ CMake configuration successful")
         except subprocess.CalledProcessError as e:
-            print(f"CMake configure failed with return code {e.returncode}")
-            print("Attempting fallback configuration...")
+            print(f"❌ CMake configuration failed with return code {e.returncode}")
+
+            # For CI environments, try comprehensive fallback
+            if os.getenv('CI') or os.getenv('CIBUILDWHEEL') or os.getenv('GITHUB_ACTIONS'):
+                print("🔄 Attempting CI-optimized fallback configuration...")
+
+                # Simplified fallback configuration for CI
+                fallback_cmd = [
+                    'cmake', '-S', '.', '-B', build_dir,
+                    f'-DPython3_EXECUTABLE={sys.executable}',
+                    '-DUSE_JEMALLOC=OFF',
+                    '-DCATZILLA_BUILD_TESTS=OFF',  # Skip tests in wheel builds
+                    '-DCMAKE_BUILD_TYPE=Release'
+                ]
+
+                # Add platform-specific fallbacks
+                if sys.platform == 'darwin':
+                    # macOS CI fallback - minimal configuration
+                    fallback_cmd.extend([
+                        '-DCMAKE_OSX_DEPLOYMENT_TARGET=10.15',
+                        '-DCMAKE_C_COMPILER=/usr/bin/clang',
+                        '-DCMAKE_CXX_COMPILER=/usr/bin/clang++'
+                    ])
+                elif sys.platform.startswith('linux'):
+                    # Linux CI fallback
+                    fallback_cmd.extend([
+                        '-DCMAKE_C_COMPILER=gcc',
+                        '-DCMAKE_CXX_COMPILER=g++'
+                    ])
+
+                try:
+                    print(f"Running fallback CMake: {' '.join(fallback_cmd)}")
+                    subprocess.check_call(fallback_cmd, env=env, cwd=source_dir)
+                    print("✅ Fallback CMake configuration successful")
+                except subprocess.CalledProcessError as fallback_e:
+                    print(f"❌ Fallback also failed: {fallback_e}")
+                    # Continue with existing fallback logic below
+                    print("Attempting minimal configuration...")
+            else:
+                print("Attempting fallback configuration...")
 
             # Fallback: minimal configuration without extra flags
             fallback_cmd = [
