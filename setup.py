@@ -20,6 +20,9 @@ class CMakeBuild(build_ext):
 
     def build_extension(self, ext):
         """Build the C extension module using CMake"""
+        # Define source directory first (needed for jemalloc path checks)
+        source_dir = os.path.dirname(os.path.abspath(__file__))
+
         # Ensure build directory is clean for CI builds
         build_dir = os.path.abspath(self.build_temp)
 
@@ -159,8 +162,7 @@ class CMakeBuild(build_ext):
         # Ensure we're in the right working directory
         original_cwd = os.getcwd()
         try:
-            # Change to source directory for CMake
-            source_dir = os.path.dirname(os.path.abspath(__file__))
+            # Change to source directory for CMake (source_dir already defined above)
             os.chdir(source_dir)
 
             print(f"Running CMake configure: {' '.join(configure_cmd)}")
@@ -248,8 +250,7 @@ class CMakeBuild(build_ext):
             import multiprocessing
             build_cmd.extend(['--parallel', str(min(multiprocessing.cpu_count(), 8))])
 
-        # Ensure we build from the right directory
-        source_dir = os.path.dirname(os.path.abspath(__file__))
+        # Ensure we build from the right directory (source_dir already defined above)
         subprocess.check_call(build_cmd, env=env, cwd=source_dir)
 
         # 3) Locate the built extension file
