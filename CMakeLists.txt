@@ -37,7 +37,7 @@ if(NOT CMAKE_C_COMPILER)
     endif()
 endif()
 
-project(catzilla VERSION 0.1.0 LANGUAGES C CXX)
+project(catzilla VERSION 0.2.0 LANGUAGES C CXX)
 
 # Set C11 standard with MSVC compatibility
 set(CMAKE_C_STANDARD 11)

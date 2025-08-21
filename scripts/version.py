@@ -205,7 +205,7 @@ class VersionManager:
         """Update VERSION constant in this script"""
         script_path = Path(__file__)
         content = script_path.read_text()
-        content = re.sub(r'VERSION = "[^"]*"', f'VERSION = "{new_version}"', content)
+        content = re.sub(r'VERSION = "0.2.0"]*"', f'VERSION = "0.2.0"', content)
         script_path.write_text(content)
         print(f"✅ Updated version.py to {new_version}")
 
