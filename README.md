@@ -251,7 +251,7 @@ app = App()  # Same memory benefits
 
 ## 🖥️ System Compatibility
 
-Catzilla v0.1.0 provides comprehensive cross-platform support with pre-built wheels for all major operating systems and Python versions.
+Catzilla provides comprehensive cross-platform support with pre-built wheels for all major operating systems and Python versions.
 
 ### 📋 Supported Platforms
 
@@ -423,11 +423,8 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 📖 **[Complete Documentation](https://catzilla.rezwanahmedsami.com/)** - Comprehensive guides, API reference, and tutorials
 
 ### Quick References
-- **[Getting Started Guide](docs/getting-started.md)** - Quick start tutorial
-- **[API Reference](docs/api-reference.md)** - Complete API documentation
-- **[Routing Guide](docs/routing.md)** - Advanced routing features
+- **[Getting Started Guide](docs/getting-started/quickstart.rst)** - Quick start tutorial
 - **[System Compatibility](SYSTEM_COMPATIBILITY.md)** - Platform support and installation guide
-- **[Jemalloc Troubleshooting](docs/jemalloc_troubleshooting.md)** - Resolving jemalloc-related issues
 - **[Examples](examples/)** - Real-world example applications
 - **[Contributing](CONTRIBUTING.md)** - Development guide for contributors
 
