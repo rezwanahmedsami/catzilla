@@ -1,86 +1,11 @@
 {
   "metadata": {
     "created": "2025-08-21T05:36:57+00:00",
-    "last_updated": "2025-08-21T06:44:47+00:00",
+    "last_updated": "2025-08-21T07:12:23+00:00",
     "version": "3.0",
     "description": "Catzilla Framework Transparent Benchmarking System - Framework Keyed"
   },
-  "system_info": {
-    "collection_timestamp": "2025-08-21T06:44:47.575229",
-    "os": {
-      "system": "Linux",
-      "machine": "x86_64",
-      "architecture": "64bit",
-      "linux_distribution": {
-        "NAME": "AlmaLinux",
-        "VERSION": "8.10 (Cerulean Leopard)",
-        "ID": "almalinux",
-        "VERSION_ID": "8.10"
-      }
-    },
-    "cpu": {
-      "processor": "x86_64",
-      "machine": "x86_64",
-      "architecture": "64bit",
-      "cpu_count_logical": 16,
-      "cpu_count_physical": 8,
-      "cpu_freq": {
-        "current": 3075.26,
-        "min": 800.0,
-        "max": 3201.0
-      },
-      "model": "Intel(R) Xeon(R) E-2388G CPU @ 3.20GHz"
-    },
-    "memory": {
-      "total": 67407724544,
-      "available": 59732881408,
-      "used": 4012851200,
-      "free": 25399095296,
-      "percent_used": 11.4,
-      "total_gb": 62.78,
-      "available_gb": 55.63,
-      "used_gb": 3.74,
-      "swap": {
-        "total": 1073733632,
-        "used": 684797952,
-        "free": 388935680,
-        "percent": 63.8,
-        "total_gb": 1.0
-      }
-    },
-    "disk": {
-      "total_gb": 474.58,
-      "free_gb": 322.6,
-      "percent_used": 32.02
-    },
-    "network": {
-      "interface_count": 15,
-      "has_ipv4": true,
-      "has_ipv6": true
-    },
-    "python": {
-      "version_info": {
-        "major": 3,
-        "minor": 11,
-        "micro": 9,
-        "releaselevel": "final"
-      },
-      "platform": "linux",
-      "implementation": {
-        "name": "cpython",
-        "version": "3.11.9"
-      }
-    },
-    "process": {
-      "name": "python3",
-      "memory_usage_mb": 15.86
-    },
-    "load_average": {
-      "1min": 2.89,
-      "5min": 1.68,
-      "15min": 1.28
-    }
-  },
+  "system_info": {},
   "categories": {
     "basic": {
       "last_run": "2025-08-21T05:41:15+00:00",
@@ -2833,6 +2758,445 @@
             "p99_latency": "23.00ms",
             "transfer_per_sec": "3.47MB",
             "timestamp": "2025-08-21T06:44:22+00:00"
+          }
+        ]
+      }
+    },
+    "validation": {
+      "last_run": "2025-08-21T07:12:23+00:00",
+      "test_params": {
+        "duration": "10s",
+        "connections": 100,
+        "threads": 4,
+        "tool": "wrk"
+      },
+      "results": {
+        "catzilla": [
+          {
+            "framework": "catzilla",
+            "endpoint": "/validation/array",
+            "endpoint_name": "validation_array_validation",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "6035.27",
+            "avg_latency": "16.94ms",
+            "p99_latency": "33.54ms",
+            "transfer_per_sec": "11.22MB",
+            "timestamp": "2025-08-21T07:08:25+00:00"
+          },
+          {
+            "framework": "catzilla",
+            "endpoint": "/validation/complex",
+            "endpoint_name": "validation_complex_validation",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "10629.90",
+            "avg_latency": "9.61ms",
+            "p99_latency": "27.05ms",
+            "transfer_per_sec": "1.50MB",
+            "timestamp": "2025-08-21T07:08:10+00:00"
+          },
+          {
+            "framework": "catzilla",
+            "endpoint": "/health",
+            "endpoint_name": "validation_health_check",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "22692.56",
+            "avg_latency": "4.81ms",
+            "p99_latency": "21.71ms",
+            "transfer_per_sec": "4.83MB",
+            "timestamp": "2025-08-21T07:07:09+00:00"
+          },
+          {
+            "framework": "catzilla",
+            "endpoint": "/validation/nested",
+            "endpoint_name": "validation_nested_validation",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "11205.46",
+            "avg_latency": "9.07ms",
+            "p99_latency": "25.94ms",
+            "transfer_per_sec": "1.58MB",
+            "timestamp": "2025-08-21T07:07:54+00:00"
+          },
+          {
+            "framework": "catzilla",
+            "endpoint": "/validation/performance",
+            "endpoint_name": "validation_performance_test",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "3346.07",
+            "avg_latency": "30.09ms",
+            "p99_latency": "30.09ms",
+            "transfer_per_sec": "483.61KB",
+            "timestamp": "2025-08-21T07:08:40+00:00"
+          },
+          {
+            "framework": "catzilla",
+            "endpoint": "/validation/simple",
+            "endpoint_name": "validation_simple_validation",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "17344.45",
+            "avg_latency": "5.98ms",
+            "p99_latency": "22.47ms",
+            "transfer_per_sec": "4.76MB",
+            "timestamp": "2025-08-21T07:07:24+00:00"
+          },
+          {
+            "framework": "catzilla",
+            "endpoint": "/validation/user",
+            "endpoint_name": "validation_user_validation",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "14285.74",
+            "avg_latency": "7.28ms",
+            "p99_latency": "24.05ms",
+            "transfer_per_sec": "5.95MB",
+            "timestamp": "2025-08-21T07:07:39+00:00"
+          }
+        ],
+        "fastapi": [
+          {
+            "framework": "fastapi",
+            "endpoint": "/validation/array",
+            "endpoint_name": "validation_array_validation",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "1597.56",
+            "avg_latency": "62.30ms",
+            "p99_latency": "93.19ms",
+            "transfer_per_sec": "2.70MB",
+            "timestamp": "2025-08-21T06:59:02+00:00"
+          },
+          {
+            "framework": "fastapi",
+            "endpoint": "/validation/complex",
+            "endpoint_name": "validation_complex_validation",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "2898.44",
+            "avg_latency": "34.26ms",
+            "p99_latency": "52.15ms",
+            "transfer_per_sec": "2.21MB",
+            "timestamp": "2025-08-21T06:58:47+00:00"
+          },
+          {
+            "framework": "fastapi",
+            "endpoint": "/health",
+            "endpoint_name": "validation_health_check",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "5377.46",
+            "avg_latency": "18.58ms",
+            "p99_latency": "35.02ms",
+            "transfer_per_sec": "1.19MB",
+            "timestamp": "2025-08-21T06:57:47+00:00"
+          },
+          {
+            "framework": "fastapi",
+            "endpoint": "/validation/nested",
+            "endpoint_name": "validation_nested_validation",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "3187.73",
+            "avg_latency": "31.17ms",
+            "p99_latency": "48.26ms",
+            "transfer_per_sec": "2.00MB",
+            "timestamp": "2025-08-21T06:58:32+00:00"
+          },
+          {
+            "framework": "fastapi",
+            "endpoint": "/validation/performance",
+            "endpoint_name": "validation_performance_test",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "612.04",
+            "avg_latency": "161.69ms",
+            "p99_latency": "227.93ms",
+            "transfer_per_sec": "3.44MB",
+            "timestamp": "2025-08-21T06:59:17+00:00"
+          },
+          {
+            "framework": "fastapi",
+            "endpoint": "/validation/simple",
+            "endpoint_name": "validation_simple_validation",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "4758.64",
+            "avg_latency": "20.99ms",
+            "p99_latency": "38.21ms",
+            "transfer_per_sec": "1.28MB",
+            "timestamp": "2025-08-21T06:58:02+00:00"
+          },
+          {
+            "framework": "fastapi",
+            "endpoint": "/validation/user",
+            "endpoint_name": "validation_user_validation",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "4024.36",
+            "avg_latency": "24.88ms",
+            "p99_latency": "42.56ms",
+            "transfer_per_sec": "1.60MB",
+            "timestamp": "2025-08-21T06:58:17+00:00"
+          }
+        ],
+        "flask": [
+          {
+            "framework": "flask",
+            "endpoint": "/validation/array",
+            "endpoint_name": "validation_array_validation",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "15250.64",
+            "avg_latency": "6.50ms",
+            "p99_latency": "17.47ms",
+            "transfer_per_sec": "15.24MB",
+            "timestamp": "2025-08-21T07:05:43+00:00"
+          },
+          {
+            "framework": "flask",
+            "endpoint": "/validation/complex",
+            "endpoint_name": "validation_complex_validation",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "16464.79",
+            "avg_latency": "5.82ms",
+            "p99_latency": "18.58ms",
+            "transfer_per_sec": "8.57MB",
+            "timestamp": "2025-08-21T07:05:28+00:00"
+          },
+          {
+            "framework": "flask",
+            "endpoint": "/health",
+            "endpoint_name": "validation_health_check",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "17079.12",
+            "avg_latency": "5.45ms",
+            "p99_latency": "16.52ms",
+            "transfer_per_sec": "4.06MB",
+            "timestamp": "2025-08-21T07:04:27+00:00"
+          },
+          {
+            "framework": "flask",
+            "endpoint": "/validation/nested",
+            "endpoint_name": "validation_nested_validation",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "16430.52",
+            "avg_latency": "5.79ms",
+            "p99_latency": "17.76ms",
+            "transfer_per_sec": "7.02MB",
+            "timestamp": "2025-08-21T07:05:13+00:00"
+          },
+          {
+            "framework": "flask",
+            "endpoint": "/validation/performance",
+            "endpoint_name": "validation_performance_test",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "14644.97",
+            "avg_latency": "6.88ms",
+            "p99_latency": "16.59ms",
+            "transfer_per_sec": "4.37MB",
+            "timestamp": "2025-08-21T07:05:58+00:00"
+          },
+          {
+            "framework": "flask",
+            "endpoint": "/validation/simple",
+            "endpoint_name": "validation_simple_validation",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "16946.42",
+            "avg_latency": "5.60ms",
+            "p99_latency": "19.67ms",
+            "transfer_per_sec": "4.86MB",
+            "timestamp": "2025-08-21T07:04:42+00:00"
+          },
+          {
+            "framework": "flask",
+            "endpoint": "/validation/user",
+            "endpoint_name": "validation_user_validation",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "16774.47",
+            "avg_latency": "5.60ms",
+            "p99_latency": "16.33ms",
+            "transfer_per_sec": "5.73MB",
+            "timestamp": "2025-08-21T07:04:57+00:00"
+          }
+        ],
+        "django": [
+          {
+            "framework": "django",
+            "endpoint": "/validation/array",
+            "endpoint_name": "validation_array_validation",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "15182.54",
+            "avg_latency": "6.32ms",
+            "p99_latency": "16.28ms",
+            "transfer_per_sec": "3.98MB",
+            "timestamp": "2025-08-21T07:11:57+00:00"
+          },
+          {
+            "framework": "django",
+            "endpoint": "/validation/complex",
+            "endpoint_name": "validation_complex_validation",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "15071.00",
+            "avg_latency": "6.44ms",
+            "p99_latency": "19.04ms",
+            "transfer_per_sec": "5.91MB",
+            "timestamp": "2025-08-21T07:11:42+00:00"
+          },
+          {
+            "framework": "django",
+            "endpoint": "/health",
+            "endpoint_name": "validation_health_check",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "4858.83",
+            "avg_latency": "20.52ms",
+            "p99_latency": "38.59ms",
+            "transfer_per_sec": "1.56MB",
+            "timestamp": "2025-08-21T07:10:42+00:00"
+          },
+          {
+            "framework": "django",
+            "endpoint": "/validation/nested",
+            "endpoint_name": "validation_nested_validation",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "15313.29",
+            "avg_latency": "6.30ms",
+            "p99_latency": "17.73ms",
+            "transfer_per_sec": "3.81MB",
+            "timestamp": "2025-08-21T07:11:27+00:00"
+          },
+          {
+            "framework": "django",
+            "endpoint": "/validation/performance",
+            "endpoint_name": "validation_performance_test",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "14756.77",
+            "avg_latency": "6.68ms",
+            "p99_latency": "20.14ms",
+            "transfer_per_sec": "4.26MB",
+            "timestamp": "2025-08-21T07:12:12+00:00"
+          },
+          {
+            "framework": "django",
+            "endpoint": "/validation/simple",
+            "endpoint_name": "validation_simple_validation",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "15396.35",
+            "avg_latency": "6.25ms",
+            "p99_latency": "18.72ms",
+            "transfer_per_sec": "3.01MB",
+            "timestamp": "2025-08-21T07:10:57+00:00"
+          },
+          {
+            "framework": "django",
+            "endpoint": "/validation/user",
+            "endpoint_name": "validation_user_validation",
+            "benchmark_type": "validation",
+            "method": "GET",
+            "duration": "10s",
+            "connections": 100,
+            "threads": 4,
+            "requests_per_sec": "15333.41",
+            "avg_latency": "6.27ms",
+            "p99_latency": "17.28ms",
+            "transfer_per_sec": "3.64MB",
+            "timestamp": "2025-08-21T07:11:12+00:00"
           }
         ]
       }
