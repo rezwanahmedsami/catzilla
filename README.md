@@ -345,11 +345,29 @@ This is authentic benchmark data collected from a real server environment, not s
 
 ### 📈 Performance Visualizations
 
-*Performance charts and detailed analysis available in the [Complete Performance Report](./PERFORMANCE_REPORT_v0.2.0.md)*
+#### Overall Performance Comparison
+
+![Overall Performance Summary](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/overall_performance_summary.png)
+
+![Overall Requests per Second](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/overall_requests_per_second.png)
+
+#### Key Performance Metrics
 
 ![Requests per Second Comparison](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/requests_per_second.png)
 
 ![Latency Comparison](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/latency_comparison.png)
+
+![Catzilla Advantage Analysis](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/catzilla_advantage_analysis.png)
+
+#### Feature-Specific Performance
+
+![Basic Operations Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/basic_performance_analysis.png)
+
+![Dependency Injection Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/di_performance_analysis.png)
+
+![Background Tasks Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/background_tasks_performance_analysis.png)
+
+*📋 **[View Complete Performance Report](./PERFORMANCE_REPORT_v0.2.0.md)** - Detailed analysis with all benchmark visualizations and technical insights*
 
 ### When to Choose Catzilla
 - ⚡ **High-throughput requirements** (API gateways, microservices, data pipelines)
