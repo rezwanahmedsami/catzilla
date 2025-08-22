@@ -22,6 +22,9 @@
 #include "../core/windows_compat.h"   // Windows compatibility
 #include <stdio.h>
 #include <string.h>
+#ifndef _WIN32
+#include <strings.h>          // For strcasecmp on POSIX systems
+#endif
 #include <stdlib.h>           // For malloc, free
 #include <math.h>             // For HUGE_VAL
 #ifdef _WIN32

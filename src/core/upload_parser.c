@@ -3,6 +3,9 @@
 #include "logging.h"
 #include "platform_compat.h"
 #include <string.h>
+#ifndef _WIN32
+#include <strings.h>  // For strncasecmp on POSIX systems
+#endif
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>

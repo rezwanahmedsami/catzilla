@@ -3,6 +3,9 @@
 #include "memory.h"
 #include "dependency.h"
 #include <string.h>
+#ifndef _WIN32
+#include <strings.h>  // For strcasecmp on POSIX systems
+#endif
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
