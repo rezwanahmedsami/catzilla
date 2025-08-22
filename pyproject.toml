@@ -181,6 +181,7 @@ python_functions = ["test_*"]
 python_classes = ["Test*"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+asyncio_default_test_loop_scope = "function"
 addopts = [
     "--strict-markers",
     "--strict-config",
