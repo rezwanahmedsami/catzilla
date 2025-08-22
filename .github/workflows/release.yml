@@ -80,8 +80,20 @@ jobs:
 
         # Test import and basic functionality
         python -c "
+        import sys
+        import platform
         import catzilla
-        print(f'✅ Import successful: Catzilla {catzilla.__version__}')
+
+        # Windows Unicode handling
+        if platform.system() == 'Windows':
+            import codecs
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace') if hasattr(sys.stdout, 'reconfigure') else None
+            try:
+                print(f'\\u2705 Import successful: Catzilla {catzilla.__version__}')
+            except UnicodeEncodeError:
+                print(f'[OK] Import successful: Catzilla {catzilla.__version__}')
+        else:
+            print(f'✅ Import successful: Catzilla {catzilla.__version__}')
 
         # Test basic app creation (no server startup to avoid timeouts)
         from catzilla import Catzilla, JSONResponse
@@ -91,9 +103,15 @@ jobs:
         def test_route(request):
             return JSONResponse({'status': 'ok', 'framework': 'catzilla'})
 
-        print('✅ Core functionality validated')
+        if platform.system() == 'Windows':
+            try:
+                print('\\u2705 Core functionality validated')
+            except UnicodeEncodeError:
+                print('[OK] Core functionality validated')
+        else:
+            print('✅ Core functionality validated')
         "
-        echo "✅ Core build validation completed"
+        echo "[OK] Core build validation completed"
 
     - name: Build and test Catzilla (Windows)
       if: runner.os == 'Windows'
@@ -108,8 +126,20 @@ jobs:
 
         # Test import and basic functionality
         python -c "
+        import sys
+        import platform
         import catzilla
-        print(f'✅ Import successful: Catzilla {catzilla.__version__}')
+
+        # Windows Unicode handling
+        if platform.system() == 'Windows':
+            import codecs
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace') if hasattr(sys.stdout, 'reconfigure') else None
+            try:
+                print(f'\\u2705 Import successful: Catzilla {catzilla.__version__}')
+            except UnicodeEncodeError:
+                print(f'[OK] Import successful: Catzilla {catzilla.__version__}')
+        else:
+            print(f'✅ Import successful: Catzilla {catzilla.__version__}')
 
         from catzilla import Catzilla, JSONResponse
         app = Catzilla(auto_validation=True, memory_profiling=False)
@@ -118,7 +148,13 @@ jobs:
         def test_route(request):
             return JSONResponse({'status': 'ok', 'framework': 'catzilla'})
 
-        print('✅ Core functionality validated')
+        if platform.system() == 'Windows':
+            try:
+                print('\\u2705 Core functionality validated')
+            except UnicodeEncodeError:
+                print('[OK] Core functionality validated')
+        else:
+            print('✅ Core functionality validated')
         "
         Write-Host "✅ Core build validation completed"
 
