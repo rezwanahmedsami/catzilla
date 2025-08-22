@@ -47,6 +47,9 @@ Enable DI and create your first service:
        user = user_service.get_user(user_id)
        return JSONResponse({"user": user})
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 **Key Benefits:**
 
 - ✅ **FastAPI Syntax** - Identical to FastAPI ``Depends()`` patterns
@@ -91,6 +94,9 @@ Create and inject basic services:
        message = user_service.welcome_user(name)
        return JSONResponse({"message": message})
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Database Dependencies
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -131,6 +137,9 @@ Real-world example with database simulation:
        await asyncio.sleep(0.01)
        user = user_repo.find_by_id(user_id)
        return JSONResponse({"user": user})
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Advanced Dependency Injection
 ------------------------------
@@ -229,6 +238,9 @@ Use named services for better organization and explicit dependencies:
            "message": "Services created and configured"
        })
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Async Dependency Injection
 ---------------------------
 
@@ -271,6 +283,9 @@ Create services that support async operations:
    ):
        user = await user_repo.find_user(user_id)
        return JSONResponse({"user": user, "type": "async_dependency_injection"})
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Database Connection Management
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -327,6 +342,9 @@ Practical async database service with connection management:
        user_data = await user_service.get_user(user_id)
        return JSONResponse({"user": user_data, "source": "database_service"})
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Enterprise Patterns
 --------------------
 
@@ -367,6 +385,9 @@ Add health checks and monitoring to your services:
        monitor.increment_requests()
        health_status = monitor.get_health_status()
        return JSONResponse(health_status)
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Service Composition
 ~~~~~~~~~~~~~~~~~~~
@@ -426,6 +447,9 @@ Compose complex services from simpler ones:
        # For demo purposes, using hardcoded values
        user = user_mgmt.create_user("John Doe", "john@example.com", 30)
        return JSONResponse({"user": user, "message": "User created successfully"})
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Performance and Best Practices
 -------------------------------
@@ -505,6 +529,9 @@ Migrate your FastAPI DI code with zero changes:
    def get_data(db: DatabaseService = Depends(get_database)):
        return db.get_data()
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
    # Catzilla equivalent (almost identical!)
    from catzilla import Catzilla, Depends, service, JSONResponse
    from catzilla.dependency_injection import set_default_container
@@ -520,6 +547,9 @@ Migrate your FastAPI DI code with zero changes:
    @app.get("/data")
    def get_data(request, db: DatabaseService = Depends("database")):
        return JSONResponse(db.get_data())
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 **Migration Steps:**
 
@@ -558,6 +588,9 @@ Configuration Injection
            "database_configured": bool(config.database_url),
            "redis_configured": bool(config.redis_url)
        })
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Testing with DI
 ~~~~~~~~~~~~~~~~

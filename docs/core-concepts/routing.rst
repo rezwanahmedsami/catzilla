@@ -45,6 +45,9 @@ Catzilla supports all standard HTTP methods with intuitive decorators:
    def options_users(request):
        return JSONResponse({"allowed_methods": ["GET", "POST", "PUT", "DELETE"]})
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Multiple HTTP Methods
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -281,6 +284,9 @@ Basic Router Groups
    # Register router groups with the main app
    app.include_router(api_v1)
    app.include_router(api_v2)
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Nested Router Groups
 ~~~~~~~~~~~~~~~~~~~~

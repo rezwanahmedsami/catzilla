@@ -48,6 +48,9 @@ Create middleware that applies to all routes:
    def home(request):
        return JSONResponse({"message": "Hello with timing middleware!"})
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Per-Route Middleware
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -77,6 +80,9 @@ Apply middleware to specific routes only:
    def public_endpoint(request):
        return JSONResponse({"message": "No authentication required"})
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Basic Middleware Patterns
 --------------------------
 
@@ -97,6 +103,9 @@ Log all incoming requests:
 
        print(f"📤 Response: {response.status_code}")
        return response
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 CORS Middleware
 ~~~~~~~~~~~~~~~
@@ -124,6 +133,9 @@ Handle Cross-Origin Resource Sharing:
 
        return response
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Error Handling Middleware
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -147,6 +159,9 @@ Catch and handle errors gracefully:
                {"error": "Internal server error"},
                status_code=500
            )
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Advanced Middleware
 -------------------
@@ -178,6 +193,9 @@ Control middleware execution order:
        response = call_next(request)
        # Send analytics data
        return response
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Async Middleware
 ~~~~~~~~~~~~~~~~
@@ -213,6 +231,9 @@ Middleware that works with async operations:
    def sync_handler(request):
        return JSONResponse({"message": "Sync handler with async middleware"})
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Conditional Middleware
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -243,6 +264,9 @@ Middleware that applies based on conditions:
    @app.get("/regular")
    def regular_endpoint(request):
        return JSONResponse({"data": "Regular response without rate limiting"})
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Middleware Composition
 ----------------------
@@ -300,6 +324,9 @@ Chain multiple middleware for complex processing:
            "request_id": request.state.request_id,
            "user_role": request.state.user_role
        })
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Custom Middleware Classes
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -360,6 +387,9 @@ Create reusable middleware classes:
    @app.get("/metrics-demo", middleware=[lambda r, c: metrics_middleware(r, c)])
    def metrics_demo(request):
        return JSONResponse({"message": "Response with metrics tracking"})
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Production Patterns
 -------------------
@@ -465,6 +495,9 @@ Monitor application performance:
            "slow_requests": performance_monitor.slow_requests[-5:]  # Last 5
        })
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Best Practices
 --------------
 
@@ -522,6 +555,9 @@ Best practices for middleware error handling:
                status_code=500
            )
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Performance Tips
 ~~~~~~~~~~~~~~~~
 
@@ -555,5 +591,8 @@ Optimize middleware for production:
    @app.get("/expensive-route", middleware=[expensive_middleware])
    def expensive_route(request):
        return JSONResponse({"message": "Expensive operation complete"})
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 This middleware system provides the flexibility and performance you need to build robust, production-ready applications with Catzilla.

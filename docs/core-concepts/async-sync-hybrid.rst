@@ -55,6 +55,9 @@ Catzilla automatically detects whether your handler is sync or async:
        await asyncio.sleep(0.1)  # Non-blocking!
        return JSONResponse({"type": "async", "execution": "event_loop"})
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Execution Contexts
 ~~~~~~~~~~~~~~~~~~
 

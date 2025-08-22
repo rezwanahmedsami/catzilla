@@ -44,6 +44,9 @@ Simple Model Definition
            }
        })
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Models with Field Validation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -83,6 +86,9 @@ Models with Field Validation
            "validation_time": "~2.3μs",  # Actual C-accelerated performance
            "validated": True
        }, status_code=201)
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Field Types and Constraints
 ---------------------------
@@ -177,6 +183,9 @@ List and Collection Fields
            "validation_time": "~2.8μs"
        })
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Nested Models
 -------------
 
@@ -220,6 +229,9 @@ Basic Nested Models
            "nested_validation": True
        }, status_code=201)
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Complex Nested Structures
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -258,6 +270,9 @@ Complex Nested Structures
            "total_validation_time": "~4.2μs"
        }, status_code=201)
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Custom Validation
 -----------------
 
@@ -295,6 +310,9 @@ Post-Initialization Validation
            "custom_rules_applied": True
        }, status_code=201)
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Enum Validation
 ~~~~~~~~~~~~~~~
 
@@ -330,6 +348,9 @@ Enum Validation
            "enum_validation": True
        }, status_code=201)
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Query and Path Parameter Validation
 -----------------------------------
 
@@ -357,6 +378,9 @@ Query Parameter Models
            "include_inactive": params.include_inactive,
            "results": []  # Your search logic here
        })
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Individual Parameter Validation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -389,6 +413,9 @@ Individual Parameter Validation
            },
            "api_key_valid": len(api_key) >= 32
        })
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Error Handling
 --------------
@@ -442,6 +469,9 @@ Custom Error Handling
                "message": str(e)
            }, status_code=400)
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Performance Monitoring
 ----------------------
 
@@ -467,6 +497,9 @@ Validation Performance Stats
                "list_validation": "~2.8μs"
            }
        })
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Real-Time Performance Test
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -494,6 +527,9 @@ Real-Time Performance Test
        result["total_time_note"] = "Validation time is ~2.3μs additional"
 
        return JSONResponse(result)
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Best Practices
 --------------
