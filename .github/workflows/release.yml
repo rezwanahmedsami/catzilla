@@ -116,7 +116,29 @@ jobs:
     - name: Build and test Catzilla (Windows)
       if: runner.os == 'Windows'
       run: |
+        # Build and install Catzilla
+        Write-Host "Building Catzilla..."
         scripts\build.bat
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "❌ Build failed with exit code $LASTEXITCODE"
+          exit 1
+        }
+
+        # Verify installation
+        Write-Host "Verifying Catzilla installation..."
+        python -c "import catzilla; print(f'Catzilla {catzilla.__version__} installed successfully')"
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "❌ Catzilla installation verification failed"
+          # Try manual installation as fallback
+          Write-Host "Attempting manual installation..."
+          python -m pip install -e .
+          python -c "import catzilla; print(f'Catzilla {catzilla.__version__} installed successfully')"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "❌ Manual installation also failed"
+            exit 1
+          }
+        }
+
         # Run only essential tests for release validation (avoid timeouts)
         Write-Host "Running core functionality tests..."
         python -m pytest tests/python/test_basic.py -v --tb=short --timeout=30
