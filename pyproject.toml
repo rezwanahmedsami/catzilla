@@ -12,7 +12,7 @@ name = "catzilla"
 version = "0.2.0"
 description = "Ultra-fast Python web framework with C-accelerated routing"
 readme = "README.md"
-license = "MIT"
+license = {text = "MIT"}
 authors = [
     {name = "Rezwan Ahmed Sami", email = "samiahmed0f0@gmail.com"}
 ]
