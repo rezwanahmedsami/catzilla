@@ -4,6 +4,7 @@
 // System headers
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>  // For strncasecmp on POSIX systems
 #include <stdio.h>
 #include <signal.h>
 
