@@ -16,6 +16,16 @@ def platform_emoji(emoji, alt_text):
 
 class CMakeBuild(build_ext):
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Ensure Windows console can handle Unicode output
+        if is_windows():
+            try:
+                import locale
+                locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
+            except:
+                pass  # Fallback to cp1252, platform_emoji will handle it
+
     @property
     def is_ci_environment(self):
         """Check if we're running in a CI environment"""
@@ -198,13 +208,13 @@ class CMakeBuild(build_ext):
 
             print(f"Running CMake configure: {' '.join(configure_cmd)}")
             subprocess.check_call(configure_cmd, env=env, cwd=source_dir)
-            print("✅ CMake configuration successful")
+            print(f"{platform_emoji('✅', '[SUCCESS]')} CMake configuration successful")
         except subprocess.CalledProcessError as e:
-            print(f"❌ CMake configuration failed with return code {e.returncode}")
+            print(f"{platform_emoji('❌', '[ERROR]')} CMake configuration failed with return code {e.returncode}")
 
             # For CI environments, try comprehensive fallback
             if os.getenv('CI') or os.getenv('CIBUILDWHEEL') or os.getenv('GITHUB_ACTIONS'):
-                print("🔄 Attempting CI-optimized fallback configuration...")
+                print(f"{platform_emoji('🔄', '[RETRY]')} Attempting CI-optimized fallback configuration...")
 
                 # Simplified fallback configuration for CI
                 fallback_cmd = [
@@ -233,9 +243,9 @@ class CMakeBuild(build_ext):
                 try:
                     print(f"Running fallback CMake: {' '.join(fallback_cmd)}")
                     subprocess.check_call(fallback_cmd, env=env, cwd=source_dir)
-                    print("✅ Fallback CMake configuration successful")
+                    print(f"{platform_emoji('✅', '[SUCCESS]')} Fallback CMake configuration successful")
                 except subprocess.CalledProcessError as fallback_e:
-                    print(f"❌ Fallback also failed: {fallback_e}")
+                    print(f"{platform_emoji('❌', '[ERROR]')} Fallback also failed: {fallback_e}")
                     # Continue with existing fallback logic below
                     print("Attempting minimal configuration...")
             else:
