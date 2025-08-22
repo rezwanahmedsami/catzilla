@@ -3,6 +3,7 @@ import os
 import sys
 import subprocess
 import platform
+import shutil
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
 
@@ -14,6 +15,12 @@ def platform_emoji(emoji, alt_text):
     return alt_text if is_windows() else emoji
 
 class CMakeBuild(build_ext):
+
+    @property
+    def is_ci_environment(self):
+        """Check if we're running in a CI environment"""
+        return bool(os.getenv('CI') or os.getenv('CIBUILDWHEEL') or os.getenv('GITHUB_ACTIONS'))
+
     def run(self):
         subprocess.check_call(['cmake', '--version'])
         super().run()
@@ -57,7 +64,22 @@ class CMakeBuild(build_ext):
             print("Warning: Disabling jemalloc for Python 3.11 in CI environment for compatibility")
             use_jemalloc = False
 
-        # 1) Configure with robust compiler detection
+                # Ensure build directory exists and is clean
+        if os.path.exists(build_dir):
+            print(f"Cleaning existing build directory: {build_dir}")
+            try:
+                shutil.rmtree(build_dir)
+            except Exception as e:
+                print(f"Warning: Could not clean build directory: {e}")
+
+        print(f"Creating build directory: {build_dir}")
+        os.makedirs(build_dir, exist_ok=True)
+
+        # Ensure source directory exists
+        if not os.path.exists(source_dir):
+            raise RuntimeError(f"Source directory not found: {source_dir}")
+
+        # 1) Configure with environment preservation and improved error handling
         configure_cmd = [
             'cmake', '-S', '.', '-B', build_dir,
             f'-DPython3_EXECUTABLE={sys.executable}',
@@ -77,17 +99,26 @@ class CMakeBuild(build_ext):
             ])
 
             # Handle architecture based on environment (cibuildwheel vs local build)
-            if os.getenv('CIBW_ARCHS_MACOS') or os.getenv('CMAKE_OSX_ARCHITECTURES'):
-                # CI/wheel building: Use environment-specified architecture
+            if self.is_ci_environment:
+                # CI: Use single architecture to avoid complex universal2 build issues
+                arch = platform.machine()  # Use runner's native arch (arm64 or x86_64)
+                configure_cmd.append(f'-DCMAKE_OSX_ARCHITECTURES={arch}')
+                print(f"CI macOS build: Using single architecture {arch}")
+            elif os.getenv('CIBW_ARCHS_MACOS') or os.getenv('CMAKE_OSX_ARCHITECTURES'):
+                # Local cibuildwheel: Use environment-specified architecture
                 arch = os.getenv('CMAKE_OSX_ARCHITECTURES', os.getenv('CIBW_ARCHS_MACOS', platform.machine()))
                 if arch == 'universal2':
                     # For universal2, let CMake handle it automatically
                     configure_cmd.append('-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64')
+                    print("Local build: Using universal2 architecture")
                 else:
                     configure_cmd.append(f'-DCMAKE_OSX_ARCHITECTURES={arch}')
+                    print(f"Local build: Using specified architecture {arch}")
             else:
                 # Local development: Use current machine architecture
-                configure_cmd.append(f'-DCMAKE_OSX_ARCHITECTURES={platform.machine()}')
+                arch = platform.machine()
+                configure_cmd.append(f'-DCMAKE_OSX_ARCHITECTURES={arch}')
+                print(f"Local development: Using machine architecture {arch}")
         elif sys.platform.startswith('linux'):
             # Linux: Set compilers for Ubuntu CI compatibility
             configure_cmd.extend([
@@ -239,18 +270,28 @@ class CMakeBuild(build_ext):
             # Restore original working directory
             os.chdir(original_cwd)
 
-        # 2) Build with environment preservation
+        # 2) Build with environment preservation and conservative parallelism
         build_cmd = ['cmake', '--build', build_dir]
         # On Windows, explicitly use Release configuration to avoid python3XX_d.lib issues
         if sys.platform == 'win32':
             build_cmd.extend(['--config', 'Release'])
 
-        # Add parallel build support for faster compilation
+        # Add parallel build support for faster compilation, but conservative for CI
         if sys.platform != 'win32':
             import multiprocessing
-            build_cmd.extend(['--parallel', str(min(multiprocessing.cpu_count(), 8))])
+            if self.is_ci_environment:
+                # CI: Use fewer parallel jobs to avoid resource conflicts
+                parallel_jobs = min(2, multiprocessing.cpu_count())
+                print(f"CI build: Using {parallel_jobs} parallel jobs")
+            else:
+                # Local: Use more aggressive parallelism
+                parallel_jobs = min(multiprocessing.cpu_count(), 8)
+                print(f"Local build: Using {parallel_jobs} parallel jobs")
+
+            build_cmd.extend(['--parallel', str(parallel_jobs)])
 
         # Ensure we build from the right directory (source_dir already defined above)
+        print(f"Running CMake build: {' '.join(build_cmd)}")
         subprocess.check_call(build_cmd, env=env, cwd=source_dir)
 
         # 3) Locate the built extension file
