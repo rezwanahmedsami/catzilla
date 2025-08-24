@@ -16,6 +16,15 @@ JEMALLOC_LIB_FILE="${JEMALLOC_SOURCE_DIR}/lib/libjemalloc.a"
 echo -e "${BLUE}🧠 jemalloc Build Script${NC}"
 echo -e "${BLUE}========================${NC}"
 
+# Skip jemalloc build on Windows
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]] || \
+   [[ "$(uname -s)" == "MINGW"* ]] || [[ "$(uname -s)" == "MSYS"* ]] || \
+   [[ -n "$WINDIR" ]] || [[ -n "$SYSTEMROOT" ]]; then
+    echo -e "${YELLOW}⏭️  Skipping jemalloc build on Windows platform${NC}"
+    echo -e "${BLUE}💡 Windows builds use standard memory allocator${NC}"
+    exit 0
+fi
+
 # Check if jemalloc source directory exists
 if [ ! -d "${JEMALLOC_SOURCE_DIR}" ]; then
     echo -e "${RED}❌ Error: jemalloc source directory not found: ${JEMALLOC_SOURCE_DIR}${NC}"

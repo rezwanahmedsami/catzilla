@@ -93,6 +93,10 @@ Async/Sync Hybrid Example
    def create_user(request, user: User):
        return JSONResponse({"user": user.dict()})
 
+
+   if __name__ == "__main__":
+    app.listen(port=8000)
+
 Documentation Structure
 -----------------------
 

@@ -97,6 +97,9 @@ Catzilla's killer feature - seamlessly mixing async and sync handlers:
            "performance_gain": f"{((0.26 - total_time) / 0.26 * 100):.1f}%"
        })
 
+    if __name__ == "__main__":
+        app.listen(port=8000)
+
 Path Parameters
 ---------------
 

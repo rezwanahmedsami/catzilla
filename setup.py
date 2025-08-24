@@ -54,12 +54,18 @@ class CMakeBuild(build_ext):
         # Check for jemalloc environment variable
         # Determine if we should use jemalloc (disable for CI builds with issues)
         use_jemalloc = os.getenv('USE_JEMALLOC', 'ON').upper() == 'ON'
+        catzilla_use_jemalloc = os.getenv('CATZILLA_USE_JEMALLOC', '').upper() == '1'
 
-        # For CI builds, be more conservative with jemalloc
+        # For CI builds, be more conservative with jemalloc unless explicitly enabled
         if os.getenv('CI') or os.getenv('CIBUILDWHEEL') or os.getenv('GITHUB_ACTIONS'):
-            # Disable jemalloc for CI builds to avoid complex prefix detection issues
-            use_jemalloc = False
-            print("CI environment detected: Disabling jemalloc for reliable builds")
+            if catzilla_use_jemalloc:
+                # Explicitly requested jemalloc in CI
+                use_jemalloc = True
+                print("CI environment: jemalloc explicitly enabled via CATZILLA_USE_JEMALLOC=1")
+            else:
+                # Disable jemalloc for CI builds by default to avoid complex prefix detection issues
+                use_jemalloc = False
+                print("CI environment detected: Disabling jemalloc for reliable builds (use CATZILLA_USE_JEMALLOC=1 to force enable)")
 
         # Additional check: if jemalloc source/lib is missing, disable it
         jemalloc_lib_path = os.path.join(source_dir, 'deps', 'jemalloc', 'lib')

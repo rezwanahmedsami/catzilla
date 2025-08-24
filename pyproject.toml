@@ -249,6 +249,10 @@ ensure_newline_before_comments = true
 line_length = 88
 
 # cibuildwheel configuration for professional wheel building
+# Platform-specific jemalloc support:
+# - Linux: jemalloc enabled (static linking)
+# - macOS: jemalloc enabled (static linking)
+# - Windows: jemalloc disabled (uses standard allocator)
 [tool.cibuildwheel]
 # Build for Python 3.9-3.13 across all platforms
 build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
@@ -265,16 +269,18 @@ skip = [
 # Build settings
 build-frontend = "build"
 
-# Install build dependencies
-before-build = "pip install cmake pybind11"
+# Install build dependencies and build jemalloc (except Windows)
+before-build = [
+    "git submodule update --init --recursive",
+    "bash scripts/build_jemalloc.sh || true",
+    "pip install cmake pybind11"
+]
 
-# Test settings - skip x86_64 macOS due to segfault in C extension during wheel testing
-# (Works fine in development and actual usage, only fails in cibuildwheel test environment)
-# test-requires = "pytest"
-# test-command = "python -c \"import catzilla; app = catzilla.App(); print('✅ Catzilla working!')\""
-# test-skip = "*-macosx_*_x86_64"
+# Test settings - verify jemalloc integration
+test-requires = "pytest"
+test-command = "python -c \"import catzilla; app = catzilla.Catzilla(); print('✅ Catzilla wheel test passed')\""
 
-# Environment variables for all platforms
+# Environment variables for all platforms - jemalloc enabled by default (overridden per platform)
 environment = { CMAKE_BUILD_TYPE = "Release" }
 
 # Architecture selection for different platforms
@@ -282,12 +288,14 @@ environment = { CMAKE_BUILD_TYPE = "Release" }
 archs = ["x86_64"]  # Removed aarch64 to prevent stuck builds on x86_64 runners
 # Linux-specific settings for manylinux containers
 before-all = [
+    # Initialize git submodules for jemalloc
+    "git submodule update --init --recursive",
     # Try to use vault.centos.org mirrors if standard ones fail
     "yum-config-manager --add-repo http://vault.centos.org/centos/7/os/x86_64/ || true",
     "yum-config-manager --add-repo http://vault.centos.org/centos/7/updates/x86_64/ || true",
     "yum clean all || true",
     # Install build dependencies with fallback to apt (for Ubuntu-based images)
-    "yum install -y cmake3 gcc gcc-c++ make python3-devel --skip-broken || (apt-get update && apt-get install -y cmake build-essential python3-dev)",
+    "yum install -y cmake3 gcc gcc-c++ make python3-devel autoconf automake libtool --skip-broken || (apt-get update && apt-get install -y cmake build-essential python3-dev autoconf automake libtool)",
     # Create cmake symlink for compatibility
     "ln -sf /usr/bin/cmake3 /usr/bin/cmake || true",
 ]
@@ -298,23 +306,36 @@ manylinux-aarch64-image = "manylinux2014"
 # Build for both Intel and Apple Silicon - but each separately to avoid cross-compilation issues
 archs = ["x86_64", "arm64"]
 # macOS-specific settings
-before-all = "brew install cmake"
+before-all = [
+    "git submodule update --init --recursive",
+    "brew install cmake autoconf automake libtool"
+]
 # Skip architecture requirement in delocate to avoid Python library conflicts
 repair-wheel-command = "delocate-wheel -w {dest_dir} -v {wheel}"
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
-# Windows-specific settings
-before-all = "choco install cmake --installargs='ADD_CMAKE_TO_PATH=System'"
+# Windows-specific settings - Skip jemalloc on Windows
+before-all = [
+    "git submodule update --init --recursive",
+    "choco install cmake --installargs='ADD_CMAKE_TO_PATH=System'"
+]
+# Skip jemalloc build on Windows
+before-build = [
+    "pip install cmake pybind11"
+]
 
 [tool.cibuildwheel.linux.environment]
-CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release"
+CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release -DCATZILLA_USE_JEMALLOC=1"
+CATZILLA_USE_JEMALLOC = "1"
 
 [tool.cibuildwheel.macos.environment]
-CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15"
+CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 -DCATZILLA_USE_JEMALLOC=1"
 MACOSX_DEPLOYMENT_TARGET = "10.15"
+CATZILLA_USE_JEMALLOC = "1"
 # Set platform name to help CMake detect target architecture
 PLAT_NAME = "{wheel}"
 
 [tool.cibuildwheel.windows.environment]
-CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release"
+CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release -DCATZILLA_USE_JEMALLOC=0"
+CATZILLA_USE_JEMALLOC = "0"
