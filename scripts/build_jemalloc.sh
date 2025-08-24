@@ -59,12 +59,72 @@ echo -e "\n${GREEN}⚙️  Configuring jemalloc...${NC}"
 
 # Platform-specific CFLAGS for proper symbol visibility
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS: Ensure symbols are exported for static linking into shared libraries
-    export SPECIFIED_CFLAGS="-fPIC -O2"
-    export SPECIFIED_CXXFLAGS="-fPIC -O2"
-    export CFLAGS="-fPIC -O2"
-    export CXXFLAGS="-fPIC -O2"
-    CONFIGURE_ARGS="--enable-static --disable-shared --disable-doc --disable-debug --enable-prof --enable-stats --with-pic --disable-initial-exec-tls --disable-cc-silence"
+    # macOS: Build universal binary for both x86_64 and arm64
+    # Set deployment target to match what cibuildwheel expects
+    export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-"10.15"}
+
+    echo -e "\n${YELLOW}🏗️  Building universal jemalloc binary for macOS (x86_64 + arm64)...${NC}"
+
+    # Build for x86_64
+    echo -e "${BLUE}📦 Building x86_64 binary...${NC}"
+    export CFLAGS="-fPIC -O2 -mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET} -arch x86_64"
+    export CXXFLAGS="-fPIC -O2 -mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET} -arch x86_64"
+    export LDFLAGS="-arch x86_64"
+    CONFIGURE_ARGS="--enable-static --disable-shared --disable-doc --disable-debug --enable-prof --enable-stats --with-pic --disable-initial-exec-tls --disable-cc-silence --host=x86_64-apple-darwin"
+
+    ./autogen.sh ${CONFIGURE_ARGS}
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}❌ Error: jemalloc x86_64 configuration failed${NC}"
+        exit 1
+    fi
+
+    NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo "4")
+    make -j${NPROC}
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}❌ Error: jemalloc x86_64 build failed${NC}"
+        exit 1
+    fi
+
+    # Save x86_64 library
+    mkdir -p build_temp
+    cp lib/libjemalloc.a build_temp/libjemalloc_x86_64.a
+    cp lib/libjemalloc_pic.a build_temp/libjemalloc_pic_x86_64.a
+
+    # Clean for arm64 build
+    make distclean || true
+
+    # Build for arm64
+    echo -e "${BLUE}📦 Building arm64 binary...${NC}"
+    export CFLAGS="-fPIC -O2 -mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET} -arch arm64"
+    export CXXFLAGS="-fPIC -O2 -mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET} -arch arm64"
+    export LDFLAGS="-arch arm64"
+    CONFIGURE_ARGS="--enable-static --disable-shared --disable-doc --disable-debug --enable-prof --enable-stats --with-pic --disable-initial-exec-tls --disable-cc-silence --host=arm64-apple-darwin"
+
+    ./autogen.sh ${CONFIGURE_ARGS}
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}❌ Error: jemalloc arm64 configuration failed${NC}"
+        exit 1
+    fi
+
+    make -j${NPROC}
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}❌ Error: jemalloc arm64 build failed${NC}"
+        exit 1
+    fi
+
+    # Save arm64 library
+    cp lib/libjemalloc.a build_temp/libjemalloc_arm64.a
+    cp lib/libjemalloc_pic.a build_temp/libjemalloc_pic_arm64.a
+
+    # Create universal binaries
+    echo -e "${BLUE}🔗 Creating universal binaries...${NC}"
+    mkdir -p lib
+    lipo -create build_temp/libjemalloc_x86_64.a build_temp/libjemalloc_arm64.a -output lib/libjemalloc.a
+    lipo -create build_temp/libjemalloc_pic_x86_64.a build_temp/libjemalloc_pic_arm64.a -output lib/libjemalloc_pic.a
+
+    # Clean up temporary files
+    rm -rf build_temp
+
 else
     # Linux: Use default visibility settings
     export SPECIFIED_CFLAGS="-fvisibility=default -fPIC -O2"
@@ -72,23 +132,22 @@ else
     export CFLAGS="-fvisibility=default -fPIC -O2"
     export CXXFLAGS="-fvisibility=default -fPIC -O2"
     CONFIGURE_ARGS="--enable-static --disable-shared --disable-doc --disable-debug --enable-prof --enable-stats --with-pic --disable-initial-exec-tls --disable-cc-silence"
-fi
 
-./autogen.sh ${CONFIGURE_ARGS}
+    ./autogen.sh ${CONFIGURE_ARGS}
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}❌ Error: jemalloc configuration failed${NC}"
+        exit 1
+    fi
 
-if [ $? -ne 0 ]; then
-    echo -e "${RED}❌ Error: jemalloc configuration failed${NC}"
-    exit 1
-fi
+    # Build jemalloc
+    echo -e "\n${GREEN}🔨 Building jemalloc (this may take a few minutes)...${NC}"
+    NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo "4")
+    make -j${NPROC}
 
-# Build jemalloc
-echo -e "\n${GREEN}🔨 Building jemalloc (this may take a few minutes)...${NC}"
-NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo "4")
-make -j${NPROC}
-
-if [ $? -ne 0 ]; then
-    echo -e "${RED}❌ Error: jemalloc build failed${NC}"
-    exit 1
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}❌ Error: jemalloc build failed${NC}"
+        exit 1
+    fi
 fi
 
 # Verify the static library was created
