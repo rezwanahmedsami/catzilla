@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "catzilla"
-version = "0.2.0-beta2"
+version = "0.2.0"
 description = "Ultra-fast Python web framework with C-accelerated routing"
 readme = "README.md"
 license = {text = "MIT"}
