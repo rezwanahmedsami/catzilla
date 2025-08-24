@@ -852,7 +852,12 @@ if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC)
 
     # Validate and link jemalloc library - prefer PIC version for shared library
     if(JEMALLOC_LIBRARIES_PIC AND EXISTS "${JEMALLOC_LIBRARIES_PIC}")
-        target_link_libraries(_catzilla PRIVATE ${JEMALLOC_LIBRARIES_PIC})
+        # macOS: Use force_load to ensure all jemalloc symbols are included
+        if(APPLE)
+            target_link_options(_catzilla PRIVATE "-Wl,-force_load,${JEMALLOC_LIBRARIES_PIC}")
+        else()
+            target_link_libraries(_catzilla PRIVATE ${JEMALLOC_LIBRARIES_PIC})
+        endif()
 
         # Additional libraries for jemalloc (e.g. math library on Unix/Linux)
         if(JEMALLOC_ADDITIONAL_LIBS)
@@ -861,7 +866,12 @@ if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC)
 
         message(STATUS "✅ Linking Python extension with jemalloc PIC library: ${JEMALLOC_LIBRARIES_PIC}")
     elseif(JEMALLOC_LIBRARIES AND EXISTS "${JEMALLOC_LIBRARIES}")
-        target_link_libraries(_catzilla PRIVATE ${JEMALLOC_LIBRARIES})
+        # macOS: Use force_load to ensure all jemalloc symbols are included
+        if(APPLE)
+            target_link_options(_catzilla PRIVATE "-Wl,-force_load,${JEMALLOC_LIBRARIES}")
+        else()
+            target_link_libraries(_catzilla PRIVATE ${JEMALLOC_LIBRARIES})
+        endif()
 
         # Additional libraries for jemalloc (e.g. math library on Unix/Linux)
         if(JEMALLOC_ADDITIONAL_LIBS)

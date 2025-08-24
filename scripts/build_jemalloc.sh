@@ -56,23 +56,25 @@ fi
 
 # Configure jemalloc with optimal settings for Catzilla
 echo -e "\n${GREEN}⚙️  Configuring jemalloc...${NC}"
-# Set CFLAGS to override default visibility settings and ensure symbols are exported
-# Use SPECIFIED_CFLAGS which is checked before CONFIGURE_CFLAGS in the jemalloc configure script
-export SPECIFIED_CFLAGS="-fvisibility=default -fPIC -O2"
-export SPECIFIED_CXXFLAGS="-fvisibility=default -fPIC -O2"
-# Also set regular CFLAGS/CXXFLAGS as backup
-export CFLAGS="-fvisibility=default -fPIC -O2"
-export CXXFLAGS="-fvisibility=default -fPIC -O2"
-./autogen.sh \
-    --enable-static \
-    --disable-shared \
-    --disable-doc \
-    --disable-debug \
-    --enable-prof \
-    --enable-stats \
-    --with-pic \
-    --disable-initial-exec-tls \
-    --disable-cc-silence
+
+# Platform-specific CFLAGS for proper symbol visibility
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS: Ensure symbols are exported for static linking into shared libraries
+    export SPECIFIED_CFLAGS="-fPIC -O2"
+    export SPECIFIED_CXXFLAGS="-fPIC -O2"
+    export CFLAGS="-fPIC -O2"
+    export CXXFLAGS="-fPIC -O2"
+    CONFIGURE_ARGS="--enable-static --disable-shared --disable-doc --disable-debug --enable-prof --enable-stats --with-pic --disable-initial-exec-tls --disable-cc-silence"
+else
+    # Linux: Use default visibility settings
+    export SPECIFIED_CFLAGS="-fvisibility=default -fPIC -O2"
+    export SPECIFIED_CXXFLAGS="-fvisibility=default -fPIC -O2"
+    export CFLAGS="-fvisibility=default -fPIC -O2"
+    export CXXFLAGS="-fvisibility=default -fPIC -O2"
+    CONFIGURE_ARGS="--enable-static --disable-shared --disable-doc --disable-debug --enable-prof --enable-stats --with-pic --disable-initial-exec-tls --disable-cc-silence"
+fi
+
+./autogen.sh ${CONFIGURE_ARGS}
 
 if [ $? -ne 0 ]; then
     echo -e "${RED}❌ Error: jemalloc configuration failed${NC}"
