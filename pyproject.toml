@@ -278,7 +278,7 @@ before-build = [
 
 # Test settings - verify jemalloc integration
 test-requires = "pytest"
-test-command = "python -c \"import catzilla; app = catzilla.Catzilla(); print('✅ Catzilla wheel test passed')\""
+test-command = "python -c \"import catzilla; app = catzilla.Catzilla(); print('Catzilla wheel test passed')\""
 
 # Environment variables for all platforms - jemalloc enabled by default (overridden per platform)
 environment = { CMAKE_BUILD_TYPE = "Release" }
@@ -301,6 +301,8 @@ before-all = [
 ]
 manylinux-x86_64-image = "manylinux2014"
 manylinux-aarch64-image = "manylinux2014"
+# Linux test command with UTF-8 encoding
+test-command = "python -c \"import catzilla; app = catzilla.Catzilla(); print('✅ Catzilla wheel test passed')\""
 
 [tool.cibuildwheel.macos]
 # Build for both Intel and Apple Silicon - but each separately to avoid cross-compilation issues
@@ -312,6 +314,8 @@ before-all = [
 ]
 # Skip architecture requirement in delocate to avoid Python library conflicts
 repair-wheel-command = "delocate-wheel -w {dest_dir} -v {wheel}"
+# macOS test command with UTF-8 support
+test-command = "python -c \"import catzilla; app = catzilla.Catzilla(); print('✅ Catzilla wheel test passed')\""
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
@@ -324,6 +328,8 @@ before-all = [
 before-build = [
     "pip install cmake pybind11"
 ]
+# Windows-specific test command without Unicode characters
+test-command = "python -c \"import catzilla; app = catzilla.Catzilla(); print('Catzilla wheel test passed successfully')\""
 
 [tool.cibuildwheel.linux.environment]
 CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release -DCATZILLA_USE_JEMALLOC=1"
