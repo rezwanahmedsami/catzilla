@@ -354,9 +354,22 @@ jobs:
           fi
         done
 
-    - name: Extract tag name
+    - name: Extract tag name and convert to PyPI format
       id: tag
-      run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      run: |
+        tag=${GITHUB_REF#refs/tags/}
+        echo "tag=$tag" >> $GITHUB_OUTPUT
+
+        # Convert tag to PyPI version format for test releases
+        # v0.2.0-beta3 -> 0.2.0b3
+        # v1.0.0-rc1 -> 1.0.0rc1
+        # v1.0.0 -> 1.0.0 (unchanged)
+        if [[ "$tag" == *"-"* ]]; then
+          pypi_version=$(echo "$tag" | sed 's/^v//' | sed 's/-beta/b/' | sed 's/-rc/rc/' | sed 's/-alpha/a/')
+        else
+          pypi_version=$(echo "$tag" | sed 's/^v//')
+        fi
+        echo "pypi_version=$pypi_version" >> $GITHUB_OUTPUT
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
@@ -369,10 +382,15 @@ jobs:
 
           ## Installation
 
-          ### Quick Install
+          ${{ contains(steps.tag.outputs.tag, '-') && '### Test Release (Test PyPI)
+          ```bash
+          pip install -i https://test.pypi.org/simple/ catzilla==${{ steps.tag.outputs.pypi_version }}
+          ```
+
+          **Note:** This is a pre-release version available on Test PyPI for testing purposes.' || '### Quick Install
           ```bash
           pip install catzilla
-          ```
+          ```' }}
 
           ### Platform-specific wheels
           Download the appropriate wheel for your platform from the assets below:
@@ -402,19 +420,12 @@ jobs:
           pip install catzilla-*.tar.gz
           ```
 
-          ## Performance Highlights
-
-          - **24,759 RPS** on Hello World endpoints
-          - **8.7x faster** than FastAPI on average
-          - **87% lower latency** than FastAPI
-          - **Zero runtime dependencies**
-
           ## Quick Start
 
           ```python
           from catzilla import Catzilla, JSONResponse
 
-          app = Catzilla(auto_validation=True, memory_profiling=False)
+          app = Catzilla()
 
           @app.get('/')
           def hello(request):
@@ -441,7 +452,6 @@ jobs:
 
           ## Documentation
 
-          - [Performance Report](https://github.com/rezwanahmedsami/catzilla/blob/main/PERFORMANCE_REPORT_v0.1.0.md)
           - [Contributing Guide](https://github.com/rezwanahmedsami/catzilla/blob/main/CONTRIBUTING.md)
 
           ## Release Quality Assurance
