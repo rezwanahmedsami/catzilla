@@ -354,9 +354,6 @@ This is authentic benchmark data collected from real testing environments, cover
 
 ![Overall Requests per Second](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/overall_requests_per_second.png)
 
-#### Key Performance Metrics
-
-![Catzilla Advantage Analysis](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/catzilla_advantage_analysis.png)
 
 #### Feature-Specific Performance
 

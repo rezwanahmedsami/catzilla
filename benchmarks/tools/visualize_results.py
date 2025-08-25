@@ -350,61 +350,7 @@ class BenchmarkVisualizer:
         plt.close()
         print(f"✅ Category '{category}' comparison chart saved: {save_path}")
 
-    def create_catzilla_advantage_chart(self, df: pd.DataFrame, save_path: str):
-        """Create a chart showing Catzilla's performance advantage over other frameworks"""
-        plt.figure(figsize=(16, 10))
 
-        # Calculate Catzilla's advantage over each framework for each category
-        categories = sorted(df['benchmark_type'].unique())
-        frameworks = ['fastapi', 'flask', 'django']  # Competitors
-
-        advantage_data = []
-
-        for category in categories:
-            category_df = df[df['benchmark_type'] == category]
-            catzilla_rps = category_df[category_df['framework'] == 'catzilla']['requests_per_sec'].mean()
-
-            if pd.isna(catzilla_rps) or catzilla_rps == 0:
-                continue
-
-            category_advantages = {'category': category}
-
-            for framework in frameworks:
-                fw_rps = category_df[category_df['framework'] == framework]['requests_per_sec'].mean()
-                if not pd.isna(fw_rps) and fw_rps > 0:
-                    advantage = ((catzilla_rps - fw_rps) / fw_rps) * 100
-                    category_advantages[framework] = advantage
-                else:
-                    category_advantages[framework] = 0
-
-            advantage_data.append(category_advantages)
-
-        if not advantage_data:
-            print("⚠️  No advantage data available")
-            return
-
-        advantage_df = pd.DataFrame(advantage_data).set_index('category')
-
-        # Create the chart
-        ax = advantage_df.plot(kind='bar', figsize=(16, 10), width=0.8)
-        plt.title('🏆 Catzilla Performance Advantage Over Competition (%)',
-                  fontsize=16, fontweight='bold', pad=20)
-        plt.xlabel('Feature Category', fontsize=12)
-        plt.ylabel('Performance Advantage (%)', fontsize=12)
-        plt.xticks(rotation=45, ha='right')
-        plt.legend(title='Framework', bbox_to_anchor=(1.05, 1), loc='upper left')
-
-        # Add horizontal line at 0%
-        plt.axhline(y=0, color='black', linestyle='-', alpha=0.3)
-
-        # Add value labels on bars
-        for container in ax.containers:
-            ax.bar_label(container, fmt='%.0f%%', rotation=90, fontsize=8)
-
-        plt.tight_layout()
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        plt.close()
-        print(f"✅ Catzilla advantage chart saved: {save_path}")
 
     def generate_category_specific_visualizations(self, output_dir: str):
         """Generate visualizations for each category"""
@@ -420,7 +366,6 @@ class BenchmarkVisualizer:
         self.create_latency_chart(df, os.path.join(output_dir, 'overall_latency_comparison.png'))
         self.create_overall_performance_chart(df, os.path.join(output_dir, 'overall_performance_summary.png'))
         self.create_performance_matrix(df, os.path.join(output_dir, 'overall_performance_heatmap.png'))
-        self.create_catzilla_advantage_chart(df, os.path.join(output_dir, 'catzilla_advantage_analysis.png'))
 
         # Generate category-specific visualizations
         print(f"\n🎯 Generating category-specific visualizations...")
@@ -651,7 +596,6 @@ Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         report.append("- `overall_latency_comparison.png` - Overall latency comparison")
         report.append("- `overall_performance_summary.png` - Performance summary charts")
         report.append("- `overall_performance_heatmap.png` - Performance heatmap")
-        report.append("- `catzilla_advantage_analysis.png` - Catzilla advantage analysis")
         report.append("")
         report.append("### Category-Specific Analysis")
         for category in sorted(categories):

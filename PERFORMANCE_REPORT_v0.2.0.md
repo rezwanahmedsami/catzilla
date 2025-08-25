@@ -211,8 +211,6 @@ Input validation and data processing performance.
 
 ![Overall Latency Comparison](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/overall_latency_comparison.png)
 
-![Catzilla Advantage Analysis](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/catzilla_advantage_analysis.png)
-
 
 ## Latency Analysis
 
