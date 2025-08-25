@@ -366,103 +366,195 @@ jobs:
         # v1.0.0 -> 1.0.0 (unchanged)
         if [[ "$tag" == *"-"* ]]; then
           pypi_version=$(echo "$tag" | sed 's/^v//' | sed 's/-beta/b/' | sed 's/-rc/rc/' | sed 's/-alpha/a/')
+          echo "is_prerelease=true" >> $GITHUB_OUTPUT
         else
           pypi_version=$(echo "$tag" | sed 's/^v//')
+          echo "is_prerelease=false" >> $GITHUB_OUTPUT
         fi
         echo "pypi_version=$pypi_version" >> $GITHUB_OUTPUT
+
+    - name: Create release body for test releases
+      if: steps.tag.outputs.is_prerelease == 'true'
+      run: |
+        cat > release_body.md << 'EOF'
+
+        Ultra-fast Python web framework with C-accelerated routing.
+
+        ## Installation
+
+        ### Test Release (Test PyPI)
+        ```bash
+        pip install -i https://test.pypi.org/simple/ catzilla==${{ steps.tag.outputs.pypi_version }}
+        ```
+
+        **Note:** This is a pre-release version available on Test PyPI for testing purposes.
+
+        ### Platform-specific wheels
+        Download the appropriate wheel for your platform from the assets below:
+
+        **Linux (x86_64):**
+        ```bash
+        pip install catzilla-*-linux_x86_64.whl
+        ```
+
+        **macOS (Intel):**
+        ```bash
+        pip install catzilla-*-macosx_*_x86_64.whl
+        ```
+
+        **macOS (Apple Silicon):**
+        ```bash
+        pip install catzilla-*-macosx_*_arm64.whl
+        ```
+
+        **Windows (x64):**
+        ```bash
+        pip install catzilla-*-win_amd64.whl
+        ```
+
+        ### From source
+        ```bash
+        pip install catzilla-*.tar.gz
+        ```
+
+        ## Quick Start
+
+        ```python
+        from catzilla import Catzilla, JSONResponse
+
+        app = Catzilla()
+
+        @app.get('/')
+        def hello(request):
+            return JSONResponse({"message": "Hello from Catzilla!"})
+
+        if __name__ == "__main__":
+            app.listen(host="127.0.0.1", port=8080)
+        ```
+
+        ## Tested Platforms
+
+        - **Python:** 3.9, 3.10, 3.11, 3.12, 3.13
+        - **OS:** Ubuntu, Windows, macOS
+        - **Architectures:** x86_64, arm64 (Apple Silicon)
+        - **Quality:** 15 test combinations (3 OS × 5 Python versions)
+
+        ## Professional Wheel Building
+
+        All wheels are built using **cibuildwheel** with proper platform tags:
+        - `cp39-cp39-linux_x86_64` (Python 3.9 on Linux x64)
+        - `cp311-cp311-macosx_12_0_arm64` (Python 3.11 on macOS Apple Silicon)
+        - `cp312-cp312-win_amd64` (Python 3.12 on Windows x64)
+        - And more...
+
+        ## Documentation
+
+        - [Contributing Guide](https://github.com/rezwanahmedsami/catzilla/blob/main/CONTRIBUTING.md)
+
+        ## Release Quality Assurance
+
+        This release has been **thoroughly tested** across:
+        - **15 test combinations** (3 OS × 5 Python versions)
+        - **Full test suite** on all platforms
+        - **Wheel installation validation** on all platforms
+        - **Functionality verification** on all platforms
+
+        Built with performance and reliability in mind! 🚀
+        EOF
+
+    - name: Create release body for production releases
+      if: steps.tag.outputs.is_prerelease == 'false'
+      run: |
+        cat > release_body.md << 'EOF'
+
+        Ultra-fast Python web framework with C-accelerated routing.
+
+        ## Installation
+
+        ### Quick Install
+        ```bash
+        pip install catzilla
+        ```
+
+        ### Platform-specific wheels
+        Download the appropriate wheel for your platform from the assets below:
+
+        **Linux (x86_64):**
+        ```bash
+        pip install catzilla-*-linux_x86_64.whl
+        ```
+
+        **macOS (Intel):**
+        ```bash
+        pip install catzilla-*-macosx_*_x86_64.whl
+        ```
+
+        **macOS (Apple Silicon):**
+        ```bash
+        pip install catzilla-*-macosx_*_arm64.whl
+        ```
+
+        **Windows (x64):**
+        ```bash
+        pip install catzilla-*-win_amd64.whl
+        ```
+
+        ### From source
+        ```bash
+        pip install catzilla-*.tar.gz
+        ```
+
+        ## Quick Start
+
+        ```python
+        from catzilla import Catzilla, JSONResponse
+
+        app = Catzilla()
+
+        @app.get('/')
+        def hello(request):
+            return JSONResponse({"message": "Hello from Catzilla!"})
+
+        if __name__ == "__main__":
+            app.listen(host="127.0.0.1", port=8080)
+        ```
+
+        ## Tested Platforms
+
+        - **Python:** 3.9, 3.10, 3.11, 3.12, 3.13
+        - **OS:** Ubuntu, Windows, macOS
+        - **Architectures:** x86_64, arm64 (Apple Silicon)
+        - **Quality:** 15 test combinations (3 OS × 5 Python versions)
+
+        ## Professional Wheel Building
+
+        All wheels are built using **cibuildwheel** with proper platform tags:
+        - `cp39-cp39-linux_x86_64` (Python 3.9 on Linux x64)
+        - `cp311-cp311-macosx_12_0_arm64` (Python 3.11 on macOS Apple Silicon)
+        - `cp312-cp312-win_amd64` (Python 3.12 on Windows x64)
+        - And more...
+
+        ## Documentation
+
+        - [Contributing Guide](https://github.com/rezwanahmedsami/catzilla/blob/main/CONTRIBUTING.md)
+
+        ## Release Quality Assurance
+
+        This release has been **thoroughly tested** across:
+        - **15 test combinations** (3 OS × 5 Python versions)
+        - **Full test suite** on all platforms
+        - **Wheel installation validation** on all platforms
+        - **Functionality verification** on all platforms
+
+        Built with performance and reliability in mind! 🚀
+        EOF
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ steps.tag.outputs.tag }}
         name: "Catzilla ${{ steps.tag.outputs.tag }}"
-        body: |
-
-          Ultra-fast Python web framework with C-accelerated routing.
-
-          ## Installation
-
-          ${{ contains(steps.tag.outputs.tag, '-') && '### Test Release (Test PyPI)
-          ```bash
-          pip install -i https://test.pypi.org/simple/ catzilla==${{ steps.tag.outputs.pypi_version }}
-          ```
-
-          **Note:** This is a pre-release version available on Test PyPI for testing purposes.' || '### Quick Install
-          ```bash
-          pip install catzilla
-          ```' }}
-
-          ### Platform-specific wheels
-          Download the appropriate wheel for your platform from the assets below:
-
-          **Linux (x86_64):**
-          ```bash
-          pip install catzilla-*-linux_x86_64.whl
-          ```
-
-          **macOS (Intel):**
-          ```bash
-          pip install catzilla-*-macosx_*_x86_64.whl
-          ```
-
-          **macOS (Apple Silicon):**
-          ```bash
-          pip install catzilla-*-macosx_*_arm64.whl
-          ```
-
-          **Windows (x64):**
-          ```bash
-          pip install catzilla-*-win_amd64.whl
-          ```
-
-          ### From source
-          ```bash
-          pip install catzilla-*.tar.gz
-          ```
-
-          ## Quick Start
-
-          ```python
-          from catzilla import Catzilla, JSONResponse
-
-          app = Catzilla()
-
-          @app.get('/')
-          def hello(request):
-              return JSONResponse({"message": "Hello from Catzilla!"})
-
-          if __name__ == "__main__":
-              app.listen(host="127.0.0.1", port=8080)
-          ```
-
-          ## Tested Platforms
-
-          - **Python:** 3.9, 3.10, 3.11, 3.12, 3.13
-          - **OS:** Ubuntu, Windows, macOS
-          - **Architectures:** x86_64, arm64 (Apple Silicon)
-          - **Quality:** 15 test combinations (3 OS × 5 Python versions)
-
-          ## Professional Wheel Building
-
-          All wheels are built using **cibuildwheel** with proper platform tags:
-          - `cp39-cp39-linux_x86_64` (Python 3.9 on Linux x64)
-          - `cp311-cp311-macosx_12_0_arm64` (Python 3.11 on macOS Apple Silicon)
-          - `cp312-cp312-win_amd64` (Python 3.12 on Windows x64)
-          - And more...
-
-          ## Documentation
-
-          - [Contributing Guide](https://github.com/rezwanahmedsami/catzilla/blob/main/CONTRIBUTING.md)
-
-          ## Release Quality Assurance
-
-          This release has been **thoroughly tested** across:
-          - **15 test combinations** (3 OS × 5 Python versions)
-          - **Full test suite** on all platforms
-          - **Wheel installation validation** on all platforms
-          - **Functionality verification** on all platforms
-
-          Built with performance and reliability in mind! 🚀
+        body_path: release_body.md
         files: release-assets/*
         draft: false
         prerelease: ${{ contains(steps.tag.outputs.tag, '-') }}
