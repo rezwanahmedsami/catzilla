@@ -93,7 +93,7 @@ def test_response_cookies():
 
 def test_handler_return_types():
     """Test different return types from handlers with modern Catzilla"""
-    app = Catzilla()
+    app = Catzilla(production=True)
 
     # Test string return
     @app.get("/str")
@@ -213,7 +213,7 @@ def test_app_route_registration():
     - Verify handler function is stored correctly with C acceleration
     - Test basic routing functionality with Memory Revolution
     """
-    app = Catzilla()
+    app = Catzilla(production=True)
 
     @app.get("/hello")
     def hello(req):
@@ -244,7 +244,8 @@ def test_modern_catzilla_auto_validation():
     app = Catzilla(
         auto_validation=True,
         memory_profiling=False,
-        auto_memory_tuning=True
+        auto_memory_tuning=True,
+        production=True
     )
 
     @app.post("/users")
@@ -269,7 +270,8 @@ def test_memory_revolution_features():
     """Test Memory Revolution features in basic usage"""
     app = Catzilla(
         memory_profiling=False,
-        auto_memory_tuning=True
+        auto_memory_tuning=True,
+        production=True
     )
 
     @app.get("/memory-test")
@@ -295,7 +297,7 @@ def test_memory_revolution_features():
 
 def test_performance_optimized_responses():
     """Test performance optimized response handling"""
-    app = Catzilla(auto_validation=True)
+    app = Catzilla(auto_validation=True, production=True)
 
     @app.get("/fast-json")
     def fast_json(request):
@@ -342,7 +344,7 @@ def test_catzilla_backward_compatibility():
     assert App is Catzilla
 
     # Test that old-style usage still works
-    app = App()  # Should be equivalent to Catzilla()
+    app = App(production=True)  # Should be equivalent to Catzilla()
 
     @app.get("/backward-compat")
     def old_style_handler(request):
@@ -408,7 +410,7 @@ class TestAsyncBasicFunctionality:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-        self.app = Catzilla(auto_validation=True, memory_profiling=False)
+        self.app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
 
     def teardown_method(self):
         # More aggressive cleanup with longer delay to help with async resource cleanup
@@ -495,12 +497,10 @@ class TestAsyncRequestHandling:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
         except RuntimeError:
-            # No event loop exists, create one
-            import asyncio
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-        self.app = Catzilla(auto_validation=True, memory_profiling=False)
+        self.app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
 
     def teardown_method(self):
         # Simple cleanup with longer delay to help with async resource cleanup
@@ -596,7 +596,7 @@ class TestAsyncMemoryRevolution:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-        self.app = Catzilla(auto_validation=True, memory_profiling=False)
+        self.app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
 
     def teardown_method(self):
         # Simple cleanup with longer delay to help with async resource cleanup
@@ -651,7 +651,7 @@ class TestAsyncPerformanceStability:
     @pytest.fixture(autouse=True)
     async def setup_app(self):
         """Setup app for async testing"""
-        self.app = Catzilla(auto_validation=True, memory_profiling=False)
+        self.app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
         yield
         # Cleanup
         if hasattr(self, 'app'):

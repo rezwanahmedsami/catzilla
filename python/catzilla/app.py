@@ -2007,9 +2007,10 @@ class Catzilla:
                     # Create a task for shutdown
                     task = loop.create_task(self.shutdown_async_support(timeout))
                     # Note: We can't wait for it here since we're in sync context
-                    print(
-                        f"[DEBUG-PY] Async support shutdown initiated for PID {os.getpid()}"
-                    )
+                    if self.debug:
+                        print(
+                            f"[DEBUG-PY] Async support shutdown initiated for PID {os.getpid()}"
+                        )
                 except RuntimeError:
                     # No running loop - run shutdown in new loop
                     asyncio.run(self.shutdown_async_support(timeout))

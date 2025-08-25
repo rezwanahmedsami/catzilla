@@ -18,7 +18,7 @@ class TestHTTPResponseCodes:
 
     def test_405_method_not_allowed(self):
         """Test 405 Method Not Allowed responses"""
-        app = Catzilla(auto_validation=True, memory_profiling=False)
+        app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
 
         @app.get("/api/data")
         def get_data(request):
@@ -42,7 +42,7 @@ class TestHTTPResponseCodes:
 
     def test_404_not_found(self):
         """Test 404 Not Found responses"""
-        app = Catzilla(auto_validation=True, memory_profiling=False)
+        app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
 
         @app.get("/existing")
         def existing_route(request):
@@ -144,7 +144,8 @@ class TestComplexRoutingScenarios:
         app = Catzilla(
             auto_validation=True,
             memory_profiling=False,
-            auto_memory_tuning=False  # Disable auto-tuning that causes GC issues
+            auto_memory_tuning=False,  # Disable auto-tuning that causes GC issues
+            production=True
         )
 
         # Simplified version to avoid segmentation faults
@@ -176,7 +177,7 @@ class TestComplexRoutingScenarios:
 
     def test_route_precedence(self):
         """Test route precedence and matching order"""
-        app = Catzilla(auto_validation=True, memory_profiling=False)
+        app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
 
         @app.get("/api/users/profile")  # Specific route
         def get_profile(request):
@@ -201,7 +202,7 @@ class TestComplexRoutingScenarios:
 
     def test_optional_trailing_slash(self):
         """Test handling of trailing slashes"""
-        app = Catzilla(auto_validation=True, memory_profiling=False)
+        app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
 
         @app.get("/api/data")
         def get_data(request):
@@ -220,7 +221,8 @@ class TestComplexRoutingScenarios:
         app = Catzilla(
             auto_validation=True,
             memory_profiling=False,
-            auto_memory_tuning=False  # Disable auto-tuning to avoid threading issues
+            auto_memory_tuning=False,  # Disable auto-tuning to avoid threading issues
+            production=True
         )
 
         # Use a simple test result dict instead of complex request handling
@@ -249,7 +251,7 @@ class TestComplexRoutingScenarios:
 
     def test_numeric_parameters(self):
         """Test numeric path parameters"""
-        app = Catzilla(auto_validation=True, memory_profiling=False)
+        app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
 
         @app.get("/items/{item_id}")
         def get_item(request):
@@ -267,7 +269,7 @@ class TestRouteValidation:
 
     def test_duplicate_route_handling(self):
         """Test handling of duplicate routes"""
-        app = Catzilla(auto_validation=True, memory_profiling=False)
+        app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
 
         @app.get("/api/test")
         def handler1(request):
@@ -281,7 +283,7 @@ class TestRouteValidation:
 
     def test_route_with_no_parameters(self):
         """Test static routes without parameters"""
-        app = Catzilla(auto_validation=True, memory_profiling=False)
+        app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
 
         @app.get("/static/route")
         def static_handler(request):
@@ -293,7 +295,7 @@ class TestRouteValidation:
 
     def test_root_route(self):
         """Test root route handling"""
-        app = Catzilla(auto_validation=True, memory_profiling=False)
+        app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
 
         @app.get("/")
         def root_handler(request):
@@ -305,7 +307,7 @@ class TestRouteValidation:
 
     def test_multiple_http_methods_same_path(self):
         """Test multiple HTTP methods on same path"""
-        app = Catzilla(auto_validation=True, memory_profiling=False)
+        app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
 
         @app.get("/api/resource")
         def get_resource(request):
@@ -341,7 +343,7 @@ class TestIntegrationWithC:
 
     def test_route_registration_with_c_backend(self):
         """Test that Python routes are properly registered with C backend"""
-        app = Catzilla(auto_validation=True, memory_profiling=False)
+        app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
 
         @app.get("/test")
         def test_handler(request):
@@ -355,7 +357,7 @@ class TestIntegrationWithC:
 
     def test_path_parameter_format_compatibility(self):
         """Test that path parameter format is compatible with C implementation"""
-        app = Catzilla(auto_validation=True, memory_profiling=False)
+        app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
 
         @app.get("/users/{user_id}/posts/{post_id}")
         def get_post(request):
@@ -372,7 +374,7 @@ class TestIntegrationWithC:
 
     def test_method_normalization(self):
         """Test HTTP method normalization compatibility"""
-        app = Catzilla(auto_validation=True, memory_profiling=False)
+        app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
 
         # Test that methods are normalized consistently
         def handler(request):
@@ -398,21 +400,8 @@ class TestAsyncHTTPResponses:
     """Test async HTTP response handling"""
 
     def setup_method(self):
-        # Use the event_loop fixture - no manual event loop management needed
-        # Ensure we have a clean event loop for this test
-        try:
-            import asyncio
-            loop = asyncio.get_event_loop()
-            if loop.is_closed():
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-        except RuntimeError:
-            # No event loop exists, create one
-            import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        self.app = Catzilla(auto_validation=True, memory_profiling=False)
+        # Use production mode to avoid debug messages in tests
+        self.app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
 
     def teardown_method(self):
         # Simple cleanup with longer delay to help with async resource cleanup
@@ -677,7 +666,7 @@ class TestAsyncResponseValidation:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-        self.app = Catzilla(auto_validation=True, memory_profiling=False)
+        self.app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
 
     def teardown_method(self):
         # Simple cleanup with longer delay to help with async resource cleanup

@@ -178,11 +178,11 @@ def catzilla_app():
     """
     from catzilla import Catzilla
 
-    # Create app with test-friendly settings
+    # Create app with test-friendly settings - use production=True to suppress debug messages
     app = Catzilla(
         auto_validation=True,
         memory_profiling=False,
-        production=False,
+        production=True,  # Suppress debug messages in tests
         show_banner=False,
         log_requests=False,
         enable_colors=False
