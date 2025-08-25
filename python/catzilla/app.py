@@ -318,10 +318,11 @@ class Catzilla:
 
         # Signal handling is now handled natively at the C level for better performance
         # and integration. No Python signal handling overhead needed.
-        print(
-            f"[DEBUG-PY] Using native C signal handling for PID {os.getpid()}",
-            flush=True,
-        )
+        if self.debug:
+            print(
+                f"[DEBUG-PY] Using native C signal handling for PID {os.getpid()}",
+                flush=True,
+            )
 
     def _init_memory_revolution(self):
         """Initialize the jemalloc memory revolution with advanced options"""
@@ -1982,9 +1983,10 @@ class Catzilla:
             try:
                 await self.hybrid_executor.shutdown(timeout)
                 self._async_enabled = False
-                print(
-                    f"[DEBUG-PY] Async support shutdown completed for PID {os.getpid()}"
-                )
+                if self.debug:
+                    print(
+                        f"[DEBUG-PY] Async support shutdown completed for PID {os.getpid()}"
+                    )
             except Exception as e:
                 print(f"[WARNING-PY] Async support shutdown error: {e}")
 

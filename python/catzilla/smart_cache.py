@@ -96,95 +96,71 @@ class CacheConfig(Structure):
 # Load C Library
 # ============================================================================
 
-
-def _load_catzilla_lib():
-    """Load the Catzilla C library"""
-    import platform
-    import subprocess
-
-    # Try to find the compiled library
-    lib_paths = [
-        "build/_catzilla.so",  # Development build
-        "_catzilla.so",  # Direct build
-        "lib/_catzilla.so",  # Alternative location
-    ]
-
-    for path in lib_paths:
-        if os.path.exists(path):
-            try:
-                return ctypes.CDLL(path)
-            except OSError:
-                continue
-
-    # If not found, try to build it
-    try:
-        subprocess.run(["make", "build"], check=True, capture_output=True)
-        if os.path.exists("build/_catzilla.so"):
-            return ctypes.CDLL("build/_catzilla.so")
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        pass
-
-    raise ImportError(
-        "Could not load Catzilla C library. Please run 'make build' first."
-    )
-
-
-# Load the library
+# Load the C extension directly using Python import mechanism
 try:
-    _clib = _load_catzilla_lib()
+    import catzilla._catzilla as _catzilla_module
+
     C_LIBRARY_AVAILABLE = True
-except ImportError as e:
-    print(f"Warning: C library not available: {e}")
-    _clib = None
+    _clib = _catzilla_module  # Use the module directly instead of ctypes.CDLL
+except ImportError:
     C_LIBRARY_AVAILABLE = False
+    _catzilla_module = None
+    _clib = None
 
 # Define function signatures if library is available
-if C_LIBRARY_AVAILABLE:
-    # Cache creation and destruction
-    _clib.catzilla_cache_create.argtypes = [c_size_t, c_size_t]
-    _clib.catzilla_cache_create.restype = c_void_p
+if C_LIBRARY_AVAILABLE and _clib:
+    # Cache functions are available directly from the C module
+    # Check if cache functions exist in the module
+    if hasattr(_clib, "catzilla_cache_create"):
+        # Cache creation and destruction
+        _clib.catzilla_cache_create.argtypes = [c_size_t, c_size_t]
+        _clib.catzilla_cache_create.restype = c_void_p
 
-    _clib.catzilla_cache_create_with_config.argtypes = [POINTER(CacheConfig)]
-    _clib.catzilla_cache_create_with_config.restype = c_void_p
+        _clib.catzilla_cache_create_with_config.argtypes = [POINTER(CacheConfig)]
+        _clib.catzilla_cache_create_with_config.restype = c_void_p
 
-    _clib.catzilla_cache_destroy.argtypes = [c_void_p]
-    _clib.catzilla_cache_destroy.restype = None
+        _clib.catzilla_cache_destroy.argtypes = [c_void_p]
+        _clib.catzilla_cache_destroy.restype = None
 
-    # Cache operations
-    _clib.catzilla_cache_set.argtypes = [
-        c_void_p,
-        c_char_p,
-        c_void_p,
-        c_size_t,
-        c_uint32,
-    ]
-    _clib.catzilla_cache_set.restype = c_int
+        # Cache operations
+        _clib.catzilla_cache_set.argtypes = [
+            c_void_p,
+            c_char_p,
+            c_void_p,
+            c_size_t,
+            c_uint32,
+        ]
+        _clib.catzilla_cache_set.restype = c_int
 
-    _clib.catzilla_cache_get.argtypes = [c_void_p, c_char_p]
-    _clib.catzilla_cache_get.restype = CacheResult
+        _clib.catzilla_cache_get.argtypes = [c_void_p, c_char_p]
+        _clib.catzilla_cache_get.restype = CacheResult
 
-    _clib.catzilla_cache_delete.argtypes = [c_void_p, c_char_p]
-    _clib.catzilla_cache_delete.restype = c_int
+        _clib.catzilla_cache_delete.argtypes = [c_void_p, c_char_p]
+        _clib.catzilla_cache_delete.restype = c_int
 
-    _clib.catzilla_cache_exists.argtypes = [c_void_p, c_char_p]
-    _clib.catzilla_cache_exists.restype = c_bool
+        _clib.catzilla_cache_exists.argtypes = [c_void_p, c_char_p]
+        _clib.catzilla_cache_exists.restype = c_bool
 
-    _clib.catzilla_cache_clear.argtypes = [c_void_p]
-    _clib.catzilla_cache_clear.restype = None
+        _clib.catzilla_cache_clear.argtypes = [c_void_p]
+        _clib.catzilla_cache_clear.restype = None
 
-    # Statistics and utilities
-    _clib.catzilla_cache_get_stats.argtypes = [c_void_p]
-    _clib.catzilla_cache_get_stats.restype = CacheStatistics
+        # Statistics and utilities
+        _clib.catzilla_cache_get_stats.argtypes = [c_void_p]
+        _clib.catzilla_cache_get_stats.restype = CacheStatistics
 
-    _clib.catzilla_cache_generate_key.argtypes = [
-        c_char_p,
-        c_char_p,
-        c_char_p,
-        c_uint32,
-        c_char_p,
-        c_size_t,
-    ]
-    _clib.catzilla_cache_generate_key.restype = c_int
+        _clib.catzilla_cache_generate_key.argtypes = [
+            c_char_p,
+            c_char_p,
+            c_char_p,
+            c_uint32,
+            c_char_p,
+            c_size_t,
+        ]
+        _clib.catzilla_cache_generate_key.restype = c_int
+    else:
+        # Cache functions not available in this C module build
+        C_LIBRARY_AVAILABLE = False
+        _clib = None
 
 
 # ============================================================================
