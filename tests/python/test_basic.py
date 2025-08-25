@@ -362,55 +362,10 @@ def test_catzilla_backward_compatibility():
 class TestAsyncBasicFunctionality:
     """Test async functionality in basic components"""
 
-    def setup_method(self):
-        # Ensure we have a clean event loop for this test with extra robust cleanup for mixed test scenarios
-        import asyncio
-        import time
-
-        # Extra delay when this is the first async test after sync tests
-        time.sleep(0.05)  # Allow previous test cleanup to complete
-
-        # Very aggressive event loop cleanup for mixed sync/async scenarios
-        try:
-            # First, try to close any existing loop completely
-            try:
-                existing_loop = asyncio.get_event_loop()
-                if existing_loop and not existing_loop.is_closed():
-                    # Cancel all tasks
-                    pending = asyncio.all_tasks(existing_loop)
-                    for task in pending:
-                        if not task.done():
-                            task.cancel()
-                    if pending:
-                        try:
-                            existing_loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
-                        except Exception:
-                            pass
-                    existing_loop.close()
-            except RuntimeError:
-                pass  # No existing loop
-
-            # Clear event loop reference
-            asyncio.set_event_loop(None)
-            time.sleep(0.01)  # Small delay after clearing
-
-        except Exception:
-            pass  # Ignore cleanup errors
-
-        # Create a fresh event loop
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        # Verify the loop is properly set
-        try:
-            test_loop = asyncio.get_event_loop()
-            assert test_loop is loop, "Event loop not properly set"
-        except Exception:
-            # Fallback: create another loop
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        self.app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
+    @pytest.fixture(autouse=True)
+    def setup_method(self, catzilla_app):
+        # Use the fixture to avoid multiple memory system initialization
+        self.app = catzilla_app
 
     def teardown_method(self):
         # More aggressive cleanup with longer delay to help with async resource cleanup
@@ -488,27 +443,10 @@ class TestAsyncBasicFunctionality:
 class TestAsyncRequestHandling:
     """Test async request handling and validation"""
 
-    def setup_method(self):
-        # Ensure we have a clean event loop for this test
-        try:
-            import asyncio
-            loop = asyncio.get_event_loop()
-            if loop.is_closed():
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        self.app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
-
-    def teardown_method(self):
-        # Simple cleanup with longer delay to help with async resource cleanup
-        if hasattr(self, 'app'):
-            self.app = None
-            # Longer delay to allow C extension async cleanup to complete in CI
-            import time
-            time.sleep(0.05)
+    @pytest.fixture(autouse=True)
+    def setup_method(self, catzilla_app):
+        # Use the fixture to avoid multiple memory system initialization
+        self.app = catzilla_app
 
     @pytest.mark.asyncio
     async def test_async_request_json_parsing(self):
@@ -573,38 +511,10 @@ class TestAsyncRequestHandling:
 class TestAsyncMemoryRevolution:
     """Test async functionality with Memory Revolution features"""
 
-    def setup_method(self):
-        # Ensure we have a clean event loop for this test (Windows Python 3.10+ compatibility)
-        import sys
-        import platform
-
-        # Skip this class entirely on Windows Python 3.10 in CI due to asyncio conflicts
-        if (platform.system() == "Windows" and
-            sys.version_info[:2] == (3, 10) and
-            os.getenv("CI") == "true"):
-            pytest.skip("Skipping Windows Python 3.10 asyncio tests in CI - known event loop conflicts")
-
-        try:
-            import asyncio
-            loop = asyncio.get_event_loop()
-            if loop.is_closed():
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-        except RuntimeError:
-            # No event loop exists, create one
-            import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        self.app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
-
-    def teardown_method(self):
-        # Simple cleanup with longer delay to help with async resource cleanup
-        if hasattr(self, 'app'):
-            self.app = None
-            # Longer delay to allow C extension async cleanup to complete in CI
-            import time
-            time.sleep(0.05)
+    @pytest.fixture(autouse=True)
+    def setup_method(self, catzilla_app):
+        # Use the fixture to avoid multiple memory system initialization
+        self.app = catzilla_app
 
     @pytest.fixture(autouse=True)
     async def setup_app(self):
@@ -645,19 +555,14 @@ class TestAsyncMemoryRevolution:
         assert any(r["path"] == "/async/concurrent" for r in routes)
 
 
+@pytest.mark.asyncio
 class TestAsyncPerformanceStability:
     """Test async performance and stability characteristics"""
 
     @pytest.fixture(autouse=True)
-    async def setup_app(self):
-        """Setup app for async testing"""
-        self.app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
-        yield
-        # Cleanup
-        if hasattr(self, 'app'):
-            self.app = None
-            # Small delay to allow C extension async cleanup to complete
-            await asyncio.sleep(0.01)
+    def setup_method(self, catzilla_app):
+        # Use the fixture to avoid multiple memory system initialization
+        self.app = catzilla_app
 
     @pytest.mark.asyncio
     async def test_async_high_frequency_requests(self):

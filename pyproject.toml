@@ -187,7 +187,8 @@ addopts = [
     "--strict-config",
     "--verbose",
     "--tb=short",
-    "-v"
+    "-v",
+    "--asyncio-mode=auto"
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",

@@ -399,17 +399,10 @@ class TestIntegrationWithC:
 class TestAsyncHTTPResponses:
     """Test async HTTP response handling"""
 
-    def setup_method(self):
-        # Use production mode to avoid debug messages in tests
-        self.app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
-
-    def teardown_method(self):
-        # Simple cleanup with longer delay to help with async resource cleanup
-        if hasattr(self, 'app'):
-            self.app = None
-            # Longer delay to allow C extension async cleanup to complete in CI
-            import time
-            time.sleep(0.05)
+    @pytest.fixture(autouse=True)
+    def setup_method(self, catzilla_app):
+        # Use the fixture to avoid multiple memory system initialization
+        self.app = catzilla_app
 
     @pytest.mark.asyncio
     async def test_async_json_response(self):
@@ -651,30 +644,10 @@ class TestAsyncHTTPResponses:
 class TestAsyncResponseValidation:
     """Test async response validation and error handling"""
 
-    def setup_method(self):
-        # Use the event_loop fixture - no manual event loop management needed
-        # Ensure we have a clean event loop for this test
-        try:
-            import asyncio
-            loop = asyncio.get_event_loop()
-            if loop.is_closed():
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-        except RuntimeError:
-            # No event loop exists, create one
-            import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        self.app = Catzilla(auto_validation=True, memory_profiling=False, production=True)
-
-    def teardown_method(self):
-        # Simple cleanup with longer delay to help with async resource cleanup
-        if hasattr(self, 'app'):
-            self.app = None
-            # Longer delay to allow C extension async cleanup to complete in CI
-            import time
-            time.sleep(0.05)
+    @pytest.fixture(autouse=True)
+    def setup_method(self, catzilla_app):
+        # Use the fixture to avoid multiple memory system initialization
+        self.app = catzilla_app
 
     @pytest.mark.asyncio
     async def test_async_response_validation_success(self):
