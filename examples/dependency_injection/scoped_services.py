@@ -3,7 +3,7 @@
 🔄 Catzilla DI Scoped Services Example
 
 This example demonstrates Catzilla's revolutionary dependency injection system
-with different service scopes (singleton, request, transient) and factories.
+with different service scopes (singleton, request, transient) using FastAPI-identical syntax.
 
 Features demonstrated:
 - Service registration with different scopes
@@ -11,7 +11,8 @@ Features demonstrated:
 - Request-scoped services (new instance per request)
 - Transient services (new instance every time)
 - Service factories and configuration
-- Dependency resolution performance
+- FastAPI-style Depends() syntax for automatic injection
+- Clear demonstration of scope behavior through type hints
 """
 
 import time
@@ -252,14 +253,25 @@ class TempProcessor:
         }
 
 # ============================================================================
-# 4. ROUTE HANDLERS DEMONSTRATING SCOPED SERVICES
+# 4. ROUTE HANDLERS DEMONSTRATING SCOPED SERVICES WITH DEPENDS()
 # ============================================================================
+
+# NOTE: FastAPI-style Depends() syntax makes scope behavior clear:
+#
+# - Singleton services (database, cache): Same instance across ALL requests
+# - Request-scoped services (session, logger): Same instance within ONE request
+# - Transient services (analytics, processor): NEW instance every time injected
+#
+# Multiple Depends() of the same service within one route:
+# - Singleton/Request: Returns the SAME instance
+# - Transient: Returns DIFFERENT instances (analytics1 != analytics2)
 
 @app.get("/")
 def home(request):
     """Home page showing scoped services"""
     return JSONResponse({
         "message": "🔄 Catzilla DI Scoped Services Demo",
+        "syntax": "FastAPI-identical Depends() for automatic injection",
         "scopes": {
             "singleton": "Shared across all requests (database, cache)",
             "request": "New instance per request (user_session, request_logger)",
@@ -268,20 +280,15 @@ def home(request):
     })
 
 @app.get("/api/user/{user_id}")
-def get_user(request, user_id: str = Path(...)):
+def get_user(request,
+             user_id: str = Path(...),
+             session: UserSession = Depends("user_session"),
+             logger: RequestLogger = Depends("request_logger"),
+             database: DatabaseService = Depends("database"),
+             cache: CacheService = Depends("cache"),
+             analytics1: AnalyticsService = Depends("analytics"),
+             analytics2: AnalyticsService = Depends("analytics")):
     """Get user data - demonstrates request-scoped services"""
-
-    # These will be the same instance within this request
-    session = app.di_container.resolve("user_session")
-    logger = app.di_container.resolve("request_logger")
-
-    # These are singleton services
-    database = app.di_container.resolve("database")
-    cache = app.di_container.resolve("cache")
-
-    # These are new instances each time
-    analytics1 = app.di_container.resolve("analytics")
-    analytics2 = app.di_container.resolve("analytics")
 
     logger.log(f"Fetching user {user_id}")
 
@@ -311,16 +318,20 @@ def get_user(request, user_id: str = Path(...)):
             "session_id": session.session_id,
             "logger_request_id": logger.request_id,
             "db_connection_id": database.connection_id,
-            "cache_instance_id": cache.instance_id
+            "cache_instance_id": cache.instance_id,
+            "scope_notes": {
+                "session_and_logger": "Same instance within this request (request-scoped)",
+                "database_and_cache": "Same instance across ALL requests (singleton)",
+                "analytics1_vs_analytics2": "Different instances - transient scope creates new each time"
+            }
         }
     })
 
 @app.get("/api/database/stats")
-def get_database_stats(request):
+def get_database_stats(request,
+                       database: DatabaseService = Depends("database"),
+                       logger: RequestLogger = Depends("request_logger")):
     """Get database statistics - demonstrates singleton behavior"""
-
-    database = app.di_container.resolve("database")
-    logger = app.di_container.resolve("request_logger")
 
     logger.log("Database stats requested")
 
@@ -333,11 +344,10 @@ def get_database_stats(request):
     })
 
 @app.get("/api/cache/stats")
-def get_cache_stats(request):
+def get_cache_stats(request,
+                    cache: CacheService = Depends("cache"),
+                    logger: RequestLogger = Depends("request_logger")):
     """Get cache statistics - demonstrates singleton behavior"""
-
-    cache = app.di_container.resolve("cache")
-    logger = app.di_container.resolve("request_logger")
 
     logger.log("Cache stats requested")
 
@@ -350,22 +360,16 @@ def get_cache_stats(request):
     })
 
 @app.get("/api/services/status")
-def get_services_status(request):
+def get_services_status(request,
+                        session: UserSession = Depends("user_session"),
+                        logger: RequestLogger = Depends("request_logger"),
+                        database: DatabaseService = Depends("database"),
+                        cache: CacheService = Depends("cache"),
+                        analytics1: AnalyticsService = Depends("analytics"),
+                        analytics2: AnalyticsService = Depends("analytics"),
+                        processor1: TempProcessor = Depends("temp_processor"),
+                        processor2: TempProcessor = Depends("temp_processor")):
     """Get status of all services - demonstrates scope behavior"""
-
-    # Request-scoped services (same within request)
-    session = app.di_container.resolve("user_session")
-    logger = app.di_container.resolve("request_logger")
-
-    # Singleton services (same across all requests)
-    database = app.di_container.resolve("database")
-    cache = app.di_container.resolve("cache")
-
-    # Transient services (new each time)
-    analytics1 = app.di_container.resolve("analytics")
-    analytics2 = app.di_container.resolve("analytics")
-    processor1 = app.di_container.resolve("temp_processor")
-    processor2 = app.di_container.resolve("temp_processor")
 
     logger.log("Service status check")
 
@@ -412,15 +416,13 @@ def get_services_status(request):
     })
 
 @app.get("/health")
-def health_check(request):
+def health_check(request,
+                 database: DatabaseService = Depends("database"),
+                 cache: CacheService = Depends("cache"),
+                 session: UserSession = Depends("user_session"),
+                 logger: RequestLogger = Depends("request_logger"),
+                 analytics: AnalyticsService = Depends("analytics")):
     """Health check endpoint showing all service scopes"""
-
-    # Get all services
-    database = app.di_container.resolve("database")
-    cache = app.di_container.resolve("cache")
-    session = app.di_container.resolve("user_session")
-    logger = app.di_container.resolve("request_logger")
-    analytics = app.di_container.resolve("analytics")
 
     logger.log("Health check performed")
 
@@ -461,6 +463,7 @@ def health_check(request):
 
 if __name__ == "__main__":
     print("\n🎯 Starting Catzilla DI Scoped Services Demo...")
+    print("✨ FastAPI-identical Depends() syntax for seamless migration!")
     print("\nAvailable endpoints:")
     print("  GET  /                      - Home page")
     print("  GET  /api/user/{user_id}    - Get user (request-scoped demo)")
@@ -469,12 +472,17 @@ if __name__ == "__main__":
     print("  GET  /api/services/status   - All services status")
     print("  GET  /health                - Health check")
 
-    print("\n🔄 Service Scopes:")
+    print("\n🔄 Service Scopes with Depends():")
     print("  🔗 Singleton: Database, Cache (shared across requests)")
     print("  🔄 Request: UserSession, RequestLogger (per request)")
     print("  ⚡ Transient: Analytics, TempProcessor (new each time)")
 
+    print("\n💡 Scope Behavior:")
+    print("  • Same Depends() within route = same instance (singleton/request)")
+    print("  • Same Depends() within route = different instance (transient)")
+    print("  • Type hints show exactly what you're getting!")
+
     print(f"\n🚀 Server starting on http://localhost:8003")
-    print("   Try: curl http://localhost:8003/health")
+    print("   Try: curl http://localhost:8003/api/user/alice")
 
     app.listen(8003)

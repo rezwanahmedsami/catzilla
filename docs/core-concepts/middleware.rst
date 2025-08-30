@@ -30,19 +30,19 @@ Create middleware that applies to all routes:
 
    app = Catzilla()
 
-   @app.middleware()
-   def timing_middleware(request: Request, call_next):
+   @app.middleware(priority=10, pre_route=True, name="timing_middleware")
+   def timing_middleware(request: Request):
        """Measure request processing time"""
+       import time
        start_time = time.time()
 
-       # Process request
-       response = call_next(request)
+       # Store start time in request context for response processing
+       if not hasattr(request, 'context'):
+           request.context = {}
+       request.context['start_time'] = start_time
 
-       # Add timing header
-       processing_time = time.time() - start_time
-       response.headers["X-Process-Time"] = f"{processing_time:.4f}"
-
-       return response
+       print(f"⏱️ Request started at {start_time}")
+       return None  # Continue to next middleware
 
    @app.get("/")
    def home(request):
@@ -58,23 +58,33 @@ Apply middleware to specific routes only:
 
 .. code-block:: python
 
-   def auth_middleware(request: Request, call_next):
+   def auth_middleware(request: Request):
        """Check authentication"""
        auth_header = request.headers.get("Authorization")
 
        if not auth_header or not auth_header.startswith("Bearer "):
-           return JSONResponse(
-               {"error": "Missing or invalid authentication"},
-               status_code=401
-           )
+           return JSONResponse({
+               "error": "Missing or invalid authentication"
+           }, status_code=401)
 
-       # Authentication passed, continue
-       return call_next(request)
+       # Authentication passed, add user info to context
+       if not hasattr(request, 'context'):
+           request.context = {}
+       request.context['user'] = {
+           "id": "user123",
+           "token": auth_header[7:]  # Remove "Bearer "
+       }
+
+       return None  # Continue to route handler
 
    # Apply middleware only to protected routes
    @app.get("/protected", middleware=[auth_middleware])
    def protected_endpoint(request):
-       return JSONResponse({"message": "You are authenticated!"})
+       user = getattr(request, 'context', {}).get('user', {})
+       return JSONResponse({
+           "message": "You are authenticated!",
+           "user": user
+       })
 
    @app.get("/public")
    def public_endpoint(request):

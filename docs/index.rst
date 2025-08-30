@@ -91,11 +91,15 @@ Async/Sync Hybrid Example
    # Auto-validation with BaseModel
    @app.post("/users")
    def create_user(request, user: User):
-       return JSONResponse({"user": user.dict()})
-
+       return JSONResponse({
+           "user": {
+               "name": user.name,
+               "email": user.email
+           }
+       })
 
    if __name__ == "__main__":
-    app.listen(port=8000)
+       app.listen(port=8000)
 
 Documentation Structure
 -----------------------
@@ -164,8 +168,7 @@ Catzilla's API is designed for seamless FastAPI migration:
 .. code-block:: python
 
    # FastAPI code works with minimal changes
-   from catzilla import Catzilla, BaseModel  # Just change the import
-   from catzilla.responses import JSONResponse
+   from catzilla import Catzilla, BaseModel, JSONResponse  # Just change the import
 
    app = Catzilla()  # Instead of FastAPI()
 

@@ -37,13 +37,11 @@ Enable DI and create your first service:
        def get_user(self, user_id: int):
            return {"id": user_id, "name": f"User {user_id}"}
 
-   # Use dependency injection in routes
+   # Use dependency injection in routes (FastAPI-identical syntax)
    @app.get("/users/{user_id}")
-   def get_user(
-       request,
-       user_id: int = Path(..., ge=1),
-       user_service: UserService = Depends("user_service")
-   ):
+   def get_user(request,
+                user_id: int = Path(..., ge=1),
+                user_service: UserService = Depends("user_service")):
        user = user_service.get_user(user_id)
        return JSONResponse({"user": user})
 
@@ -88,9 +86,11 @@ Create and inject basic services:
        def welcome_user(self, name: str) -> str:
            return self.greeting_service.greet(name)
 
-   # Use in route handlers
+   # Use in route handlers (FastAPI-identical syntax)
    @app.get("/welcome/{name}")
-   def welcome(request, name: str, user_service: UserService = Depends("user_service")):
+   def welcome(request,
+               name: str = Path(...),
+               user_service: UserService = Depends("user_service")):
        message = user_service.welcome_user(name)
        return JSONResponse({"message": message})
 
@@ -140,6 +140,73 @@ Real-world example with database simulation:
 
    if __name__ == "__main__":
        app.listen(port=8000)
+
+Dependency Injection Approaches
+------------------------------
+
+Catzilla supports two dependency injection patterns to suit different preferences and migration scenarios:
+
+**Approach 1: FastAPI-Style Depends() (Recommended)**
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The modern, developer-friendly approach using ``Depends()`` for automatic injection:
+
+.. code-block:: python
+
+   from catzilla import Depends, Path
+
+   @app.get("/users/{user_id}")
+   def get_user(request,
+                user_id: int = Path(..., ge=1),
+                user_service: UserService = Depends("user_service"),
+                logger: LoggerService = Depends("logger")):
+       """FastAPI-identical syntax - preferred approach"""
+       logger.log(f"Fetching user {user_id}")
+       user = user_service.get_user(user_id)
+       return JSONResponse({"user": user})
+
+   @app.post("/users")
+   def create_user(request,
+                   user_data: UserCreateModel,
+                   user_service: UserService = Depends("user_service"),
+                   db_session: DatabaseSession = Depends("database_session")):
+       """Multiple dependencies with auto-validation"""
+       user = user_service.create_user(user_data.name, user_data.email, db_session)
+       return JSONResponse({"user": user}, status_code=201)
+
+**Benefits:**
+- Zero migration effort from FastAPI
+- Automatic dependency resolution
+- Type hints for better IDE support
+- Clean, readable function signatures
+
+**Approach 2: Manual Container Resolution (Alternative)**
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For cases where you need more control or prefer explicit dependency resolution:
+
+.. code-block:: python
+
+   @app.get("/users/{user_id}")
+   def get_user_manual(request):
+       """Manual dependency resolution"""
+       user_id = int(request.path_params["user_id"])
+
+       # Explicit service resolution
+       user_service = app.di_container.resolve("user_service")
+       logger = app.di_container.resolve("logger")
+
+       logger.log(f"Fetching user {user_id}")
+       user = user_service.get_user(user_id)
+       return JSONResponse({"user": user})
+
+**When to use manual resolution:**
+- When you need conditional dependency resolution
+- For complex initialization logic
+- When migrating legacy code gradually
+- For debugging dependency issues
+
+**Performance Note:** Both approaches have identical performance - Catzilla optimizes dependency resolution at the C level regardless of which syntax you choose.
 
 Advanced Dependency Injection
 ------------------------------

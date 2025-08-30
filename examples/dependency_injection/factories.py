@@ -339,11 +339,11 @@ def home(request):
     })
 
 @app.get("/services/simple")
-def simple_factory_demo(request):
+def simple_factory_demo(
+    request,
+    database: Dict = Depends("database")
+):
     """Demonstrate simple factory pattern"""
-
-    # Get services created by simple factories
-    database = app.di_container.resolve("database")
 
     return JSONResponse({
         "pattern": "Simple Factory",
@@ -352,10 +352,11 @@ def simple_factory_demo(request):
     })
 
 @app.get("/services/builder")
-def builder_pattern_demo(request):
+def builder_pattern_demo(
+    request,
+    cache: Dict = Depends("cache")
+):
     """Demonstrate builder pattern"""
-
-    cache = app.di_container.resolve("cache")
 
     return JSONResponse({
         "pattern": "Builder Pattern",
@@ -364,10 +365,12 @@ def builder_pattern_demo(request):
     })
 
 @app.get("/services/conditional")
-def conditional_factory_demo(request):
+def conditional_factory_demo(
+    request,
+    logger: Logger = Depends("logger")
+):
     """Demonstrate conditional factory"""
 
-    logger = app.di_container.resolve("logger")
     logger.log("Conditional factory demo accessed", "INFO")
 
     return JSONResponse({
@@ -378,10 +381,11 @@ def conditional_factory_demo(request):
     })
 
 @app.get("/services/abstract")
-def abstract_factory_demo(request):
+def abstract_factory_demo(
+    request,
+    service_factory: ServiceFactory = Depends("service_factory")
+):
     """Demonstrate abstract factory pattern"""
-
-    service_factory = app.di_container.resolve("service_factory")
 
     user_service = service_factory.create_user_service()
     auth_service = service_factory.create_auth_service()
@@ -394,10 +398,11 @@ def abstract_factory_demo(request):
     })
 
 @app.get("/services/complex")
-def complex_factory_demo(request):
+def complex_factory_demo(
+    request,
+    app_context: ApplicationContext = Depends("app_context")
+):
     """Demonstrate complex factory with dependencies"""
-
-    app_context = app.di_container.resolve("app_context")
 
     return JSONResponse({
         "pattern": "Complex Factory",
@@ -406,10 +411,11 @@ def complex_factory_demo(request):
     })
 
 @app.get("/services/lazy")
-def lazy_factory_demo(request):
+def lazy_factory_demo(
+    request,
+    lazy_wrapper: LazyServiceWrapper = Depends("expensive_service")
+):
     """Demonstrate lazy factory pattern"""
-
-    lazy_wrapper = app.di_container.resolve("expensive_service")
 
     # This will trigger lazy initialization
     expensive_service = lazy_wrapper.get_instance()
@@ -422,15 +428,15 @@ def lazy_factory_demo(request):
     })
 
 @app.get("/health")
-def health_check(request):
+def health_check(
+    request,
+    config: Config = Depends("config"),
+    database: Dict = Depends("database"),
+    cache: Dict = Depends("cache"),
+    logger: Logger = Depends("logger"),
+    app_context: ApplicationContext = Depends("app_context")
+):
     """Health check showing all factory-created services"""
-
-    # Resolve all services to check health
-    config = app.di_container.resolve("config")
-    database = app.di_container.resolve("database")
-    cache = app.di_container.resolve("cache")
-    logger = app.di_container.resolve("logger")
-    app_context = app.di_container.resolve("app_context")
 
     logger.log("Health check performed", "INFO")
 
