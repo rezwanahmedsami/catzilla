@@ -265,7 +265,27 @@ Complex Nested Structures
    def create_complete_user(request, user: CompleteUser):
        return JSONResponse({
            "message": "Complete user created",
-           "user": user.dict(),  # Automatically serializes nested models
+           "user": {
+               "id": user.id,
+               "username": user.username,
+               "contact": {
+                   "email": user.contact.email,
+                   "phone": user.contact.phone
+               },
+               "profile": {
+                   "bio": user.profile.bio,
+                   "website": user.profile.website,
+                   "social_links": user.profile.social_links
+               },
+               "address": {
+                   "street": user.address.street,
+                   "city": user.address.city,
+                   "country": user.address.country,
+                   "postal_code": user.address.postal_code
+               } if user.address else None,
+               "is_active": user.is_active,
+               "created_at": user.created_at
+           },
            "validation_layers": 3,
            "total_validation_time": "~4.2μs"
        }, status_code=201)
@@ -306,7 +326,12 @@ Post-Initialization Validation
    def create_validated_user(request, user: UserWithCustomValidation):
        return JSONResponse({
            "message": "User created with custom validation",
-           "user": user.dict(),
+           "user": {
+               "name": user.name,
+               "email": user.email,
+               "age": user.age,
+               "bio": user.bio
+           },
            "custom_rules_applied": True
        }, status_code=201)
 
@@ -460,7 +485,15 @@ Custom Error Handling
 
            return JSONResponse({
                "message": "User validated successfully",
-               "user": user.dict()
+               "user": {
+                   "id": user.id,
+                   "username": user.username,
+                   "email": user.email,
+                   "age": user.age,
+                   "height": user.height,
+                   "is_active": user.is_active,
+                   "bio": user.bio
+               }
            })
 
        except ValidationError as e:
@@ -516,7 +549,15 @@ Real-Time Performance Test
        # Measure just the business logic
        result = {
            "message": "Performance test completed",
-           "user": user.dict(),
+           "user": {
+               "id": user.id,
+               "username": user.username,
+               "email": user.email,
+               "age": user.age,
+               "height": user.height,
+               "is_active": user.is_active,
+               "bio": user.bio
+           },
            "validation_status": "completed"
        }
 

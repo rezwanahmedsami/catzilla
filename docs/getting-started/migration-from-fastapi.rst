@@ -148,8 +148,12 @@ Here's a complete migration example of a typical FastAPI CRUD application:
    @app.post("/users", response_model=User)
    async def create_user(user: User):
        global user_id_counter
-       user_data = user.dict()
-       user_data["id"] = user_id_counter
+       user_data = {
+           "id": user_id_counter,
+           "name": user.name,
+           "email": user.email,
+           "age": user.age
+       }
        users_db[user_id_counter] = user_data
        user_id_counter += 1
        return user_data
@@ -185,8 +189,12 @@ Here's a complete migration example of a typical FastAPI CRUD application:
    @app.post("/users")
    async def create_user(request, user: User):
        global user_id_counter
-       user_data = user.dict()
-       user_data["id"] = user_id_counter
+       user_data = {
+           "id": user_id_counter,
+           "name": user.name,
+           "email": user.email,
+           "age": user.age
+       }
        users_db[user_id_counter] = user_data
        user_id_counter += 1
        return JSONResponse(user_data, status_code=201)
@@ -229,8 +237,12 @@ Here's a complete migration example of a typical FastAPI CRUD application:
        # Simulate async database insert
        await asyncio.sleep(0.01)
 
-       user_data = user.dict()
-       user_data["id"] = user_id_counter
+       user_data = {
+           "id": user_id_counter,
+           "name": user.name,
+           "email": user.email,
+           "age": user.age
+       }
        users_db[user_id_counter] = user_data
        user_id_counter += 1
 
@@ -454,7 +466,11 @@ Common Migration Issues & Solutions
    # Catzilla
    @app.get("/users")
    def get_users(request):
-       return JSONResponse([user.dict() for user in users])
+       return JSONResponse([{
+           "name": user.name,
+           "email": user.email,
+           "age": user.age
+       } for user in users])
 
 2. Status Code Responses
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -473,7 +489,11 @@ Common Migration Issues & Solutions
    # Catzilla
    @app.post("/users")
    def create_user(request, user: User):
-       return JSONResponse(user.dict(), status_code=201)
+       return JSONResponse({
+           "name": user.name,
+           "email": user.email,
+           "age": user.age
+       }, status_code=201)
 
 3. Background Tasks
 ~~~~~~~~~~~~~~~~~~~

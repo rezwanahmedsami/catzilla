@@ -367,7 +367,18 @@ Complete CRUD operations with validation:
                return None
 
            # Update fields
-           update_data = task_data.dict(exclude_unset=True)
+           update_data = {}
+           if task_data.title is not None:
+               update_data["title"] = task_data.title
+           if task_data.description is not None:
+               update_data["description"] = task_data.description
+           if task_data.priority is not None:
+               update_data["priority"] = task_data.priority
+           if task_data.due_date is not None:
+               update_data["due_date"] = task_data.due_date
+           if task_data.completed is not None:
+               update_data["completed"] = task_data.completed
+
            task.update(update_data)
            task["updated_at"] = datetime.utcnow().isoformat()
 
@@ -407,7 +418,16 @@ Complete CRUD operations with validation:
        tasks = TaskService.list_tasks(skip=skip, limit=limit, completed=completed)
 
        return JSONResponse({
-           "tasks": [task.dict() for task in tasks],
+           "tasks": [{
+               "id": task.id,
+               "title": task.title,
+               "description": task.description,
+               "priority": task.priority,
+               "due_date": task.due_date,
+               "completed": task.completed,
+               "created_at": task.created_at,
+               "updated_at": task.updated_at
+           } for task in tasks],
            "pagination": {
                "skip": skip,
                "limit": limit,
@@ -425,7 +445,16 @@ Complete CRUD operations with validation:
        try:
            new_task = TaskService.create_task(task)
            return JSONResponse(
-               {"task": new_task.dict(), "message": "Task created successfully"},
+               {"task": {
+                   "id": new_task.id,
+                   "title": new_task.title,
+                   "description": new_task.description,
+                   "priority": new_task.priority,
+                   "due_date": new_task.due_date,
+                   "completed": new_task.completed,
+                   "created_at": new_task.created_at,
+                   "updated_at": new_task.updated_at
+               }, "message": "Task created successfully"},
                status_code=201
            )
        except Exception as e:
@@ -439,7 +468,16 @@ Complete CRUD operations with validation:
        if not task:
            return JSONResponse({"error": "Task not found"}, status_code=404)
 
-       return JSONResponse({"task": task.dict()})
+       return JSONResponse({"task": {
+           "id": task.id,
+           "title": task.title,
+           "description": task.description,
+           "priority": task.priority,
+           "due_date": task.due_date,
+           "completed": task.completed,
+           "created_at": task.created_at,
+           "updated_at": task.updated_at
+       }})
 
    @app.put("/api/tasks/{task_id}")
    def update_task(
@@ -454,7 +492,16 @@ Complete CRUD operations with validation:
            return JSONResponse({"error": "Task not found"}, status_code=404)
 
        return JSONResponse({
-           "task": updated_task.dict(),
+           "task": {
+               "id": updated_task.id,
+               "title": updated_task.title,
+               "description": updated_task.description,
+               "priority": updated_task.priority,
+               "due_date": updated_task.due_date,
+               "completed": updated_task.completed,
+               "created_at": updated_task.created_at,
+               "updated_at": updated_task.updated_at
+           },
            "message": "Task updated successfully"
        })
 
@@ -481,7 +528,16 @@ Complete CRUD operations with validation:
        for i, task_data in enumerate(tasks):
            try:
                new_task = TaskService.create_task(task_data)
-               created_tasks.append(new_task.dict())
+               created_tasks.append({
+                   "id": new_task.id,
+                   "title": new_task.title,
+                   "description": new_task.description,
+                   "priority": new_task.priority,
+                   "due_date": new_task.due_date,
+                   "completed": new_task.completed,
+                   "created_at": new_task.created_at,
+                   "updated_at": new_task.updated_at
+               })
            except Exception as e:
                errors.append({"index": i, "error": str(e)})
 
@@ -506,7 +562,16 @@ Complete CRUD operations with validation:
            updated_task = TaskService.update_task(task_id, update_data)
 
            if updated_task:
-               updated_tasks.append(updated_task.dict())
+               updated_tasks.append({
+                   "id": updated_task.id,
+                   "title": updated_task.title,
+                   "description": updated_task.description,
+                   "priority": updated_task.priority,
+                   "due_date": updated_task.due_date,
+                   "completed": updated_task.completed,
+                   "created_at": updated_task.created_at,
+                   "updated_at": updated_task.updated_at
+               })
            else:
                not_found.append(task_id)
 

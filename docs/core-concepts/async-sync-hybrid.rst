@@ -35,7 +35,7 @@ Catzilla automatically detects whether your handler is sync or async:
 
 .. code-block:: python
 
-   from catzilla import Catzilla, JSONResponse
+   from catzilla import Catzilla, JSONResponse, Query
    import asyncio
 
    app = Catzilla()
@@ -102,7 +102,7 @@ Perfect for computational tasks, data processing, and algorithms:
    import math
 
    @app.get("/compute-prime")
-   def compute_prime(request, n: int = Query(100)):
+   def compute_prime(request, n: int = Query(100, ge=2, le=10000, description="Number to check for primality")):
        """CPU-intensive prime calculation - perfect for sync"""
 
        def is_prime(num):
@@ -126,8 +126,13 @@ Perfect for computational tasks, data processing, and algorithms:
        })
 
    @app.post("/process-data")
-   def process_large_dataset(request, data: List[dict]):
+   def process_large_dataset(request):
        """Data processing - sync is optimal"""
+       # Parse data from request body
+       import json
+       body = request.body.decode('utf-8') if request.body else '{}'
+       request_data = json.loads(body)
+       data = request_data.get('data', [])
 
        # CPU-intensive data processing
        processed = []
@@ -136,8 +141,8 @@ Perfect for computational tasks, data processing, and algorithms:
            result = {
                "id": item.get("id"),
                "processed_value": item.get("value", 0) * 1.5,
-               "category": classify_item(item),
-               "score": calculate_score(item)
+               "category": "processed",  # classify_item(item)
+               "score": item.get("value", 0) * 2  # calculate_score(item)
            }
            processed.append(result)
 
@@ -340,14 +345,14 @@ Error handling works seamlessly across sync and async handlers:
    from catzilla import JSONResponse, Query
 
    @app.get("/sync-error-demo")
-   def sync_error_demo(request, should_fail: bool = Query(False)):
+   def sync_error_demo(request, should_fail: bool = Query(False, description="Whether to trigger an error")):
        """Sync error handling"""
        if should_fail:
            return JSONResponse({"error": "Sync error occurred"}, status_code=400)
        return JSONResponse({"message": "Sync success"})
 
    @app.get("/async-error-demo")
-   async def async_error_demo(request, should_fail: bool = Query(False)):
+   async def async_error_demo(request, should_fail: bool = Query(False, description="Whether to trigger an error")):
        """Async error handling"""
        await asyncio.sleep(0.1)
        if should_fail:
