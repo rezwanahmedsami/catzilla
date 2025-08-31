@@ -46,7 +46,13 @@
         "supportingData": {
             "@type": "Dataset",
             "name": "Performance Benchmarks",
-            "description": "Catzilla delivers exceptional performance with C-accelerated routing and optimized request handling"
+            "description": "Catzilla delivers exceptional performance with C-accelerated routing and optimized request handling",
+            "creator": {
+                "@type": "Person",
+                "name": "Rezwan Ahmed Sami",
+                "url": "https://github.com/rezwanahmedsami"
+            },
+            "license": "https://opensource.org/licenses/MIT"
         }
     }
     </script>
@@ -61,5 +67,9 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
 
     <!-- Canonical URL -->
-    <link rel="canonical" href="https://catzilla.rezwanahmedsami.com{{ pagename }}.html">
+    {% if pagename == 'index' %}
+    <link rel="canonical" href="https://catzilla.rezwanahmedsami.com/">
+    {% else %}
+    <link rel="canonical" href="https://catzilla.rezwanahmedsami.com/{{ pagename }}.html">
+    {% endif %}
 {% endblock %}

@@ -106,25 +106,7 @@ html_theme_options = {
     'globaltoc_includehidden': True,
 }
 
-# Language and locale
-language = 'en'
-locale_dirs = ['locale/']
-
-# Favicon configuration (removed since we don't have favicon.ico)
-# html_favicon = '_static/favicon.ico'
-
-# -- Options for intersphinx extension ---------------------------------------
-intersphinx_mapping = {
-    'python': ('https://docs.python.org/3', None),
-    'fastapi': ('https://fastapi.tiangolo.com', None),
-    # Removed pydantic since the URL is not working
-}
-
-# -- Options for autodoc extension -------------------------------------------
-autodoc_typehints = 'description'
-autodoc_member_order = 'bysource'
-
-# Enhanced social media and repository links with SEO structure
+# Force canonical URL for homepage to root domain
 html_context = {
     "display_github": True,
     "github_user": "rezwanahmedsami",
