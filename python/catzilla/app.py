@@ -188,6 +188,9 @@ class Catzilla:
         show_request_details: bool = True,
         # Revolutionary upload system configuration
         upload_config: Optional[Dict[str, Any]] = None,
+        title: Optional[str] = None,
+        description: Optional[str] = None,
+        version: Optional[str] = "1.0.0",
     ):
         """Initialize Catzilla with advanced memory optimization and dependency injection
 
