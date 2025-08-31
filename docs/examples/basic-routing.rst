@@ -238,14 +238,14 @@ Use BaseModel for automatic request validation:
    class UserCreate(BaseModel):
        """User creation model with validation"""
        name: str = Field(min_length=2, max_length=50, description="User name")
-       email: str = Field(regex=r'^[^@]+@[^@]+\\.[^@]+$', description="Email address")
+       email: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$', description="Email address")
        age: Optional[int] = Field(None, ge=13, le=120, description="User age")
        tags: List[str] = Field([], max_items=10, description="User tags")
 
    class UserUpdate(BaseModel):
        """User update model - all fields optional"""
        name: Optional[str] = Field(None, min_length=2, max_length=50)
-       email: Optional[str] = Field(None, regex=r'^[^@]+@[^@]+\\.[^@]+$')
+       email: Optional[str] = Field(None, regex=r'^[^@]+@[^@]+\.[^@]+$')
        age: Optional[int] = Field(None, ge=13, le=120)
 
    # In-memory storage for demo
@@ -299,8 +299,8 @@ Use BaseModel for automatic request validation:
    @app.put("/users/{user_id}")
    def update_user(
        request,
-       user_id: int = Path(..., ge=1),
-       user: UserUpdate
+       user: UserUpdate,
+       user_id: int = Path(..., ge=1)
    ):
        if user_id not in users_db:
            return JSONResponse(

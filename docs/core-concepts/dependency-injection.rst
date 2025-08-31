@@ -40,8 +40,8 @@ Enable DI and create your first service:
    # Use dependency injection in routes (FastAPI-identical syntax)
    @app.get("/users/{user_id}")
    def get_user(request,
-                user_id: int = Path(..., ge=1),
-                user_service: UserService = Depends("user_service")):
+                user_service: UserService = Depends("user_service"),
+                user_id: int = Path(..., ge=1)):
        user = user_service.get_user(user_id)
        return JSONResponse({"user": user})
 
@@ -89,8 +89,8 @@ Create and inject basic services:
    # Use in route handlers (FastAPI-identical syntax)
    @app.get("/welcome/{name}")
    def welcome(request,
-               name: str = Path(...),
-               user_service: UserService = Depends("user_service")):
+               user_service: UserService = Depends("user_service"),
+               name: str = Path(...)):
        message = user_service.welcome_user(name)
        return JSONResponse({"message": message})
 
@@ -130,8 +130,8 @@ Real-world example with database simulation:
    @app.get("/async-users/{user_id}")
    async def get_user_async(
        request,
-       user_id: int = Path(..., ge=1),
-       user_repo: UserRepository = Depends("user_repository")
+       user_repo: UserRepository = Depends("user_repository"),
+       user_id: int = Path(..., ge=1)
    ):
        # Simulate async database call
        await asyncio.sleep(0.01)
@@ -157,9 +157,9 @@ The modern, developer-friendly approach using ``Depends()`` for automatic inject
 
    @app.get("/users/{user_id}")
    def get_user(request,
-                user_id: int = Path(..., ge=1),
                 user_service: UserService = Depends("user_service"),
-                logger: LoggerService = Depends("logger")):
+                logger: LoggerService = Depends("logger"),
+                user_id: int = Path(..., ge=1)):
        """FastAPI-identical syntax - preferred approach"""
        logger.log(f"Fetching user {user_id}")
        user = user_service.get_user(user_id)
@@ -345,8 +345,8 @@ Create services that support async operations:
    @app.get("/async-di/{user_id}")
    async def async_di_example(
        request,
-       user_id: int = Path(..., ge=1),
-       user_repo: AsyncUserRepository = Depends("async_user_repository")
+       user_repo: AsyncUserRepository = Depends("async_user_repository"),
+       user_id: int = Path(..., ge=1)
    ):
        user = await user_repo.find_user(user_id)
        return JSONResponse({"user": user, "type": "async_dependency_injection"})
@@ -403,8 +403,8 @@ Practical async database service with connection management:
    @app.get("/db-users/{user_id}")
    async def get_database_user(
        request,
-       user_id: int = Path(..., ge=1),
-       user_service: UserService = Depends("user_service")
+       user_service: UserService = Depends("user_service"),
+       user_id: int = Path(..., ge=1)
    ):
        user_data = await user_service.get_user(user_id)
        return JSONResponse({"user": user_data, "source": "database_service"})
@@ -687,5 +687,92 @@ Testing with DI
 
        # Test the route (would need test client setup)
        # This demonstrates the pattern for testing with DI
+
+Authentication & Authorization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Complete authentication system with dependency injection:
+
+.. code-block:: python
+
+   from catzilla import Catzilla, service, JSONResponse, Header, Depends
+   from catzilla.dependency_injection import set_default_container
+   from typing import Optional
+
+   app = Catzilla(enable_di=True)
+   set_default_container(app.di_container)
+
+   # Authentication service
+   @service("auth_service")
+   class AuthenticationService:
+       def __init__(self):
+           self.users_db = {
+               "admin": {"id": 1, "username": "admin", "email": "admin@example.com", "role": "admin"},
+               "user1": {"id": 2, "username": "user1", "email": "user1@example.com", "role": "user"}
+           }
+
+       def authenticate_token(self, token: str) -> Optional[dict]:
+           """Validate token and return user info"""
+           # Simple mock authentication - in reality you'd validate JWT tokens
+           if token == "admin_token":
+               return self.users_db["admin"]
+           elif token == "user_token":
+               return self.users_db["user1"]
+           return None
+
+       def get_current_user(self, authorization: str) -> dict:
+           """Extract and validate user from authorization header"""
+           if not authorization.startswith("Bearer "):
+               raise ValueError("Invalid authorization header format")
+
+           token = authorization.replace("Bearer ", "")
+           user = self.authenticate_token(token)
+
+           if not user:
+               raise ValueError("Invalid or expired token")
+
+           return user
+
+   # Protected routes with authentication
+   @app.get("/protected")
+   def protected_route(
+       request,
+       authorization: str = Header(..., description="Authorization header"),
+       auth_service: AuthenticationService = Depends("auth_service")
+   ):
+       """Protected route that requires authentication"""
+       try:
+           current_user = auth_service.get_current_user(authorization)
+           return JSONResponse({
+               "message": f"Hello {current_user['username']}!",
+               "user_info": current_user
+           })
+       except ValueError as e:
+           return JSONResponse({"error": str(e)}, status_code=401)
+
+   # Admin-only route
+   @app.get("/admin")
+   def admin_route(
+       request,
+       authorization: str = Header(..., description="Authorization header"),
+       auth_service: AuthenticationService = Depends("auth_service")
+   ):
+       """Admin-only route"""
+       try:
+           current_user = auth_service.get_current_user(authorization)
+           if current_user.get("role") != "admin":
+               return JSONResponse({"error": "Admin access required"}, status_code=403)
+
+           return JSONResponse({
+               "message": "Admin panel access granted",
+               "admin_info": current_user
+           })
+       except ValueError as e:
+           return JSONResponse({"error": str(e)}, status_code=401)
+
+   if __name__ == "__main__":
+       print("🚀 Authentication Example")
+       print("Test with: curl -H 'Authorization: Bearer admin_token' http://localhost:8000/protected")
+       app.listen(port=8000)
 
 This dependency injection system provides all the power and flexibility you need for building scalable, maintainable applications with Catzilla's performance advantages.

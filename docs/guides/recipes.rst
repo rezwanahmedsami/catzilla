@@ -482,8 +482,8 @@ Complete CRUD operations with validation:
    @app.put("/api/tasks/{task_id}")
    def update_task(
        request: Request,
-       task_id: int = Path(..., ge=1, description="Task ID"),
-       task_update: TaskUpdate = None
+       task_update: TaskUpdate = None,
+       task_id: int = Path(..., ge=1, description="Task ID")
    ):
        """Update an existing task"""
        updated_task = TaskService.update_task(task_id, task_update)

@@ -23,8 +23,10 @@ Simple Model Definition
 
 .. code-block:: python
 
-   from catzilla import BaseModel, Field
+   from catzilla import Catzilla, JSONResponse, BaseModel, Field
    from typing import Optional
+
+   app = Catzilla()
 
    class User(BaseModel):
        """Basic user model"""
@@ -61,7 +63,7 @@ Models with Field Validation
        # Basic constraints
        id: int = Field(ge=1, le=1000000, description="User ID")
        username: str = Field(min_length=3, max_length=20, regex=r'^[a-zA-Z0-9_]+$')
-       email: str = Field(regex=r'^[^@]+@[^@]+\\.[^@]+$', description="Email address")
+       email: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$', description="Email address")
 
        # Numeric constraints
        age: int = Field(ge=13, le=120, description="User age")
@@ -98,13 +100,18 @@ String Fields
 
 .. code-block:: python
 
+   from catzilla import Catzilla, JSONResponse, BaseModel, Field
+   from typing import Optional
+
+   app = Catzilla()
+
    class StringValidation(BaseModel):
        # Length constraints
        name: str = Field(min_length=2, max_length=50)
 
        # Regex patterns
        username: str = Field(regex=r'^[a-zA-Z0-9_]+$')
-       email: str = Field(regex=r'^[^@]+@[^@]+\\.[^@]+$')
+       email: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$')
        phone: str = Field(regex=r'^\\+?1?\\d{9,15}$')
 
        # Predefined patterns
@@ -113,10 +120,32 @@ String Fields
        # Optional strings
        description: Optional[str] = Field(None, max_length=1000)
 
+   @app.post("/string-validation")
+   def validate_strings(request, data: StringValidation):
+       return JSONResponse({
+           "message": "String validation successful",
+           "data": {
+               "name": data.name,
+               "username": data.username,
+               "email": data.email,
+               "phone": data.phone,
+               "postal_code": data.postal_code,
+               "description": data.description
+           }
+       })
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Numeric Fields
 ~~~~~~~~~~~~~~
 
 .. code-block:: python
+
+   from catzilla import Catzilla, JSONResponse, BaseModel, Field
+   from typing import Optional
+
+   app = Catzilla()
 
    class NumericValidation(BaseModel):
        # Integer constraints
@@ -132,12 +161,33 @@ Numeric Fields
        # Optional numerics
        discount: Optional[float] = Field(None, ge=0.0, le=1.0)
 
+   @app.post("/numeric-validation")
+   def validate_numbers(request, data: NumericValidation):
+       return JSONResponse({
+           "message": "Numeric validation successful",
+           "data": {
+               "age": data.age,
+               "score": data.score,
+               "user_id": data.user_id,
+               "price": data.price,
+               "height": data.height,
+               "percentage": data.percentage,
+               "discount": data.discount
+           }
+       })
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 List and Collection Fields
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
-   from typing import List
+   from catzilla import Catzilla, JSONResponse, BaseModel, Field, Path
+   from typing import List, Optional
+
+   app = Catzilla()
 
    class CollectionValidation(BaseModel):
        # List constraints
@@ -162,11 +212,23 @@ List and Collection Fields
        notification_types: List[str] = Field(default=[])
        scores: List[float] = Field(min_items=0, max_items=20)
 
+   @app.post("/collections")
+   def validate_collections(request, data: CollectionValidation):
+       return JSONResponse({
+           "message": "Collection validation successful",
+           "data": {
+               "tags": data.tags,
+               "scores": data.scores,
+               "categories": data.categories,
+               "emails": data.emails
+           }
+       })
+
    @app.put("/users/{user_id}/preferences")
    def update_preferences(
        request,
-       user_id: int = Path(..., ge=1),
-       preferences: UserPreferences
+       preferences: UserPreferences,
+       user_id: int = Path(..., ge=1)
    ):
        # Set user_id on the preferences object
        preferences.user_id = user_id
@@ -193,6 +255,11 @@ Basic Nested Models
 ~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
+
+   from catzilla import Catzilla, JSONResponse, BaseModel, Field
+   from typing import Optional
+
+   app = Catzilla()
 
    class Address(BaseModel):
        """Address model for nested validation"""
@@ -237,14 +304,26 @@ Complex Nested Structures
 
 .. code-block:: python
 
+   from catzilla import Catzilla, JSONResponse, BaseModel, Field
+   from typing import Optional, List
+
+   app = Catzilla()
+
    class ContactInfo(BaseModel):
-       email: str = Field(regex=r'^[^@]+@[^@]+\\.[^@]+$')
+       email: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$')
        phone: Optional[str] = Field(None, regex=r'^\\+?1?\\d{9,15}$')
 
    class Profile(BaseModel):
        bio: Optional[str] = Field(None, max_length=500)
        website: Optional[str] = Field(None, regex=r'^https?://.+')
        social_links: List[str] = Field(default=[], max_items=5)
+
+   class Address(BaseModel):
+       """Address model for nested validation"""
+       street: str = Field(min_length=5, max_length=100)
+       city: str = Field(min_length=2, max_length=50)
+       country: str = Field(min_length=2, max_length=50)
+       postal_code: str = Field(regex=r'^\\d{5}(-\\d{4})?$')
 
    class CompleteUser(BaseModel):
        """Complex user model with multiple nested structures"""
@@ -301,11 +380,14 @@ Post-Initialization Validation
 
 .. code-block:: python
 
-   from catzilla import ValidationError
+   from catzilla import Catzilla, JSONResponse, BaseModel, Field, ValidationError
+   from typing import Optional
+
+   app = Catzilla()
 
    class UserWithCustomValidation(BaseModel):
        name: str = Field(min_length=2, max_length=50)
-       email: str = Field(regex=r'^[^@]+@[^@]+\\.[^@]+$')
+       email: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$')
        age: int = Field(ge=13, le=120)
        bio: Optional[str] = Field(None, max_length=500)
 
@@ -343,7 +425,10 @@ Enum Validation
 
 .. code-block:: python
 
+   from catzilla import Catzilla, JSONResponse, BaseModel, Field
    from enum import Enum
+
+   app = Catzilla()
 
    class UserRole(str, Enum):
        ADMIN = "admin"
@@ -384,6 +469,10 @@ Query Parameter Models
 
 .. code-block:: python
 
+   from catzilla import Catzilla, JSONResponse, BaseModel, Field, Query
+
+   app = Catzilla()
+
    class SearchParams(BaseModel):
        q: str = Field(min_length=1, max_length=100, description="Search query")
        limit: int = Field(10, ge=1, le=100, description="Results limit")
@@ -412,7 +501,9 @@ Individual Parameter Validation
 
 .. code-block:: python
 
-   from catzilla import Query, Path, Header
+   from catzilla import Catzilla, JSONResponse, Query, Path, Header
+
+   app = Catzilla()
 
    @app.get("/users/{user_id}/posts")
    def get_user_posts(
@@ -474,7 +565,20 @@ Custom Error Handling
 
 .. code-block:: python
 
-   from catzilla import ValidationError
+   from catzilla import Catzilla, JSONResponse, BaseModel, Field, ValidationError
+   from typing import Optional
+
+   app = Catzilla()
+
+   class UserProfile(BaseModel):
+       """User profile with comprehensive validation"""
+       id: int = Field(ge=1, le=1000000, description="User ID")
+       username: str = Field(min_length=3, max_length=20, regex=r'^[a-zA-Z0-9_]+$')
+       email: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$', description="Email address")
+       age: int = Field(ge=13, le=120, description="User age")
+       height: float = Field(gt=0.5, lt=3.0, description="Height in meters")
+       is_active: bool = Field(default=True, description="Account status")
+       bio: Optional[str] = Field(None, max_length=500, description="User biography")
 
    @app.post("/custom-validation")
    def custom_validation_example(request, user: UserProfile):
@@ -513,7 +617,10 @@ Validation Performance Stats
 
 .. code-block:: python
 
-   from catzilla.core import get_validation_stats
+   from catzilla import Catzilla, JSONResponse
+   from catzilla.validation import get_validation_stats
+
+   app = Catzilla()
 
    @app.get("/validation-performance")
    def validation_performance(request):
@@ -539,7 +646,21 @@ Real-Time Performance Test
 
 .. code-block:: python
 
+   from catzilla import Catzilla, JSONResponse, BaseModel, Field
+   from typing import Optional
    import time
+
+   app = Catzilla()
+
+   class UserProfile(BaseModel):
+       """User profile with comprehensive validation"""
+       id: int = Field(ge=1, le=1000000, description="User ID")
+       username: str = Field(min_length=3, max_length=20, regex=r'^[a-zA-Z0-9_]+$')
+       email: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$', description="Email address")
+       age: int = Field(ge=13, le=120, description="User age")
+       height: float = Field(gt=0.5, lt=3.0, description="Height in meters")
+       is_active: bool = Field(default=True, description="Account status")
+       bio: Optional[str] = Field(None, max_length=500, description="User biography")
 
    @app.post("/performance-test")
    def performance_test(request, user: UserProfile):
@@ -582,29 +703,89 @@ Model Design
 
    .. code-block:: python
 
+      from catzilla import Catzilla, JSONResponse, BaseModel, Field
+
+      app = Catzilla()
+
       # Good
       class UserRegistrationRequest(BaseModel):
           username: str = Field(min_length=3, max_length=20)
+          email: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$')
+          password: str = Field(min_length=8, max_length=50)
 
       # Better than
       class User(BaseModel):
           name: str
+          email: str
+          pwd: str
+
+      @app.post("/register")
+      def register_user(request, user_data: UserRegistrationRequest):
+          return JSONResponse({
+              "message": "User registration request received",
+              "username": user_data.username
+          })
+
+      if __name__ == "__main__":
+          app.listen(port=8000)
 
 2. **Provide Good Descriptions**
 
    .. code-block:: python
 
+      from catzilla import Catzilla, JSONResponse, BaseModel, Field
+
+      app = Catzilla()
+
       class Product(BaseModel):
           price: float = Field(ge=0.0, description="Price in USD")
           discount: float = Field(ge=0.0, le=1.0, description="Discount as decimal (0.1 = 10%)")
+          name: str = Field(min_length=1, max_length=100, description="Product name")
+          category: str = Field(description="Product category")
+
+      @app.post("/products")
+      def create_product(request, product: Product):
+          return JSONResponse({
+              "message": "Product created",
+              "product": {
+                  "name": product.name,
+                  "price": product.price,
+                  "discount": product.discount,
+                  "category": product.category
+              }
+          })
+
+      if __name__ == "__main__":
+          app.listen(port=8000)
 
 3. **Use Appropriate Defaults**
 
    .. code-block:: python
 
+      from catzilla import Catzilla, JSONResponse, BaseModel, Field
+
+      app = Catzilla()
+
       class UserPreferences(BaseModel):
           notifications: bool = Field(True, description="Enable notifications")
           theme: str = Field("light", regex=r'^(light|dark)$')
+          language: str = Field("en", regex=r'^(en|es|fr|de)$')
+          timezone: str = Field("UTC", description="User timezone")
+
+      @app.post("/user-preferences")
+      def set_preferences(request, prefs: UserPreferences):
+          return JSONResponse({
+              "message": "Preferences set",
+              "preferences": {
+                  "notifications": prefs.notifications,
+                  "theme": prefs.theme,
+                  "language": prefs.language,
+                  "timezone": prefs.timezone
+              }
+          })
+
+      if __name__ == "__main__":
+          app.listen(port=8000)
 
 Validation Strategies
 ~~~~~~~~~~~~~~~~~~~~~
@@ -613,48 +794,119 @@ Validation Strategies
 
    .. code-block:: python
 
+      from catzilla import Catzilla, JSONResponse, BaseModel, Field
+
+      app = Catzilla()
+
       # Validate at field level for immediate feedback
       class Email(BaseModel):
-          address: str = Field(regex=r'^[^@]+@[^@]+\\.[^@]+$')
+          address: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$')
+          verified: bool = Field(default=False)
+
+      @app.post("/emails")
+      def validate_email(request, email: Email):
+          return JSONResponse({
+              "message": "Email validated",
+              "email": email.address,
+              "verified": email.verified
+          })
+
+      if __name__ == "__main__":
+          app.listen(port=8000)
 
 2. **Use Custom Validation for Business Rules**
 
    .. code-block:: python
 
-      # Use __post_init__ for complex business logic
-      def __post_init__(self):
-          if self.end_date <= self.start_date:
-              raise ValidationError("End date must be after start date")
+      from catzilla import Catzilla, JSONResponse, BaseModel, Field, ValidationError
+      from datetime import datetime
+
+      app = Catzilla()
+
+      class EventBooking(BaseModel):
+          event_name: str = Field(min_length=3, max_length=100)
+          start_date: str = Field(regex=r'^\\d{4}-\\d{2}-\\d{2}$')
+          end_date: str = Field(regex=r'^\\d{4}-\\d{2}-\\d{2}$')
+
+          # Use __post_init__ for complex business logic
+          def __post_init__(self):
+              start = datetime.strptime(self.start_date, '%Y-%m-%d')
+              end = datetime.strptime(self.end_date, '%Y-%m-%d')
+              if self.end_date <= self.start_date:
+                  raise ValidationError("End date must be after start date")
+
+      @app.post("/bookings")
+      def create_booking(request, booking: EventBooking):
+          return JSONResponse({
+              "message": "Booking created",
+              "event": booking.event_name,
+              "dates": f"{booking.start_date} to {booking.end_date}"
+          })
+
+      if __name__ == "__main__":
+          app.listen(port=8000)
 
 3. **Combine Multiple Validation Layers**
 
    .. code-block:: python
+
+      from catzilla import Catzilla, JSONResponse, BaseModel, Field, ValidationError
+      from datetime import datetime
+
+      app = Catzilla()
 
       class Event(BaseModel):
           # Field validation
           name: str = Field(min_length=3, max_length=100)
           start_date: str = Field(regex=r'^\\d{4}-\\d{2}-\\d{2}$')
           end_date: str = Field(regex=r'^\\d{4}-\\d{2}-\\d{2}$')
+          max_attendees: int = Field(ge=1, le=10000)
 
           # Custom validation
           def __post_init__(self):
               # Parse dates and validate business rules
-              from datetime import datetime
               start = datetime.strptime(self.start_date, '%Y-%m-%d')
               end = datetime.strptime(self.end_date, '%Y-%m-%d')
 
               if end <= start:
                   raise ValidationError("Event end date must be after start date")
 
+              # Check if event is too far in the future
+              now = datetime.now()
+              if (start - now).days > 365:
+                  raise ValidationError("Events cannot be scheduled more than 1 year in advance")
+
+      @app.post("/events")
+      def create_event(request, event: Event):
+          return JSONResponse({
+              "message": "Event created successfully",
+              "event": {
+                  "name": event.name,
+                  "start_date": event.start_date,
+                  "end_date": event.end_date,
+                  "max_attendees": event.max_attendees
+              }
+          })
+
+      if __name__ == "__main__":
+          app.listen(port=8000)
+
 Common Patterns
 ~~~~~~~~~~~~~~~
 
 **API Request/Response Models**
+
 .. code-block:: python
+
+   from catzilla import Catzilla, JSONResponse, BaseModel, Field
+   from typing import Optional
+
+   app = Catzilla()
 
    class CreateUserRequest(BaseModel):
        name: str = Field(min_length=2, max_length=50)
-       email: str = Field(regex=r'^[^@]+@[^@]+\\.[^@]+$')
+       email: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$')
+       age: int = Field(ge=18, le=120)
 
    class CreateUserResponse(BaseModel):
        id: int
@@ -662,27 +914,106 @@ Common Patterns
        email: str
        created_at: str
 
+   @app.post("/api-users")
+   def create_api_user(request, user_request: CreateUserRequest):
+       # Simulate user creation
+       user_response = CreateUserResponse(
+           id=12345,
+           name=user_request.name,
+           email=user_request.email,
+           created_at="2024-01-01T12:00:00Z"
+       )
+       return JSONResponse({
+           "user": {
+               "id": user_response.id,
+               "name": user_response.name,
+               "email": user_response.email,
+               "created_at": user_response.created_at
+           }
+       })
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 **Update Models (Partial)**
+
 .. code-block:: python
+
+   from catzilla import Catzilla, JSONResponse, BaseModel, Field
+   from typing import Optional
+
+   app = Catzilla()
 
    class UpdateUserRequest(BaseModel):
        name: Optional[str] = Field(None, min_length=2, max_length=50)
-       email: Optional[str] = Field(None, regex=r'^[^@]+@[^@]+\\.[^@]+$')
+       email: Optional[str] = Field(None, regex=r'^[^@]+@[^@]+\.[^@]+$')
+       age: Optional[int] = Field(None, ge=18, le=120)
        # Only include fields that can be updated
 
+   @app.patch("/users/{user_id}")
+   def update_user(request, user_id: int, updates: UpdateUserRequest):
+       return JSONResponse({
+           "message": f"User {user_id} updated",
+           "updates": {
+               "name": updates.name,
+               "email": updates.email,
+               "age": updates.age
+           }
+       })
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 **Filter/Search Models**
+
 .. code-block:: python
+
+   from catzilla import Catzilla, JSONResponse, BaseModel, Field, Query
+   from typing import Optional
+
+   app = Catzilla()
 
    class UserFilters(BaseModel):
        active: Optional[bool] = None
        role: Optional[str] = Field(None, regex=r'^(admin|user|guest)$')
        min_age: Optional[int] = Field(None, ge=0)
        max_age: Optional[int] = Field(None, le=150)
+       search: Optional[str] = Field(None, min_length=1, max_length=100)
+
+   @app.get("/users/search")
+   def search_users(request, filters: UserFilters = Query()):
+       return JSONResponse({
+           "message": "User search completed",
+           "filters": {
+               "active": filters.active,
+               "role": filters.role,
+               "min_age": filters.min_age,
+               "max_age": filters.max_age,
+               "search": filters.search
+           },
+           "results": []  # Your search logic here
+       })
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Testing Validation
 ------------------
 
 .. code-block:: python
+
+   from catzilla import Catzilla, JSONResponse, BaseModel, Field, ValidationError
+   from typing import Optional
+
+   app = Catzilla()
+
+   class UserProfile(BaseModel):
+       """User profile with comprehensive validation"""
+       id: int = Field(ge=1, le=1000000, description="User ID")
+       username: str = Field(min_length=3, max_length=20, regex=r'^[a-zA-Z0-9_]+$')
+       email: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$', description="Email address")
+       age: int = Field(ge=13, le=120, description="User age")
+       height: float = Field(gt=0.5, lt=3.0, description="Height in meters")
 
    # Example test patterns for validation
    def test_user_validation():
@@ -708,6 +1039,24 @@ Testing Validation
            assert False, "Should have raised ValidationError"
        except ValidationError:
            pass  # Expected
+
+   @app.get("/test-validation")
+   def run_validation_tests(request):
+       try:
+           test_user_validation()
+           return JSONResponse({
+               "message": "Validation tests passed",
+               "status": "success"
+           })
+       except Exception as e:
+           return JSONResponse({
+               "message": "Validation tests failed",
+               "error": str(e),
+               "status": "failed"
+           }, status_code=500)
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Conclusion
 ----------

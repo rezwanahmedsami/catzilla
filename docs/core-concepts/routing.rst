@@ -13,7 +13,7 @@ Catzilla supports all standard HTTP methods with intuitive decorators:
 
 .. code-block:: python
 
-   from catzilla import Catzilla, JSONResponse
+   from catzilla import Catzilla, JSONResponse, Path
 
    app = Catzilla()
 
@@ -26,19 +26,19 @@ Catzilla supports all standard HTTP methods with intuitive decorators:
        return JSONResponse({"message": "User created"}, status_code=201)
 
    @app.put("/users/{user_id}")
-   def update_user(request, user_id: int):
+   def update_user(request, user_id: int = Path(..., ge=1)):
        return JSONResponse({"message": f"User {user_id} updated"})
 
    @app.delete("/users/{user_id}")
-   def delete_user(request, user_id: int):
+   def delete_user(request, user_id: int = Path(..., ge=1)):
        return JSONResponse({"message": f"User {user_id} deleted"})
 
    @app.patch("/users/{user_id}")
-   def patch_user(request, user_id: int):
+   def patch_user(request, user_id: int = Path(..., ge=1)):
        return JSONResponse({"message": f"User {user_id} patched"})
 
    @app.head("/users/{user_id}")
-   def head_user(request, user_id: int):
+   def head_user(request, user_id: int = Path(..., ge=1)):
        return JSONResponse({})
 
    @app.options("/users")
@@ -55,13 +55,17 @@ Handle multiple methods for the same path:
 
 .. code-block:: python
 
+   from catzilla import Catzilla, JSONResponse, Path
+
+   app = Catzilla()
+
    # Method-specific handlers
    @app.get("/users/{user_id}")
-   def get_user(request, user_id: int):
+   def get_user(request, user_id: int = Path(..., ge=1)):
        return JSONResponse({"user_id": user_id, "method": "GET"})
 
    @app.put("/users/{user_id}")
-   def update_user(request, user_id: int):
+   def update_user(request, user_id: int = Path(..., ge=1)):
        return JSONResponse({"user_id": user_id, "method": "PUT"})
 
    # Or handle multiple methods in one function
@@ -69,6 +73,9 @@ Handle multiple methods for the same path:
    def status(request):
        method = request.method
        return JSONResponse({"status": "ok", "method": method})
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Path Parameters
 ---------------
@@ -80,18 +87,23 @@ Extract values directly from the URL path:
 
 .. code-block:: python
 
-   from catzilla import Path
+   from catzilla import Catzilla, JSONResponse, Path
+
+   app = Catzilla()
 
    @app.get("/users/{user_id}")
-   def get_user(request, user_id: int):
+   def get_user(request, user_id: int = Path(..., ge=1)):
        return JSONResponse({"user_id": user_id})
 
    @app.get("/users/{user_id}/posts/{post_id}")
-   def get_user_post(request, user_id: int, post_id: int):
+   def get_user_post(request, user_id: int = Path(..., ge=1), post_id: int = Path(..., ge=1)):
        return JSONResponse({
            "user_id": user_id,
            "post_id": post_id
        })
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Path Parameter Validation
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -100,7 +112,9 @@ Use the ``Path`` parameter for advanced validation:
 
 .. code-block:: python
 
-   from catzilla import Path
+   from catzilla import Catzilla, JSONResponse, Path
+
+   app = Catzilla()
 
    @app.get("/users/{user_id}")
    def get_user(
@@ -123,6 +137,9 @@ Use the ``Path`` parameter for advanced validation:
    ):
        return JSONResponse({"filename": filename})
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Query Parameters
 ----------------
 
@@ -133,7 +150,9 @@ Extract and validate query parameters:
 
 .. code-block:: python
 
-   from catzilla import Query
+   from catzilla import Catzilla, JSONResponse, Query
+
+   app = Catzilla()
 
    @app.get("/search")
    def search(
@@ -151,12 +170,18 @@ Extract and validate query parameters:
            "results": []  # Your search logic here
        })
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Optional and Required Parameters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
+   from catzilla import Catzilla, JSONResponse, Query
    from typing import Optional
+
+   app = Catzilla()
 
    @app.get("/users")
    def list_users(
@@ -183,6 +208,9 @@ Optional and Required Parameters
            "pagination": {"page": page, "per_page": per_page}
        })
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Headers and Form Data
 ---------------------
 
@@ -193,7 +221,9 @@ Extract and validate HTTP headers:
 
 .. code-block:: python
 
-   from catzilla import Header
+   from catzilla import Catzilla, JSONResponse, Header
+
+   app = Catzilla()
 
    @app.get("/protected")
    def protected_endpoint(
@@ -208,6 +238,9 @@ Extract and validate HTTP headers:
            "content_type": content_type
        })
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Form Data
 ~~~~~~~~~
 
@@ -215,13 +248,15 @@ Handle form submissions:
 
 .. code-block:: python
 
-   from catzilla import Form
+   from catzilla import Catzilla, JSONResponse, Form
+
+   app = Catzilla()
 
    @app.post("/contact")
    def contact_form(
        request,
        name: str = Form(..., min_length=2, max_length=100),
-       email: str = Form(..., regex=r'^[^@]+@[^@]+\\.[^@]+$'),
+       email: str = Form(..., regex=r'^[^@]+@[^@]+\.[^@]+$'),
        message: str = Form(..., min_length=10, max_length=1000),
        subscribe: bool = Form(False)
    ):
@@ -235,6 +270,9 @@ Handle form submissions:
            }
        }, status_code=201)
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Router Groups
 -------------
 
@@ -245,7 +283,7 @@ Basic Router Groups
 
 .. code-block:: python
 
-   from catzilla import Catzilla, RouterGroup, JSONResponse
+   from catzilla import Catzilla, RouterGroup, JSONResponse, Query
 
    app = Catzilla()
 
@@ -262,7 +300,7 @@ Basic Router Groups
        })
 
    @api_v1.get("/users/{user_id}")
-   def get_user_v1(request, user_id: int):
+   def get_user_v1(request, user_id: int = Path(..., ge=1)):
        return JSONResponse({
            "user_id": user_id,
            "version": "v1"
@@ -282,8 +320,8 @@ Basic Router Groups
        })
 
    # Register router groups with the main app
-   app.include_router(api_v1)
-   app.include_router(api_v2)
+   app.include_routes(api_v1)
+   app.include_routes(api_v2)
 
    if __name__ == "__main__":
        app.listen(port=8000)
@@ -294,6 +332,10 @@ Nested Router Groups
 Create hierarchical route structures:
 
 .. code-block:: python
+
+   from catzilla import Catzilla, RouterGroup, JSONResponse, Path
+
+   app = Catzilla()
 
    # Admin section
    admin = RouterGroup(prefix="/admin")
@@ -310,7 +352,7 @@ Create hierarchical route structures:
        return JSONResponse({"admin": True, "message": "User created"})
 
    @admin_users.delete("/{user_id}")
-   def admin_delete_user(request, user_id: int):
+   def admin_delete_user(request, user_id: int = Path(..., ge=1)):
        return JSONResponse({"admin": True, "deleted_user": user_id})
 
    # Admin reports
@@ -323,9 +365,12 @@ Create hierarchical route structures:
        return JSONResponse({"report": "monthly", "admin": True})
 
    # Mount nested groups
-   admin.include_router(admin_users)  # /admin/users/*
-   admin.include_router(admin_reports)  # /admin/reports/*
-   app.include_router(admin)
+   admin.include_routes(admin_users)  # /admin/users/*
+   admin.include_routes(admin_reports)  # /admin/reports/*
+   app.include_routes(admin)
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Group-Level Middleware
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -334,33 +379,71 @@ Apply middleware to entire router groups:
 
 .. code-block:: python
 
-   from catzilla.middleware import Middleware
+   from catzilla import Catzilla, RouterGroup, JSONResponse
 
-   # Authentication middleware
-   def auth_middleware(request, call_next):
+   app = Catzilla()
+
+   # Authentication middleware function
+   def auth_middleware(request):
+       """Per-route authentication middleware"""
        auth_header = request.headers.get("Authorization")
        if not auth_header or not auth_header.startswith("Bearer "):
            return JSONResponse({"error": "Authentication required"}, status_code=401)
 
        # Validate token here
        token = auth_header[7:]  # Remove "Bearer "
-       if not validate_token(token):
+       if token == "invalid":
            return JSONResponse({"error": "Invalid token"}, status_code=401)
 
-       return call_next(request)
+       # Add user info to request context
+       if not hasattr(request, 'context'):
+           request.context = {}
+       request.context['user'] = {"id": "user123", "token": token}
 
-   # Create protected router group
+       return None  # Continue to route handler
+
+   def api_middleware(request):
+       """API-specific middleware"""
+       if not hasattr(request, 'context'):
+           request.context = {}
+       request.context['api_version'] = 'v1'
+       return None
+
+   # Create protected router group with group-level middleware
    protected = RouterGroup(prefix="/protected", middleware=[auth_middleware])
 
+   # Create API router group with multiple middleware
+   api = RouterGroup(prefix="/api", middleware=[api_middleware, auth_middleware])
+
+   # All routes in protected group automatically get auth_middleware
    @protected.get("/profile")
    def get_profile(request):
-       return JSONResponse({"profile": "user profile data"})
+       user = getattr(request, 'context', {}).get('user', {})
+       return JSONResponse({"profile": "user profile data", "user": user})
 
    @protected.post("/settings")
    def update_settings(request):
-       return JSONResponse({"message": "Settings updated"})
+       user = getattr(request, 'context', {}).get('user', {})
+       return JSONResponse({"message": "Settings updated", "user": user})
 
-   app.include_router(protected)
+   # API routes get both api_middleware and auth_middleware
+   @api.get("/data")
+   def get_api_data(request):
+       user = getattr(request, 'context', {}).get('user', {})
+       api_version = getattr(request, 'context', {}).get('api_version')
+       return JSONResponse({"data": "api data", "user": user, "version": api_version})
+
+   # Combine group middleware with per-route middleware
+   @api.get("/special", middleware=[rate_limit_middleware])
+   def special_endpoint(request):
+       # This route runs: api_middleware + auth_middleware + rate_limit_middleware
+       return JSONResponse({"message": "Special API endpoint"})
+
+   app.include_routes(protected)
+   app.include_routes(api)
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Advanced Routing Patterns
 --------------------------
@@ -372,35 +455,25 @@ Catzilla automatically handles route priorities, with more specific routes takin
 
 .. code-block:: python
 
+   from catzilla import Catzilla, JSONResponse, Path
+
+   app = Catzilla()
+
    # More specific routes are matched first
    @app.get("/users/current")  # This will match first
    def get_current_user(request):
        return JSONResponse({"user": "current user"})
 
    @app.get("/users/{user_id}")  # This will match if above doesn't
-   def get_user(request, user_id: str):
+   def get_user(request, user_id: str = Path(...)):
        return JSONResponse({"user_id": user_id})
 
    @app.get("/users/{user_id}/profile")  # More specific path
-   def get_user_profile(request, user_id: int):
+   def get_user_profile(request, user_id: int = Path(..., ge=1)):
        return JSONResponse({"user_id": user_id, "profile": {}})
 
-Wildcard Routes
-~~~~~~~~~~~~~~~
-
-Catch-all routes for handling dynamic paths:
-
-.. code-block:: python
-
-   @app.get("/static/{file_path:path}")
-   def serve_static(request, file_path: str):
-       # file_path will contain the entire remaining path
-       return JSONResponse({"file_path": file_path})
-
-   # Example matches:
-   # /static/css/main.css -> file_path = "css/main.css"
-   # /static/js/app.min.js -> file_path = "js/app.min.js"
-   # /static/images/logo.png -> file_path = "images/logo.png"
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Route with Multiple Parameters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -519,15 +592,15 @@ Register routes programmatically:
            return JSONResponse(handlers.create(request.json()))
 
        @app.get(f"/{resource_name}/{{item_id}}")
-       def get_item(request, item_id: int):
+       def get_item(request, item_id: int = Path(..., ge=1)):
            return JSONResponse(handlers.get(item_id))
 
        @app.put(f"/{resource_name}/{{item_id}}")
-       def update_item(request, item_id: int):
+       def update_item(request, item_id: int = Path(..., ge=1)):
            return JSONResponse(handlers.update(item_id, request.json()))
 
        @app.delete(f"/{resource_name}/{{item_id}}")
-       def delete_item(request, item_id: int):
+       def delete_item(request, item_id: int = Path(..., ge=1)):
            return JSONResponse(handlers.delete(item_id))
 
    # Use it for multiple resources
@@ -555,7 +628,7 @@ Comprehensive validation example:
        role: Optional[str] = Field(None, regex=r'^(admin|user|guest)$')
        min_age: Optional[int] = Field(None, ge=0, le=120)
 
-   @app.get("/advanced-search")
+   @app.get("/advanced-search/{category}")
    def advanced_search(
        request,
        # Path parameters
@@ -619,14 +692,23 @@ Monitor route performance:
 .. code-block:: python
 
    import time
-   from catzilla.core import get_route_stats
 
    @app.get("/performance-stats")
    def get_performance_stats(request):
+       routes = app.routes()
        return JSONResponse({
            "router": "C-accelerated",
            "lookup_time": "O(log n)",
-           "stats": get_route_stats()
+           "total_routes": len(routes),
+           "routes": routes,
+           "memory_stats": app.get_memory_stats()
+       })
+
+   @app.get("/middleware-stats")
+   def get_middleware_performance(request):
+       return JSONResponse({
+           "middleware_stats": app.get_middleware_stats(),
+           "task_stats": app.get_task_stats()
        })
 
    @app.get("/benchmark")

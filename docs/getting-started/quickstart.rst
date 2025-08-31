@@ -64,6 +64,9 @@ Catzilla's key feature is seamless async/sync mixing. You can use both patterns 
        await asyncio.sleep(0.1)  # Simulated database call
        return JSONResponse({"type": "async", "execution": "event_loop"})
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 **Key Benefits:**
 
 - ✅ **Automatic Detection** - Catzilla automatically detects handler types
@@ -78,6 +81,7 @@ Catzilla provides automatic path parameter extraction and validation:
 
 .. code-block:: python
 
+   import asyncio
    from catzilla import Catzilla, JSONResponse, Path
 
    app = Catzilla()
@@ -104,6 +108,8 @@ Catzilla provides automatic path parameter extraction and validation:
 
        return JSONResponse({"user": user_data})
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
 Test your endpoints:
 
 .. code-block:: bash
@@ -118,7 +124,10 @@ Handle query parameters with automatic validation:
 
 .. code-block:: python
 
-   from catzilla import Query
+   import asyncio
+   from catzilla import Catzilla, JSONResponse, Query
+
+   app = Catzilla()
 
    @app.get("/search")
    def search(
@@ -150,6 +159,9 @@ Handle query parameters with automatic validation:
            "source": "external_api"
        })
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Test with query parameters:
 
 .. code-block:: bash
@@ -164,14 +176,17 @@ Catzilla includes Pydantic-compatible BaseModel for request validation:
 
 .. code-block:: python
 
-   from catzilla import BaseModel, Field
+   import asyncio
+   from catzilla import Catzilla, JSONResponse, BaseModel, Field
    from typing import Optional
+
+   app = Catzilla()
 
    # Define your data model
    class UserCreate(BaseModel):
        """User creation model with validation"""
        name: str = Field(min_length=2, max_length=50, description="User name")
-       email: str = Field(regex=r'^[^@]+@[^@]+\\.[^@]+$', description="Email address")
+       email: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$', description="Email address")
        age: Optional[int] = Field(None, ge=13, le=120, description="User age")
 
    # Sync handler with validation
@@ -201,6 +216,9 @@ Catzilla includes Pydantic-compatible BaseModel for request validation:
                "id": 123  # Simulated generated ID
            }
        }, status_code=201)
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Test with JSON data:
 
@@ -234,12 +252,12 @@ Here's a complete example combining all the concepts:
    # Data models
    class User(BaseModel):
        name: str = Field(min_length=2, max_length=50)
-       email: str = Field(regex=r'^[^@]+@[^@]+\\.[^@]+$')
+       email: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$')
        age: Optional[int] = Field(None, ge=13, le=120)
 
    class UserUpdate(BaseModel):
        name: Optional[str] = Field(None, min_length=2, max_length=50)
-       email: Optional[str] = Field(None, regex=r'^[^@]+@[^@]+\\.[^@]+$')
+       email: Optional[str] = Field(None, regex=r'^[^@]+@[^@]+\.[^@]+$')
        age: Optional[int] = Field(None, ge=13, le=120)
 
    # In-memory storage for demo
@@ -304,7 +322,7 @@ Here's a complete example combining all the concepts:
        return JSONResponse(users_db[user_id])
 
    @app.put("/users/{user_id}")
-   def update_user(request, user_id: int = Path(..., ge=1), user: UserUpdate):
+   def update_user(request, user: UserUpdate, user_id: int = Path(..., ge=1)):
        if user_id not in users_db:
            return JSONResponse(
                {"error": "User not found"},
@@ -417,9 +435,14 @@ Want to see Catzilla's performance in action? Add this endpoint to test concurre
 
 .. code-block:: python
 
+   import asyncio
+   import time
+   from catzilla import Catzilla, JSONResponse
+
+   app = Catzilla()
+
    @app.get("/performance-test")
    async def performance_test(request):
-       import time
        start_time = time.time()
 
        # Simulate multiple async operations running concurrently
@@ -442,6 +465,9 @@ Want to see Catzilla's performance in action? Add this endpoint to test concurre
            "actual_concurrent_time": f"{total_time:.3f}s",
            "performance_gain": f"{((0.26 - total_time) / 0.26 * 100):.1f}%"
        })
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Error Handling
 --------------

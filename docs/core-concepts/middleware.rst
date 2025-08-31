@@ -9,6 +9,7 @@ Overview
 Catzilla's middleware system provides:
 
 - **Global Middleware** - Applied to all routes with ``@app.middleware()``
+- **RouterGroup Middleware** - Applied to all routes within a RouterGroup
 - **Per-Route Middleware** - Specific middleware for individual routes
 - **Zero-Allocation Design** - C-accelerated middleware execution
 - **Middleware Ordering** - Control execution order with priority system
@@ -58,6 +59,10 @@ Apply middleware to specific routes only:
 
 .. code-block:: python
 
+   from catzilla import Catzilla, Request, Response, JSONResponse
+
+   app = Catzilla()
+
    def auth_middleware(request: Request):
        """Check authentication"""
        auth_header = request.headers.get("Authorization")
@@ -89,6 +94,165 @@ Apply middleware to specific routes only:
    @app.get("/public")
    def public_endpoint(request):
        return JSONResponse({"message": "No authentication required"})
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
+RouterGroup Middleware
+~~~~~~~~~~~~~~~~~~~~~~
+
+Apply middleware to all routes within a RouterGroup using group-level middleware:
+
+.. code-block:: python
+
+   from catzilla import Catzilla, Request, Response, JSONResponse
+   from catzilla.router import RouterGroup
+
+   app = Catzilla()
+
+   def auth_middleware(request: Request):
+       """Authentication middleware for protected routes"""
+       auth_header = request.headers.get("Authorization")
+
+       if not auth_header or not auth_header.startswith("Bearer "):
+           return JSONResponse({
+               "error": "Authentication required"
+           }, status_code=401)
+
+       # Add user info to request context
+       if not hasattr(request, 'context'):
+           request.context = {}
+       request.context['user'] = {
+           "id": "user123",
+           "token": auth_header[7:]  # Remove "Bearer "
+       }
+
+       return None  # Continue to route handler
+
+   def api_middleware(request: Request):
+       """API-specific middleware"""
+       if not hasattr(request, 'context'):
+           request.context = {}
+       request.context['api'] = {
+           "version": "v1",
+           "timestamp": time.time()
+       }
+       return None
+
+   # Create RouterGroups with group-level middleware
+   protected_group = RouterGroup(prefix="/protected", middleware=[auth_middleware])
+   api_group = RouterGroup(prefix="/api", middleware=[api_middleware])
+
+   # All routes in protected_group will automatically run auth_middleware
+   @protected_group.get("/profile")
+   def protected_profile(request):
+       user = getattr(request, 'context', {}).get('user', {})
+       return JSONResponse({
+           "message": "Protected profile accessed",
+           "user": user
+       })
+
+   @protected_group.get("/settings")
+   def protected_settings(request):
+       user = getattr(request, 'context', {}).get('user', {})
+       return JSONResponse({
+           "message": "Protected settings accessed",
+           "user": user
+       })
+
+   # All routes in api_group will automatically run api_middleware
+   @api_group.get("/status")
+   def api_status(request):
+       api_context = getattr(request, 'context', {}).get('api', {})
+       return JSONResponse({
+           "message": "API status",
+           "api_context": api_context
+       })
+
+   # Combine group middleware with per-route middleware
+   @api_group.get("/data", middleware=[auth_middleware])
+   def api_data(request):
+       """Group middleware + per-route middleware"""
+       api_context = getattr(request, 'context', {}).get('api', {})
+       user = getattr(request, 'context', {}).get('user', {})
+       return JSONResponse({
+           "message": "API data with combined middleware",
+           "api_context": api_context,
+           "user": user,
+           "middleware_chain": [
+               "1. Global middleware",
+               "2. Group: API middleware",
+               "3. Per-route: Auth middleware"
+           ]
+       })
+
+   # Register router groups with the app
+   app.include_routes(protected_group)
+   app.include_routes(api_group)
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
+Multiple RouterGroup Middleware
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Apply multiple middleware functions to a RouterGroup:
+
+.. code-block:: python
+
+   def rate_limit_middleware(request: Request):
+       """Rate limiting middleware"""
+       client_ip = request.headers.get("x-forwarded-for", "127.0.0.1")
+
+       if not hasattr(request, 'context'):
+           request.context = {}
+       request.context['rate_limit'] = {
+           'ip': client_ip,
+           'remaining': 100
+       }
+       return None
+
+   def admin_middleware(request: Request):
+       """Admin access middleware"""
+       user = getattr(request, 'context', {}).get('user')
+       if not user:
+           return JSONResponse({
+               "error": "Authentication required"
+           }, status_code=401)
+
+       # Check admin privileges
+       if user.get('token') != 'admin-token':
+           return JSONResponse({
+               "error": "Admin access required"
+           }, status_code=403)
+
+       return None
+
+   # RouterGroup with multiple middleware (executes in order)
+   admin_group = RouterGroup(
+       prefix="/admin",
+       middleware=[auth_middleware, rate_limit_middleware, admin_middleware]
+   )
+
+   @admin_group.get("/dashboard")
+   def admin_dashboard(request):
+       """Admin dashboard with triple middleware protection"""
+       user = getattr(request, 'context', {}).get('user', {})
+       rate_limit = getattr(request, 'context', {}).get('rate_limit', {})
+
+       return JSONResponse({
+           "message": "Admin dashboard accessed",
+           "user": user,
+           "rate_limit": rate_limit,
+           "middleware_chain": [
+               "1. Global middleware",
+               "2. Group: Auth middleware",
+               "3. Group: Rate limit middleware",
+               "4. Group: Admin middleware"
+           ]
+       })
+
+   app.include_routes(admin_group)
 
    if __name__ == "__main__":
        app.listen(port=8000)
@@ -338,6 +502,110 @@ Chain multiple middleware for complex processing:
    if __name__ == "__main__":
        app.listen(port=8000)
 
+RouterGroup Middleware Composition
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Organize complex middleware chains using RouterGroups:
+
+.. code-block:: python
+
+   from catzilla.router import RouterGroup
+   import time
+
+   # Define reusable middleware functions
+   def request_id_middleware(request: Request):
+       """Add unique request ID"""
+       import uuid
+       request_id = str(uuid.uuid4())
+
+       if not hasattr(request, 'context'):
+           request.context = {}
+       request.context['request_id'] = request_id
+       return None
+
+   def timing_middleware(request: Request):
+       """Track request timing"""
+       if not hasattr(request, 'context'):
+           request.context = {}
+       request.context['start_time'] = time.time()
+       return None
+
+   def auth_middleware(request: Request):
+       """Authentication middleware"""
+       auth_header = request.headers.get("Authorization")
+       if not auth_header or not auth_header.startswith("Bearer "):
+           return JSONResponse({"error": "Authentication required"}, status_code=401)
+
+       if not hasattr(request, 'context'):
+           request.context = {}
+       request.context['user'] = {"id": "user123", "token": auth_header[7:]}
+       return None
+
+   def audit_middleware(request: Request):
+       """Audit logging with context"""
+       context = getattr(request, 'context', {})
+       request_id = context.get('request_id', 'unknown')
+       user_id = context.get('user', {}).get('id', 'anonymous')
+
+       print(f"AUDIT: {request_id} - User: {user_id} - {request.method} {request.path}")
+       return None
+
+   # Create API v1 group with common middleware
+   api_v1 = RouterGroup(
+       prefix="/api/v1",
+       middleware=[request_id_middleware, timing_middleware]
+   )
+
+   # Create protected API group with authentication
+   protected_api = RouterGroup(
+       prefix="/protected",
+       middleware=[request_id_middleware, timing_middleware, auth_middleware, audit_middleware]
+   )
+
+   # API v1 routes (with request ID and timing)
+   @api_v1.get("/status")
+   def api_status(request):
+       context = getattr(request, 'context', {})
+       return JSONResponse({
+           "status": "OK",
+           "request_id": context.get('request_id'),
+           "start_time": context.get('start_time')
+       })
+
+   # Protected routes (with full middleware chain)
+   @protected_api.get("/user-data")
+   def protected_user_data(request):
+       context = getattr(request, 'context', {})
+       return JSONResponse({
+           "message": "Protected user data",
+           "request_id": context.get('request_id'),
+           "user": context.get('user'),
+           "processing_time": time.time() - context.get('start_time', 0)
+       })
+
+   # Nested RouterGroups for complex organization
+   admin_api = RouterGroup(prefix="/admin")
+
+   # Admin users subgroup with additional middleware
+   admin_users = RouterGroup(
+       prefix="/users",
+       middleware=[auth_middleware, audit_middleware]
+   )
+
+   @admin_users.get("/")
+   def admin_list_users(request):
+       return JSONResponse({"users": ["user1", "user2"]})
+
+   # Include the users group in admin group, then in main app
+   admin_api.include_group(admin_users)
+
+   app.include_routes(api_v1)
+   app.include_routes(protected_api)
+   app.include_routes(admin_api)
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Custom Middleware Classes
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -511,6 +779,76 @@ Monitor application performance:
 Best Practices
 --------------
 
+RouterGroup Middleware Best Practices
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Guidelines for effective RouterGroup middleware usage:
+
+.. code-block:: python
+
+   # ✅ Good: Logical grouping with shared middleware
+   auth_required_group = RouterGroup(
+       prefix="/protected",
+       middleware=[auth_middleware]
+   )
+
+   api_group = RouterGroup(
+       prefix="/api",
+       middleware=[rate_limit_middleware, api_versioning_middleware]
+   )
+
+   # ✅ Good: Combine group and per-route middleware strategically
+   @api_group.get("/upload", middleware=[file_validation_middleware])
+   def upload_file(request):
+       # Runs: rate_limit -> api_versioning -> file_validation -> handler
+       pass
+
+   # ✅ Good: Keep middleware functions pure and reusable
+   def cors_middleware(request: Request):
+       """Reusable CORS middleware"""
+       if not hasattr(request, 'context'):
+           request.context = {}
+       request.context['cors_enabled'] = True
+       return None
+
+   # ❌ Avoid: Too many middleware in one group (performance impact)
+   heavy_group = RouterGroup(
+       prefix="/heavy",
+       middleware=[
+           auth_middleware, rate_limit_middleware, audit_middleware,
+           validation_middleware, logging_middleware, metrics_middleware,
+           security_middleware, caching_middleware  # Too many!
+       ]
+   )
+
+   # ✅ Better: Split into logical layers
+   base_group = RouterGroup(
+       prefix="/api",
+       middleware=[rate_limit_middleware, auth_middleware]
+   )
+
+   @base_group.get("/data", middleware=[validation_middleware])
+   def get_data(request):
+       # Clear middleware chain: rate_limit -> auth -> validation -> handler
+       pass
+
+   # ✅ Good: Document middleware execution order
+   """
+   Middleware Execution Order for /protected/admin/users:
+
+   1. Global: request_logger_middleware (priority 10)
+   2. Global: cors_middleware (priority 50)
+   3. Global: security_middleware (priority 100)
+   4. Group: auth_middleware (from protected_group)
+   5. Group: admin_middleware (from protected_group)
+   6. Per-route: audit_middleware (from route decorator)
+   7. Route Handler: admin_users()
+   8. Response flows back through middleware in reverse order
+   """
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Middleware Order
 ~~~~~~~~~~~~~~~~
 
@@ -520,17 +858,54 @@ Understand middleware execution order:
 
    Request Flow:
 
-   1. Security Middleware (priority=100)     ↓
-   2. CORS Middleware (priority=50)          ↓
-   3. Auth Middleware (priority=30)          ↓
-   4. Logging Middleware (priority=10)       ↓
-   5. Route Handler                          ↓
-   6. Logging Middleware                     ↑
-   7. Auth Middleware                        ↑
-   8. CORS Middleware                        ↑
-   9. Security Middleware                    ↑
+   1. Global Middleware (by priority)
+      - Security Middleware (priority=100)       ↓
+      - CORS Middleware (priority=50)            ↓
+      - Auth Middleware (priority=30)            ↓
+      - Logging Middleware (priority=10)         ↓
 
-   Response Flow (reverse order)
+   2. RouterGroup Middleware (in order)
+      - Group Middleware 1                       ↓
+      - Group Middleware 2                       ↓
+      - Group Middleware N                       ↓
+
+   3. Per-Route Middleware (in order)
+      - Route Middleware 1                       ↓
+      - Route Middleware 2                       ↓
+      - Route Middleware N                       ↓
+
+   4. Route Handler                              ↓
+
+   5. Response Flow (reverse order)
+      - Route Middleware N                       ↑
+      - Route Middleware 2                       ↑
+      - Route Middleware 1                       ↑
+      - Group Middleware N                       ↑
+      - Group Middleware 2                       ↑
+      - Group Middleware 1                       ↑
+      - Logging Middleware                       ↑
+      - Auth Middleware                          ↑
+      - CORS Middleware                          ↑
+      - Security Middleware                      ↑
+
+   Example with RouterGroup:
+
+   protected_group = RouterGroup(
+       prefix="/protected",
+       middleware=[auth_middleware, rate_limit_middleware]
+   )
+
+   @protected_group.get("/data", middleware=[validation_middleware])
+   def get_data(request):
+       return JSONResponse({"data": "response"})
+
+   Execution order for GET /protected/data:
+   1. Global middlewares (by priority)
+   2. auth_middleware (from RouterGroup)
+   3. rate_limit_middleware (from RouterGroup)
+   4. validation_middleware (from route)
+   5. get_data() handler
+   6. Response flows back through all middleware in reverse
 
 Error Handling
 ~~~~~~~~~~~~~~

@@ -70,6 +70,9 @@ Execute a simple background task:
            "result": "Task finished"
        })
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Async Background Tasks
 ~~~~~~~~~~~~~~~~~~~~~~
 

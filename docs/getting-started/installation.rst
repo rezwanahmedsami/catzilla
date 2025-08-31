@@ -52,7 +52,7 @@ Visit `http://localhost:8000` - you should see the JSON response.
 Python Requirements
 -------------------
 
-- **Python 3.8+** (recommended: Python 3.10+)
+- **Python 3.9+** (recommended: Python 3.10+)
 - **All platforms supported**: Linux, macOS, Windows
 
 Next Steps

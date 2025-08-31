@@ -205,6 +205,9 @@ Here's a complete migration example of a typical FastAPI CRUD application:
            return JSONResponse({"error": "User not found"}, status_code=404)
        return JSONResponse(users_db[user_id])
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 **Catzilla Version (Optimized with Async/Sync Hybrid):**
 
 .. code-block:: python
@@ -218,7 +221,7 @@ Here's a complete migration example of a typical FastAPI CRUD application:
 
    class User(BaseModel):
        name: str = Field(min_length=2, max_length=50)
-       email: str = Field(regex=r'^[^@]+@[^@]+\\.[^@]+$')
+       email: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$')
        age: Optional[int] = Field(None, ge=0, le=120)
 
    users_db = {}
@@ -258,6 +261,9 @@ Here's a complete migration example of a typical FastAPI CRUD application:
            )
        return JSONResponse(users_db[user_id])
 
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
 Authentication & Dependencies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -288,27 +294,59 @@ Authentication & Dependencies
 
 .. code-block:: python
 
-   from catzilla import Catzilla, Depends, service, JSONResponse
+   from catzilla import Catzilla, service, JSONResponse, Header, Depends
+   from catzilla.dependency_injection import set_default_container
+   from typing import Optional
 
    app = Catzilla(enable_di=True)
+   set_default_container(app.di_container)
 
-   # Register auth service
-   @service("auth_service", scope="singleton")
-   def auth_service():
-       return AuthenticationService()
+   # Define the authentication service
+   @service("auth_service")
+   class AuthenticationService:
+       def __init__(self):
+           self.users_db = {
+               "admin": {"id": 1, "username": "admin", "email": "admin@example.com"},
+               "user1": {"id": 2, "username": "user1", "email": "user1@example.com"}
+           }
 
-   def get_current_user(request, auth: AuthenticationService = Depends("auth_service")):
-       token = request.headers.get("Authorization", "").replace("Bearer ", "")
-       if not auth.validate_token(token):
-           return JSONResponse(
-               {"error": "Invalid token"},
-               status_code=401
-           )
-       return auth.get_user_from_token(token)
+       def authenticate_token(self, token: str) -> Optional[dict]:
+           """Validate token and return user info"""
+           # Simple mock authentication - in reality you'd validate JWT tokens
+           if token == "valid_token":
+               return self.users_db["admin"]
+           elif token == "user_token":
+               return self.users_db["user1"]
+           return None
+
+       def get_current_user(self, authorization: str) -> dict:
+           """Extract and validate user from authorization header"""
+           if not authorization.startswith("Bearer "):
+               raise ValueError("Invalid authorization header format")
+
+           token = authorization.replace("Bearer ", "")
+           user = self.authenticate_token(token)
+
+           if not user:
+               raise ValueError("Invalid or expired token")
+
+           return user
 
    @app.get("/protected")
-   def protected_route(request, current_user = Depends(get_current_user)):
-       return JSONResponse({"user": current_user})
+   def protected_route(
+       request,
+       authorization: str = Header(..., description="Authorization header"),
+       auth_service: AuthenticationService = Depends("auth_service")
+   ):
+       """Protected route that requires authentication"""
+       current_user = auth_service.get_current_user(authorization)
+       return JSONResponse({
+           "message": f"Hello {current_user['username']}!",
+           "user_info": current_user
+       })
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 File Uploads
 ~~~~~~~~~~~~
@@ -331,12 +369,14 @@ File Uploads
 
 .. code-block:: python
 
-   from catzilla import Catzilla, JSONResponse, File
+   from catzilla import Catzilla, JSONResponse, UploadFile, File, Form
+   from typing import List
 
    app = Catzilla()
 
+   # Single file upload
    @app.post("/upload")
-   async def upload_file(request, file = File(...)):
+   async def upload_file(request, file: UploadFile = File(max_size="50MB")):
        # Catzilla provides optimized file handling
        content = await file.read()
 
@@ -346,14 +386,38 @@ File Uploads
            "content_type": file.content_type
        })
 
-   # Or sync version for simple file handling
+   # Multiple file upload
+   @app.post("/upload/multiple")
+   def upload_multiple_files(
+       request,
+       files: List[UploadFile] = File(max_files=10, max_size="50MB"),
+       category: str = Form("other")
+   ):
+       results = []
+       for file in files:
+           results.append({
+               "filename": file.filename,
+               "size": file.size,
+               "content_type": file.content_type
+           })
+
+       return JSONResponse({
+           "uploaded_files": len(files),
+           "category": category,
+           "files": results
+       })
+
+   # Sync version for simple file handling
    @app.post("/upload-sync")
-   def upload_file_sync(request, file = File(...)):
+   def upload_file_sync(request, file: UploadFile = File(max_size="50MB")):
        return JSONResponse({
            "filename": file.filename,
            "size": file.size,
            "upload_method": "sync"
        })
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Key Differences & Improvements
 ------------------------------
@@ -421,15 +485,28 @@ Dependency Injection
        pass
 
    # Catzilla - advanced DI with scopes
-   from catzilla.dependency_injection import service
+   from catzilla import Catzilla, service, Depends, JSONResponse
+   from catzilla.dependency_injection import set_default_container
+
+   app = Catzilla(enable_di=True)
+   set_default_container(app.di_container)
 
    @service("database", scope="singleton")
-   def get_database():
-       return DatabaseConnection()
+   class DatabaseConnection:
+       def __init__(self):
+           self.connection_id = "db_12345"
+           print("Database connection created")
 
-   @app.get("/")
-   def handler(request, db = Depends("database")):
-       pass
+       def query(self, sql: str):
+           return f"Result for: {sql}"
+
+   @app.get("/data")
+   def get_data(request, db: DatabaseConnection = Depends("database")):
+       result = db.query("SELECT * FROM users")
+       return JSONResponse({"data": result, "connection": db.connection_id})
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Performance Optimizations
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -512,12 +589,21 @@ Common Migration Issues & Solutions
        background_tasks.add_task(send_email_task, "user@example.com")
 
    # Catzilla
-   from catzilla.background_tasks import schedule_task
+   app = Catzilla()
+
+   def send_email_task(email: str):
+       """Background task function"""
+       print(f"Sending email to {email}")
+       # Email sending logic here
 
    @app.post("/send-email")
    def send_email(request):
-       schedule_task(send_email_task, "user@example.com")
+       # Schedule background task using app.add_task()
+       app.add_task(send_email_task, "user@example.com")
        return JSONResponse({"message": "Email scheduled"})
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Migration Testing
 -----------------
@@ -555,7 +641,7 @@ Verify the performance improvements after migration:
    # Add this endpoint to your migrated app
    @app.get("/performance-info")
    def performance_info(request):
-       from catzilla.core import get_performance_stats
+       from catzilla import get_performance_stats
 
        return JSONResponse({
            "framework": "Catzilla",
@@ -623,6 +709,19 @@ Migration Checklist
 
 Key API Differences
 -------------------
+
+**App Startup**
+
+FastAPI can run with uvicorn, but Catzilla requires explicit app.listen():
+
+.. code-block:: python
+
+   # ❌ FastAPI pattern (Catzilla doesn't support uvicorn):
+   # uvicorn main:app --reload
+
+   # ✅ Catzilla pattern - always required:
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 **Error Handling**
 
