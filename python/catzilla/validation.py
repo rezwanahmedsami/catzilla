@@ -661,6 +661,12 @@ class BaseModel(metaclass=BaseModelMeta):
         try:
             validated_data = self.validate(data)
             self.__dict__.update(validated_data)
+
+            # Call __post_init__ if it exists for custom validation
+            if hasattr(self, "__post_init__") and callable(
+                getattr(self, "__post_init__")
+            ):
+                self.__post_init__()
         finally:
             # 🛡️ GC PROTECTION: Re-enable garbage collection if it was enabled before
             if gc_was_enabled:
