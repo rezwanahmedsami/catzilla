@@ -313,7 +313,8 @@ archs = ["x86_64", "arm64"]
 # macOS-specific settings
 before-all = [
     "git submodule update --init --recursive",
-    "brew install cmake autoconf automake libtool"
+    "if brew list cmake &>/dev/null; then echo 'cmake already installed, checking version...' && cmake --version; else brew uninstall cmake 2>/dev/null || true && brew install cmake; fi",
+    "brew install autoconf automake libtool"
 ]
 # Skip architecture requirement in delocate to avoid Python library conflicts
 repair-wheel-command = "delocate-wheel -w {dest_dir} -v {wheel}"
