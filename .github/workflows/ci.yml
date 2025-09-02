@@ -159,7 +159,16 @@ jobs:
       if: runner.os == 'macOS'
       run: |
         # Install dependencies and set conservative build environment
-        brew install cmake autoconf automake libtool
+        # Handle potential cmake tap conflicts
+        if brew list cmake &>/dev/null; then
+          echo "cmake already installed, checking version..."
+          cmake --version
+        else
+          # Ensure we can install cmake cleanly
+          brew uninstall cmake 2>/dev/null || true
+          brew install cmake
+        fi
+        brew install autoconf automake libtool
         # Set environment variables for stable builds
         echo "CMAKE_OSX_DEPLOYMENT_TARGET=10.15" >> $GITHUB_ENV
         echo "MACOSX_DEPLOYMENT_TARGET=10.15" >> $GITHUB_ENV
