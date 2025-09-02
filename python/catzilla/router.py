@@ -57,6 +57,7 @@ class RouterGroup:
         self,
         prefix: str = "",
         *,
+        middleware: List[Callable] = None,
         tags: List[str] = None,
         description: str = "",
         metadata: Dict[str, any] = None,
@@ -67,6 +68,7 @@ class RouterGroup:
 
         Args:
             prefix: Common path prefix for all routes in this group
+            middleware: List of middleware functions to apply to all routes in this group
             tags: Tags for API organization (e.g., ["users", "api"])
             description: Description of this route group
             metadata: Additional metadata for the group
@@ -75,8 +77,10 @@ class RouterGroup:
         Note:
             Auto-validation is controlled globally by the main Catzilla app's auto_validation setting.
             RouterGroup routes will inherit the app's auto-validation configuration.
+            Group middleware runs before per-route middleware.
         """
         self.prefix = self._normalize_prefix(prefix)
+        self.middleware = middleware or []
         self.tags = tags or []
         self.description = description
         self.metadata = metadata or {}
@@ -169,8 +173,13 @@ class RouterGroup:
         route_metadata["group_description"] = self.description
 
         # Add middleware to metadata
+        # Combine group middleware with per-route middleware (group runs first)
+        combined_middleware = self.middleware.copy()
         if middleware:
-            route_metadata["middleware"] = middleware
+            combined_middleware.extend(middleware)
+
+        if combined_middleware:
+            route_metadata["middleware"] = combined_middleware
 
         # Note: Auto-validation is now applied by the main Catzilla app when routes are included
         # This ensures consistent auto-validation behavior across all routes

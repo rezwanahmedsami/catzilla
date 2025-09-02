@@ -370,9 +370,15 @@ def auto_validate_request(
 
                 if param_spec.is_basemodel:
                     # Query parameter model validation
-                    validated_params[param_name] = param_spec.annotation.validate(
-                        query_params
-                    )
+                    # Create BaseModel instance from query parameters
+                    try:
+                        validated_params[param_name] = param_spec.annotation(
+                            **query_params
+                        )
+                    except Exception as e:
+                        raise ValidationError(
+                            f"Query parameter model validation failed for {param_name}: {e}"
+                        )
                 else:
                     # Simple query parameter
                     if param_name in query_params:

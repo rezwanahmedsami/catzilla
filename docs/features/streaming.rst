@@ -25,47 +25,35 @@ Create a simple SSE endpoint:
 
 .. code-block:: python
 
-   from catzilla import Catzilla, Request, StreamingResponse
-   import asyncio
+   from catzilla import Catzilla, Request, Response, StreamingResponse
    import json
    import time
 
    app = Catzilla()
 
    @app.get("/events")
-   async def stream_events(request: Request):
-       """Basic SSE endpoint"""
-
-       async def event_generator():
-           """Generate server-sent events"""
-           counter = 0
-           while True:
-               # Check if client disconnected
-               if await request.is_disconnected():
-                   break
-
-               # Create event data
-               data = {
-                   "id": counter,
-                   "message": f"Event {counter}",
-                   "timestamp": time.time()
-               }
-
-               # Format as SSE
-               yield f"data: {json.dumps(data)}\n\n"
-
-               counter += 1
-               await asyncio.sleep(1)  # Send event every second
+   def sse_endpoint(request: Request) -> Response:
+       """Stream server-sent events for real-time updates"""
+       def generate_sse():
+           for i in range(20):
+               # Format according to SSE specification
+               yield f"id: {i}\n"
+               yield f"data: {{'count': {i}, 'timestamp': {time.time()}}}\n\n"
+               time.sleep(0.5)  # Add a delay to simulate real-time updates
 
        return StreamingResponse(
-           event_generator(),
-           media_type="text/event-stream",
-           headers={
-               "Cache-Control": "no-cache",
-               "Connection": "keep-alive",
-               "Access-Control-Allow-Origin": "*"
-           }
+           generate_sse(),
+           content_type="text/event-stream"
        )
+
+   @app.get("/")
+   def home(request: Request) -> Response:
+       return JSONResponse({"message": "Hello with streaming!"})
+
+   if __name__ == "__main__":
+       print("🚀 Starting Catzilla streaming example...")
+       print("Try: curl -N http://localhost:8000/events")
+       app.listen(port=8000)
 
 Real-Time Data Streaming
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -74,39 +62,48 @@ Stream live data updates:
 
 .. code-block:: python
 
-   import random
+   from catzilla import Catzilla, Request, Response, StreamingResponse
+   import json
+   import time
    from datetime import datetime
 
-   @app.get("/live-metrics")
-   async def stream_live_metrics(request: Request):
-       """Stream live system metrics"""
+   app = Catzilla()
 
-       async def metrics_generator():
-           """Generate live system metrics"""
-           while True:
-               if await request.is_disconnected():
-                   print("Client disconnected from metrics stream")
-                   break
+   def generate_realtime_data():
+       """Generate real-time data stream"""
+       count = 0
+       for i in range(10):
+           count += 1
+           data = {
+               "timestamp": datetime.now().isoformat(),
+               "count": count,
+               "value": count * 1.5,
+               "status": "active"
+           }
 
-               # Simulate real-time metrics
-               metrics = {
-                   "cpu_usage": round(random.uniform(10, 90), 2),
-                   "memory_usage": round(random.uniform(30, 85), 2),
-                   "active_connections": random.randint(50, 200),
-                   "requests_per_second": random.randint(100, 500),
-                   "timestamp": datetime.now().isoformat()
-               }
+           # Format as simple JSON lines
+           yield f"{json.dumps(data)}\n"
+           time.sleep(1)
 
-               # Send as SSE with event type
-               yield f"event: metrics\n"
-               yield f"data: {json.dumps(metrics)}\n\n"
+       # Final message
+       yield f'{{"status": "completed", "total_items": {count}}}\n'
 
-               await asyncio.sleep(2)  # Update every 2 seconds
-
+   @app.get("/stream/realtime")
+   def stream_realtime_data(request: Request) -> Response:
+       """Stream real-time data"""
        return StreamingResponse(
-           metrics_generator(),
-           media_type="text/event-stream"
+           generate_realtime_data(),
+           content_type="text/plain",
+           headers={
+               "Cache-Control": "no-cache",
+               "Connection": "keep-alive"
+           }
        )
+
+   if __name__ == "__main__":
+       print("🚀 Starting real-time streaming example...")
+       print("Try: curl -N http://localhost:8000/stream/realtime")
+       app.listen(port=8000)
 
 Advanced Streaming Patterns
 ----------------------------
@@ -118,40 +115,48 @@ Stream large files efficiently:
 
 .. code-block:: python
 
+   from catzilla import Catzilla, Request, Response, StreamingResponse, JSONResponse
    import os
    from pathlib import Path
 
-   @app.get("/download/{filename}")
-   async def stream_file_download(request: Request, filename: str):
-       """Stream large file download"""
+   app = Catzilla()
 
+   def file_streamer(file_path, chunk_size=8192):
+       """Stream file in chunks"""
+       with open(file_path, "rb") as file:
+           while True:
+               chunk = file.read(chunk_size)
+               if not chunk:
+                   break
+               yield chunk
+
+   @app.get("/download/{filename}")
+   def stream_file_download(request: Request) -> Response:
+       """Stream large file download"""
+       filename = request.path_params["filename"]
        file_path = Path("uploads") / filename
 
        if not file_path.exists():
            return JSONResponse({"error": "File not found"}, status_code=404)
 
-       async def file_streamer():
-           """Stream file in chunks"""
-           chunk_size = 8192  # 8KB chunks
-
-           with open(file_path, "rb") as file:
-               while True:
-                   chunk = file.read(chunk_size)
-                   if not chunk:
-                       break
-                   yield chunk
-
        # Get file size for Content-Length header
        file_size = file_path.stat().st_size
 
        return StreamingResponse(
-           file_streamer(),
-           media_type="application/octet-stream",
+           file_streamer(file_path),
+           content_type="application/octet-stream",
            headers={
                "Content-Disposition": f"attachment; filename={filename}",
                "Content-Length": str(file_size)
            }
        )
+
+   if __name__ == "__main__":
+       # Create uploads directory if it doesn't exist
+       Path("uploads").mkdir(exist_ok=True)
+       print("🚀 Starting file streaming server...")
+       print("Try: curl http://localhost:8000/download/sample.txt")
+       app.listen(port=8000)
 
 Data Processing Pipeline
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -160,365 +165,383 @@ Stream processed data in real-time:
 
 .. code-block:: python
 
-   @app.post("/process-stream")
-   async def stream_data_processing(request: Request):
-       """Stream data processing results"""
+   from catzilla import Catzilla, Request, Response, StreamingResponse
+   import json
+   import time
+   from datetime import datetime
 
-       async def process_and_stream():
-           """Process data and stream results"""
-           # Simulate large dataset processing
-           total_items = 1000
+   app = Catzilla()
 
-           for i in range(total_items):
-               if await request.is_disconnected():
-                   break
+   def process_and_stream():
+       """Process data and stream results"""
+       # Simulate large dataset processing
+       total_items = 100
 
-               # Simulate data processing
-               processed_item = {
-                   "item_id": i,
-                   "processed_at": datetime.now().isoformat(),
-                   "result": f"Processed item {i}",
-                   "progress": round((i + 1) / total_items * 100, 2)
-               }
-
-               # Stream each processed item
-               yield f"data: {json.dumps(processed_item)}\n\n"
-
-               # Simulate processing time
-               await asyncio.sleep(0.01)
-
-           # Send completion event
-           completion = {
-               "event": "completed",
-               "total_processed": total_items,
-               "completed_at": datetime.now().isoformat()
+       for i in range(total_items):
+           # Simulate data processing
+           processed_item = {
+               "item_id": i,
+               "processed_at": datetime.now().isoformat(),
+               "result": f"Processed item {i}",
+               "progress": round((i + 1) / total_items * 100, 2)
            }
 
-           yield f"event: completed\n"
-           yield f"data: {json.dumps(completion)}\n\n"
+           # Stream each processed item as JSON lines
+           yield f"{json.dumps(processed_item)}\n"
 
+           # Simulate processing time
+           time.sleep(0.01)
+
+       # Send completion notification
+       completion = {
+           "event": "completed",
+           "total_processed": total_items,
+           "completed_at": datetime.now().isoformat()
+       }
+
+       yield f"{json.dumps(completion)}\n"
+
+   @app.post("/process-stream")
+   def stream_data_processing(request: Request) -> Response:
+       """Stream data processing results"""
        return StreamingResponse(
            process_and_stream(),
-           media_type="text/event-stream"
+           content_type="application/x-ndjson",
+           headers={
+               "Cache-Control": "no-cache",
+               "Connection": "keep-alive"
+           }
        )
+
+   if __name__ == "__main__":
+       print("🚀 Starting data processing streaming server...")
+       print("Try: curl -X POST http://localhost:8000/process-stream")
+       app.listen(port=8000)
 
 Connection Management
 ---------------------
 
-Active Connection Tracking
+Simple Connection Tracking
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Track and manage active streaming connections:
+Track streaming connections with basic monitoring:
 
 .. code-block:: python
 
-   class ConnectionManager:
-       def __init__(self):
-           self.active_connections = set()
-           self.connection_metadata = {}
+   from catzilla import Catzilla, Request, Response, StreamingResponse
+   import json
+   import time
+   from datetime import datetime
+   from collections import defaultdict
 
-       def add_connection(self, connection_id: str, metadata: dict = None):
-           """Add new active connection"""
-           self.active_connections.add(connection_id)
-           self.connection_metadata[connection_id] = {
-               "connected_at": datetime.now(),
-               "metadata": metadata or {}
+   app = Catzilla()
+
+   # Simple connection tracking
+   active_connections = defaultdict(dict)
+   connection_count = 0
+
+   def generate_connection_status():
+       """Generate connection status updates"""
+       global connection_count
+
+       for i in range(10):
+           status = {
+               "timestamp": datetime.now().isoformat(),
+               "active_connections": len(active_connections),
+               "total_connections": connection_count,
+               "update_number": i + 1
            }
-           print(f"➕ New connection: {connection_id}")
 
-       def remove_connection(self, connection_id: str):
-           """Remove disconnected connection"""
-           self.active_connections.discard(connection_id)
-           self.connection_metadata.pop(connection_id, None)
-           print(f"➖ Removed connection: {connection_id}")
+           yield f"data: {json.dumps(status)}\n\n"
+           time.sleep(2)
 
-       def get_active_count(self):
-           """Get number of active connections"""
-           return len(self.active_connections)
+   @app.get("/stream/status")
+   def stream_connection_status(request: Request) -> Response:
+       """Stream connection status updates"""
+       global connection_count
 
-       def cleanup_stale_connections(self):
-           """Remove stale connections"""
-           # Implementation would check for actual connection status
+       # Track this connection
+       connection_id = f"conn_{connection_count}"
+       connection_count += 1
+       active_connections[connection_id] = {
+           "connected_at": datetime.now(),
+           "client_ip": request.client.host if hasattr(request, 'client') else "unknown"
+       }
+
+       print(f"➕ New connection: {connection_id}")
+
+       try:
+           response = StreamingResponse(
+               generate_connection_status(),
+               content_type="text/event-stream",
+               headers={
+                   "Cache-Control": "no-cache",
+                   "Connection": "keep-alive",
+                   "X-Connection-ID": connection_id
+               }
+           )
+           return response
+       finally:
+           # Note: In real implementation, cleanup would happen on disconnect
            pass
 
-   # Global connection manager
-   connection_manager = ConnectionManager()
+   if __name__ == "__main__":
+       print("🚀 Starting connection tracking server...")
+       print("Try: curl -N http://localhost:8000/stream/status")
+       app.listen(port=8000)
 
-   @app.get("/managed-stream")
-   async def managed_streaming_endpoint(request: Request):
-       """Streaming endpoint with connection management"""
+Broadcasting Example
+~~~~~~~~~~~~~~~~~~~~
 
-       # Generate unique connection ID
-       import uuid
-       connection_id = str(uuid.uuid4())
-
-       # Add connection to manager
-       connection_manager.add_connection(
-           connection_id,
-           metadata={
-               "client_ip": request.client.host,
-               "user_agent": request.headers.get("User-Agent", ""),
-               "endpoint": "/managed-stream"
-           }
-       )
-
-       async def managed_stream():
-           """Stream with connection management"""
-           try:
-               counter = 0
-               while True:
-                   if await request.is_disconnected():
-                       break
-
-                   data = {
-                       "connection_id": connection_id,
-                       "message": f"Managed message {counter}",
-                       "active_connections": connection_manager.get_active_count(),
-                       "timestamp": datetime.now().isoformat()
-                   }
-
-                   yield f"data: {json.dumps(data)}\n\n"
-                   counter += 1
-                   await asyncio.sleep(1)
-
-           finally:
-               # Cleanup connection when done
-               connection_manager.remove_connection(connection_id)
-
-       return StreamingResponse(
-           managed_stream(),
-           media_type="text/event-stream"
-       )
-
-Broadcasting to Multiple Clients
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Broadcast events to all connected clients:
+Simple message broadcasting:
 
 .. code-block:: python
 
-   class Broadcaster:
-       def __init__(self):
-           self.subscribers = {}
+   from catzilla import Catzilla, Request, Response, StreamingResponse
+   import json
+   import time
+   from datetime import datetime
+   from threading import Thread, Lock
+   import queue
 
-       def subscribe(self, connection_id: str, queue: asyncio.Queue):
-           """Subscribe to broadcasts"""
-           self.subscribers[connection_id] = queue
+   app = Catzilla()
 
-       def unsubscribe(self, connection_id: str):
-           """Unsubscribe from broadcasts"""
-           self.subscribers.pop(connection_id, None)
+   # Simple broadcasting system
+   message_queues = {}
+   queues_lock = Lock()
 
-       async def broadcast(self, message: dict):
-           """Broadcast message to all subscribers"""
-           if not self.subscribers:
-               return
-
-           # Send to all subscribers
-           for connection_id, queue in self.subscribers.items():
+   def broadcast_message(message):
+       """Broadcast message to all connected clients"""
+       with queues_lock:
+           for connection_id, msg_queue in message_queues.items():
                try:
-                   await queue.put(message)
-               except Exception as e:
-                   print(f"Failed to send to {connection_id}: {e}")
-                   # Remove failed connection
-                   self.unsubscribe(connection_id)
+                   msg_queue.put_nowait(message)
+               except queue.Full:
+                   print(f"Queue full for connection {connection_id}")
 
-   broadcaster = Broadcaster()
+   def periodic_broadcaster():
+       """Send periodic broadcast messages"""
+       counter = 0
+       while True:
+           message = {
+               "type": "broadcast",
+               "id": counter,
+               "timestamp": datetime.now().isoformat(),
+               "message": f"Broadcast message {counter}"
+           }
+           broadcast_message(message)
+           counter += 1
+           time.sleep(5)
+
+   # Start background broadcaster
+   Thread(target=periodic_broadcaster, daemon=True).start()
+
+   def stream_broadcasts(connection_id):
+       """Stream broadcast messages for a connection"""
+       msg_queue = queue.Queue(maxsize=100)
+
+       with queues_lock:
+           message_queues[connection_id] = msg_queue
+
+       try:
+           while True:
+               try:
+                   # Get message with timeout
+                   message = msg_queue.get(timeout=1.0)
+                   yield f"data: {json.dumps(message)}\n\n"
+               except queue.Empty:
+                   # Send heartbeat
+                   heartbeat = {"type": "heartbeat", "timestamp": datetime.now().isoformat()}
+                   yield f"data: {json.dumps(heartbeat)}\n\n"
+       finally:
+           with queues_lock:
+               message_queues.pop(connection_id, None)
 
    @app.get("/broadcast-stream")
-   async def broadcast_stream(request: Request):
+   def join_broadcast_stream(request: Request) -> Response:
        """Join broadcast stream"""
-
        import uuid
        connection_id = str(uuid.uuid4())
-       message_queue = asyncio.Queue()
 
-       # Subscribe to broadcasts
-       broadcaster.subscribe(connection_id, message_queue)
-
-       async def stream_broadcasts():
-           """Stream broadcast messages"""
-           try:
-               while True:
-                   if await request.is_disconnected():
-                       break
-
-                   try:
-                       # Wait for broadcast message with timeout
-                       message = await asyncio.wait_for(
-                           message_queue.get(),
-                           timeout=1.0
-                       )
-
-                       yield f"data: {json.dumps(message)}\n\n"
-
-                   except asyncio.TimeoutError:
-                       # Send heartbeat to keep connection alive
-                       heartbeat = {
-                           "type": "heartbeat",
-                           "timestamp": datetime.now().isoformat(),
-                           "connection_id": connection_id
-                       }
-                       yield f"event: heartbeat\n"
-                       yield f"data: {json.dumps(heartbeat)}\n\n"
-
-           finally:
-               broadcaster.unsubscribe(connection_id)
+       print(f"➕ New broadcast subscriber: {connection_id}")
 
        return StreamingResponse(
-           stream_broadcasts(),
-           media_type="text/event-stream"
+           stream_broadcasts(connection_id),
+           content_type="text/event-stream",
+           headers={
+               "Cache-Control": "no-cache",
+               "Connection": "keep-alive",
+               "X-Connection-ID": connection_id
+           }
        )
 
    @app.post("/broadcast")
-   async def send_broadcast(request: Request):
+   def send_broadcast(request: Request) -> Response:
        """Send message to all connected clients"""
-
-       # Get message from request body
-       body = await request.json()
+       # Get message from request body (simplified for example)
        message = {
-           "type": "broadcast",
-           "message": body.get("message", ""),
-           "sender": body.get("sender", "server"),
+           "type": "manual_broadcast",
+           "message": "Hello from server!",
            "timestamp": datetime.now().isoformat()
        }
 
        # Broadcast to all connected clients
-       await broadcaster.broadcast(message)
+       broadcast_message(message)
 
-       return JSONResponse({
-           "status": "broadcast_sent",
-           "message": message,
-           "recipients": len(broadcaster.subscribers)
-       })
+       return Response(
+           json.dumps({
+               "status": "broadcast_sent",
+               "message": message,
+               "recipients": len(message_queues)
+           }),
+           content_type="application/json"
+       )
+
+   if __name__ == "__main__":
+       print("🚀 Starting broadcasting server...")
+       print("Try: curl -N http://localhost:8000/broadcast-stream")
+       print("Send: curl -X POST http://localhost:8000/broadcast")
+       app.listen(port=8000)
 
 Real-Time Applications
 ----------------------
 
-Live Chat System
-~~~~~~~~~~~~~~~~
+Simple Chat System
+~~~~~~~~~~~~~~~~~~
 
-Build a live chat with streaming:
+Build a basic chat with streaming:
 
 .. code-block:: python
 
-   class ChatRoom:
-       def __init__(self):
-           self.clients = {}
-           self.message_history = []
+   from catzilla import Catzilla, Request, Response, StreamingResponse
+   import json
+   import time
+   from datetime import datetime
+   from threading import Lock
+   import queue
 
-       def join(self, client_id: str, client_name: str, queue: asyncio.Queue):
-           """Client joins chat room"""
-           self.clients[client_id] = {
+   app = Catzilla()
+
+   # Simple chat room
+   chat_clients = {}
+   chat_lock = Lock()
+   message_history = []
+
+   def add_chat_client(client_id, client_name):
+       """Add client to chat room"""
+       client_queue = queue.Queue(maxsize=100)
+
+       with chat_lock:
+           chat_clients[client_id] = {
                "name": client_name,
-               "queue": queue,
+               "queue": client_queue,
                "joined_at": datetime.now()
            }
 
-           # Send join notification
-           join_message = {
-               "type": "user_joined",
-               "user": client_name,
+       # Send join notification
+       join_message = {
+           "type": "user_joined",
+           "user": client_name,
+           "timestamp": datetime.now().isoformat(),
+           "clients_count": len(chat_clients)
+       }
+       broadcast_chat_message(join_message)
+       return client_queue
+
+   def remove_chat_client(client_id):
+       """Remove client from chat room"""
+       with chat_lock:
+           client = chat_clients.pop(client_id, None)
+
+       if client:
+           leave_message = {
+               "type": "user_left",
+               "user": client["name"],
                "timestamp": datetime.now().isoformat(),
-               "clients_count": len(self.clients)
+               "clients_count": len(chat_clients)
            }
+           broadcast_chat_message(leave_message)
 
-           asyncio.create_task(self.broadcast_to_all(join_message))
+   def broadcast_chat_message(message):
+       """Broadcast message to all chat clients"""
+       message_history.append(message)
 
-       def leave(self, client_id: str):
-           """Client leaves chat room"""
-           client = self.clients.pop(client_id, None)
+       # Keep only last 50 messages
+       if len(message_history) > 50:
+           message_history[:] = message_history[-50:]
 
-           if client:
-               leave_message = {
-                   "type": "user_left",
-                   "user": client["name"],
-                   "timestamp": datetime.now().isoformat(),
-                   "clients_count": len(self.clients)
-               }
-
-               asyncio.create_task(self.broadcast_to_all(leave_message))
-
-       async def broadcast_to_all(self, message: dict):
-           """Broadcast message to all clients"""
-           self.message_history.append(message)
-
-           # Keep only last 100 messages
-           if len(self.message_history) > 100:
-               self.message_history = self.message_history[-100:]
-
-           for client_id, client in self.clients.items():
+       with chat_lock:
+           for client_id, client in chat_clients.items():
                try:
-                   await client["queue"].put(message)
-               except Exception:
-                   # Remove disconnected client
-                   self.clients.pop(client_id, None)
+                   client["queue"].put_nowait(message)
+               except queue.Full:
+                   print(f"Message queue full for client {client_id}")
 
-   chat_room = ChatRoom()
+   def stream_chat_messages(client_id, client_name):
+       """Stream chat messages for a client"""
+       client_queue = add_chat_client(client_id, client_name)
 
-   @app.get("/chat/{username}")
-   async def join_chat(request: Request, username: str):
-       """Join chat room stream"""
+       try:
+           # Send recent message history
+           for msg in message_history[-10:]:  # Last 10 messages
+               yield f"data: {json.dumps(msg)}\n\n"
 
+           # Stream new messages
+           while True:
+               try:
+                   message = client_queue.get(timeout=1.0)
+                   yield f"data: {json.dumps(message)}\n\n"
+               except queue.Empty:
+                   # Send heartbeat
+                   heartbeat = {"type": "heartbeat", "timestamp": datetime.now().isoformat()}
+                   yield f"data: {json.dumps(heartbeat)}\n\n"
+       finally:
+           remove_chat_client(client_id)
+
+   @app.get("/chat/stream")
+   def join_chat_stream(request: Request) -> Response:
+       """Join chat stream"""
        import uuid
        client_id = str(uuid.uuid4())
-       message_queue = asyncio.Queue()
+       client_name = request.query_params.get("name", f"User_{client_id[:8]}")
 
-       # Join chat room
-       chat_room.join(client_id, username, message_queue)
-
-       async def chat_stream():
-           """Stream chat messages"""
-           try:
-               # Send chat history first
-               for message in chat_room.message_history[-10:]:  # Last 10 messages
-                   yield f"data: {json.dumps(message)}\n\n"
-
-               # Stream new messages
-               while True:
-                   if await request.is_disconnected():
-                       break
-
-                   try:
-                       message = await asyncio.wait_for(
-                           message_queue.get(),
-                           timeout=30.0  # 30 second timeout
-                       )
-
-                       yield f"data: {json.dumps(message)}\n\n"
-
-                   except asyncio.TimeoutError:
-                       # Send keepalive
-                       keepalive = {
-                           "type": "keepalive",
-                           "timestamp": datetime.now().isoformat()
-                       }
-                       yield f"event: keepalive\n"
-                       yield f"data: {json.dumps(keepalive)}\n\n"
-
-           finally:
-               chat_room.leave(client_id)
+       print(f"🎯 Chat client joined: {client_name} ({client_id})")
 
        return StreamingResponse(
-           chat_stream(),
-           media_type="text/event-stream"
+           stream_chat_messages(client_id, client_name),
+           content_type="text/event-stream",
+           headers={
+               "Cache-Control": "no-cache",
+               "Connection": "keep-alive"
+           }
        )
 
    @app.post("/chat/send")
-   async def send_chat_message(request: Request):
+   def send_chat_message(request: Request) -> Response:
        """Send message to chat room"""
+       # Simple message sending (in real app, would parse JSON from body)
+       sender = request.query_params.get("sender", "Anonymous")
+       message_text = request.query_params.get("message", "Hello!")
 
-       body = await request.json()
-       message = {
-           "type": "message",
-           "user": body.get("user", "Anonymous"),
-           "text": body.get("message", ""),
+       chat_message = {
+           "type": "chat_message",
+           "sender": sender,
+           "message": message_text,
            "timestamp": datetime.now().isoformat()
        }
 
-       await chat_room.broadcast_to_all(message)
+       broadcast_chat_message(chat_message)
 
-       return JSONResponse({"status": "message_sent"})
+       return Response(
+           json.dumps({"status": "message_sent", "message": chat_message}),
+           content_type="application/json"
+       )
+
+   if __name__ == "__main__":
+       print("🚀 Starting chat server...")
+       print("Join chat: curl -N 'http://localhost:8000/chat/stream?name=Alice'")
+       print("Send message: curl -X POST 'http://localhost:8000/chat/send?sender=Alice&message=Hello'")
+       app.listen(port=8000)
 
 Live Analytics Dashboard
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -527,89 +550,131 @@ Stream analytics data for dashboards:
 
 .. code-block:: python
 
-   class AnalyticsStreamer:
-       def __init__(self):
-           self.subscribers = {}
-           self.analytics_data = {
-               "page_views": 0,
-               "unique_visitors": set(),
-               "api_calls": 0,
-               "errors": 0
-           }
+   from catzilla import Catzilla, Request, Response, StreamingResponse
+   import json
+   import time
+   import random
+   import queue
+   from datetime import datetime
+   from threading import Thread, Lock
 
-       def track_page_view(self, visitor_id: str):
-           """Track page view"""
-           self.analytics_data["page_views"] += 1
-           self.analytics_data["unique_visitors"].add(visitor_id)
+   app = Catzilla()
 
-           asyncio.create_task(self.broadcast_update())
+   # Simple analytics data
+   analytics_data = {
+       "page_views": 0,
+       "unique_visitors": set(),
+       "api_calls": 0,
+       "errors": 0
+   }
+   analytics_lock = Lock()
+   analytics_subscribers = {}
 
-       def track_api_call(self):
-           """Track API call"""
-           self.analytics_data["api_calls"] += 1
-           asyncio.create_task(self.broadcast_update())
+   def track_page_view(visitor_id):
+       """Track page view"""
+       with analytics_lock:
+           analytics_data["page_views"] += 1
+           analytics_data["unique_visitors"].add(visitor_id)
+       broadcast_analytics_update()
 
-       def track_error(self):
-           """Track error"""
-           self.analytics_data["errors"] += 1
-           asyncio.create_task(self.broadcast_update())
+   def track_api_call():
+       """Track API call"""
+       with analytics_lock:
+           analytics_data["api_calls"] += 1
+       broadcast_analytics_update()
 
-       async def broadcast_update(self):
-           """Broadcast analytics update"""
+   def track_error():
+       """Track error"""
+       with analytics_lock:
+           analytics_data["errors"] += 1
+       broadcast_analytics_update()
+
+   def broadcast_analytics_update():
+       """Broadcast analytics update"""
+       with analytics_lock:
            update = {
-               "page_views": self.analytics_data["page_views"],
-               "unique_visitors": len(self.analytics_data["unique_visitors"]),
-               "api_calls": self.analytics_data["api_calls"],
-               "errors": self.analytics_data["errors"],
+               "page_views": analytics_data["page_views"],
+               "unique_visitors": len(analytics_data["unique_visitors"]),
+               "api_calls": analytics_data["api_calls"],
+               "errors": analytics_data["errors"],
                "timestamp": datetime.now().isoformat()
            }
 
-           for queue in self.subscribers.values():
-               try:
-                   await queue.put(update)
-               except Exception:
-                   pass
+       for subscriber_id, queue in analytics_subscribers.items():
+           try:
+               queue.put_nowait(update)
+           except queue.Full:
+               print(f"Analytics queue full for subscriber {subscriber_id}")
 
-   analytics = AnalyticsStreamer()
+   def simulate_analytics_data():
+       """Simulate incoming analytics data"""
+       import uuid
+       counter = 0
+       while True:
+           counter += 1
+
+           # Simulate random events
+           if counter % 3 == 0:
+               track_page_view(str(uuid.uuid4()))
+           if counter % 2 == 0:
+               track_api_call()
+           if counter % 10 == 0:
+               track_error()
+
+           time.sleep(2)
+
+   # Start analytics simulation
+   Thread(target=simulate_analytics_data, daemon=True).start()
+
+   def stream_analytics_updates(subscriber_id):
+       """Stream analytics updates"""
+       subscriber_queue = queue.Queue(maxsize=50)
+       analytics_subscribers[subscriber_id] = subscriber_queue
+
+       try:
+           # Send current state first
+           current_state = {
+               "page_views": analytics_data["page_views"],
+               "unique_visitors": len(analytics_data["unique_visitors"]),
+               "api_calls": analytics_data["api_calls"],
+               "errors": analytics_data["errors"],
+               "timestamp": datetime.now().isoformat()
+           }
+           yield f"data: {json.dumps(current_state)}\n\n"
+
+           # Stream updates
+           while True:
+               try:
+                   update = subscriber_queue.get(timeout=5.0)
+                   yield f"data: {json.dumps(update)}\n\n"
+               except queue.Empty:
+                   # Send heartbeat
+                   heartbeat = {"type": "heartbeat", "timestamp": datetime.now().isoformat()}
+                   yield f"data: {json.dumps(heartbeat)}\n\n"
+       finally:
+           analytics_subscribers.pop(subscriber_id, None)
 
    @app.get("/analytics-stream")
-   async def analytics_dashboard_stream(request: Request):
+   def analytics_dashboard_stream(request: Request) -> Response:
        """Stream analytics for dashboard"""
-
        import uuid
        subscriber_id = str(uuid.uuid4())
-       queue = asyncio.Queue()
 
-       analytics.subscribers[subscriber_id] = queue
-
-       async def stream_analytics():
-           """Stream analytics updates"""
-           try:
-               while True:
-                   if await request.is_disconnected():
-                       break
-
-                   try:
-                       update = await asyncio.wait_for(queue.get(), timeout=5.0)
-                       yield f"data: {json.dumps(update)}\n\n"
-                   except asyncio.TimeoutError:
-                       # Send current state as keepalive
-                       current_state = {
-                           "page_views": analytics.analytics_data["page_views"],
-                           "unique_visitors": len(analytics.analytics_data["unique_visitors"]),
-                           "api_calls": analytics.analytics_data["api_calls"],
-                           "errors": analytics.analytics_data["errors"],
-                           "timestamp": datetime.now().isoformat()
-                       }
-                       yield f"event: keepalive\n"
-                       yield f"data: {json.dumps(current_state)}\n\n"
-           finally:
-               analytics.subscribers.pop(subscriber_id, None)
+       print(f"📊 Analytics subscriber connected: {subscriber_id}")
 
        return StreamingResponse(
-           stream_analytics(),
-           media_type="text/event-stream"
+           stream_analytics_updates(subscriber_id),
+           content_type="text/event-stream",
+           headers={
+               "Cache-Control": "no-cache",
+               "Connection": "keep-alive"
+           }
        )
+
+   if __name__ == "__main__":
+       print("🚀 Starting analytics dashboard server...")
+       print("Try: curl -N http://localhost:8000/analytics-stream")
+       app.listen(port=8000)
 
 Performance Optimization
 ------------------------
@@ -621,101 +686,123 @@ Stream large datasets without memory issues:
 
 .. code-block:: python
 
-   @app.get("/large-dataset")
-   async def stream_large_dataset(request: Request):
-       """Stream large dataset efficiently"""
+   from catzilla import Catzilla, Request, Response, StreamingResponse
+   import json
+   import time
+   from datetime import datetime
 
-       async def efficient_data_stream():
-           """Generate large dataset efficiently"""
-           batch_size = 100
-           total_records = 100000
+   app = Catzilla()
 
-           for batch_start in range(0, total_records, batch_size):
-               if await request.is_disconnected():
-                   break
+   def efficient_data_stream():
+       """Generate large dataset efficiently"""
+       batch_size = 100
+       total_records = 10000  # Smaller for demo
 
-               # Generate batch of records
-               batch = []
-               for i in range(batch_start, min(batch_start + batch_size, total_records)):
-                   record = {
-                       "id": i,
-                       "data": f"Record {i}",
-                       "timestamp": datetime.now().isoformat()
-                   }
-                   batch.append(record)
-
-               # Stream batch as single chunk
-               chunk = {
-                   "batch": batch,
-                   "batch_start": batch_start,
-                   "batch_size": len(batch),
-                   "total_records": total_records
+       for batch_start in range(0, total_records, batch_size):
+           # Generate batch of records
+           batch = []
+           for i in range(batch_start, min(batch_start + batch_size, total_records)):
+               record = {
+                   "id": i,
+                   "data": f"Record {i}",
+                   "timestamp": datetime.now().isoformat()
                }
+               batch.append(record)
 
-               yield f"data: {json.dumps(chunk)}\n\n"
+           # Stream batch as single chunk
+           chunk = {
+               "batch": batch,
+               "batch_start": batch_start,
+               "batch_size": len(batch),
+               "total_records": total_records,
+               "progress": round((batch_start + len(batch)) / total_records * 100, 2)
+           }
 
-               # Small delay to prevent overwhelming the client
-               await asyncio.sleep(0.01)
+           yield f"{json.dumps(chunk)}\n"
 
+           # Small delay to prevent overwhelming the client
+           time.sleep(0.01)
+
+   @app.get("/large-dataset")
+   def stream_large_dataset(request: Request) -> Response:
+       """Stream large dataset efficiently"""
        return StreamingResponse(
            efficient_data_stream(),
-           media_type="text/event-stream"
+           content_type="application/x-ndjson",
+           headers={
+               "Cache-Control": "no-cache",
+               "Transfer-Encoding": "chunked"
+           }
        )
+
+   if __name__ == "__main__":
+       print("🚀 Starting large dataset streaming server...")
+       print("Try: curl -N http://localhost:8000/large-dataset")
+       app.listen(port=8000)
 
 Connection Health Monitoring
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Monitor connection health and auto-recovery:
+Monitor connection health with heartbeats:
 
 .. code-block:: python
 
-   @app.get("/health-monitored-stream")
-   async def health_monitored_stream(request: Request):
-       """Stream with connection health monitoring"""
+   from catzilla import Catzilla, Request, Response, StreamingResponse
+   import json
+   import time
+   from datetime import datetime
 
-       async def monitored_stream():
-           """Stream with health checks"""
-           last_ping = time.time()
-           ping_interval = 10  # Ping every 10 seconds
+   app = Catzilla()
 
-           counter = 0
-           while True:
-               if await request.is_disconnected():
-                   print("Client disconnected - health check detected")
-                   break
+   def monitored_stream():
+       """Stream with health checks"""
+       last_ping = time.time()
+       ping_interval = 10  # Ping every 10 seconds
 
-               current_time = time.time()
+       counter = 0
+       while True:
+           current_time = time.time()
 
-               # Send ping if needed
-               if current_time - last_ping >= ping_interval:
-                   ping_data = {
-                       "type": "ping",
-                       "server_time": current_time,
-                       "connection_duration": current_time - last_ping
-                   }
-                   yield f"event: ping\n"
-                   yield f"data: {json.dumps(ping_data)}\n\n"
-                   last_ping = current_time
-
-               # Regular data
-               data = {
-                   "type": "data",
-                   "counter": counter,
-                   "timestamp": datetime.now().isoformat()
+           # Send ping if needed
+           if current_time - last_ping >= ping_interval:
+               ping_message = {
+                   "type": "ping",
+                   "timestamp": datetime.now().isoformat(),
+                   "server_time": current_time
                }
+               yield f"event: ping\n"
+               yield f"data: {json.dumps(ping_message)}\n\n"
+               last_ping = current_time
 
-               yield f"data: {json.dumps(data)}\n\n"
-               counter += 1
-               await asyncio.sleep(1)
+           # Send regular data
+           data_message = {
+               "type": "data",
+               "counter": counter,
+               "timestamp": datetime.now().isoformat(),
+               "status": "healthy"
+           }
 
+           yield f"data: {json.dumps(data_message)}\n\n"
+           counter += 1
+           time.sleep(1)
+
+   @app.get("/health-monitored-stream")
+   def health_monitored_stream(request: Request) -> Response:
+       """Stream with connection health monitoring"""
        return StreamingResponse(
            monitored_stream(),
-           media_type="text/event-stream",
+           content_type="text/event-stream",
            headers={
-               "X-Health-Monitoring": "enabled",
-               "X-Ping-Interval": "10"
+               "Cache-Control": "no-cache",
+               "Connection": "keep-alive",
+               "X-Accel-Buffering": "no"  # Disable nginx buffering
            }
        )
+
+   if __name__ == "__main__":
+       print("🚀 Starting health monitored streaming server...")
+       print("Try: curl -N http://localhost:8000/health-monitored-stream")
+       app.listen(port=8000)
 
 Best Practices
 --------------
@@ -773,27 +860,31 @@ Performance Guidelines
 
 .. code-block:: python
 
-   # ✅ Good: Check for disconnection regularly
-   async def good_stream():
-       while True:
-           if await request.is_disconnected():
-               break  # Exit cleanly
-           # Generate data...
+   # ✅ Good: Use generator functions for streaming
+   def good_stream():
+       for i in range(1000):
+           yield f"data: {i}\n"
+           time.sleep(0.1)  # Control flow rate
 
-   # ❌ Avoid: Long-running operations without checks
-   async def bad_stream():
-       while True:
-           expensive_operation()  # No disconnection check
-           yield data
+   # ❌ Avoid: Creating all data in memory
+   def bad_stream():
+       all_data = [f"data: {i}\n" for i in range(1000)]  # Memory intensive
+       for item in all_data:
+           yield item
 
    # ✅ Good: Use appropriate chunk sizes
    chunk_size = 8192  # 8KB chunks for files
    batch_size = 100   # 100 records for data
 
-   # ✅ Good: Implement timeouts
-   try:
-       data = await asyncio.wait_for(get_data(), timeout=30.0)
-   except asyncio.TimeoutError:
-       yield "data: {\"type\": \"keepalive\"}\n\n"
+   # ✅ Good: Add delays to prevent overwhelming clients
+   def controlled_stream():
+       for i in range(100):
+           yield f"data: {i}\n"
+           time.sleep(0.01)  # Small delay
+
+   # ✅ Good: Use proper content types
+   # For SSE: content_type="text/event-stream"
+   # For JSON Lines: content_type="application/x-ndjson"
+   # For binary: content_type="application/octet-stream"
 
 This streaming system enables real-time communication and efficient data transfer for modern web applications that require live updates and interactive features.

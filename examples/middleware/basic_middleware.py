@@ -8,12 +8,14 @@ and per-route middleware using the real Catzilla API.
 Features demonstrated:
 - Global middleware with @app.middleware() decorator
 - Per-route middleware using middleware=[] parameter
+- Group-level middleware with RouterGroup middleware=[] parameter
 - Middleware priority and execution order
 - Request/response processing
 - Middleware short-circuiting
 """
 
 from catzilla import Catzilla, Request, Response, JSONResponse
+from catzilla.router import RouterGroup
 from typing import Optional
 import time
 
@@ -179,6 +181,23 @@ def admin_middleware(request: Request) -> Optional[Response]:
     print("✅ Admin Middleware: Admin access granted")
     return None  # Continue to route handler
 
+def api_middleware(request: Request) -> Optional[Response]:
+    """API-specific middleware for API router group"""
+    print("🔗 API Middleware: Adding API context")
+
+    # Add API-specific info to request context
+    if not hasattr(request, 'context'):
+        request.context = {}
+    request.context['api'] = {
+        'version': 'v1',
+        'rate_limited': True,
+        'authenticated': hasattr(request, 'context') and 'user' in getattr(request, 'context', {}),
+        'timestamp': time.time()
+    }
+
+    print("✅ API Middleware: API context added")
+    return None  # Continue to route handler
+
 # ============================================================================
 # 3. RESPONSE MIDDLEWARE - Runs after route handlers
 # ============================================================================
@@ -194,7 +213,20 @@ def response_timer_middleware(request: Request) -> Optional[Response]:
     return None  # Don't modify response, just log
 
 # ============================================================================
-# 4. ROUTE HANDLERS
+# 4. GROUP MIDDLEWARE - Runs on all routes in a RouterGroup
+# ============================================================================
+
+# Create protected router group with group-level middleware
+protected_group = RouterGroup(prefix="/protected", middleware=[auth_middleware])
+
+# Create API router group with API-specific middleware
+api_group = RouterGroup(prefix="/api", middleware=[api_middleware])
+
+# Create admin router group with both auth and admin middleware
+admin_group = RouterGroup(prefix="/admin", middleware=[auth_middleware, admin_middleware])
+
+# ============================================================================
+# 5. ROUTE HANDLERS
 # ============================================================================
 
 @app.get("/")
@@ -295,7 +327,99 @@ def middleware_stats(request: Request) -> Response:
     })
 
 # ============================================================================
-# 5. ERROR HANDLING
+# 6. ROUTER GROUP ENDPOINTS (with group middleware)
+# ============================================================================
+
+@protected_group.get("/profile")
+def protected_profile(request: Request) -> Response:
+    """Protected endpoint - group middleware (auth) runs automatically"""
+    user = getattr(request, 'context', {}).get('user', {})
+
+    return JSONResponse({
+        "message": "🔐 Protected profile accessed via RouterGroup",
+        "user": user,
+        "group": "protected",
+        "middleware_chain": [
+            "1. Global: Request Logger",
+            "2. Global: CORS Handler",
+            "3. Global: Security Headers",
+            "4. Group: Auth Middleware (from RouterGroup)"
+        ]
+    })
+
+@protected_group.get("/settings")
+def protected_settings(request: Request) -> Response:
+    """Another protected endpoint - same group middleware applies"""
+    user = getattr(request, 'context', {}).get('user', {})
+
+    return JSONResponse({
+        "message": "🔐 Protected settings accessed via RouterGroup",
+        "user": user,
+        "group": "protected"
+    })
+
+@api_group.get("/status")
+def api_status(request: Request) -> Response:
+    """API endpoint with group middleware"""
+    api_context = getattr(request, 'context', {}).get('api', {})
+
+    return JSONResponse({
+        "message": "🔗 API status via RouterGroup",
+        "api_context": api_context,
+        "group": "api",
+        "middleware_chain": [
+            "1. Global: Request Logger",
+            "2. Global: CORS Handler",
+            "3. Global: Security Headers",
+            "4. Group: API Middleware (from RouterGroup)"
+        ]
+    })
+
+@api_group.get("/data", middleware=[rate_limit_middleware])
+def api_data_with_extra(request: Request) -> Response:
+    """API endpoint with group middleware + additional per-route middleware"""
+    api_context = getattr(request, 'context', {}).get('api', {})
+    rate_limit = getattr(request, 'context', {}).get('rate_limit', {})
+
+    return JSONResponse({
+        "message": "🔗 API data with group + per-route middleware",
+        "api_context": api_context,
+        "rate_limit": rate_limit,
+        "group": "api",
+        "middleware_chain": [
+            "1. Global: Request Logger",
+            "2. Global: CORS Handler",
+            "3. Global: Security Headers",
+            "4. Group: API Middleware (from RouterGroup)",
+            "5. Per-route: Rate Limit Middleware"
+        ]
+    })
+
+@admin_group.post("/users")
+def admin_create_user(request: Request) -> Response:
+    """Admin endpoint - both auth and admin middleware from group"""
+    user = getattr(request, 'context', {}).get('user', {})
+
+    return JSONResponse({
+        "message": "👑 Admin user creation via RouterGroup",
+        "admin_user": user,
+        "group": "admin",
+        "middleware_chain": [
+            "1. Global: Request Logger",
+            "2. Global: CORS Handler",
+            "3. Global: Security Headers",
+            "4. Group: Auth Middleware (from RouterGroup)",
+            "5. Group: Admin Middleware (from RouterGroup)"
+        ]
+    }, status_code=201)
+
+# Register router groups with the main app
+app.include_routes(protected_group)
+app.include_routes(api_group)
+app.include_routes(admin_group)
+
+# ============================================================================
+# 7. ERROR HANDLING
 # ============================================================================
 
 @app.get("/error")
@@ -304,7 +428,7 @@ def error_endpoint(request: Request) -> Response:
     raise ValueError("This is a test error")
 
 # ============================================================================
-# 6. APPLICATION STARTUP
+# 8. APPLICATION STARTUP
 # ============================================================================
 
 if __name__ == "__main__":
@@ -318,6 +442,13 @@ if __name__ == "__main__":
     print("  GET  /middleware/stats   - Middleware performance stats")
     print("  GET  /error              - Error endpoint for testing")
     print("  Note: HEAD and OPTIONS methods work automatically for all GET routes!")
+    print()
+    print("  RouterGroup endpoints (with group middleware):")
+    print("  GET  /protected/profile  - Protected profile (group auth)")
+    print("  GET  /protected/settings - Protected settings (group auth)")
+    print("  GET  /api/status         - API status (group API middleware)")
+    print("  GET  /api/data           - API data (group + per-route middleware)")
+    print("  POST /admin/users        - Admin user creation (group auth + admin)")
 
     print("\n🔧 Middleware Chain:")
     print("  Global Middleware (runs on all requests):")
@@ -329,6 +460,10 @@ if __name__ == "__main__":
     print("    - Auth Middleware (authentication)")
     print("    - Rate Limit Middleware (rate limiting)")
     print("    - Admin Middleware (admin access)")
+    print("  Group Middleware (runs on all routes in a RouterGroup):")
+    print("    - Protected Group: Auth Middleware")
+    print("    - API Group: API Middleware")
+    print("    - Admin Group: Auth Middleware + Admin Middleware")
 
     print("\n🧪 Try these examples:")
     print("  # Public endpoint (global middleware only)")
@@ -354,6 +489,12 @@ if __name__ == "__main__":
     print()
     print("  # Middleware stats")
     print("  curl http://localhost:8000/middleware/stats")
+    print()
+    print("  # RouterGroup endpoints with group middleware")
+    print("  curl -H 'Authorization: Bearer my-token' http://localhost:8000/protected/profile")
+    print("  curl http://localhost:8000/api/status")
+    print("  curl -H 'Authorization: Bearer my-token' http://localhost:8000/api/data")
+    print("  curl -H 'Authorization: Bearer admin-token' -X POST http://localhost:8000/admin/users")
 
     print(f"\n🚀 Server starting on http://localhost:8000")
     print("Press Ctrl+C to stop the server")

@@ -40,12 +40,14 @@ Enable DI and create your first service:
    # Use dependency injection in routes (FastAPI-identical syntax)
    @app.get("/users/{user_id}")
    def get_user(request,
-                user_id: int = Path(..., ge=1),
-                user_service: UserService = Depends("user_service")):
+                user_service: UserService = Depends("user_service"),
+                user_id: int = Path(..., ge=1)):
        user = user_service.get_user(user_id)
        return JSONResponse({"user": user})
 
    if __name__ == "__main__":
+       print("🚀 Starting Catzilla DI Example...")
+       print("Try: curl http://localhost:8000/users/123")
        app.listen(port=8000)
 
 **Key Benefits:**
@@ -65,7 +67,7 @@ Create and inject basic services:
 
 .. code-block:: python
 
-   from catzilla import Catzilla, service, Depends, JSONResponse
+   from catzilla import Catzilla, service, Depends, Path, JSONResponse
    from catzilla.dependency_injection import set_default_container
 
    app = Catzilla(enable_di=True)
@@ -89,12 +91,14 @@ Create and inject basic services:
    # Use in route handlers (FastAPI-identical syntax)
    @app.get("/welcome/{name}")
    def welcome(request,
-               name: str = Path(...),
-               user_service: UserService = Depends("user_service")):
+               user_service: UserService = Depends("user_service"),
+               name: str = Path(...)):
        message = user_service.welcome_user(name)
        return JSONResponse({"message": message})
 
    if __name__ == "__main__":
+       print("🚀 Starting service dependency example...")
+       print("Try: curl http://localhost:8000/welcome/Alice")
        app.listen(port=8000)
 
 Database Dependencies
@@ -104,11 +108,19 @@ Real-world example with database simulation:
 
 .. code-block:: python
 
+   import asyncio
+   from catzilla import Catzilla, service, Depends, Path, JSONResponse
+   from catzilla.dependency_injection import set_default_container
+
+   app = Catzilla(enable_di=True)
+   set_default_container(app.di_container)
+
    @service("database_service")
    class DatabaseService:
        def __init__(self):
            # Simulate database connection
            self.connection = "postgresql://localhost:5432/app"
+           print(f"📊 Database connected: {self.connection}")
 
        def get_user(self, user_id: int):
            # Simulate database query
@@ -126,12 +138,19 @@ Real-world example with database simulation:
        def find_by_id(self, user_id: int):
            return self.db.get_user(user_id)
 
+   @app.get("/users/{user_id}")
+   def get_user(request,
+                user_repo: UserRepository = Depends("user_repository"),
+                user_id: int = Path(..., ge=1)):
+       user = user_repo.find_by_id(user_id)
+       return JSONResponse({"user": user})
+
    # Use in async handlers too
    @app.get("/async-users/{user_id}")
    async def get_user_async(
        request,
-       user_id: int = Path(..., ge=1),
-       user_repo: UserRepository = Depends("user_repository")
+       user_repo: UserRepository = Depends("user_repository"),
+       user_id: int = Path(..., ge=1)
    ):
        # Simulate async database call
        await asyncio.sleep(0.01)
@@ -139,6 +158,9 @@ Real-world example with database simulation:
        return JSONResponse({"user": user})
 
    if __name__ == "__main__":
+       print("🚀 Starting database dependency example...")
+       print("Try: curl http://localhost:8000/users/123")
+       print("Try: curl http://localhost:8000/async-users/456")
        app.listen(port=8000)
 
 Dependency Injection Approaches
@@ -153,13 +175,27 @@ The modern, developer-friendly approach using ``Depends()`` for automatic inject
 
 .. code-block:: python
 
-   from catzilla import Depends, Path
+   from catzilla import Catzilla, service, Depends, Path, JSONResponse
+   from catzilla.dependency_injection import set_default_container
+
+   app = Catzilla(enable_di=True)
+   set_default_container(app.di_container)
+
+   @service("user_service")
+   class UserService:
+       def get_user(self, user_id: int):
+           return {"id": user_id, "name": f"User {user_id}"}
+
+   @service("logger")
+   class LoggerService:
+       def log(self, message: str):
+           print(f"LOG: {message}")
 
    @app.get("/users/{user_id}")
    def get_user(request,
-                user_id: int = Path(..., ge=1),
                 user_service: UserService = Depends("user_service"),
-                logger: LoggerService = Depends("logger")):
+                logger: LoggerService = Depends("logger"),
+                user_id: int = Path(..., ge=1)):
        """FastAPI-identical syntax - preferred approach"""
        logger.log(f"Fetching user {user_id}")
        user = user_service.get_user(user_id)
@@ -167,15 +203,19 @@ The modern, developer-friendly approach using ``Depends()`` for automatic inject
 
    @app.post("/users")
    def create_user(request,
-                   user_data: UserCreateModel,
-                   user_service: UserService = Depends("user_service"),
-                   db_session: DatabaseSession = Depends("database_session")):
+                   user_service: UserService = Depends("user_service")):
        """Multiple dependencies with auto-validation"""
-       user = user_service.create_user(user_data.name, user_data.email, db_session)
+       # For demo purposes, creating with hardcoded data
+       user = user_service.get_user(999)  # New user simulation
        return JSONResponse({"user": user}, status_code=201)
 
+   if __name__ == "__main__":
+       print("🚀 FastAPI-style Depends() example...")
+       print("Try: curl http://localhost:8000/users/123")
+       app.listen(port=8000)
+
 **Benefits:**
-- Zero migration effort from FastAPI
+- Less migration effort from FastAPI
 - Automatic dependency resolution
 - Type hints for better IDE support
 - Clean, readable function signatures
@@ -186,6 +226,22 @@ The modern, developer-friendly approach using ``Depends()`` for automatic inject
 For cases where you need more control or prefer explicit dependency resolution:
 
 .. code-block:: python
+
+   from catzilla import Catzilla, service, JSONResponse
+   from catzilla.dependency_injection import set_default_container
+
+   app = Catzilla(enable_di=True)
+   set_default_container(app.di_container)
+
+   @service("user_service")
+   class UserService:
+       def get_user(self, user_id: int):
+           return {"id": user_id, "name": f"User {user_id}"}
+
+   @service("logger")
+   class LoggerService:
+       def log(self, message: str):
+           print(f"LOG: {message}")
 
    @app.get("/users/{user_id}")
    def get_user_manual(request):
@@ -199,6 +255,11 @@ For cases where you need more control or prefer explicit dependency resolution:
        logger.log(f"Fetching user {user_id}")
        user = user_service.get_user(user_id)
        return JSONResponse({"user": user})
+
+   if __name__ == "__main__":
+       print("🚀 Manual container resolution example...")
+       print("Try: curl http://localhost:8000/users/123")
+       app.listen(port=8000)
 
 **When to use manual resolution:**
 - When you need conditional dependency resolution
@@ -218,6 +279,8 @@ Control service lifetimes with different scopes:
 
 .. code-block:: python
 
+   import time
+   import uuid
    from catzilla import Catzilla, service, Depends, JSONResponse
    from catzilla.dependency_injection import set_default_container
 
@@ -229,6 +292,7 @@ Control service lifetimes with different scopes:
    class ConfigService:
        def __init__(self):
            self.config = {"app_name": "Catzilla", "version": "0.2.0"}
+           print("📋 ConfigService created (singleton)")
 
        def get_config(self):
            return self.config
@@ -238,6 +302,7 @@ Control service lifetimes with different scopes:
    class RequestContextService:
        def __init__(self):
            self.request_id = str(uuid.uuid4())
+           print(f"🔄 RequestContextService created: {self.request_id}")
 
        def get_request_id(self):
            return self.request_id
@@ -247,9 +312,26 @@ Control service lifetimes with different scopes:
    class UtilityService:
        def __init__(self):
            self.created_at = time.time()
+           print(f"⚡ UtilityService created at: {self.created_at}")
 
        def get_timestamp(self):
            return self.created_at
+
+   @app.get("/scopes")
+   def test_scopes(request,
+                   config: ConfigService = Depends("config_service"),
+                   request_ctx: RequestContextService = Depends("request_context_service"),
+                   utility: UtilityService = Depends("utility_service")):
+       return JSONResponse({
+           "config": config.get_config(),
+           "request_id": request_ctx.get_request_id(),
+           "utility_timestamp": utility.get_timestamp()
+       })
+
+   if __name__ == "__main__":
+       print("🚀 Starting service scopes example...")
+       print("Try: curl http://localhost:8000/scopes")
+       app.listen(port=8000)
 
 Named Service Registration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -258,27 +340,12 @@ Use named services for better organization and explicit dependencies:
 
 .. code-block:: python
 
+   import os
    from catzilla import Catzilla, service, Depends, JSONResponse
    from catzilla.dependency_injection import set_default_container
 
    app = Catzilla(enable_di=True)
    set_default_container(app.di_container)
-
-   # Named database service
-   @service("database", scope="singleton")
-   class DatabaseService:
-       def __init__(self):
-           connection_string = os.getenv("DATABASE_URL", "sqlite:///app.db")
-           self.connection = connection_string
-           print(f"Connected to: {connection_string}")
-
-   # Named cache service with dependency
-   @service("cache", scope="singleton")
-   class CacheService:
-       def __init__(self, config: ConfigService = Depends("config")):
-           cache_config = config.get_config().get("cache", {})
-           self.ttl = cache_config.get("ttl", 300)
-           self.enabled = cache_config.get("enabled", True)
 
    # Named config service
    @service("config", scope="singleton")
@@ -288,9 +355,27 @@ Use named services for better organization and explicit dependencies:
                "cache": {"ttl": 600, "enabled": True},
                "database": {"pool_size": 10}
            }
+           print("📋 ConfigService initialized")
 
        def get_config(self):
            return self.config
+
+   # Named database service
+   @service("database", scope="singleton")
+   class DatabaseService:
+       def __init__(self):
+           connection_string = os.getenv("DATABASE_URL", "sqlite:///app.db")
+           self.connection = connection_string
+           print(f"🗄️  Connected to: {connection_string}")
+
+   # Named cache service with dependency
+   @service("cache", scope="singleton")
+   class CacheService:
+       def __init__(self, config: ConfigService = Depends("config")):
+           cache_config = config.get_config().get("cache", {})
+           self.ttl = cache_config.get("ttl", 300)
+           self.enabled = cache_config.get("enabled", True)
+           print(f"🚀 CacheService initialized: TTL={self.ttl}, enabled={self.enabled}")
 
    # Use named services in routes
    @app.get("/status")
@@ -306,6 +391,8 @@ Use named services for better organization and explicit dependencies:
        })
 
    if __name__ == "__main__":
+       print("🚀 Starting named services example...")
+       print("Try: curl http://localhost:8000/status")
        app.listen(port=8000)
 
 Async Dependency Injection
@@ -318,8 +405,18 @@ Create services that support async operations:
 
 .. code-block:: python
 
+   import asyncio
+   from catzilla import Catzilla, service, Depends, Path, JSONResponse
+   from catzilla.dependency_injection import set_default_container
+
+   app = Catzilla(enable_di=True)
+   set_default_container(app.di_container)
+
    @service("async_database", scope="singleton")
    class AsyncDatabaseService:
+       def __init__(self):
+           print("🗄️  Async database service initialized")
+
        async def connect(self):
            """Simulate async database connection"""
            await asyncio.sleep(0.01)
@@ -345,13 +442,15 @@ Create services that support async operations:
    @app.get("/async-di/{user_id}")
    async def async_di_example(
        request,
-       user_id: int = Path(..., ge=1),
-       user_repo: AsyncUserRepository = Depends("async_user_repository")
+       user_repo: AsyncUserRepository = Depends("async_user_repository"),
+       user_id: int = Path(..., ge=1)
    ):
        user = await user_repo.find_user(user_id)
        return JSONResponse({"user": user, "type": "async_dependency_injection"})
 
    if __name__ == "__main__":
+       print("🚀 Starting async DI example...")
+       print("Try: curl http://localhost:8000/async-di/123")
        app.listen(port=8000)
 
 Database Connection Management
@@ -363,6 +462,11 @@ Practical async database service with connection management:
 
    import asyncio
    from contextlib import asynccontextmanager
+   from catzilla import Catzilla, service, Depends, Path, JSONResponse
+   from catzilla.dependency_injection import set_default_container
+
+   app = Catzilla(enable_di=True)
+   set_default_container(app.di_container)
 
    @service("database_engine", scope="singleton")
    class DatabaseEngine:
@@ -370,7 +474,7 @@ Practical async database service with connection management:
            # Simulate database engine initialization
            self.connection_string = "postgresql://localhost:5432/app"
            self.pool_size = 10
-           print(f"Database engine initialized: {self.connection_string}")
+           print(f"🔗 Database engine initialized: {self.connection_string}")
 
        @asynccontextmanager
        async def get_connection(self):
@@ -403,13 +507,15 @@ Practical async database service with connection management:
    @app.get("/db-users/{user_id}")
    async def get_database_user(
        request,
-       user_id: int = Path(..., ge=1),
-       user_service: UserService = Depends("user_service")
+       user_service: UserService = Depends("user_service"),
+       user_id: int = Path(..., ge=1)
    ):
        user_data = await user_service.get_user(user_id)
        return JSONResponse({"user": user_data, "source": "database_service"})
 
    if __name__ == "__main__":
+       print("🚀 Starting async database connection example...")
+       print("Try: curl http://localhost:8000/db-users/123")
        app.listen(port=8000)
 
 Enterprise Patterns
@@ -424,12 +530,18 @@ Add health checks and monitoring to your services:
 
    import time
    import psutil
+   from catzilla import Catzilla, service, Depends, JSONResponse
+   from catzilla.dependency_injection import set_default_container
+
+   app = Catzilla(enable_di=True)
+   set_default_container(app.di_container)
 
    @service("health_monitor", scope="singleton")
    class HealthMonitorService:
        def __init__(self):
            self.start_time = time.time()
            self.request_count = 0
+           print("🏥 Health monitor service initialized")
 
        def increment_requests(self):
            self.request_count += 1
@@ -444,8 +556,11 @@ Add health checks and monitoring to your services:
            }
 
        def get_memory_usage(self):
-           process = psutil.Process()
-           return round(process.memory_info().rss / 1024 / 1024, 2)
+           try:
+               process = psutil.Process()
+               return round(process.memory_info().rss / 1024 / 1024, 2)
+           except ImportError:
+               return "psutil not available"
 
    @app.get("/health")
    def health_check(request, monitor: HealthMonitorService = Depends("health_monitor")):
@@ -454,6 +569,8 @@ Add health checks and monitoring to your services:
        return JSONResponse(health_status)
 
    if __name__ == "__main__":
+       print("🚀 Starting health monitoring example...")
+       print("Try: curl http://localhost:8000/health")
        app.listen(port=8000)
 
 Service Composition
@@ -462,6 +579,12 @@ Service Composition
 Compose complex services from simpler ones:
 
 .. code-block:: python
+
+   from catzilla import Catzilla, service, Depends, JSONResponse
+   from catzilla.dependency_injection import set_default_container
+
+   app = Catzilla(enable_di=True)
+   set_default_container(app.di_container)
 
    @service("validation_service", scope="singleton")
    class ValidationService:
@@ -475,8 +598,15 @@ Compose complex services from simpler ones:
    class NotificationService:
        def send_welcome_email(self, email: str) -> bool:
            # Simulate email sending
-           print(f"Sending welcome email to: {email}")
+           print(f"📧 Sending welcome email to: {email}")
            return True
+
+   @service("user_repository")
+   class UserRepository:
+       def save_user(self, user_data: dict):
+           # Simulate saving to database
+           print(f"💾 Saving user: {user_data}")
+           return {"id": 123, **user_data}
 
    @service("user_management", scope="singleton")
    class UserManagementService:
@@ -498,7 +628,8 @@ Compose complex services from simpler ones:
                raise ValueError("Invalid age")
 
            # Create user (simulation)
-           user = {"name": name, "email": email, "age": age}
+           user_data = {"name": name, "email": email, "age": age}
+           user = self.user_repo.save_user(user_data)
 
            # Send welcome email
            self.notifier.send_welcome_email(email)
@@ -512,10 +643,15 @@ Compose complex services from simpler ones:
    ):
        # This would typically parse JSON from request body
        # For demo purposes, using hardcoded values
-       user = user_mgmt.create_user("John Doe", "john@example.com", 30)
-       return JSONResponse({"user": user, "message": "User created successfully"})
+       try:
+           user = user_mgmt.create_user("John Doe", "john@example.com", 30)
+           return JSONResponse({"user": user, "message": "User created successfully"})
+       except ValueError as e:
+           return JSONResponse({"error": str(e)}, status_code=400)
 
    if __name__ == "__main__":
+       print("🚀 Starting service composition example...")
+       print("Try: curl -X POST http://localhost:8000/users")
        app.listen(port=8000)
 
 Performance and Best Practices
@@ -528,7 +664,11 @@ Catzilla's DI system uses arena-based allocation for optimal performance:
 
 .. code-block:: python
 
-   # Performance tips for DI
+   from catzilla import Catzilla, service, Depends, JSONResponse
+   from catzilla.dependency_injection import set_default_container
+
+   app = Catzilla(enable_di=True)
+   set_default_container(app.di_container)
 
    # ✅ Use singletons for expensive-to-create services
    @service("expensive_service", scope="singleton")
@@ -536,6 +676,7 @@ Catzilla's DI system uses arena-based allocation for optimal performance:
        def __init__(self):
            # Heavy initialization happens once
            self.large_data = self.load_large_dataset()
+           print("💰 Expensive service initialized")
 
        def load_large_dataset(self):
            # Simulate expensive operation
@@ -547,57 +688,61 @@ Catzilla's DI system uses arena-based allocation for optimal performance:
        def __init__(self):
            self.request_data = {}
            self.request_id = id(self)
+           print(f"🔄 Request stateful service created: {self.request_id}")
 
    # ✅ Use transient for lightweight, stateless services
    @service("lightweight_utility", scope="transient")
    class LightweightUtility:
+       def __init__(self):
+           print("⚡ Lightweight utility created")
+
        def helper_method(self):
            return "lightweight operation"
 
-Performance Comparison
-~~~~~~~~~~~~~~~~~~~~~~
+   @app.get("/performance")
+   def performance_demo(
+       request,
+       expensive: ExpensiveService = Depends("expensive_service"),
+       stateful: RequestStatefulService = Depends("request_stateful"),
+       utility: LightweightUtility = Depends("lightweight_utility")
+   ):
+       return JSONResponse({
+           "expensive_data_count": len(expensive.large_data),
+           "request_id": stateful.request_id,
+           "utility_result": utility.helper_method()
+       })
 
-Benchmark results comparing Catzilla DI vs FastAPI DI:
+   if __name__ == "__main__":
+       print("🚀 Starting performance optimization example...")
+       print("Try: curl http://localhost:8000/performance")
+       app.listen(port=8000)
 
-.. code-block:: text
-
-   Dependency Injection Performance (1000 requests):
-
-   FastAPI DI:        285ms  (baseline)
-   Catzilla DI:        44ms  (6.5x faster)
-
-   Memory Usage:
-   FastAPI DI:       125MB
-   Catzilla DI:       19MB  (6.6x less memory)
 
 Migration from FastAPI
 ----------------------
 
-Zero-Effort Migration
+Less migration effort
 ~~~~~~~~~~~~~~~~~~~~~
 
-Migrate your FastAPI DI code with zero changes:
+Migrate your FastAPI DI code with minimal changes:
 
 .. code-block:: python
 
-   # Your existing FastAPI code
-   from fastapi import FastAPI, Depends
-
-   app = FastAPI()
-
-   class DatabaseService:
-       def get_data(self):
-           return {"data": "from database"}
-
-   def get_database():
-       return DatabaseService()
-
-   @app.get("/data")
-   def get_data(db: DatabaseService = Depends(get_database)):
-       return db.get_data()
-
-   if __name__ == "__main__":
-       app.listen(port=8000)
+   # Your existing FastAPI code would look like this:
+   # from fastapi import FastAPI, Depends
+   #
+   # app = FastAPI()
+   #
+   # class DatabaseService:
+   #     def get_data(self):
+   #         return {"data": "from database"}
+   #
+   # def get_database():
+   #     return DatabaseService()
+   #
+   # @app.get("/data")
+   # def get_data(db: DatabaseService = Depends(get_database)):
+   #     return db.get_data()
 
    # Catzilla equivalent (almost identical!)
    from catzilla import Catzilla, Depends, service, JSONResponse
@@ -616,6 +761,8 @@ Migrate your FastAPI DI code with zero changes:
        return JSONResponse(db.get_data())
 
    if __name__ == "__main__":
+       print("🚀 Starting FastAPI migration example...")
+       print("Try: curl http://localhost:8000/data")
        app.listen(port=8000)
 
 **Migration Steps:**
@@ -629,7 +776,7 @@ Migrate your FastAPI DI code with zero changes:
 7. Add ``request`` parameter to route handlers
 8. Use ``JSONResponse()`` for JSON responses
 
-That's it! Your DI code now runs 6.5x faster.
+That's it! Your DI code now runs more faster.
 
 Common Patterns
 ---------------
@@ -640,6 +787,11 @@ Configuration Injection
 .. code-block:: python
 
    import os
+   from catzilla import Catzilla, service, Depends, JSONResponse
+   from catzilla.dependency_injection import set_default_container
+
+   app = Catzilla(enable_di=True)
+   set_default_container(app.di_container)
 
    @service("app_config", scope="singleton")
    class AppConfig:
@@ -647,6 +799,7 @@ Configuration Injection
            self.database_url = os.getenv("DATABASE_URL")
            self.redis_url = os.getenv("REDIS_URL")
            self.debug = os.getenv("DEBUG", "false").lower() == "true"
+           print("⚙️  Application configuration loaded")
 
    @app.get("/config")
    def get_config(request, config: AppConfig = Depends("app_config")):
@@ -657,6 +810,8 @@ Configuration Injection
        })
 
    if __name__ == "__main__":
+       print("🚀 Starting configuration injection example...")
+       print("Try: curl http://localhost:8000/config")
        app.listen(port=8000)
 
 Testing with DI
@@ -665,7 +820,7 @@ Testing with DI
 .. code-block:: python
 
    import pytest
-   from catzilla import Catzilla, service, Depends
+   from catzilla import Catzilla, service, Depends, JSONResponse
    from catzilla.dependency_injection import set_default_container
 
    def test_user_endpoint():
@@ -683,9 +838,103 @@ Testing with DI
        @test_app.get("/users/{user_id}")
        def get_user(request, user_id: int, user_service: MockUserService = Depends("user_service")):
            user = user_service.get_user(user_id)
-           return {"user": user}
+           return JSONResponse({"user": user})
 
        # Test the route (would need test client setup)
        # This demonstrates the pattern for testing with DI
+       print("✅ Test pattern demonstrated")
+
+   if __name__ == "__main__":
+       test_user_endpoint()
+       print("🚀 Testing with DI example completed")
+
+Authentication & Authorization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Complete authentication system with dependency injection:
+
+.. code-block:: python
+
+   from catzilla import Catzilla, service, JSONResponse, Header, Depends
+   from catzilla.dependency_injection import set_default_container
+   from typing import Optional
+
+   app = Catzilla(enable_di=True)
+   set_default_container(app.di_container)
+
+   # Authentication service
+   @service("auth_service")
+   class AuthenticationService:
+       def __init__(self):
+           self.users_db = {
+               "admin": {"id": 1, "username": "admin", "email": "admin@example.com", "role": "admin"},
+               "user1": {"id": 2, "username": "user1", "email": "user1@example.com", "role": "user"}
+           }
+           print("🔐 Authentication service initialized")
+
+       def authenticate_token(self, token: str) -> Optional[dict]:
+           """Validate token and return user info"""
+           # Simple mock authentication - in reality you'd validate JWT tokens
+           if token == "admin_token":
+               return self.users_db["admin"]
+           elif token == "user_token":
+               return self.users_db["user1"]
+           return None
+
+       def get_current_user(self, authorization: str) -> dict:
+           """Extract and validate user from authorization header"""
+           if not authorization.startswith("Bearer "):
+               raise ValueError("Invalid authorization header format")
+
+           token = authorization.replace("Bearer ", "")
+           user = self.authenticate_token(token)
+
+           if not user:
+               raise ValueError("Invalid or expired token")
+
+           return user
+
+   # Protected routes with authentication
+   @app.get("/protected")
+   def protected_route(
+       request,
+       authorization: str = Header(..., description="Authorization header"),
+       auth_service: AuthenticationService = Depends("auth_service")
+   ):
+       """Protected route that requires authentication"""
+       try:
+           current_user = auth_service.get_current_user(authorization)
+           return JSONResponse({
+               "message": f"Hello {current_user['username']}!",
+               "user_info": current_user
+           })
+       except ValueError as e:
+           return JSONResponse({"error": str(e)}, status_code=401)
+
+   # Admin-only route
+   @app.get("/admin")
+   def admin_route(
+       request,
+       authorization: str = Header(..., description="Authorization header"),
+       auth_service: AuthenticationService = Depends("auth_service")
+   ):
+       """Admin-only route"""
+       try:
+           current_user = auth_service.get_current_user(authorization)
+           if current_user.get("role") != "admin":
+               return JSONResponse({"error": "Admin access required"}, status_code=403)
+
+           return JSONResponse({
+               "message": "Admin panel access granted",
+               "admin_info": current_user
+           })
+       except ValueError as e:
+           return JSONResponse({"error": str(e)}, status_code=401)
+
+   if __name__ == "__main__":
+       print("🚀 Authentication Example")
+       print("Test with: curl -H 'Authorization: Bearer admin_token' http://localhost:8000/protected")
+       print("Test with: curl -H 'Authorization: Bearer user_token' http://localhost:8000/protected")
+       app.listen(port=8000)
 
 This dependency injection system provides all the power and flexibility you need for building scalable, maintainable applications with Catzilla's performance advantages.

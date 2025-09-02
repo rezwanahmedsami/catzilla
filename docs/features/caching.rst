@@ -27,7 +27,8 @@ Simple SmartCache configuration for fast data access:
 
 .. code-block:: python
 
-   from catzilla import Catzilla, JSONResponse, SmartCache, SmartCacheConfig, cached
+   from catzilla import Catzilla, Request, Response, JSONResponse, SmartCache, SmartCacheConfig, cached, Path
+   import time
 
    app = Catzilla()
 
@@ -44,23 +45,23 @@ Simple SmartCache configuration for fast data access:
    cache = SmartCache(cache_config)
 
    @app.get("/cached-data/{key}")
-   def get_cached_data(request):
+   def get_cached_data(
+       request: Request,
+       key: str = Path(..., description="Cache key to retrieve")
+   ) -> Response:
        """Get data with SmartCache caching"""
-       key = request.path_params["key"]
 
        # Try to get from cache first
-       cached_value = cache.get(f"data:{key}")
+       cached_value, found = cache.get(f"data:{key}")
 
-       if cached_value is not None:
+       if found:
            return JSONResponse({
                "data": cached_value,
                "source": "cache",
                "cache_hit": True
            })
 
-
        # Generate expensive data (simulation)
-       import time
        time.sleep(0.1)  # Simulate expensive operation
        expensive_data = {
            "key": key,
@@ -78,6 +79,11 @@ Simple SmartCache configuration for fast data access:
            "cache_hit": False
        })
 
+   if __name__ == "__main__":
+       print("🚀 Starting cache demo server...")
+       print("Try: http://localhost:8000/cached-data/example")
+       app.listen(port=8000)
+
 Cache Decorator
 ~~~~~~~~~~~~~~~
 
@@ -85,13 +91,15 @@ Use the ``@cached`` decorator for automatic function result caching:
 
 .. code-block:: python
 
-   from catzilla import cached
+   from catzilla import Catzilla, Request, Response, JSONResponse, cached, Path
+   import time
+
+   app = Catzilla()
 
    @cached(ttl=600, key_prefix="user_data")
    def get_user_data(user_id: int):
        """Expensive user data retrieval with caching"""
        # Simulate database query
-       import time
        time.sleep(0.05)
 
        return {
@@ -105,15 +113,22 @@ Use the ``@cached`` decorator for automatic function result caching:
        }
 
    @app.get("/users/{user_id}")
-   def get_user(request):
+   def get_user(
+       request: Request,
+       user_id: int = Path(..., ge=1, description="User ID")
+   ) -> Response:
        """Get user with automatic caching"""
-       user_id = int(request.path_params["user_id"])
        user_data = get_user_data(user_id)
 
        return JSONResponse({
            "user": user_data,
            "cached": True  # Automatically cached by decorator
        })
+
+   if __name__ == "__main__":
+       print("🚀 Starting cached function demo...")
+       print("Try: http://localhost:8000/users/123")
+       app.listen(port=8000)
 
 Multi-Tier SmartCache
 ---------------------
@@ -125,7 +140,10 @@ Set up Memory (L1), Redis (L2), and Disk (L3) caching tiers:
 
 .. code-block:: python
 
-   from catzilla import SmartCache, SmartCacheConfig
+   from catzilla import Catzilla, Request, Response, JSONResponse, SmartCache, SmartCacheConfig, Path
+   import time
+
+   app = Catzilla()
 
    # Configure multi-tier cache with all layers
    cache_config = SmartCacheConfig(
@@ -153,17 +171,30 @@ Set up Memory (L1), Redis (L2), and Disk (L3) caching tiers:
    # Create SmartCache with multi-tier configuration
    cache = SmartCache(cache_config)
 
+   def generate_complex_computation(key: str):
+       """Simulate expensive computation"""
+       time.sleep(0.2)  # Simulate 200ms computation
+
+       return {
+           "key": key,
+           "result": f"Complex result for {key}",
+           "computed_at": time.time(),
+           "computation_cost": "expensive"
+       }
+
    @app.get("/multilayer-data/{key}")
-   def get_multilayer_data(request):
+   def get_multilayer_data(
+       request: Request,
+       key: str = Path(..., description="Data key for multi-tier caching")
+   ) -> Response:
        """Data retrieval with multi-tier caching"""
-       key = request.path_params["key"]
 
        cache_key = f"complex_data:{key}"
 
        # Cache will automatically check tiers in order: Memory → Redis → Disk
-       cached_data = cache.get(cache_key)
+       cached_data, found = cache.get(cache_key)
 
-       if cached_data:
+       if found:
            return JSONResponse({
                "data": cached_data,
                "cache_tier": "multi_tier",
@@ -182,17 +213,10 @@ Set up Memory (L1), Redis (L2), and Disk (L3) caching tiers:
            "cache_hit": False
        })
 
-   def generate_complex_computation(key: str):
-       """Simulate expensive computation"""
-       import time
-       time.sleep(0.2)  # Simulate 200ms computation
-
-       return {
-           "key": key,
-           "result": f"Complex result for {key}",
-           "computed_at": time.time(),
-           "computation_cost": "expensive"
-       }
+   if __name__ == "__main__":
+       print("🚀 Starting multi-tier cache demo...")
+       print("Try: http://localhost:8000/multilayer-data/example")
+       app.listen(port=8000)
 
 Cache Strategies
 ~~~~~~~~~~~~~~~~
@@ -201,15 +225,41 @@ Implement different caching patterns with SmartCache:
 
 .. code-block:: python
 
+   from catzilla import Catzilla, Request, Response, JSONResponse, SmartCache, SmartCacheConfig, Path
+   import time
+
+   app = Catzilla()
+
+   # Initialize cache
+   cache_config = SmartCacheConfig(
+       memory_capacity=1000,
+       memory_ttl=300,
+       disk_enabled=True,
+       disk_path="/tmp/catzilla_strategies"
+   )
+   cache = SmartCache(cache_config)
+
+   def expensive_database_query(key: str):
+       """Simulate expensive database operation"""
+       time.sleep(0.1)
+       return {"key": key, "data": f"Database result for {key}", "timestamp": time.time()}
+
+   def fetch_data_for_key(key: str):
+       """Fetch data for cache warming"""
+       return {"key": key, "warmed_data": f"Warmed data for {key}"}
+
    # Cache-Aside Pattern (Most Common)
-   def cache_aside_example(request):
+   @app.get("/cache-aside/{key}")
+   def cache_aside_example(
+       request: Request,
+       key: str = Path(..., description="Cache key")
+   ) -> Response:
        """Cache-aside pattern with SmartCache"""
-       key = request.path_params["key"]
        cache_key = f"aside:{key}"
 
        # 1. Try cache first
-       cached = cache.get(cache_key)
-       if cached:
+       cached, found = cache.get(cache_key)
+       if found:
            return JSONResponse({"data": cached, "strategy": "cache_aside", "hit": True})
 
        # 2. Cache miss - fetch from source
@@ -221,13 +271,16 @@ Implement different caching patterns with SmartCache:
        return JSONResponse({"data": data, "strategy": "cache_aside", "hit": False})
 
    # Write-Through Pattern
-   def write_through_example(request):
+   @app.post("/write-through/{key}")
+   def write_through_example(
+       request: Request,
+       key: str = Path(..., description="Write-through cache key")
+   ) -> Response:
        """Write-through pattern with SmartCache"""
-       key = request.path_params["key"]
        data = request.json()
 
-       # 1. Write to database
-       database.save(key, data)
+       # 1. Write to database (simulated)
+       print(f"Saving to database: {key} = {data}")
 
        # 2. Immediately write to cache
        cache.set(f"writethrough:{key}", data, ttl=600)
@@ -235,20 +288,32 @@ Implement different caching patterns with SmartCache:
        return JSONResponse({"message": "Data saved", "strategy": "write_through"})
 
    # Cache Warming
-   def warm_cache():
+   @app.post("/warm-cache")
+   def warm_cache(request: Request) -> Response:
        """Proactively populate cache with frequently accessed data"""
        popular_keys = ["user:1", "user:2", "user:3", "config:app"]
 
+       warmed_count = 0
        for key in popular_keys:
-           if not cache.get(key):
+           cached_value, found = cache.get(key)
+           if not found:
                data = fetch_data_for_key(key)
                cache.set(key, data, ttl=1800)  # 30 minutes
+               warmed_count += 1
 
-       return f"Warmed {len(popular_keys)} cache entries"
+       return JSONResponse({
+           "message": f"Warmed {warmed_count} cache entries",
+           "strategy": "cache_warming",
+           "warmed_keys": popular_keys
+       })
 
-   async def _refresh_ahead(self, key: str, fetch_function, ttl: int):
-       # Implementation for refresh-ahead logic
-       pass
+   if __name__ == "__main__":
+       print("🚀 Starting cache strategies demo...")
+       print("Try:")
+       print("  GET  http://localhost:8000/cache-aside/example")
+       print("  POST http://localhost:8000/write-through/example")
+       print("  POST http://localhost:8000/warm-cache")
+       app.listen(port=8000)
 
 Performance Optimization
 ------------------------
@@ -260,8 +325,22 @@ Monitor cache performance and optimize hit ratios:
 
 .. code-block:: python
 
+   from catzilla import Catzilla, Request, Response, JSONResponse, SmartCache, SmartCacheConfig
+
+   app = Catzilla()
+
+   # Initialize cache with stats enabled
+   cache_config = SmartCacheConfig(
+       memory_capacity=1000,
+       memory_ttl=300,
+       enable_stats=True,
+       disk_enabled=True,
+       disk_path="/tmp/catzilla_analytics"
+   )
+   cache = SmartCache(cache_config)
+
    @app.get("/cache/analytics")
-   def get_cache_analytics(request):
+   def get_cache_analytics(request: Request) -> Response:
        """Get detailed cache performance analytics"""
 
        # Get comprehensive cache statistics
@@ -273,13 +352,13 @@ Monitor cache performance and optimize hit ratios:
                "hit_ratio": f"{stats.hit_ratio:.2%}",
                "total_hits": stats.hits,
                "total_misses": stats.misses,
-               "operations_per_second": stats.ops_per_second
+               "operations_per_second": getattr(stats, 'ops_per_second', 0)
            },
            "memory_usage": {
                "current_usage": f"{stats.memory_usage:.2f}MB",
                "capacity": f"{stats.capacity} items",
                "size": stats.size,
-               "compression_ratio": f"{stats.compression_ratio:.2f}x"
+               "compression_ratio": getattr(stats, 'compression_ratio', 1.0)
            },
            "tier_performance": {
                "memory": stats.tier_stats.get("memory", {}),
@@ -290,6 +369,11 @@ Monitor cache performance and optimize hit ratios:
            "jemalloc_enabled": cache.config.jemalloc_enabled
        })
 
+   if __name__ == "__main__":
+       print("🚀 Starting cache analytics demo...")
+       print("Try: http://localhost:8000/cache/analytics")
+       app.listen(port=8000)
+
 Cache Warming
 ~~~~~~~~~~~~~
 
@@ -297,7 +381,47 @@ Proactively populate cache with frequently accessed data:
 
 .. code-block:: python
 
-   def warm_cache_on_startup():
+   from catzilla import Catzilla, Request, Response, JSONResponse, SmartCache, SmartCacheConfig
+   import time
+
+   app = Catzilla()
+
+   # Initialize cache
+   cache_config = SmartCacheConfig(
+       memory_capacity=1000,
+       memory_ttl=300,
+       disk_enabled=True,
+       disk_path="/tmp/catzilla_warming"
+   )
+   cache = SmartCache(cache_config)
+
+   def get_app_settings():
+       """Simulate getting app settings"""
+       time.sleep(0.05)
+       return {"theme": "dark", "language": "en", "features": ["cache", "analytics"]}
+
+   def get_feature_flags():
+       """Simulate getting feature flags"""
+       time.sleep(0.03)
+       return {"new_ui": True, "beta_features": False, "maintenance_mode": False}
+
+   def get_top_users(limit: int):
+       """Simulate getting top users"""
+       time.sleep(0.1)
+       return [{"id": i, "name": f"User {i}", "score": 100 - i} for i in range(1, limit + 1)]
+
+   def get_daily_statistics():
+       """Simulate getting daily stats"""
+       time.sleep(0.2)
+       return {"visitors": 1500, "page_views": 5200, "signups": 23}
+
+   def get_user_from_database(user_id: int):
+       """Simulate database user lookup"""
+       time.sleep(0.05)
+       return {"id": user_id, "name": f"User {user_id}", "email": f"user{user_id}@example.com"}
+
+   @app.post("/cache/warm-startup")
+   def warm_cache_on_startup(request: Request) -> Response:
        """Warm cache with popular data during application startup"""
 
        # Popular data that should always be cached
@@ -314,41 +438,42 @@ Proactively populate cache with frequently accessed data:
                cache.set(cache_key, data, ttl=1800)  # 30 minutes
                warmed_count += 1
 
-       print(f"🔥 Cache warmed with {warmed_count} entries")
-       return warmed_count
+       return JSONResponse({
+           "message": f"Cache warmed with {warmed_count} entries",
+           "warmed_keys": list(popular_data.keys()),
+           "ttl_minutes": 30
+       })
 
-   def warm_user_data(user_ids: list):
+   @app.post("/cache/warm-users")
+   def warm_user_data(request: Request) -> Response:
        """Warm cache with specific user data"""
+       data = request.json()
+       user_ids = data.get("user_ids", [1, 5, 10, 25, 50])
+
+       warmed_users = []
+       failed_users = []
+
        for user_id in user_ids:
            try:
                user_data = get_user_from_database(user_id)
                cache.set(f"user:{user_id}", user_data, ttl=600)
+               warmed_users.append(user_id)
            except Exception as e:
-               print(f"Failed to warm user {user_id}: {e}")
+               failed_users.append({"user_id": user_id, "error": str(e)})
 
-   # Warm cache during application startup
-   @app.on_startup
-   def startup_cache_warming():
-       warm_cache_on_startup()
+       return JSONResponse({
+           "message": f"Warmed {len(warmed_users)} user records",
+           "warmed_users": warmed_users,
+           "failed_users": failed_users,
+           "ttl_minutes": 10
+       })
 
-       # Warm popular user data
-       popular_user_ids = [1, 5, 10, 25, 50]  # Could come from analytics
-       warm_user_data(popular_user_ids)
-               "popular": True
-           }
-
-       async def _fetch_weather_data(self, city: str):
-           """Simulate weather data fetching"""
-           await asyncio.sleep(0.1)
-           return {
-               "city": city,
-               "temperature": 72,
-               "condition": "sunny"
-           }
-
-       async def start_warming_schedule(self):
-           """Start scheduled cache warming"""
-           import asyncio
+   if __name__ == "__main__":
+       print("🚀 Starting cache warming demo...")
+       print("Try:")
+       print("  POST http://localhost:8000/cache/warm-startup")
+       print("  POST http://localhost:8000/cache/warm-users")
+       app.listen(port=8000)
 
 Cache Key Design
 ~~~~~~~~~~~~~~~~
@@ -357,32 +482,14 @@ Design effective cache keys for optimal performance:
 
 .. code-block:: python
 
-   # Good cache key patterns
-   def create_cache_keys():
-       """Examples of well-designed cache keys"""
+   from catzilla import Catzilla, Request, Response, JSONResponse, SmartCache, SmartCacheConfig
+   from datetime import datetime
 
-       # User data: user:{user_id}
-       user_key = f"user:{user_id}"
+   app = Catzilla()
 
-       # User posts: user:{user_id}:posts
-       user_posts_key = f"user:{user_id}:posts"
-
-       # Search results: search:{query}:{page}:{limit}
-       search_key = f"search:{query}:{page}:{limit}"
-
-       # Configuration: config:{environment}:{feature}
-       config_key = f"config:{environment}:{feature}"
-
-       # Time-based: daily_stats:{date}
-       daily_key = f"daily_stats:{date.strftime('%Y-%m-%d')}"
-
-       return {
-           "user": user_key,
-           "posts": user_posts_key,
-           "search": search_key,
-           "config": config_key,
-           "daily": daily_key
-       }
+   # Initialize cache
+   cache_config = SmartCacheConfig(memory_capacity=1000, memory_ttl=300)
+   cache = SmartCache(cache_config)
 
    # Cache key best practices
    class CacheKeyBuilder:
@@ -406,6 +513,55 @@ Design effective cache keys for optimal performance:
 
            return base_key
 
+       @staticmethod
+       def config_key(environment: str, feature: str) -> str:
+           return f"config:{environment}:{feature}"
+
+       @staticmethod
+       def daily_key(date: datetime) -> str:
+           return f"daily_stats:{date.strftime('%Y-%m-%d')}"
+
+   @app.get("/cache-key-examples")
+   def create_cache_keys(request: Request) -> Response:
+       """Examples of well-designed cache keys"""
+
+       user_id = 123
+       query = "python programming"
+       environment = "production"
+       feature = "new_ui"
+       date = datetime.now()
+
+       cache_keys = {
+           "user": CacheKeyBuilder.user_key(user_id),
+           "user_posts": CacheKeyBuilder.user_posts_key(user_id, page=2),
+           "search": CacheKeyBuilder.search_key(query),
+           "search_filtered": CacheKeyBuilder.search_key(query, {"category": "tutorials", "level": "beginner"}),
+           "config": CacheKeyBuilder.config_key(environment, feature),
+           "daily": CacheKeyBuilder.daily_key(date)
+       }
+
+       # Store some sample data using these keys
+       for key_name, cache_key in cache_keys.items():
+           sample_data = {"key_type": key_name, "cached_at": datetime.now().isoformat()}
+           cache.set(cache_key, sample_data, ttl=300)
+
+       return JSONResponse({
+           "cache_key_examples": cache_keys,
+           "best_practices": [
+               "Use consistent naming patterns (entity:id)",
+               "Include relevant parameters in key",
+               "Sort filters for consistent keys",
+               "Use descriptive prefixes",
+               "Avoid special characters",
+               "Keep keys readable and debuggable"
+           ]
+       })
+
+   if __name__ == "__main__":
+       print("🚀 Starting cache key design demo...")
+       print("Try: http://localhost:8000/cache-key-examples")
+       app.listen(port=8000)
+
 Performance Benchmarking
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -413,8 +569,20 @@ Benchmark cache performance to optimize your application:
 
 .. code-block:: python
 
+   from catzilla import Catzilla, Request, Response, JSONResponse, SmartCache, SmartCacheConfig
    import time
    import statistics
+
+   app = Catzilla()
+
+   # Initialize cache
+   cache_config = SmartCacheConfig(
+       memory_capacity=10000,
+       memory_ttl=300,
+       compression_enabled=True,
+       jemalloc_enabled=True
+   )
+   cache = SmartCache(cache_config)
 
    def benchmark_cache_performance(cache, num_operations=1000):
        """Benchmark SmartCache performance"""
@@ -433,7 +601,7 @@ Benchmark cache performance to optimize your application:
        get_times = []
        for i in range(num_operations):
            start = time.time()
-           result = cache.get(f"benchmark_key_{i}")
+           result, found = cache.get(f"benchmark_key_{i}")
            get_times.append((time.time() - start) * 1000)  # Convert to ms
 
        # Calculate statistics
@@ -455,7 +623,7 @@ Benchmark cache performance to optimize your application:
        }
 
    @app.get("/cache/benchmark")
-   def run_cache_benchmark(request):
+   def run_cache_benchmark(request: Request) -> Response:
        """Run cache performance benchmark"""
 
        results = benchmark_cache_performance(cache, num_operations=1000)
@@ -470,6 +638,11 @@ Benchmark cache performance to optimize your application:
            "recommendation": "SmartCache with C-acceleration provides sub-millisecond performance"
        })
 
+   if __name__ == "__main__":
+       print("🚀 Starting cache benchmark demo...")
+       print("Try: http://localhost:8000/cache/benchmark")
+       app.listen(port=8000)
+
 Best Practices
 --------------
 
@@ -477,6 +650,8 @@ Cache Configuration Tips
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
+
+   from catzilla import SmartCacheConfig
 
    # Production-ready cache configuration
    production_cache_config = SmartCacheConfig(
@@ -506,6 +681,14 @@ Common Patterns
 
 .. code-block:: python
 
+   from catzilla import Catzilla, Request, Response, JSONResponse, SmartCache, SmartCacheConfig, cached, Path
+
+   app = Catzilla()
+
+   # Initialize cache
+   cache_config = SmartCacheConfig(memory_capacity=1000, memory_ttl=300)
+   cache = SmartCache(cache_config)
+
    # Pattern 1: Function-level caching for expensive computations
    @cached(ttl=600, key_prefix="fibonacci")
    def fibonacci(n: int) -> int:
@@ -518,12 +701,12 @@ Common Patterns
        cache_key = f"weather:{city}"
 
        # Try cache first
-       weather = cache.get(cache_key)
-       if weather:
+       weather, found = cache.get(cache_key)
+       if found:
            return weather
 
-       # Fetch from API
-       weather = external_weather_api.get(city)
+       # Fetch from API (simulated)
+       weather = {"city": city, "temp": 72, "condition": "sunny"}
 
        # Cache for 30 minutes
        cache.set(cache_key, weather, ttl=1800)
@@ -532,13 +715,49 @@ Common Patterns
 
    # Pattern 3: Cache invalidation
    def update_user(user_id: int, data: dict):
-       # Update database
-       database.update_user(user_id, data)
+       # Update database (simulated)
+       print(f"Updating user {user_id} with {data}")
 
        # Invalidate related cache entries
        cache.delete(f"user:{user_id}")
        cache.delete(f"user:{user_id}:posts")
        cache.delete(f"user:{user_id}:profile")
+
+   @app.get("/patterns/fibonacci/{n}")
+   def test_fibonacci(
+       request: Request,
+       n: int = Path(..., ge=1, le=50, description="Fibonacci sequence position")
+   ) -> Response:
+       """Test cached fibonacci calculation"""
+       result = fibonacci(n)
+       return JSONResponse({"n": n, "fibonacci": result})
+
+   @app.get("/patterns/weather/{city}")
+   def test_weather(
+       request: Request,
+       city: str = Path(..., min_length=2, max_length=50, description="City name for weather lookup")
+   ) -> Response:
+       """Test weather API with caching"""
+       weather = get_weather(city)
+       return JSONResponse(weather)
+
+   @app.post("/patterns/update-user/{user_id}")
+   def test_cache_invalidation(
+       request: Request,
+       user_id: int = Path(..., ge=1, description="User ID to update")
+   ) -> Response:
+       """Test cache invalidation pattern"""
+       data = request.json()
+       update_user(user_id, data)
+       return JSONResponse({"message": f"User {user_id} updated and cache invalidated"})
+
+   if __name__ == "__main__":
+       print("🚀 Starting cache patterns demo...")
+       print("Try:")
+       print("  GET  http://localhost:8000/patterns/fibonacci/30")
+       print("  GET  http://localhost:8000/patterns/weather/London")
+       print("  POST http://localhost:8000/patterns/update-user/123")
+       app.listen(port=8000)
 
 Troubleshooting
 ~~~~~~~~~~~~~~~
@@ -562,21 +781,66 @@ Common issues and solutions:
 
 .. code-block:: python
 
-   # Debug cache performance
+   from catzilla import Catzilla, Request, Response, JSONResponse, SmartCache, SmartCacheConfig
+
+   app = Catzilla()
+
+   # Initialize cache with debugging enabled
+   cache_config = SmartCacheConfig(
+       memory_capacity=1000,
+       memory_ttl=300,
+       enable_stats=True,
+       compression_enabled=True,
+       jemalloc_enabled=True
+   )
+   cache = SmartCache(cache_config)
+
    def debug_cache_health():
+       """Debug cache performance"""
        stats = cache.get_stats()
        health = cache.health_check()
 
        print(f"Hit Ratio: {stats.hit_ratio:.2%}")
        print(f"Memory Usage: {stats.memory_usage:.2f}MB")
-       print(f"Operations/sec: {stats.ops_per_second}")
+       print(f"Operations/sec: {getattr(stats, 'ops_per_second', 'N/A')}")
        print(f"Health Status: {health}")
 
+       recommendations = []
        if stats.hit_ratio < 0.8:
-           print("⚠️  Consider increasing TTL values")
+           recommendations.append("Consider increasing TTL values")
 
        if stats.memory_usage > 100:
-           print("⚠️  Consider enabling compression or reducing capacity")
+           recommendations.append("Consider enabling compression or reducing capacity")
+
+       return {
+           "stats": {
+               "hit_ratio": stats.hit_ratio,
+               "memory_usage": stats.memory_usage,
+               "cache_size": stats.size,
+               "health": health
+           },
+           "recommendations": recommendations
+       }
+
+   @app.get("/cache/debug")
+   def cache_debug_endpoint(request: Request) -> Response:
+       """Debug cache health endpoint"""
+       debug_info = debug_cache_health()
+
+       return JSONResponse({
+           "cache_debug": debug_info,
+           "troubleshooting_tips": [
+               "Low hit ratio: Increase TTL or warm more data",
+               "High memory usage: Enable compression",
+               "Slow performance: Enable jemalloc optimization",
+               "Connection issues: Check Redis connectivity"
+           ]
+       })
+
+   if __name__ == "__main__":
+       print("🚀 Starting cache debugging demo...")
+       print("Try: http://localhost:8000/cache/debug")
+       app.listen(port=8000)
 
 Related Documentation
 ---------------------
