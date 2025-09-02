@@ -27,14 +27,14 @@ Create middleware that applies to all routes:
 .. code-block:: python
 
    from catzilla import Catzilla, Request, Response, JSONResponse
+   from typing import Optional
    import time
 
    app = Catzilla()
 
    @app.middleware(priority=10, pre_route=True, name="timing_middleware")
-   def timing_middleware(request: Request):
+   def timing_middleware(request: Request) -> Optional[Response]:
        """Measure request processing time"""
-       import time
        start_time = time.time()
 
        # Store start time in request context for response processing
@@ -46,10 +46,12 @@ Create middleware that applies to all routes:
        return None  # Continue to next middleware
 
    @app.get("/")
-   def home(request):
+   def home(request: Request) -> Response:
        return JSONResponse({"message": "Hello with timing middleware!"})
 
    if __name__ == "__main__":
+       print("🚀 Starting Catzilla middleware example...")
+       print("Try: curl http://localhost:8000/")
        app.listen(port=8000)
 
 Per-Route Middleware
@@ -60,12 +62,13 @@ Apply middleware to specific routes only:
 .. code-block:: python
 
    from catzilla import Catzilla, Request, Response, JSONResponse
+   from typing import Optional
 
    app = Catzilla()
 
-   def auth_middleware(request: Request):
+   def auth_middleware(request: Request) -> Optional[Response]:
        """Check authentication"""
-       auth_header = request.headers.get("Authorization")
+       auth_header = request.headers.get("Authorization") or request.headers.get("authorization")
 
        if not auth_header or not auth_header.startswith("Bearer "):
            return JSONResponse({
@@ -84,7 +87,7 @@ Apply middleware to specific routes only:
 
    # Apply middleware only to protected routes
    @app.get("/protected", middleware=[auth_middleware])
-   def protected_endpoint(request):
+   def protected_endpoint(request: Request) -> Response:
        user = getattr(request, 'context', {}).get('user', {})
        return JSONResponse({
            "message": "You are authenticated!",
@@ -92,10 +95,13 @@ Apply middleware to specific routes only:
        })
 
    @app.get("/public")
-   def public_endpoint(request):
+   def public_endpoint(request: Request) -> Response:
        return JSONResponse({"message": "No authentication required"})
 
    if __name__ == "__main__":
+       print("🚀 Starting per-route middleware example...")
+       print("Try: curl http://localhost:8000/public")
+       print("Try: curl -H 'Authorization: Bearer token' http://localhost:8000/protected")
        app.listen(port=8000)
 
 RouterGroup Middleware
@@ -107,12 +113,14 @@ Apply middleware to all routes within a RouterGroup using group-level middleware
 
    from catzilla import Catzilla, Request, Response, JSONResponse
    from catzilla.router import RouterGroup
+   from typing import Optional
+   import time
 
    app = Catzilla()
 
-   def auth_middleware(request: Request):
+   def auth_middleware(request: Request) -> Optional[Response]:
        """Authentication middleware for protected routes"""
-       auth_header = request.headers.get("Authorization")
+       auth_header = request.headers.get("Authorization") or request.headers.get("authorization")
 
        if not auth_header or not auth_header.startswith("Bearer "):
            return JSONResponse({
@@ -129,7 +137,7 @@ Apply middleware to all routes within a RouterGroup using group-level middleware
 
        return None  # Continue to route handler
 
-   def api_middleware(request: Request):
+   def api_middleware(request: Request) -> Optional[Response]:
        """API-specific middleware"""
        if not hasattr(request, 'context'):
            request.context = {}
@@ -145,7 +153,7 @@ Apply middleware to all routes within a RouterGroup using group-level middleware
 
    # All routes in protected_group will automatically run auth_middleware
    @protected_group.get("/profile")
-   def protected_profile(request):
+   def protected_profile(request: Request) -> Response:
        user = getattr(request, 'context', {}).get('user', {})
        return JSONResponse({
            "message": "Protected profile accessed",
@@ -153,7 +161,7 @@ Apply middleware to all routes within a RouterGroup using group-level middleware
        })
 
    @protected_group.get("/settings")
-   def protected_settings(request):
+   def protected_settings(request: Request) -> Response:
        user = getattr(request, 'context', {}).get('user', {})
        return JSONResponse({
            "message": "Protected settings accessed",
@@ -162,7 +170,7 @@ Apply middleware to all routes within a RouterGroup using group-level middleware
 
    # All routes in api_group will automatically run api_middleware
    @api_group.get("/status")
-   def api_status(request):
+   def api_status(request: Request) -> Response:
        api_context = getattr(request, 'context', {}).get('api', {})
        return JSONResponse({
            "message": "API status",
@@ -171,7 +179,7 @@ Apply middleware to all routes within a RouterGroup using group-level middleware
 
    # Combine group middleware with per-route middleware
    @api_group.get("/data", middleware=[auth_middleware])
-   def api_data(request):
+   def api_data(request: Request) -> Response:
        """Group middleware + per-route middleware"""
        api_context = getattr(request, 'context', {}).get('api', {})
        user = getattr(request, 'context', {}).get('user', {})
@@ -191,6 +199,10 @@ Apply middleware to all routes within a RouterGroup using group-level middleware
    app.include_routes(api_group)
 
    if __name__ == "__main__":
+       print("🚀 Starting RouterGroup middleware example...")
+       print("Try: curl -H 'Authorization: Bearer token' http://localhost:8000/protected/profile")
+       print("Try: curl http://localhost:8000/api/status")
+       print("Try: curl -H 'Authorization: Bearer token' http://localhost:8000/api/data")
        app.listen(port=8000)
 
 Multiple RouterGroup Middleware
@@ -200,7 +212,7 @@ Apply multiple middleware functions to a RouterGroup:
 
 .. code-block:: python
 
-   def rate_limit_middleware(request: Request):
+   def rate_limit_middleware(request: Request) -> Optional[Response]:
        """Rate limiting middleware"""
        client_ip = request.headers.get("x-forwarded-for", "127.0.0.1")
 
@@ -212,7 +224,7 @@ Apply multiple middleware functions to a RouterGroup:
        }
        return None
 
-   def admin_middleware(request: Request):
+   def admin_middleware(request: Request) -> Optional[Response]:
        """Admin access middleware"""
        user = getattr(request, 'context', {}).get('user')
        if not user:
@@ -235,7 +247,7 @@ Apply multiple middleware functions to a RouterGroup:
    )
 
    @admin_group.get("/dashboard")
-   def admin_dashboard(request):
+   def admin_dashboard(request: Request) -> Response:
        """Admin dashboard with triple middleware protection"""
        user = getattr(request, 'context', {}).get('user', {})
        rate_limit = getattr(request, 'context', {}).get('rate_limit', {})
@@ -267,18 +279,38 @@ Log all incoming requests:
 
 .. code-block:: python
 
-   @app.middleware()
-   def request_logging_middleware(request: Request, call_next):
+   from catzilla import Catzilla, Request, Response, JSONResponse
+   from typing import Optional
+
+   app = Catzilla()
+
+   @app.middleware(priority=10, pre_route=True, name="request_logger")
+   def request_logging_middleware(request: Request) -> Optional[Response]:
        """Log all requests"""
-       print(f"📥 {request.method} {request.url}")
+       print(f"📥 {request.method} {request.path}")
        print(f"   Headers: {dict(request.headers)}")
 
-       response = call_next(request)
+       # Add request info to context for response logging
+       if not hasattr(request, 'context'):
+           request.context = {}
+       request.context['logged'] = True
 
-       print(f"📤 Response: {response.status_code}")
-       return response
+       return None  # Continue to next middleware
+
+   @app.middleware(priority=10, pre_route=False, post_route=True, name="response_logger")
+   def response_logger_middleware(request: Request) -> Optional[Response]:
+       """Log responses"""
+       if getattr(request, 'context', {}).get('logged'):
+           print(f"📤 Response processed for {request.method} {request.path}")
+       return None
+
+   @app.get("/")
+   def home(request: Request) -> Response:
+       return JSONResponse({"message": "Hello with request logging!"})
 
    if __name__ == "__main__":
+       print("🚀 Starting request logging example...")
+       print("Try: curl http://localhost:8000/")
        app.listen(port=8000)
 
 CORS Middleware
@@ -288,9 +320,16 @@ Handle Cross-Origin Resource Sharing:
 
 .. code-block:: python
 
-   @app.middleware()
-   def cors_middleware(request: Request, call_next):
+   from catzilla import Catzilla, Request, Response, JSONResponse
+   from typing import Optional
+
+   app = Catzilla()
+
+   @app.middleware(priority=50, pre_route=True, name="cors_handler")
+   def cors_middleware(request: Request) -> Optional[Response]:
        """Add CORS headers"""
+       print("🌍 CORS Middleware: Processing request")
+
        # Handle preflight requests
        if request.method == "OPTIONS":
            return Response("", headers={
@@ -299,16 +338,23 @@ Handle Cross-Origin Resource Sharing:
                "Access-Control-Allow-Headers": "Content-Type, Authorization",
            })
 
-       response = call_next(request)
+       # Add CORS info to context for response processing
+       if not hasattr(request, 'context'):
+           request.context = {}
+       request.context['cors_enabled'] = True
 
-       # Add CORS headers to all responses
-       response.headers["Access-Control-Allow-Origin"] = "*"
-       response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+       return None  # Continue to next middleware
 
-       return response
+   @app.get("/")
+   def home(request: Request) -> Response:
+       return JSONResponse({"message": "CORS-enabled endpoint"})
 
    if __name__ == "__main__":
+       print("🚀 Starting CORS middleware example...")
+       print("Try: curl -X OPTIONS http://localhost:8000/")
+       print("Try: curl http://localhost:8000/")
        app.listen(port=8000)
+
 
 Error Handling Middleware
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -317,24 +363,33 @@ Catch and handle errors gracefully:
 
 .. code-block:: python
 
-   @app.middleware()
-   def error_handling_middleware(request: Request, call_next):
-       """Global error handling"""
-       try:
-           return call_next(request)
-       except ValueError as e:
-           return JSONResponse(
-               {"error": "Invalid input", "details": str(e)},
-               status_code=400
-           )
-       except Exception as e:
-           print(f"❌ Unhandled error: {e}")
-           return JSONResponse(
-               {"error": "Internal server error"},
-               status_code=500
-           )
+   from catzilla import Catzilla, Request, Response, JSONResponse
+   from typing import Optional
+
+   app = Catzilla()
+
+   @app.middleware(priority=100, pre_route=True, name="error_handler")
+   def error_handling_middleware(request: Request) -> Optional[Response]:
+       """Global error handling preparation"""
+       # Add error handling context
+       if not hasattr(request, 'context'):
+           request.context = {}
+       request.context['error_handling_enabled'] = True
+       return None
+
+   @app.get("/error")
+   def error_endpoint(request):
+       """Endpoint that triggers an error"""
+       raise ValueError("This is a test error")
+
+   @app.get("/")
+   def home(request):
+       return JSONResponse({"message": "Error handling middleware enabled"})
 
    if __name__ == "__main__":
+       print("🚀 Starting error handling example...")
+       print("Try: curl http://localhost:8000/")
+       print("Try: curl http://localhost:8000/error")
        app.listen(port=8000)
 
 Advanced Middleware
@@ -347,28 +402,47 @@ Control middleware execution order:
 
 .. code-block:: python
 
-   @app.middleware(priority=10)  # Executes first (highest priority)
-   def security_middleware(request: Request, call_next):
+   from catzilla import Catzilla, Request, Response, JSONResponse
+   from typing import Optional
+
+   app = Catzilla()
+
+   @app.middleware(priority=10, pre_route=True, name="security_headers")  # Executes first
+   def security_middleware(request: Request) -> Optional[Response]:
        """Security headers - highest priority"""
-       response = call_next(request)
-       response.headers["X-Frame-Options"] = "DENY"
-       response.headers["X-Content-Type-Options"] = "nosniff"
-       return response
+       print("🔒 Security Middleware: Adding security context")
 
-   @app.middleware(priority=5)   # Executes second
-   def logging_middleware(request: Request, call_next):
+       if not hasattr(request, 'context'):
+           request.context = {}
+       request.context['security'] = {
+           'x_frame_options': 'DENY',
+           'x_content_type_options': 'nosniff'
+       }
+       return None
+
+   @app.middleware(priority=50, pre_route=True, name="logging")   # Executes second
+   def logging_middleware(request: Request) -> Optional[Response]:
        """Request logging"""
-       print(f"Processing: {request.method} {request.url}")
-       return call_next(request)
+       print(f"📝 Logging Middleware: Processing {request.method} {request.path}")
+       return None
 
-   @app.middleware(priority=1)   # Executes last (lowest priority)
-   def analytics_middleware(request: Request, call_next):
+   @app.middleware(priority=100, pre_route=True, name="analytics")   # Executes last
+   def analytics_middleware(request: Request) -> Optional[Response]:
        """Analytics tracking"""
-       response = call_next(request)
-       # Send analytics data
-       return response
+       print("📊 Analytics Middleware: Tracking request")
+       return None
+
+   @app.get("/")
+   def home(request):
+       return JSONResponse({
+           "message": "Priority-ordered middleware example",
+           "security": getattr(request, 'context', {}).get('security', {})
+       })
 
    if __name__ == "__main__":
+       print("🚀 Starting priority middleware example...")
+       print("Execution order: security (10) → logging (50) → analytics (100)")
+       print("Try: curl http://localhost:8000/")
        app.listen(port=8000)
 
 Async Middleware
@@ -379,33 +453,49 @@ Middleware that works with async operations:
 .. code-block:: python
 
    import asyncio
+   from catzilla import Catzilla, Request, Response, JSONResponse
+   from typing import Optional
 
-   @app.middleware()
-   async def async_middleware(request: Request, call_next):
-       """Async middleware example"""
-       # Async preprocessing
-       await asyncio.sleep(0.001)  # Simulate async operation
+   app = Catzilla()
 
-       # Call next middleware/handler
-       response = call_next(request)
+   @app.middleware(priority=50, pre_route=True, name="async_processor")
+   def async_middleware(request: Request) -> Optional[Response]:
+       """Sync middleware calling async operations"""
+       async def async_processing():
+           # Async preprocessing
+           await asyncio.sleep(0.001)  # Simulate async operation
+           print("🔄 Async Middleware: Async processing completed")
 
-       # Async postprocessing
-       await asyncio.sleep(0.001)  # Simulate async operation
+       # Run async function in sync middleware
+       asyncio.run(async_processing())
 
-       response.headers["X-Async-Processed"] = "true"
-       return response
+       # Add async processing info to context
+       if not hasattr(request, 'context'):
+           request.context = {}
+       request.context['async_processed'] = True
+
+       return None  # Continue to next middleware
 
    # Works with both async and sync handlers
    @app.get("/async-handler")
    async def async_handler(request):
        await asyncio.sleep(0.01)
-       return JSONResponse({"message": "Async handler with async middleware"})
+       return JSONResponse({
+           "message": "Async handler with async middleware",
+           "async_processed": getattr(request, 'context', {}).get('async_processed', False)
+       })
 
    @app.get("/sync-handler")
    def sync_handler(request):
-       return JSONResponse({"message": "Sync handler with async middleware"})
+       return JSONResponse({
+           "message": "Sync handler with async middleware",
+           "async_processed": getattr(request, 'context', {}).get('async_processed', False)
+       })
 
    if __name__ == "__main__":
+       print("🚀 Starting async middleware example...")
+       print("Try: curl http://localhost:8000/async-handler")
+       print("Try: curl http://localhost:8000/sync-handler")
        app.listen(port=8000)
 
 Conditional Middleware
@@ -415,31 +505,53 @@ Middleware that applies based on conditions:
 
 .. code-block:: python
 
-   def rate_limit_middleware(request: Request, call_next):
+   from catzilla import Catzilla, Request, Response, JSONResponse
+   from typing import Optional
+
+   app = Catzilla()
+
+   def rate_limit_middleware(request: Request) -> Optional[Response]:
        """Rate limiting for API endpoints"""
+       print(f"⏱️ Rate Limit: Checking path {request.path}")
+
        # Only apply rate limiting to API routes
-       if not request.url.path.startswith("/api/"):
-           return call_next(request)
+       if not request.path.startswith("/api/"):
+           print("⏭️ Rate Limit: Skipping non-API route")
+           return None
 
        # Check rate limit (simplified example)
-       client_ip = request.headers.get("X-Real-IP", "unknown")
+       client_ip = request.headers.get("X-Real-IP", "127.0.0.1")
 
        # In real implementation, check rate limit store (Redis, etc.)
        # For demo, allow all requests
+       print(f"✅ Rate Limit: IP {client_ip} - OK")
 
-       response = call_next(request)
-       response.headers["X-RateLimit-Remaining"] = "100"
-       return response
+       # Add rate limit info to context
+       if not hasattr(request, 'context'):
+           request.context = {}
+       request.context['rate_limit'] = {
+           'ip': client_ip,
+           'remaining': 100
+       }
+
+       return None  # Continue to handler
 
    @app.get("/api/data", middleware=[rate_limit_middleware])
    def api_data(request):
-       return JSONResponse({"data": "API response with rate limiting"})
+       rate_limit = getattr(request, 'context', {}).get('rate_limit', {})
+       return JSONResponse({
+           "data": "API response with rate limiting",
+           "rate_limit": rate_limit
+       })
 
    @app.get("/regular")
    def regular_endpoint(request):
        return JSONResponse({"data": "Regular response without rate limiting"})
 
    if __name__ == "__main__":
+       print("🚀 Starting conditional middleware example...")
+       print("Try: curl http://localhost:8000/api/data")
+       print("Try: curl http://localhost:8000/regular")
        app.listen(port=8000)
 
 Middleware Composition
@@ -452,54 +564,73 @@ Chain multiple middleware for complex processing:
 
 .. code-block:: python
 
-   def request_id_middleware(request: Request, call_next):
+   import uuid
+   from catzilla import Catzilla, Request, Response, JSONResponse
+   from typing import Optional
+
+   app = Catzilla()
+
+   def request_id_middleware(request: Request) -> Optional[Response]:
        """Add unique request ID"""
-       import uuid
        request_id = str(uuid.uuid4())
-       request.state.request_id = request_id
 
-       response = call_next(request)
-       response.headers["X-Request-ID"] = request_id
-       return response
+       if not hasattr(request, 'context'):
+           request.context = {}
+       request.context['request_id'] = request_id
 
-   def user_context_middleware(request: Request, call_next):
+       print(f"🆔 Request ID: {request_id}")
+       return None
+
+   def user_context_middleware(request: Request) -> Optional[Response]:
        """Extract user context from JWT"""
        auth_header = request.headers.get("Authorization", "")
 
+       if not hasattr(request, 'context'):
+           request.context = {}
+
        if auth_header.startswith("Bearer "):
            # In real app, decode JWT
-           request.state.user_id = "user123"
-           request.state.user_role = "admin"
+           request.context['user'] = {
+               'id': 'user123',
+               'role': 'admin'
+           }
        else:
-           request.state.user_id = None
-           request.state.user_role = "anonymous"
+           request.context['user'] = {
+               'id': None,
+               'role': 'anonymous'
+           }
 
-       return call_next(request)
+       print(f"👤 User Context: {request.context['user']['role']}")
+       return None
 
-   def audit_middleware(request: Request, call_next):
+   def audit_middleware(request: Request) -> Optional[Response]:
        """Audit logging with user context"""
-       response = call_next(request)
+       context = getattr(request, 'context', {})
+       request_id = context.get('request_id', 'unknown')
+       user = context.get('user', {})
 
        # Log audit trail
-       print(f"AUDIT: {request.state.request_id} - "
-             f"User: {request.state.user_id} - "
-             f"{request.method} {request.url} - "
-             f"Status: {response.status_code}")
+       print(f"📋 AUDIT: {request_id} - "
+             f"User: {user.get('id')} - "
+             f"{request.method} {request.path}")
 
-       return response
+       return None
 
    # Apply middleware chain to specific routes
    middleware_chain = [request_id_middleware, user_context_middleware, audit_middleware]
 
    @app.get("/admin/users", middleware=middleware_chain)
    def admin_users(request):
+       context = getattr(request, 'context', {})
        return JSONResponse({
            "users": ["user1", "user2"],
-           "request_id": request.state.request_id,
-           "user_role": request.state.user_role
+           "request_id": context.get('request_id'),
+           "user_role": context.get('user', {}).get('role')
        })
 
    if __name__ == "__main__":
+       print("🚀 Starting middleware composition example...")
+       print("Try: curl -H 'Authorization: Bearer token' http://localhost:8000/admin/users")
        app.listen(port=8000)
 
 RouterGroup Middleware Composition
@@ -509,13 +640,17 @@ Organize complex middleware chains using RouterGroups:
 
 .. code-block:: python
 
+   from catzilla import Catzilla, Request, Response, JSONResponse
    from catzilla.router import RouterGroup
+   from typing import Optional
    import time
+   import uuid
+
+   app = Catzilla()
 
    # Define reusable middleware functions
-   def request_id_middleware(request: Request):
+   def request_id_middleware(request: Request) -> Optional[Response]:
        """Add unique request ID"""
-       import uuid
        request_id = str(uuid.uuid4())
 
        if not hasattr(request, 'context'):
@@ -523,14 +658,14 @@ Organize complex middleware chains using RouterGroups:
        request.context['request_id'] = request_id
        return None
 
-   def timing_middleware(request: Request):
+   def timing_middleware(request: Request) -> Optional[Response]:
        """Track request timing"""
        if not hasattr(request, 'context'):
            request.context = {}
        request.context['start_time'] = time.time()
        return None
 
-   def auth_middleware(request: Request):
+   def auth_middleware(request: Request) -> Optional[Response]:
        """Authentication middleware"""
        auth_header = request.headers.get("Authorization")
        if not auth_header or not auth_header.startswith("Bearer "):
@@ -541,7 +676,7 @@ Organize complex middleware chains using RouterGroups:
        request.context['user'] = {"id": "user123", "token": auth_header[7:]}
        return None
 
-   def audit_middleware(request: Request):
+   def audit_middleware(request: Request) -> Optional[Response]:
        """Audit logging with context"""
        context = getattr(request, 'context', {})
        request_id = context.get('request_id', 'unknown')
@@ -613,6 +748,12 @@ Create reusable middleware classes:
 
 .. code-block:: python
 
+   from catzilla import Catzilla, Request, Response, JSONResponse
+   from typing import Optional
+   import time
+
+   app = Catzilla()
+
    class SecurityMiddleware:
        def __init__(self, enabled_headers=None):
            self.enabled_headers = enabled_headers or [
@@ -621,50 +762,69 @@ Create reusable middleware classes:
                "X-XSS-Protection"
            ]
 
-       def __call__(self, request: Request, call_next):
-           response = call_next(request)
+       def __call__(self, request: Request) -> Optional[Response]:
+           # Store headers to be added in response middleware
+           if not hasattr(request, 'context'):
+               request.context = {}
+           request.context['security_headers'] = {}
 
            if "X-Frame-Options" in self.enabled_headers:
-               response.headers["X-Frame-Options"] = "DENY"
+               request.context['security_headers']["X-Frame-Options"] = "DENY"
 
            if "X-Content-Type-Options" in self.enabled_headers:
-               response.headers["X-Content-Type-Options"] = "nosniff"
+               request.context['security_headers']["X-Content-Type-Options"] = "nosniff"
 
            if "X-XSS-Protection" in self.enabled_headers:
-               response.headers["X-XSS-Protection"] = "1; mode=block"
+               request.context['security_headers']["X-XSS-Protection"] = "1; mode=block"
 
-           return response
+           return None
 
    class MetricsMiddleware:
        def __init__(self):
            self.request_count = 0
            self.total_time = 0.0
 
-       def __call__(self, request: Request, call_next):
-           start_time = time.time()
+       def __call__(self, request: Request) -> Optional[Response]:
+           # Store start time for response middleware to calculate duration
+           if not hasattr(request, 'context'):
+               request.context = {}
+           request.context['metrics_start'] = time.time()
 
-           response = call_next(request)
-
-           processing_time = time.time() - start_time
            self.request_count += 1
-           self.total_time += processing_time
+           request.context['request_count'] = self.request_count
 
-           response.headers["X-Request-Count"] = str(self.request_count)
-           response.headers["X-Avg-Response-Time"] = f"{self.total_time / self.request_count:.4f}"
+           return None
 
-           return response
+   # Response middleware to add headers (would typically be a separate decorator)
+   def add_security_headers(request: Request) -> Optional[Response]:
+       # This would be implemented as a post-route middleware
+       # For now, demonstrating the pattern
+       return None
 
-   # Use middleware classes
+   # Create middleware class instances
    security_middleware = SecurityMiddleware()
    metrics_middleware = MetricsMiddleware()
 
-   @app.middleware()
-   def global_security(request: Request, call_next):
-       return security_middleware(request, call_next)
+   # Register middleware instances with the app
+   # Note: Use function call syntax for class instances, not decorator syntax
+   app.middleware(priority=100, name="security")(security_middleware)
+   app.middleware(priority=110, name="metrics")(metrics_middleware)
 
-   @app.get("/metrics-demo", middleware=[lambda r, c: metrics_middleware(r, c)])
-   def metrics_demo(request):
-       return JSONResponse({"message": "Response with metrics tracking"})
+   # For comparison - this is how you'd register a function:
+   # @app.middleware(priority=120, name="function_middleware")
+   # def some_function_middleware(request: Request) -> Optional[Response]:
+   #     return None
+
+   @app.get("/metrics-demo")
+   def metrics_demo(request: Request) -> Response:
+       # Access metrics data from context
+       context = getattr(request, 'context', {})
+       request_count = context.get('request_count', 0)
+
+       return JSONResponse({
+           "message": "Response with metrics tracking",
+           "request_count": request_count
+       })
 
    if __name__ == "__main__":
        app.listen(port=8000)
@@ -679,7 +839,13 @@ Validate requests and sanitize responses:
 
 .. code-block:: python
 
-   def request_validation_middleware(request: Request, call_next):
+   from catzilla import Catzilla, Request, Response, JSONResponse
+   from typing import Optional
+
+   app = Catzilla()
+
+   @app.middleware(priority=100, name="request_validation")
+   def request_validation_middleware(request: Request) -> Optional[Response]:
        """Validate request format"""
        # Check content type for POST/PUT requests
        if request.method in ["POST", "PUT"]:
@@ -692,24 +858,53 @@ Validate requests and sanitize responses:
 
        # Check request size
        content_length = request.headers.get("Content-Length", "0")
-       if int(content_length) > 1024 * 1024:  # 1MB limit
-           return JSONResponse(
-               {"error": "Request too large"},
-               status_code=413
-           )
+       try:
+           if int(content_length) > 1024 * 1024:  # 1MB limit
+               return JSONResponse(
+                   {"error": "Request too large"},
+                   status_code=413
+               )
+       except ValueError:
+           pass
 
-       return call_next(request)
+       return None
 
-   def response_sanitization_middleware(request: Request, call_next):
-       """Sanitize response data"""
-       response = call_next(request)
+   @app.middleware(priority=200, name="security_headers")
+   def security_headers_middleware(request: Request) -> Optional[Response]:
+       """Add security headers via context"""
+       if not hasattr(request, 'context'):
+           request.context = {}
 
-       # Remove sensitive headers
-       sensitive_headers = ["X-Powered-By", "Server"]
-       for header in sensitive_headers:
-           response.headers.pop(header, None)
+       # Store security headers to be added in post-processing
+       request.context['security_headers'] = {
+           "X-Content-Type-Options": "nosniff",
+           "X-Frame-Options": "DENY",
+           "X-XSS-Protection": "1; mode=block"
+       }
 
-       return response
+       # Mark sensitive headers for removal
+       request.context['remove_headers'] = ["X-Powered-By", "Server"]
+
+       return None
+
+   @app.get("/api/upload")
+   def upload_endpoint(request: Request) -> Response:
+       """Example endpoint that benefits from validation middleware"""
+       return JSONResponse({
+           "message": "Upload endpoint with validation",
+           "security_headers": getattr(request, 'context', {}).get('security_headers', {})
+       })
+
+   @app.post("/api/data")
+   def create_data(request: Request) -> Response:
+       """Example POST endpoint"""
+       return JSONResponse({"message": "Data created successfully"})
+
+   if __name__ == "__main__":
+       print("🚀 Starting request/response validation example...")
+       print("Try: curl -H 'Content-Type: application/json' -d '{}' http://localhost:8000/api/data")
+       print("Try: curl -H 'Content-Type: text/plain' -d 'test' http://localhost:8000/api/data")
+       app.listen(port=8000)
 
 Performance Monitoring
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -718,62 +913,133 @@ Monitor application performance:
 
 .. code-block:: python
 
+   from catzilla import Catzilla, Request, Response, JSONResponse
+   from typing import Optional
+   import time
+   import psutil
+   import os
+
+   app = Catzilla()
+
    class PerformanceMonitor:
        def __init__(self):
            self.slow_requests = []
            self.request_times = []
 
-       def __call__(self, request: Request, call_next):
+       def get_memory_usage(self):
+           """Get current memory usage in MB"""
+           process = psutil.Process(os.getpid())
+           return process.memory_info().rss / 1024 / 1024
+
+       def __call__(self, request: Request) -> Optional[Response]:
            start_time = time.time()
            start_memory = self.get_memory_usage()
 
-           response = call_next(request)
+           if not hasattr(request, 'context'):
+               request.context = {}
 
-           end_time = time.time()
-           end_memory = self.get_memory_usage()
+           # Store performance tracking data
+           request.context['perf_start_time'] = start_time
+           request.context['perf_start_memory'] = start_memory
+           request.context['perf_monitor'] = self
 
-           processing_time = end_time - start_time
-           memory_used = end_memory - start_memory
+           return None
 
-           # Track performance metrics
-           self.request_times.append(processing_time)
+   # Response middleware to calculate and log performance metrics
+   def performance_response_middleware(request: Request) -> Optional[Response]:
+       """Log performance metrics after request processing"""
+       context = getattr(request, 'context', {})
 
-           # Log slow requests
-           if processing_time > 1.0:  # > 1 second
-               self.slow_requests.append({
-                   "path": str(request.url),
-                   "method": request.method,
-                   "time": processing_time,
-                   "memory": memory_used
-               })
+       if 'perf_start_time' in context:
+           start_time = context['perf_start_time']
+           start_memory = context['perf_start_memory']
+           perf_monitor = context.get('perf_monitor')
 
-           # Add performance headers
-           response.headers["X-Response-Time"] = f"{processing_time:.4f}"
-           response.headers["X-Memory-Used"] = f"{memory_used:.2f}MB"
+           if perf_monitor:
+               end_time = time.time()
+               end_memory = perf_monitor.get_memory_usage()
 
-           return response
+               processing_time = end_time - start_time
+               memory_used = end_memory - start_memory
 
-       def get_memory_usage(self):
-           import psutil
-           return psutil.Process().memory_info().rss / 1024 / 1024
+               # Track performance metrics
+               perf_monitor.request_times.append(processing_time)
 
-   performance_monitor = PerformanceMonitor()
+               # Log slow requests
+               if processing_time > 1.0:  # > 1 second
+                   perf_monitor.slow_requests.append({
+                       "path": request.path,
+                       "method": request.method,
+                       "time": processing_time,
+                       "memory": memory_used
+                   })
 
-   @app.middleware()
-   def performance_tracking(request: Request, call_next):
-       return performance_monitor(request, call_next)
+               print(f"Request {request.method} {request.path} took {processing_time:.3f}s")
+
+       return None
+
+   # Apply performance monitoring
+   perf_monitor = PerformanceMonitor()
+   app.middleware(priority=50, name="perf_start")(perf_monitor)
+
+   @app.middleware(priority=900, name="perf_end", pre_route=False, post_route=True)
+   def performance_response_middleware(request: Request) -> Optional[Response]:
+       """Log performance metrics after request processing"""
+       context = getattr(request, 'context', {})
+
+       if 'perf_start_time' in context:
+           start_time = context['perf_start_time']
+           start_memory = context['perf_start_memory']
+           perf_monitor = context.get('perf_monitor')
+
+           if perf_monitor:
+               end_time = time.time()
+               end_memory = perf_monitor.get_memory_usage()
+
+               processing_time = end_time - start_time
+               memory_used = end_memory - start_memory
+
+               # Track performance metrics
+               perf_monitor.request_times.append(processing_time)
+
+               # Log slow requests
+               if processing_time > 1.0:  # > 1 second
+                   perf_monitor.slow_requests.append({
+                       "path": request.path,
+                       "method": request.method,
+                       "time": processing_time,
+                       "memory": memory_used
+                   })
+
+               print(f"Request {request.method} {request.path} took {processing_time:.3f}s")
+
+       return None
 
    @app.get("/performance-stats")
-   def performance_stats(request):
-       avg_time = sum(performance_monitor.request_times) / len(performance_monitor.request_times)
+   def performance_stats(request: Request):
+       if perf_monitor.request_times:
+           avg_time = sum(perf_monitor.request_times) / len(perf_monitor.request_times)
+       else:
+           avg_time = 0.0
+
        return JSONResponse({
-           "total_requests": len(performance_monitor.request_times),
+           "total_requests": len(perf_monitor.request_times),
            "average_response_time": f"{avg_time:.4f}s",
-           "slow_requests_count": len(performance_monitor.slow_requests),
-           "slow_requests": performance_monitor.slow_requests[-5:]  # Last 5
+           "slow_requests_count": len(perf_monitor.slow_requests),
+           "slow_requests": perf_monitor.slow_requests[-5:]  # Last 5
        })
 
+   @app.get("/test-slow")
+   def slow_endpoint(request: Request) -> Response:
+       """Test endpoint that's intentionally slow"""
+       import time
+       time.sleep(1.5)  # Simulate slow processing
+       return JSONResponse({"message": "Slow endpoint completed"})
+
    if __name__ == "__main__":
+       print("🚀 Starting performance monitoring example...")
+       print("Try: curl http://localhost:8000/performance-stats")
+       print("Try: curl http://localhost:8000/test-slow")
        app.listen(port=8000)
 
 Best Practices
@@ -914,21 +1180,25 @@ Best practices for middleware error handling:
 
 .. code-block:: python
 
-   @app.middleware()
-   def robust_middleware(request: Request, call_next):
+   from catzilla import Catzilla, Request, Response, JSONResponse
+   from typing import Optional
+   import time
+
+   app = Catzilla()
+
+   @app.middleware(priority=100, name="robust")
+   def robust_middleware(request: Request) -> Optional[Response]:
        """Middleware with proper error handling"""
        try:
            # Pre-processing
-           request.state.middleware_start = time.time()
+           if not hasattr(request, 'context'):
+               request.context = {}
+           request.context['middleware_start'] = time.time()
 
-           # Call next middleware/handler
-           response = call_next(request)
+           # Store success marker for post-processing
+           request.context['middleware_success'] = True
 
-           # Post-processing
-           processing_time = time.time() - request.state.middleware_start
-           response.headers["X-Middleware-Time"] = f"{processing_time:.4f}"
-
-           return response
+           return None
 
        except Exception as e:
            # Log the error
@@ -940,7 +1210,41 @@ Best practices for middleware error handling:
                status_code=500
            )
 
+   # Post-processing middleware to add timing headers
+   @app.middleware(priority=900, name="timing", pre_route=False, post_route=True)
+   def timing_response_middleware(request: Request) -> Optional[Response]:
+       """Add timing headers after request processing"""
+       context = getattr(request, 'context', {})
+
+       if 'middleware_start' in context and context.get('middleware_success'):
+           processing_time = time.time() - context['middleware_start']
+           # In a real implementation, this would modify the response headers
+           print(f"Processing time: {processing_time:.4f}s")
+
+       return None
+
+   @app.get("/")
+   def home(request: Request) -> Response:
+       """Test route with error handling middleware"""
+       return JSONResponse({
+           "message": "Error handling middleware enabled",
+           "middleware_success": getattr(request, 'context', {}).get('middleware_success', False)
+       })
+
+   @app.get("/error-test")
+   def error_test(request: Request) -> Response:
+       """Route that might cause middleware errors"""
+       # Simulate potential error condition
+       import random
+       if random.random() < 0.1:  # 10% chance of error
+           raise Exception("Simulated error")
+
+       return JSONResponse({"message": "No error occurred"})
+
    if __name__ == "__main__":
+       print("🚀 Starting error handling middleware example...")
+       print("Try: curl http://localhost:8000/")
+       print("Try: curl http://localhost:8000/error-test")
        app.listen(port=8000)
 
 Performance Tips
@@ -950,34 +1254,57 @@ Optimize middleware for production:
 
 .. code-block:: python
 
+   from catzilla import Catzilla, Request, Response, JSONResponse
+   from typing import Optional
+
+   app = Catzilla()
+
    # ✅ Good: Minimal processing in middleware
-   @app.middleware()
-   def fast_middleware(request: Request, call_next):
+   @app.middleware(priority=100, name="fast")
+   def fast_middleware(request: Request) -> Optional[Response]:
        # Quick check
        if request.method == "OPTIONS":
            return Response("", status_code=200)
 
-       return call_next(request)
+       return None
 
    # ❌ Avoid: Heavy processing in middleware
-   @app.middleware()
-   def slow_middleware(request: Request, call_next):
-       # Heavy database query in middleware
-       # This will slow down ALL requests
-       heavy_computation()
-       return call_next(request)
+   def slow_middleware(request: Request) -> Optional[Response]:
+       # Heavy processing in middleware slows down ALL requests
+       # This should be avoided for global middleware
+       print("Performing heavy computation for all requests (BAD)")
+       return None
 
    # ✅ Good: Use per-route middleware for expensive operations
-   def expensive_middleware(request: Request, call_next):
+   def expensive_middleware(request: Request) -> Optional[Response]:
        # Only applied to specific routes that need it
-       heavy_computation()
-       return call_next(request)
+       print("Performing expensive operation for specific route")
+       if not hasattr(request, 'context'):
+           request.context = {}
+       request.context['expensive_operation_done'] = True
+       return None
 
    @app.get("/expensive-route", middleware=[expensive_middleware])
-   def expensive_route(request):
-       return JSONResponse({"message": "Expensive operation complete"})
+   def expensive_route(request: Request) -> Response:
+       context = getattr(request, 'context', {})
+       operation_done = context.get('expensive_operation_done', False)
+
+       return JSONResponse({
+           "message": "Expensive operation complete",
+           "operation_performed": operation_done
+       })
+
+   @app.get("/fast")
+   def fast_route(request: Request) -> Response:
+       """Fast route that benefits from minimal middleware"""
+       return JSONResponse({
+           "message": "Fast route with minimal middleware overhead"
+       })
 
    if __name__ == "__main__":
+       print("🚀 Starting performance tips example...")
+       print("Try: curl http://localhost:8000/fast")
+       print("Try: curl http://localhost:8000/expensive-route")
        app.listen(port=8000)
 
 This middleware system provides the flexibility and performance you need to build robust, production-ready applications with Catzilla.
