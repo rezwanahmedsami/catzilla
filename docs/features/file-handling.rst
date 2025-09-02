@@ -26,8 +26,8 @@ Serve static files with automatic MIME type detection:
 
 .. code-block:: python
 
-   from catzilla import Catzilla
-   from pathlib import Path
+   from catzilla import Catzilla, Request, Response, JSONResponse, Path, Query
+   from pathlib import Path as PathLib
 
    app = Catzilla()
 
@@ -38,15 +38,11 @@ Serve static files with automatic MIME type detection:
    app.mount_static("/css", "assets/css")
    app.mount_static("/js", "assets/js")
    app.mount_static("/images", "assets/images")
-           "/js": "assets/js",
-           "/images": "assets/images"
-       }
-   )
 
    @app.get("/")
-   def home(request):
+   def home(request: Request) -> Response:
        """Serve page that uses static files"""
-       return HTMLResponse("""
+       html_content = """
        <!DOCTYPE html>
        <html>
        <head>
@@ -58,7 +54,16 @@ Serve static files with automatic MIME type detection:
            <script src="/js/app.js"></script>
        </body>
        </html>
-       """)
+       """
+       return Response(
+           body=html_content,
+           content_type="text/html"
+       )
+
+   if __name__ == "__main__":
+       print("🚀 Starting static file server...")
+       print("Try: http://localhost:8000/")
+       app.listen(port=8000)
 
 Advanced Static Configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -67,40 +72,46 @@ Configure static files with caching and compression:
 
 .. code-block:: python
 
-   from catzilla import Catzilla
+   from catzilla import Catzilla, Request, Response, Path, Query
+   import mimetypes
+   from pathlib import Path as PathLib
 
    app = Catzilla()
 
-   # Mount static directories using app.mount_static()
+   # Mount static directories with advanced configuration
    app.mount_static(
        "/assets",
        "public",
        index_file="index.html",
-       cache_max_age=86400,  # Cache for 24 hours
+       enable_hot_cache=True,
+       cache_size_mb=100,
+       cache_ttl_seconds=3600,  # Cache for 1 hour
        enable_compression=True,
-       compression_types=["text/css", "text/javascript", "application/json"],
-       enable_etag=True,
+       enable_etags=True,
        enable_range_requests=True,  # Support for video/audio streaming
-       security_headers={
-           "X-Content-Type-Options": "nosniff",
-           "X-Frame-Options": "DENY"
-       }
+       max_file_size=100 * 1024 * 1024,  # 100MB max
+       enable_directory_listing=True,
+       enable_hidden_files=False
    )
 
    # Serve single-page applications (SPA)
    @app.get("/app/{path:path}")
-   def spa_handler(request, path: str):
+   def spa_handler(
+       request: Request,
+       path: str = Path(..., description="SPA route path")
+   ) -> Response:
        """Serve SPA with fallback to index.html"""
-       file_path = Path("dist") / path
+       file_path = PathLib("dist") / path
 
        if file_path.exists() and file_path.is_file():
-           # Note: FileResponse not available in current Catzilla v0.2.0
-           # Use Response with file content and appropriate headers
+           # Serve the requested file
+           content_type, _ = mimetypes.guess_type(str(file_path))
            with open(file_path, 'rb') as f:
                content = f.read()
+
            return Response(
-               body=content,
-               content_type=get_content_type(file_path),
+               body=content.decode('utf-8', errors='ignore'),
+               content_type=content_type or "application/octet-stream",
                headers={"Content-Length": str(len(content))}
            )
        else:
@@ -108,10 +119,15 @@ Configure static files with caching and compression:
            with open("dist/index.html", 'rb') as f:
                content = f.read()
            return Response(
-               body=content,
+               body=content.decode('utf-8', errors='ignore'),
                content_type="text/html",
                headers={"Content-Length": str(len(content))}
            )
+
+   if __name__ == "__main__":
+       print("🚀 Starting advanced static file server...")
+       print("Try: http://localhost:8000/assets/")
+       app.listen(port=8000)
 
 File Upload Handling
 --------------------
@@ -123,42 +139,44 @@ Handle single and multiple file uploads:
 
 .. code-block:: python
 
-   from catzilla import Catzilla, Request, JSONResponse, UploadFile, File
-   from pathlib import Path
+   from catzilla import Catzilla, Request, Response, JSONResponse, UploadFile, File, Form, Path, Query
+   from pathlib import Path as PathLib
    import uuid
    import mimetypes
 
    app = Catzilla()
 
    # Configure upload directory
-   UPLOAD_DIR = Path("uploads")
+   UPLOAD_DIR = PathLib("uploads")
    UPLOAD_DIR.mkdir(exist_ok=True)
 
    @app.post("/upload")
-   async def upload_file(request: Request, file: UploadFile = File(...)):
+   def upload_file(
+       request: Request,
+       file: UploadFile = File(max_size="10MB"),
+       description: str = Form("")
+   ) -> Response:
        """Handle single file upload"""
 
        # Validate file
        if not file.filename:
            return JSONResponse({"error": "No file selected"}, status_code=400)
 
-       # Generate unique filename
-       file_extension = Path(file.filename).suffix
-       unique_filename = f"{uuid.uuid4()}{file_extension}"
-       file_path = UPLOAD_DIR / unique_filename
-
-       # Save file
        try:
-           with open(file_path, "wb") as buffer:
-               content = await file.read()
-               buffer.write(content)
+           # Save file using Catzilla's save_to method
+           saved_path = file.save_to(str(UPLOAD_DIR), stream=True)
+
+           # Get file content for additional info
+           file_content = file.read()
 
            return JSONResponse({
                "message": "File uploaded successfully",
-               "filename": unique_filename,
-               "original_name": file.filename,
-               "size": len(content),
-               "content_type": file.content_type
+               "filename": file.filename,
+               "size": file.size,
+               "content_type": file.content_type,
+               "saved_path": saved_path,
+               "description": description,
+               "upload_speed_mbps": getattr(file, 'upload_speed_mbps', 0)
            })
 
        except Exception as e:
@@ -168,10 +186,14 @@ Handle single and multiple file uploads:
            )
 
    @app.post("/upload-multiple")
-   async def upload_multiple_files(request: Request, files: list[UploadFile] = File(...)):
+   def upload_multiple_files(
+       request: Request,
+       files: list[UploadFile] = File(max_files=5, max_size="10MB"),
+       description: str = Form("")
+   ) -> Response:
        """Handle multiple file uploads"""
 
-       if not files or all(not file.filename for file in files):
+       if not files:
            return JSONResponse({"error": "No files selected"}, status_code=400)
 
        uploaded_files = []
@@ -180,34 +202,34 @@ Handle single and multiple file uploads:
            if not file.filename:
                continue
 
-           # Generate unique filename
-           file_extension = Path(file.filename).suffix
-           unique_filename = f"{uuid.uuid4()}{file_extension}"
-           file_path = UPLOAD_DIR / unique_filename
-
-           # Save file
            try:
-               content = await file.read()
-               with open(file_path, "wb") as buffer:
-                   buffer.write(content)
+               # Save file using Catzilla's save_to method
+               saved_path = file.save_to(str(UPLOAD_DIR), stream=True)
 
                uploaded_files.append({
-                   "filename": unique_filename,
-                   "original_name": file.filename,
-                   "size": len(content),
-                   "content_type": file.content_type
+                   "filename": file.filename,
+                   "size": file.size,
+                   "content_type": file.content_type,
+                   "saved_path": saved_path,
+                   "upload_speed_mbps": getattr(file, 'upload_speed_mbps', 0)
                })
 
            except Exception as e:
                uploaded_files.append({
-                   "original_name": file.filename,
+                   "filename": file.filename,
                    "error": str(e)
                })
 
        return JSONResponse({
            "message": f"Uploaded {len(uploaded_files)} files",
-           "files": uploaded_files
+           "files": uploaded_files,
+           "description": description
        })
+
+   if __name__ == "__main__":
+       print("🚀 Starting file upload server...")
+       print("Try: curl -X POST -F 'file=@example.txt' http://localhost:8000/upload")
+       app.listen(port=8000)
 
 File Validation and Security
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -216,344 +238,346 @@ Implement comprehensive file validation:
 
 .. code-block:: python
 
-   import magic
-   from PIL import Image
-   import io
+   from catzilla import Catzilla, Request, Response, JSONResponse, UploadFile, File, Form, Path, Query
+   from catzilla.exceptions import FileSizeError, MimeTypeError
+   import hashlib
+   from pathlib import Path as PathLib
+   import uuid
 
-   class FileValidator:
-       def __init__(self):
-           self.allowed_extensions = {
-               "images": [".jpg", ".jpeg", ".png", ".gif", ".webp"],
-               "documents": [".pdf", ".doc", ".docx", ".txt", ".rtf"],
-               "archives": [".zip", ".tar", ".gz", ".7z"],
-               "videos": [".mp4", ".avi", ".mov", ".wmv"]
-           }
+   app = Catzilla()
 
-           self.max_file_sizes = {
-               "images": 10 * 1024 * 1024,      # 10MB
-               "documents": 50 * 1024 * 1024,   # 50MB
-               "archives": 100 * 1024 * 1024,   # 100MB
-               "videos": 500 * 1024 * 1024      # 500MB
-           }
+   UPLOAD_DIR = PathLib("uploads")
+   UPLOAD_DIR.mkdir(exist_ok=True)
 
-       def validate_file(self, file: UploadFile, category: str = "images"):
-           """Validate uploaded file"""
-           errors = []
+   # Allowed file types by category
+   ALLOWED_TYPES = {
+       "image": ["image/jpeg", "image/png", "image/gif", "image/webp"],
+       "document": ["application/pdf", "text/plain", "application/json"],
+       "video": ["video/mp4", "video/avi", "video/mov"],
+   }
 
-           # Check filename
-           if not file.filename:
-               errors.append("Filename is required")
-               return errors
-
-           file_extension = Path(file.filename).suffix.lower()
-
-           # Check file extension
-           if file_extension not in self.allowed_extensions.get(category, []):
-               errors.append(f"File type {file_extension} not allowed for {category}")
-
-           # Check file size (if content is available)
-           if hasattr(file, 'size') and file.size:
-               max_size = self.max_file_sizes.get(category, 10 * 1024 * 1024)
-               if file.size > max_size:
-                   errors.append(f"File size exceeds maximum allowed size ({max_size} bytes)")
-
-           return errors
-
-       async def validate_file_content(self, file_content: bytes, expected_type: str = "image"):
-           """Validate file content using magic numbers"""
-           try:
-               # Detect actual file type
-               file_type = magic.from_buffer(file_content, mime=True)
-
-               if expected_type == "image" and not file_type.startswith("image/"):
-                   return ["File is not a valid image"]
-
-               # Additional image validation
-               if expected_type == "image":
-                   try:
-                       with Image.open(io.BytesIO(file_content)) as img:
-                           # Check image dimensions
-                           if img.width > 5000 or img.height > 5000:
-                               return ["Image dimensions too large (max 5000x5000)"]
-
-                           # Check for malicious content (basic check)
-                           if img.mode not in ["RGB", "RGBA", "L", "P"]:
-                               return ["Unsupported image mode"]
-
-                   except Exception:
-                       return ["Invalid or corrupted image file"]
-
-               return []
-
-           except Exception as e:
-               return [f"File validation error: {str(e)}"]
-
-   validator = FileValidator()
+   def validate_file_type(file: UploadFile, category: str) -> bool:
+       """Validate file type for category"""
+       allowed_types = ALLOWED_TYPES.get(category, [])
+       return not allowed_types or file.content_type in allowed_types
 
    @app.post("/upload-secure")
-   async def upload_secure_file(request: Request, file: UploadFile = File(...)):
+   def upload_secure_file(
+       request: Request,
+       file: UploadFile = File(max_size="50MB"),
+       category: str = Form("image"),
+       description: str = Form("")
+   ) -> Response:
        """Upload with comprehensive security validation"""
 
-       # Basic validation
-       errors = validator.validate_file(file, "images")
-       if errors:
-           return JSONResponse({"errors": errors}, status_code=400)
+       # Generate upload ID
+       upload_id = str(uuid.uuid4())
 
-       # Read file content
-       content = await file.read()
+       try:
+           # Validate file type for category
+           if not validate_file_type(file, category):
+               return JSONResponse({
+                   "success": False,
+                   "upload_id": upload_id,
+                   "error": f"Content type {file.content_type} not allowed for {category}",
+                   "allowed_types": ALLOWED_TYPES.get(category, [])
+               }, status_code=415)
 
-       # Content validation
-       content_errors = await validator.validate_file_content(content, "image")
-       if content_errors:
-           return JSONResponse({"errors": content_errors}, status_code=400)
+           # Save file using Catzilla's save_to method
+           saved_path = file.save_to(str(UPLOAD_DIR), stream=True)
 
-       # Save validated file
-       file_extension = Path(file.filename).suffix
-       unique_filename = f"{uuid.uuid4()}{file_extension}"
-       file_path = UPLOAD_DIR / unique_filename
+           # Get file content for checksum
+           file_content = file.read()
+           checksum = hashlib.sha256(file_content).hexdigest()
 
-       with open(file_path, "wb") as buffer:
-           buffer.write(content)
+           return JSONResponse({
+               "success": True,
+               "upload_id": upload_id,
+               "filename": file.filename,
+               "size": file.size,
+               "content_type": file.content_type,
+               "category": category,
+               "description": description,
+               "checksum": checksum,
+               "saved_path": saved_path,
+               "validation": "passed"
+           })
 
-       return JSONResponse({
-           "message": "Secure file upload successful",
-           "filename": unique_filename,
-           "size": len(content),
-           "validation": "passed"
-       })
+       except FileSizeError as e:
+           return JSONResponse({
+               "success": False,
+               "upload_id": upload_id,
+               "error": "file_too_large",
+               "message": str(e)
+           }, status_code=413)
+       except MimeTypeError as e:
+           return JSONResponse({
+               "success": False,
+               "upload_id": upload_id,
+               "error": "invalid_file_type",
+               "message": str(e)
+           }, status_code=415)
+       except Exception as e:
+           return JSONResponse({
+               "success": False,
+               "upload_id": upload_id,
+               "error": str(e)
+           }, status_code=500)
+
+   if __name__ == "__main__":
+       print("🚀 Starting secure upload server...")
+       print("Try: curl -X POST -F 'file=@example.jpg' -F 'category=image' http://localhost:8000/upload-secure")
+       app.listen(port=8000)
 
 Image Processing
 ----------------
 
-Image Optimization and Manipulation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Basic Image Upload and Processing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Process uploaded images with PIL/Pillow:
+Handle image uploads with basic processing:
 
 .. code-block:: python
 
-   from PIL import Image, ImageOps
-   import io
+   from catzilla import Catzilla, Request, Response, JSONResponse, UploadFile, File, Form, Path, Query
+   from pathlib import Path as PathLib
+   import uuid
+   import hashlib
+   import mimetypes
 
-   class ImageProcessor:
-       def __init__(self):
-           self.thumbnail_sizes = {
-               "small": (150, 150),
-               "medium": (300, 300),
-               "large": (800, 600)
-           }
+   app = Catzilla()
 
-       def create_thumbnails(self, image_path: Path):
-           """Create multiple thumbnail sizes"""
-           thumbnails = {}
+   # Create directories
+   UPLOAD_DIR = PathLib("uploads")
+   IMAGES_DIR = UPLOAD_DIR / "images"
+   IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
-           try:
-               with Image.open(image_path) as img:
-                   # Convert to RGB if necessary (for JPEG compatibility)
-                   if img.mode in ("RGBA", "P"):
-                       img = img.convert("RGB")
-
-                   for size_name, dimensions in self.thumbnail_sizes.items():
-                       # Create thumbnail preserving aspect ratio
-                       thumbnail = img.copy()
-                       thumbnail.thumbnail(dimensions, Image.Resampling.LANCZOS)
-
-                       # Save thumbnail
-                       thumb_filename = f"{image_path.stem}_{size_name}{image_path.suffix}"
-                       thumb_path = image_path.parent / "thumbnails" / thumb_filename
-                       thumb_path.parent.mkdir(exist_ok=True)
-
-                       thumbnail.save(thumb_path, quality=85, optimize=True)
-                       thumbnails[size_name] = {
-                           "filename": thumb_filename,
-                           "size": dimensions,
-                           "path": str(thumb_path)
-                       }
-
-               return thumbnails
-
-           except Exception as e:
-               print(f"Thumbnail creation failed: {e}")
-               return {}
-
-       def optimize_image(self, image_path: Path, quality: int = 85):
-           """Optimize image for web delivery"""
-           try:
-               with Image.open(image_path) as img:
-                   # Convert to RGB for JPEG
-                   if img.mode in ("RGBA", "P"):
-                       img = img.convert("RGB")
-
-                   # Optimize and save
-                   optimized_path = image_path.parent / f"optimized_{image_path.name}"
-                   img.save(optimized_path, "JPEG", quality=quality, optimize=True)
-
-                   return optimized_path
-
-           except Exception as e:
-               print(f"Image optimization failed: {e}")
-               return image_path
-
-   image_processor = ImageProcessor()
+   # Image file types
+   IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"]
 
    @app.post("/upload-image")
-   async def upload_and_process_image(request: Request, file: UploadFile = File(...)):
-       """Upload and automatically process image"""
+   def upload_and_process_image(
+       request: Request,
+       file: UploadFile = File(max_size="10MB"),
+       description: str = Form(""),
+       public: bool = Form(False)
+   ) -> Response:
+       """Upload and process image file"""
 
        # Validate image file
-       errors = validator.validate_file(file, "images")
-       if errors:
-           return JSONResponse({"errors": errors}, status_code=400)
+       if file.content_type not in IMAGE_TYPES:
+           return JSONResponse({
+               "error": f"Content type {file.content_type} not allowed for images",
+               "allowed_types": IMAGE_TYPES
+           }, status_code=415)
 
-       content = await file.read()
-       content_errors = await validator.validate_file_content(content, "image")
-       if content_errors:
-           return JSONResponse({"errors": content_errors}, status_code=400)
+       upload_id = str(uuid.uuid4())
 
-       # Save original image
-       file_extension = Path(file.filename).suffix
-       unique_filename = f"{uuid.uuid4()}{file_extension}"
-       original_path = UPLOAD_DIR / unique_filename
+       try:
+           # Save image using Catzilla's save_to method
+           saved_path = file.save_to(str(IMAGES_DIR), stream=True)
 
-       with open(original_path, "wb") as buffer:
-           buffer.write(content)
+           # Get file content for checksum
+           file_content = file.read()
+           checksum = hashlib.sha256(file_content).hexdigest()
 
-       # Process image
-       thumbnails = image_processor.create_thumbnails(original_path)
-       optimized_path = image_processor.optimize_image(original_path)
-
-       return JSONResponse({
-           "message": "Image uploaded and processed",
-           "original": {
-               "filename": unique_filename,
-               "size": len(content)
-           },
-           "thumbnails": thumbnails,
-           "optimized": {
-               "filename": optimized_path.name,
-               "path": str(optimized_path)
+           # Create image info
+           image_info = {
+               "upload_id": upload_id,
+               "filename": file.filename,
+               "size": file.size,
+               "content_type": file.content_type,
+               "description": description,
+               "public": public,
+               "checksum": checksum,
+               "saved_path": saved_path,
+               "upload_speed_mbps": getattr(file, 'upload_speed_mbps', 0)
            }
-       })
+
+           return JSONResponse({
+               "message": "Image uploaded successfully",
+               "image_info": image_info
+           })
+
+       except Exception as e:
+           return JSONResponse({
+               "error": f"Image upload failed: {str(e)}"
+           }, status_code=500)
+
+   @app.get("/images/{upload_id}")
+   def get_image(
+       request: Request,
+       upload_id: str = Path(..., description="Image upload ID")
+   ) -> Response:
+       """Serve uploaded image"""
+
+       # In a real app, you'd look up the file path from database
+       # For this example, we'll search the images directory
+       for image_file in IMAGES_DIR.glob("*"):
+           if upload_id in image_file.name:
+               content_type, _ = mimetypes.guess_type(str(image_file))
+
+               with open(image_file, 'rb') as f:
+                   image_content = f.read()
+
+               return Response(
+                   body=image_content.decode('latin-1'),  # Binary safe encoding
+                   content_type=content_type or "image/jpeg",
+                   headers={
+                       "Content-Length": str(len(image_content)),
+                       "X-Upload-ID": upload_id
+                   }
+               )
+
+       return JSONResponse({"error": "Image not found"}, status_code=404)
+
+   if __name__ == "__main__":
+       print("🚀 Starting image upload server...")
+       print("Try: curl -X POST -F 'file=@image.jpg' http://localhost:8000/upload-image")
+       app.listen(port=8000)
 
 Advanced File Operations
 ------------------------
 
-Chunked Upload for Large Files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+File Organization and Management
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Handle large file uploads with chunking:
+Organize uploaded files by category and date:
 
 .. code-block:: python
 
+   from catzilla import Catzilla, Request, Response, JSONResponse, UploadFile, File, Form, Path, Query
+   from pathlib import Path as PathLib
+   import uuid
    import hashlib
-   import tempfile
+   import mimetypes
+   from datetime import datetime
+   import json
 
-   class ChunkedUploadManager:
-       def __init__(self):
-           self.active_uploads = {}
-           self.chunk_size = 1024 * 1024  # 1MB chunks
+   app = Catzilla()
 
-       def start_upload(self, file_id: str, total_size: int, filename: str):
-           """Initialize chunked upload"""
-           temp_file = tempfile.NamedTemporaryFile(delete=False)
+   # Create organized upload directories
+   UPLOAD_BASE_DIR = PathLib("uploads")
+   UPLOAD_DIRS = {
+       "images": UPLOAD_BASE_DIR / "images",
+       "documents": UPLOAD_BASE_DIR / "documents",
+       "videos": UPLOAD_BASE_DIR / "videos",
+       "other": UPLOAD_BASE_DIR / "other"
+   }
 
-           self.active_uploads[file_id] = {
-               "temp_file": temp_file,
-               "temp_path": temp_file.name,
-               "filename": filename,
-               "total_size": total_size,
-               "uploaded_size": 0,
-               "chunks_received": 0,
-               "hash": hashlib.sha256()
-           }
+   for dir_path in UPLOAD_DIRS.values():
+       dir_path.mkdir(parents=True, exist_ok=True)
 
-           return {"status": "upload_initiated", "file_id": file_id}
+   # File tracking
+   file_registry = {}
 
-       async def upload_chunk(self, file_id: str, chunk_data: bytes, chunk_number: int):
-           """Upload a file chunk"""
-           if file_id not in self.active_uploads:
-               return {"error": "Upload session not found"}
+   @app.post("/upload/organized")
+   def upload_organized_file(
+       request: Request,
+       file: UploadFile = File(max_size="50MB"),
+       category: str = Form("other"),
+       tags: str = Form("[]"),  # JSON array of tags
+       description: str = Form("")
+   ) -> Response:
+       """Upload file with organized storage"""
 
-           upload_info = self.active_uploads[file_id]
+       # Parse tags
+       try:
+           tag_list = json.loads(tags) if tags else []
+           if not isinstance(tag_list, list):
+               tag_list = []
+       except:
+           tag_list = []
 
-           # Write chunk to temp file
-           upload_info["temp_file"].write(chunk_data)
-           upload_info["uploaded_size"] += len(chunk_data)
-           upload_info["chunks_received"] += 1
-           upload_info["hash"].update(chunk_data)
-
-           progress = (upload_info["uploaded_size"] / upload_info["total_size"]) * 100
-
-           return {
-               "status": "chunk_received",
-               "chunk_number": chunk_number,
-               "progress": round(progress, 2),
-               "uploaded_size": upload_info["uploaded_size"],
-               "total_size": upload_info["total_size"]
-           }
-
-       def complete_upload(self, file_id: str):
-           """Complete chunked upload"""
-           if file_id not in self.active_uploads:
-               return {"error": "Upload session not found"}
-
-           upload_info = self.active_uploads[file_id]
-
-           # Close temp file
-           upload_info["temp_file"].close()
-
-           # Move to final location
-           final_filename = f"{uuid.uuid4()}_{upload_info['filename']}"
-           final_path = UPLOAD_DIR / final_filename
-
-           import shutil
-           shutil.move(upload_info["temp_path"], final_path)
-
-           # Calculate final hash
-           file_hash = upload_info["hash"].hexdigest()
-
-           # Cleanup
-           del self.active_uploads[file_id]
-
-           return {
-               "status": "upload_complete",
-               "filename": final_filename,
-               "size": upload_info["uploaded_size"],
-               "hash": file_hash
-           }
-
-   upload_manager = ChunkedUploadManager()
-
-   @app.post("/upload/start")
-   async def start_chunked_upload(request: Request):
-       """Start chunked upload session"""
-       data = await request.json()
-
+       # Generate file ID
        file_id = str(uuid.uuid4())
-       result = upload_manager.start_upload(
-           file_id,
-           data["total_size"],
-           data["filename"]
-       )
 
-       result["file_id"] = file_id
-       return JSONResponse(result)
+       try:
+           # Determine storage directory
+           storage_dir = UPLOAD_DIRS.get(category, UPLOAD_DIRS["other"])
 
-   @app.post("/upload/chunk/{file_id}")
-   async def upload_chunk(request: Request, file_id: str):
-       """Upload file chunk"""
-       form = await request.form()
-       chunk_data = await form["chunk"].read()
-       chunk_number = int(form["chunk_number"])
+           # Create date-based subdirectory
+           date_dir = storage_dir / datetime.now().strftime("%Y/%m/%d")
+           date_dir.mkdir(parents=True, exist_ok=True)
 
-       result = await upload_manager.upload_chunk(file_id, chunk_data, chunk_number)
-       return JSONResponse(result)
+           # Save file using Catzilla's save_to method
+           saved_path = file.save_to(str(date_dir), stream=True)
 
-   @app.post("/upload/complete/{file_id}")
-   async def complete_chunked_upload(request: Request, file_id: str):
-       """Complete chunked upload"""
-       result = upload_manager.complete_upload(file_id)
-       return JSONResponse(result)
+           # Get file content for checksum
+           file_content = file.read()
+           checksum = hashlib.sha256(file_content).hexdigest()
+
+           # Create file record
+           file_record = {
+               "file_id": file_id,
+               "filename": file.filename,
+               "size": file.size,
+               "content_type": file.content_type,
+               "category": category,
+               "tags": tag_list,
+               "description": description,
+               "checksum": checksum,
+               "saved_path": saved_path,
+               "uploaded_at": datetime.now().isoformat(),
+               "upload_speed_mbps": getattr(file, 'upload_speed_mbps', 0)
+           }
+
+           # Store in registry
+           file_registry[file_id] = file_record
+
+           return JSONResponse({
+               "success": True,
+               "file_id": file_id,
+               "file_record": file_record
+           })
+
+       except Exception as e:
+           return JSONResponse({
+               "success": False,
+               "file_id": file_id,
+               "error": str(e)
+           }, status_code=500)
+
+   @app.get("/files/{file_id}")
+   def get_file_info(
+       request: Request,
+       file_id: str = Path(..., description="File ID")
+   ) -> Response:
+       """Get file information"""
+
+       if file_id not in file_registry:
+           return JSONResponse({"error": "File not found"}, status_code=404)
+
+       return JSONResponse(file_registry[file_id])
+
+   @app.get("/files")
+   def list_files(
+       request: Request,
+       category: str = Query(None, description="Filter by category"),
+       limit: int = Query(50, ge=1, le=100, description="Maximum number of files to return")
+   ) -> Response:
+       """List uploaded files with filtering"""
+
+       files = []
+       for file_record in file_registry.values():
+           if category and file_record["category"] != category:
+               continue
+           files.append(file_record)
+
+       # Sort by upload time (newest first)
+       files.sort(key=lambda x: x["uploaded_at"], reverse=True)
+
+       return JSONResponse({
+           "files": files[:limit],
+           "total_shown": min(len(files), limit),
+           "total_files": len(files),
+           "filter_category": category
+       })
+
+   if __name__ == "__main__":
+       print("🚀 Starting organized file upload server...")
+       print("Try: curl -X POST -F 'file=@example.txt' -F 'category=documents' http://localhost:8000/upload/organized")
+       app.listen(port=8000)
 
 File Download and Serving
 --------------------------
@@ -565,73 +589,118 @@ Serve files with access control:
 
 .. code-block:: python
 
-   from catzilla import Response
+   from catzilla import Catzilla, Request, Response, JSONResponse, Path, Query
    import mimetypes
+   from pathlib import Path as PathLib
+   import hashlib
 
-   @app.get("/download/{filename}")
-   async def download_file(request: Request, filename: str):
+   app = Catzilla()
+
+   UPLOAD_DIR = PathLib("uploads")
+   UPLOAD_DIR.mkdir(exist_ok=True)
+
+   # File registry for tracking uploaded files
+   file_registry = {}
+
+   @app.get("/download/{file_id}")
+   def download_file(
+       request: Request,
+       file_id: str = Path(..., description="File ID to download")
+   ) -> Response:
        """Secure file download with access control"""
 
-       # Validate filename (prevent path traversal)
-       if ".." in filename or "/" in filename or "\\" in filename:
-           return JSONResponse({"error": "Invalid filename"}, status_code=400)
+       # Validate file_id (prevent path traversal)
+       if ".." in file_id or "/" in file_id or "\\" in file_id:
+           return JSONResponse({"error": "Invalid file ID"}, status_code=400)
 
-       file_path = UPLOAD_DIR / filename
-
-       if not file_path.exists():
+       # Look up file in registry
+       if file_id not in file_registry:
            return JSONResponse({"error": "File not found"}, status_code=404)
 
+       file_record = file_registry[file_id]
+       file_path = PathLib(file_record["saved_path"])
+
+       if not file_path.exists():
+           return JSONResponse({"error": "File not found on disk"}, status_code=404)
+
        # Optional: Check user permissions here
-       # if not user_has_access(request.user, filename):
+       # if not user_has_access(request.user, file_id):
        #     return JSONResponse({"error": "Access denied"}, status_code=403)
 
        # Determine content type
-       content_type, _ = mimetypes.guess_type(str(file_path))
-       if content_type is None:
-           content_type = "application/octet-stream"
+       content_type = file_record.get("content_type")
+       if not content_type:
+           content_type, _ = mimetypes.guess_type(str(file_path))
+           content_type = content_type or "application/octet-stream"
 
-       # Read file content and return as Response
-       with open(file_path, 'rb') as f:
-           content = f.read()
+       # Read file content
+       if content_type.startswith('text/') or content_type == 'application/json':
+           with open(file_path, "r", encoding="utf-8") as f:
+               file_content = f.read()
+           file_bytes = file_content.encode("utf-8")
+       else:
+           with open(file_path, "rb") as f:
+               file_bytes = f.read()
+           file_content = file_bytes.decode("utf-8", errors="ignore")
 
        return Response(
-           body=content,
+           body=file_content,
            content_type=content_type,
            headers={
-               "Content-Disposition": f"attachment; filename={filename}",
-               "Content-Length": str(len(content))
+               "Content-Disposition": f'attachment; filename="{file_record["filename"]}"',
+               "Content-Length": str(len(file_bytes)),
+               "X-File-ID": file_id,
+               "X-File-Checksum": file_record.get("checksum", "")
            }
        )
 
-   @app.get("/view/{filename}")
-   async def view_file(request: Request, filename: str):
+   @app.get("/view/{file_id}")
+   def view_file(
+       request: Request,
+       file_id: str = Path(..., description="File ID to view")
+   ) -> Response:
        """View file inline (for images, PDFs, etc.)"""
 
-       # Validate filename
-       if ".." in filename or "/" in filename:
-           return JSONResponse({"error": "Invalid filename"}, status_code=400)
+       # Validate file_id
+       if ".." in file_id or "/" in file_id:
+           return JSONResponse({"error": "Invalid file ID"}, status_code=400)
 
-       file_path = UPLOAD_DIR / filename
-
-       if not file_path.exists():
+       # Look up file in registry
+       if file_id not in file_registry:
            return JSONResponse({"error": "File not found"}, status_code=404)
 
-       content_type, _ = mimetypes.guess_type(str(file_path))
-       if content_type is None:
-           content_type = "application/octet-stream"
+       file_record = file_registry[file_id]
+       file_path = PathLib(file_record["saved_path"])
 
-       # Read file content and return as Response
-       with open(file_path, 'rb') as f:
-           content = f.read()
+       if not file_path.exists():
+           return JSONResponse({"error": "File not found on disk"}, status_code=404)
+
+       content_type = file_record.get("content_type", "application/octet-stream")
+
+       # Read file content
+       if content_type.startswith('text/') or content_type == 'application/json':
+           with open(file_path, "r", encoding="utf-8") as f:
+               file_content = f.read()
+           file_bytes = file_content.encode("utf-8")
+       else:
+           with open(file_path, "rb") as f:
+               file_bytes = f.read()
+           file_content = file_bytes.decode("latin-1")  # Binary safe encoding
 
        return Response(
-           body=content,
+           body=file_content,
            content_type=content_type,
            headers={
-               "Content-Disposition": f"inline; filename={filename}",
-               "Content-Length": str(len(content))
+               "Content-Disposition": f'inline; filename="{file_record["filename"]}"',
+               "Content-Length": str(len(file_bytes)),
+               "X-File-ID": file_id
            }
        )
+
+   if __name__ == "__main__":
+       print("🚀 Starting file download server...")
+       print("Try: curl http://localhost:8000/download/{file_id}")
+       app.listen(port=8000)
 
 File Management API
 ~~~~~~~~~~~~~~~~~~~
@@ -640,86 +709,139 @@ Complete file management endpoints:
 
 .. code-block:: python
 
+   from catzilla import Catzilla, Request, Response, JSONResponse, Path, Query
+   import mimetypes
+   from pathlib import Path as PathLib
+   from datetime import datetime
+
+   app = Catzilla()
+
+   UPLOAD_DIR = PathLib("uploads")
+   file_registry = {}  # In production, use a database
+
    @app.get("/files")
-   async def list_files(request: Request):
+   def list_files(
+       request: Request,
+       category: str = Query(None, description="Filter by category"),
+       limit: int = Query(50, ge=1, le=100, description="Maximum number of files to return")
+   ) -> Response:
        """List uploaded files"""
 
        files = []
-       for file_path in UPLOAD_DIR.iterdir():
-           if file_path.is_file():
-               stat = file_path.stat()
-               files.append({
-                   "filename": file_path.name,
-                   "size": stat.st_size,
-                   "created": stat.st_ctime,
-                   "modified": stat.st_mtime,
-                   "content_type": mimetypes.guess_type(str(file_path))[0]
-               })
+       for file_id, file_record in file_registry.items():
+           # Filter by category if specified
+           if category and file_record.get("category") != category:
+               continue
+
+           # Check if file still exists
+           file_path = PathLib(file_record["saved_path"])
+           if not file_path.exists():
+               continue
+
+           file_stat = file_path.stat()
+           files.append({
+               "file_id": file_id,
+               "filename": file_record["filename"],
+               "size": file_record["size"],
+               "content_type": file_record["content_type"],
+               "category": file_record.get("category", "other"),
+               "description": file_record.get("description", ""),
+               "uploaded_at": file_record["uploaded_at"],
+               "modified": datetime.fromtimestamp(file_stat.st_mtime).isoformat()
+           })
+
+       # Sort by upload time (newest first)
+       files.sort(key=lambda x: x["uploaded_at"], reverse=True)
 
        return JSONResponse({
-           "files": sorted(files, key=lambda x: x["modified"], reverse=True),
-           "total_count": len(files)
+           "files": files[:limit],
+           "total_shown": min(len(files), limit),
+           "total_files": len(files),
+           "filter_category": category
        })
 
-   @app.delete("/files/{filename}")
-   async def delete_file(request: Request, filename: str):
+   @app.delete("/files/{file_id}")
+   def delete_file(
+       request: Request,
+       file_id: str = Path(..., description="File ID to delete")
+   ) -> Response:
        """Delete uploaded file"""
 
-       # Validate filename
-       if ".." in filename or "/" in filename:
-           return JSONResponse({"error": "Invalid filename"}, status_code=400)
+       # Validate file_id
+       if ".." in file_id or "/" in file_id:
+           return JSONResponse({"error": "Invalid file ID"}, status_code=400)
 
-       file_path = UPLOAD_DIR / filename
-
-       if not file_path.exists():
+       if file_id not in file_registry:
            return JSONResponse({"error": "File not found"}, status_code=404)
+
+       file_record = file_registry[file_id]
+       file_path = PathLib(file_record["saved_path"])
 
        try:
-           file_path.unlink()
-           return JSONResponse({"message": f"File {filename} deleted successfully"})
-       except Exception as e:
-           return JSONResponse({"error": f"Delete failed: {str(e)}"}, status_code=500)
+           if file_path.exists():
+               file_path.unlink()
 
-   @app.get("/files/{filename}/info")
-   async def get_file_info(request: Request, filename: str):
+           # Remove from registry
+           del file_registry[file_id]
+
+           return JSONResponse({
+               "message": f"File {file_record['filename']} deleted successfully",
+               "file_id": file_id
+           })
+       except Exception as e:
+           return JSONResponse({
+               "error": f"Delete failed: {str(e)}"
+           }, status_code=500)
+
+   @app.get("/files/{file_id}/info")
+   def get_file_info(
+       request: Request,
+       file_id: str = Path(..., description="File ID")
+   ) -> Response:
        """Get detailed file information"""
 
-       # Validate filename
-       if ".." in filename or "/" in filename:
-           return JSONResponse({"error": "Invalid filename"}, status_code=400)
+       # Validate file_id
+       if ".." in file_id or "/" in file_id:
+           return JSONResponse({"error": "Invalid file ID"}, status_code=400)
 
-       file_path = UPLOAD_DIR / filename
-
-       if not file_path.exists():
+       if file_id not in file_registry:
            return JSONResponse({"error": "File not found"}, status_code=404)
 
-       stat = file_path.stat()
-       content_type, encoding = mimetypes.guess_type(str(file_path))
+       file_record = file_registry[file_id]
+       file_path = PathLib(file_record["saved_path"])
+
+       if not file_path.exists():
+           return JSONResponse({"error": "File not found on disk"}, status_code=404)
+
+       file_stat = file_path.stat()
 
        # Additional info for images
        extra_info = {}
+       content_type = file_record.get("content_type", "")
        if content_type and content_type.startswith("image/"):
-           try:
-               with Image.open(file_path) as img:
-                   extra_info.update({
-                       "width": img.width,
-                       "height": img.height,
-                       "format": img.format,
-                       "mode": img.mode
-                   })
-           except Exception:
-               pass
+           extra_info["is_image"] = True
+           # Note: In a real app, you might use PIL to get image dimensions
+           # For this example, we'll just mark it as an image
 
        return JSONResponse({
-           "filename": filename,
-           "size": stat.st_size,
+           "file_id": file_id,
+           "filename": file_record["filename"],
+           "size": file_record["size"],
            "content_type": content_type,
-           "encoding": encoding,
-           "created": stat.st_ctime,
-           "modified": stat.st_mtime,
-           "is_image": content_type and content_type.startswith("image/") if content_type else False,
+           "category": file_record.get("category", "other"),
+           "description": file_record.get("description", ""),
+           "tags": file_record.get("tags", []),
+           "checksum": file_record.get("checksum", ""),
+           "uploaded_at": file_record["uploaded_at"],
+           "modified": datetime.fromtimestamp(file_stat.st_mtime).isoformat(),
+           "file_path": str(file_path),
            **extra_info
        })
+
+   if __name__ == "__main__":
+       print("🚀 Starting file management server...")
+       print("Try: curl http://localhost:8000/files")
+       app.listen(port=8000)
 
 Best Practices
 --------------
@@ -729,51 +851,91 @@ Security Guidelines
 
 .. code-block:: python
 
-   # ✅ Good: Validate file types and content
-   def validate_upload(file: UploadFile):
-       # Check extension
-       allowed_extensions = [".jpg", ".png", ".pdf"]
-       if not any(file.filename.endswith(ext) for ext in allowed_extensions):
-           return False
+   from catzilla import UploadFile, File, Form, Path, Query
+   from catzilla.exceptions import FileSizeError, MimeTypeError
+   import uuid
+   from pathlib import Path as PathLib
 
-       # Check MIME type
-       content = file.read()
-       file_type = magic.from_buffer(content, mime=True)
-       return file_type in ["image/jpeg", "image/png", "application/pdf"]
+   # ✅ Good: Validate file types and use constraints
+   def upload_with_validation(
+       file: UploadFile = File(max_size="10MB"),
+       category: str = Form("image")
+   ):
+       # Catzilla automatically validates file size
+       # Additional content type validation
+       allowed_types = {
+           "image": ["image/jpeg", "image/png", "image/gif"],
+           "document": ["application/pdf", "text/plain"]
+       }
 
-   # ✅ Good: Use unique filenames
-   unique_filename = f"{uuid.uuid4()}_{secure_filename(file.filename)}"
+       if category in allowed_types and file.content_type not in allowed_types[category]:
+           raise MimeTypeError(f"Invalid file type for {category}")
 
-   # ✅ Good: Limit file sizes
-   MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
-   if len(content) > MAX_FILE_SIZE:
-       raise ValueError("File too large")
+       return file.save_to(f"uploads/{category}", stream=True)
+
+   # ✅ Good: Use unique filenames and organized storage
+   def save_file_securely(file: UploadFile, category: str = "uploads"):
+       file_id = str(uuid.uuid4())
+       file_extension = PathLib(file.filename).suffix
+
+       # Create date-based directory structure
+       from datetime import datetime
+       date_path = datetime.now().strftime("%Y/%m/%d")
+       storage_path = f"uploads/{category}/{date_path}"
+
+       return file.save_to(storage_path, stream=True)
+
+   # ✅ Good: Handle file upload exceptions
+   try:
+       saved_path = file.save_to("uploads", stream=True)
+   except FileSizeError as e:
+       return JSONResponse({"error": "File too large"}, status_code=413)
+   except MimeTypeError as e:
+       return JSONResponse({"error": "Invalid file type"}, status_code=415)
+   except Exception as e:
+       return JSONResponse({"error": str(e)}, status_code=500)
 
 Performance Tips
 ~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
-   # ✅ Good: Stream large files
-   async def stream_upload(file: UploadFile):
-       with open("large_file.dat", "wb") as f:
-           while chunk := await file.read(8192):  # 8KB chunks
-               f.write(chunk)
+   # ✅ Good: Use streaming for large files
+   from catzilla import UploadFile, File
 
-   # ✅ Good: Use async file operations
-   import aiofiles
+   def upload_large_file(file: UploadFile = File(max_size="100MB")):
+       # Catzilla automatically streams large files when stream=True
+       saved_path = file.save_to("uploads/large", stream=True)
 
-   async def async_file_save(content: bytes, path: Path):
-       async with aiofiles.open(path, "wb") as f:
-           await f.write(content)
+       # Access upload performance metrics
+       upload_speed = getattr(file, 'upload_speed_mbps', 0)
+       chunks_processed = getattr(file, 'chunks_count', 0)
 
-   # ✅ Good: Implement caching for static files
-   from catzilla import StaticFiles
+       return {
+           "saved_path": saved_path,
+           "upload_speed_mbps": upload_speed,
+           "chunks_processed": chunks_processed
+       }
 
-   app.mount("/static", StaticFiles(
-       directory="static",
-       cache_max_age=86400,  # 24 hours
-       enable_compression=True
-   ))
+   # ✅ Good: Configure static files with caching
+   app.mount_static(
+       "/static",
+       "static",
+       enable_hot_cache=True,
+       cache_size_mb=100,
+       cache_ttl_seconds=3600,  # 1 hour
+       enable_compression=True,
+       enable_etags=True
+   )
+
+   # ✅ Good: Use appropriate file constraints
+   # For images
+   image_file: UploadFile = File(max_size="10MB")
+
+   # For documents
+   document_file: UploadFile = File(max_size="50MB")
+
+   # For multiple files
+   files: list[UploadFile] = File(max_files=10, max_size="25MB")
 
 This comprehensive file handling system provides secure, efficient, and scalable file operations for your Catzilla applications.

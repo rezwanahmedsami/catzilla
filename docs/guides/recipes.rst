@@ -13,185 +13,269 @@ Implement secure JWT-based authentication:
 
 .. code-block:: python
 
-   from catzilla import Catzilla, Request, JSONResponse, Depends
-   import jwt
+   from catzilla import Catzilla, Request, Response, JSONResponse, BaseModel, Field
+   import time
+   import hashlib
+   import hmac
+   import secrets
+   import json
+   import base64
+   from typing import Optional, List, Dict, Any
    from datetime import datetime, timedelta
-   from passlib.context import CryptContext
-   from typing import Optional
+   from dataclasses import dataclass
+   from enum import Enum
+   import uuid
 
-   app = Catzilla()
+   app = Catzilla(production=False, show_banner=True, log_requests=True)
 
    # Configuration
-   SECRET_KEY = "your-secret-key-change-in-production"
-   ALGORITHM = "HS256"
-   ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
-   # Password hashing
-   pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-   # Mock user database
-   users_db = {
-       "admin": {
-           "username": "admin",
-           "email": "admin@example.com",
-           "hashed_password": pwd_context.hash("admin123"),
-           "is_active": True,
-           "roles": ["admin"]
-       },
-       "user": {
-           "username": "user",
-           "email": "user@example.com",
-           "hashed_password": pwd_context.hash("user123"),
-           "is_active": True,
-           "roles": ["user"]
-       }
+   AUTH_CONFIG = {
+       "jwt_secret": "your-super-secret-jwt-key-change-in-production",
+       "jwt_algorithm": "HS256",
+       "jwt_expiry_hours": 24,
+       "password_salt_rounds": 12,
+       "max_login_attempts": 5,
+       "lockout_duration_minutes": 15
    }
 
-   class TokenData:
-       def __init__(self, username: str = None):
-           self.username = username
+   # User roles
+   class UserRole(str, Enum):
+       ADMIN = "admin"
+       USER = "user"
+       READONLY = "readonly"
 
+   # Data models
+   class LoginModel(BaseModel):
+       email: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$', description="Email address")
+       password: str = Field(min_length=6, description="Password")
+
+   class RegisterModel(BaseModel):
+       name: str = Field(min_length=2, max_length=50, description="Full name")
+       email: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$', description="Email address")
+       password: str = Field(min_length=6, description="Password")
+       role: UserRole = UserRole.USER
+
+   @dataclass
    class User:
-       def __init__(self, username: str, email: str, is_active: bool, roles: list):
-           self.username = username
-           self.email = email
-           self.is_active = is_active
-           self.roles = roles
+       id: str
+       name: str
+       email: str
+       password_hash: str
+       role: UserRole
+       is_active: bool = True
+       login_attempts: int = 0
+       locked_until: Optional[datetime] = None
+       created_at: datetime = None
 
-   def verify_password(plain_password: str, hashed_password: str) -> bool:
+       def __post_init__(self):
+           if self.created_at is None:
+               self.created_at = datetime.now()
+
+   # In-memory storage
+   users_db: Dict[str, User] = {}
+
+   # Utility functions
+   def hash_password(password: str) -> str:
+       """Hash password with salt"""
+       salt = secrets.token_hex(16)
+       password_hash = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 100000)
+       return f"{salt}:{password_hash.hex()}"
+
+   def verify_password(password: str, password_hash: str) -> bool:
        """Verify password against hash"""
-       return pwd_context.verify(plain_password, hashed_password)
-
-   def authenticate_user(username: str, password: str) -> Optional[User]:
-       """Authenticate user credentials"""
-       user_data = users_db.get(username)
-       if not user_data:
-           return None
-
-       if not verify_password(password, user_data["hashed_password"]):
-           return None
-
-       return User(**user_data)
-
-   def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-       """Create JWT access token"""
-       to_encode = data.copy()
-
-       if expires_delta:
-           expire = datetime.utcnow() + expires_delta
-       else:
-           expire = datetime.utcnow() + timedelta(minutes=15)
-
-       to_encode.update({"exp": expire})
-       encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-       return encoded_jwt
-
-   def get_current_user(request: Request) -> User:
-       """Get current user from JWT token"""
-       def credentials_error():
-           return JSONResponse(
-               {"error": "Could not validate credentials"},
-               status_code=401,
-               headers={"WWW-Authenticate": "Bearer"}
-           )
-
-       # Get token from Authorization header
-       authorization = request.headers.get("Authorization")
-       if not authorization:
-           raise credentials_exception
-
        try:
-           scheme, token = authorization.split()
-           if scheme.lower() != "bearer":
-               raise credentials_exception
+           salt, hash_hex = password_hash.split(':')
+           password_hash_check = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 100000)
+           return hmac.compare_digest(hash_hex, password_hash_check.hex())
        except ValueError:
-           raise credentials_exception
+           return False
 
+   def generate_jwt(user: User) -> str:
+       """Generate JWT token for user (simplified for demo)"""
+       payload = {
+           'user_id': user.id,
+           'email': user.email,
+           'role': user.role.value,
+           'exp': (datetime.utcnow() + timedelta(hours=AUTH_CONFIG["jwt_expiry_hours"])).timestamp(),
+           'iat': datetime.utcnow().timestamp()
+       }
+       return base64.b64encode(json.dumps(payload).encode()).decode()
+
+   def verify_jwt(token: str) -> Optional[Dict[str, Any]]:
+       """Verify and decode JWT token (simplified for demo)"""
        try:
-           payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-           username: str = payload.get("sub")
-           if username is None:
-               raise credentials_exception
+           payload = json.loads(base64.b64decode(token.encode()).decode())
+           if payload.get('exp') and payload['exp'] < datetime.utcnow().timestamp():
+               return None
+           return payload
+       except:
+           return None
 
-           token_data = TokenData(username=username)
-       except jwt.PyJWTError:
-           raise credentials_exception
+   # Authentication middleware
+   @app.middleware(priority=20, pre_route=True, name="authentication")
+   def authentication_middleware(request: Request) -> Optional[Response]:
+       """JWT authentication middleware"""
+       # Public paths that don't require auth
+       public_paths = {'/', '/auth/login', '/auth/register', '/health'}
 
-       user_data = users_db.get(token_data.username)
-       if user_data is None:
-           raise credentials_exception
+       if request.path in public_paths:
+           return None
 
-       return User(**user_data)
+       # Try JWT authentication
+       auth_header = request.headers.get('Authorization', '')
+       if auth_header.startswith('Bearer '):
+           token = auth_header[7:]
+           payload = verify_jwt(token)
+           if payload:
+               user_id = payload['user_id']
+               if user_id in users_db:
+                   user = users_db[user_id]
+                   if user.is_active:
+                       if not hasattr(request, 'context'):
+                           request.context = {}
+                       request.context['user'] = user
+                       request.context['auth_payload'] = payload
+                       return None
 
-   def require_roles(required_roles: list):
-       """Decorator to require specific roles"""
-       def decorator(func):
-           def wrapper(request: Request, *args, **kwargs):
-               current_user = get_current_user(request)
+           return JSONResponse({"error": "Invalid or expired token"}, status_code=401)
 
-               if not any(role in current_user.roles for role in required_roles):
-                   return JSONResponse(
-                       {"error": "Insufficient permissions"},
-                       status_code=403
-                   )
-
-               return func(request, current_user=current_user, *args, **kwargs)
-           return wrapper
-       return decorator
+       return JSONResponse({"error": "Authentication required"}, status_code=401)
 
    # Authentication endpoints
-   @app.post("/login")
-   async def login(request: Request):
-       """User login endpoint"""
-       form_data = await request.form()
-       username = form_data.get("username")
-       password = form_data.get("password")
+   @app.post("/auth/register")
+   def register(request: Request, user_data: RegisterModel) -> Response:
+       """Register new user"""
+       # Check if email already exists
+       for user in users_db.values():
+           if user.email == user_data.email:
+               return JSONResponse({"error": "Email already registered"}, status_code=409)
 
-       user = authenticate_user(username, password)
-       if not user:
-           return JSONResponse(
-               {"error": "Incorrect username or password"},
-               status_code=401,
-               headers={"WWW-Authenticate": "Bearer"}
-           )
+       # Create new user
+       user_id = str(uuid.uuid4())
+       password_hash = hash_password(user_data.password)
 
-       access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-       access_token = create_access_token(
-           data={"sub": user.username},
-           expires_delta=access_token_expires
+       user = User(
+           id=user_id,
+           name=user_data.name,
+           email=user_data.email,
+           password_hash=password_hash,
+           role=user_data.role
        )
 
+       users_db[user_id] = user
+
+       # Generate JWT token
+       token = generate_jwt(user)
+
        return JSONResponse({
-           "access_token": access_token,
-           "token_type": "bearer",
-           "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
            "user": {
-               "username": user.username,
+               "id": user.id,
+               "name": user.name,
                "email": user.email,
-               "roles": user.roles
+               "role": user.role.value
+           },
+           "token": token,
+           "expires_in": AUTH_CONFIG["jwt_expiry_hours"] * 3600
+       }, status_code=201)
+
+   @app.post("/auth/login")
+   def login(request: Request, login_data: LoginModel) -> Response:
+       """Login user"""
+       # Find user by email
+       user = None
+       for u in users_db.values():
+           if u.email == login_data.email:
+               user = u
+               break
+
+       if not user:
+           return JSONResponse({"error": "Invalid email or password"}, status_code=401)
+
+       # Check if account is locked
+       if user.locked_until and datetime.now() < user.locked_until:
+           minutes_left = (user.locked_until - datetime.now()).total_seconds() / 60
+           return JSONResponse(
+               {"error": f"Account locked. Try again in {int(minutes_left)} minutes"},
+               status_code=423
+           )
+
+       # Verify password
+       if not verify_password(login_data.password, user.password_hash):
+           user.login_attempts += 1
+           if user.login_attempts >= AUTH_CONFIG["max_login_attempts"]:
+               user.locked_until = datetime.now() + timedelta(minutes=AUTH_CONFIG["lockout_duration_minutes"])
+               return JSONResponse(
+                   {"error": f"Too many failed attempts. Account locked for {AUTH_CONFIG['lockout_duration_minutes']} minutes"},
+                   status_code=423
+               )
+           return JSONResponse({"error": "Invalid email or password"}, status_code=401)
+
+       # Check if account is active
+       if not user.is_active:
+           return JSONResponse({"error": "Account deactivated"}, status_code=403)
+
+       # Reset login attempts on successful login
+       user.login_attempts = 0
+       user.locked_until = None
+
+       # Generate JWT token
+       token = generate_jwt(user)
+
+       return JSONResponse({
+           "user": {
+               "id": user.id,
+               "name": user.name,
+               "email": user.email,
+               "role": user.role.value
+           },
+           "token": token,
+           "expires_in": AUTH_CONFIG["jwt_expiry_hours"] * 3600
+       })
+
+   @app.get("/auth/profile")
+   def get_profile(request: Request) -> Response:
+       """Get user profile"""
+       user = getattr(request, 'context', {}).get('user')
+       return JSONResponse({
+           "id": user.id,
+           "name": user.name,
+           "email": user.email,
+           "role": user.role.value,
+           "is_active": user.is_active,
+           "created_at": user.created_at.isoformat()
+       })
+
+   # Protected endpoint example
+   @app.get("/api/protected")
+   def protected_endpoint(request: Request) -> Response:
+       """Protected endpoint requiring authentication"""
+       user = getattr(request, 'context', {}).get('user')
+       return JSONResponse({
+           "message": "Access granted to protected resource",
+           "user": {
+               "id": user.id,
+               "name": user.name,
+               "role": user.role.value
            }
        })
 
-   @app.get("/me")
-   def get_current_user_info(request: Request, current_user: User = Depends(get_current_user)):
-       """Get current user information"""
-       return JSONResponse({
-           "username": current_user.username,
-           "email": current_user.email,
-           "is_active": current_user.is_active,
-           "roles": current_user.roles
-       })
+   if __name__ == "__main__":
+       # Seed admin user for testing
+       admin_id = str(uuid.uuid4())
+       admin_user = User(
+           id=admin_id,
+           name="System Admin",
+           email="admin@example.com",
+           password_hash=hash_password("admin123"),
+           role=UserRole.ADMIN
+       )
+       users_db[admin_id] = admin_user
 
-   @app.get("/admin-only")
-   @require_roles(["admin"])
-   def admin_only_endpoint(request: Request, current_user: User):
-       """Admin-only endpoint"""
-       return JSONResponse({
-           "message": "Welcome to admin area",
-           "user": current_user.username,
-           "admin_data": "sensitive admin information"
-       })
+       print("🔐 Admin user created:")
+       print("   Email: admin@example.com")
+       print("   Password: admin123")
+
+       app.listen(port=8000)
 
 Session-Based Authentication
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -200,29 +284,38 @@ Alternative session-based authentication:
 
 .. code-block:: python
 
+   from catzilla import Catzilla, Request, Response, JSONResponse, BaseModel, Field
    import uuid
+   import time
    from datetime import datetime, timedelta
+   from typing import Optional, Dict
+
+   app = Catzilla(production=False, show_banner=True, log_requests=True)
 
    # Session storage (use Redis in production)
-   sessions = {}
+   sessions: Dict[str, Dict] = {}
+
+   class LoginModel(BaseModel):
+       username: str = Field(min_length=3, max_length=20, description="Username")
+       password: str = Field(min_length=6, description="Password")
 
    class SessionManager:
        def __init__(self, session_timeout_minutes: int = 30):
            self.session_timeout = timedelta(minutes=session_timeout_minutes)
 
-       def create_session(self, user: User) -> str:
+       def create_session(self, user_data: dict) -> str:
            """Create new user session"""
            session_id = str(uuid.uuid4())
 
            sessions[session_id] = {
-               "user": user,
+               "user": user_data,
                "created_at": datetime.utcnow(),
                "last_accessed": datetime.utcnow()
            }
 
            return session_id
 
-       def get_session(self, session_id: str) -> Optional[User]:
+       def get_session(self, session_id: str) -> Optional[dict]:
            """Get user from session"""
            session = sessions.get(session_id)
 
@@ -245,14 +338,23 @@ Alternative session-based authentication:
 
    session_manager = SessionManager()
 
-   @app.post("/session-login")
-   async def session_login(request: Request):
-       """Session-based login"""
-       form_data = await request.form()
-       username = form_data.get("username")
-       password = form_data.get("password")
+   # Mock user database
+   users_db = {
+       "admin": {"username": "admin", "password": "admin123", "email": "admin@example.com"},
+       "user": {"username": "user", "password": "user123", "email": "user@example.com"}
+   }
 
-       user = authenticate_user(username, password)
+   def authenticate_user(username: str, password: str) -> Optional[dict]:
+       """Simple authentication"""
+       user_data = users_db.get(username)
+       if user_data and user_data["password"] == password:
+           return {"username": user_data["username"], "email": user_data["email"]}
+       return None
+
+   @app.post("/session-login")
+   def session_login(request: Request, login_data: LoginModel) -> Response:
+       """Session-based login"""
+       user = authenticate_user(login_data.username, login_data.password)
        if not user:
            return JSONResponse({"error": "Invalid credentials"}, status_code=401)
 
@@ -260,33 +362,60 @@ Alternative session-based authentication:
 
        response = JSONResponse({
            "message": "Login successful",
-           "user": {"username": user.username, "email": user.email}
+           "user": user
        })
 
-       # Set session cookie
-       response.set_cookie(
-           "session_id",
-           session_id,
-           max_age=1800,  # 30 minutes
-           httponly=True,
-           secure=True,   # HTTPS only
-           samesite="strict"
-       )
+       # Set session cookie (simplified - in production use secure settings)
+       response.headers["Set-Cookie"] = f"session_id={session_id}; Path=/; Max-Age=1800; HttpOnly"
 
        return response
 
    @app.post("/session-logout")
-   def session_logout(request: Request):
+   def session_logout(request: Request) -> Response:
        """Session-based logout"""
-       session_id = request.cookies.get("session_id")
+       # Get session ID from cookie header
+       cookie_header = request.headers.get("Cookie", "")
+       session_id = None
+
+       if cookie_header:
+           # Simple cookie parsing (in production use proper cookie parser)
+           for part in cookie_header.split(";"):
+               if "session_id=" in part:
+                   session_id = part.split("session_id=")[1].strip()
+                   break
 
        if session_id:
            session_manager.destroy_session(session_id)
 
        response = JSONResponse({"message": "Logout successful"})
-       response.delete_cookie("session_id")
+       response.headers["Set-Cookie"] = "session_id=; Path=/; Max-Age=0; HttpOnly"
 
        return response
+
+   @app.get("/session-profile")
+   def session_profile(request: Request) -> Response:
+       """Get profile using session"""
+       # Get session ID from cookie
+       cookie_header = request.headers.get("Cookie", "")
+       session_id = None
+
+       if cookie_header:
+           for part in cookie_header.split(";"):
+               if "session_id=" in part:
+                   session_id = part.split("session_id=")[1].strip()
+                   break
+
+       if not session_id:
+           return JSONResponse({"error": "No session found"}, status_code=401)
+
+       user = session_manager.get_session(session_id)
+       if not user:
+           return JSONResponse({"error": "Invalid or expired session"}, status_code=401)
+
+       return JSONResponse({"user": user, "session_active": True})
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 REST API Patterns
 -----------------
@@ -298,15 +427,25 @@ Complete CRUD operations with validation:
 
 .. code-block:: python
 
-   from catzilla import BaseModel, Field, Path, Query
-   from typing import Optional, List
+   from catzilla import Catzilla, Request, Response, JSONResponse, BaseModel, Field, Query, Path
+   from typing import Optional, List, Dict, Any
    from datetime import datetime
+   from dataclasses import dataclass
+   from enum import Enum
+   import uuid
+
+   app = Catzilla(production=False, show_banner=True, log_requests=True)
 
    # Data models
+   class UserStatus(str, Enum):
+       ACTIVE = "active"
+       INACTIVE = "inactive"
+       SUSPENDED = "suspended"
+
    class TaskCreate(BaseModel):
-       title: str = Field(..., min_length=1, max_length=200)
-       description: Optional[str] = Field(None, max_length=1000)
-       priority: int = Field(1, ge=1, le=5)
+       title: str = Field(min_length=1, max_length=200, description="Task title")
+       description: Optional[str] = Field(None, max_length=1000, description="Task description")
+       priority: int = Field(1, ge=1, le=5, description="Priority level")
        due_date: Optional[str] = None
 
    class TaskUpdate(BaseModel):
@@ -316,95 +455,95 @@ Complete CRUD operations with validation:
        due_date: Optional[str] = None
        completed: Optional[bool] = None
 
-   class TaskResponse(BaseModel):
-       id: int
+   @dataclass
+   class Task:
+       id: str
        title: str
        description: Optional[str]
        priority: int
        due_date: Optional[str]
-       completed: bool
-       created_at: str
-       updated_at: str
+       completed: bool = False
+       created_at: datetime = None
+       updated_at: datetime = None
+
+       def __post_init__(self):
+           if self.created_at is None:
+               self.created_at = datetime.utcnow()
+           if self.updated_at is None:
+               self.updated_at = datetime.utcnow()
 
    # Mock database
-   tasks_db = {}
-   next_task_id = 1
+   tasks_db: Dict[str, Task] = {}
 
    class TaskService:
        @staticmethod
-       def create_task(task_data: TaskCreate) -> TaskResponse:
+       def create_task(task_data: TaskCreate) -> Task:
            """Create new task"""
-           global next_task_id
-
-           now = datetime.utcnow().isoformat()
-           task = {
-               "id": next_task_id,
-               "title": task_data.title,
-               "description": task_data.description,
-               "priority": task_data.priority,
-               "due_date": task_data.due_date,
-               "completed": False,
-               "created_at": now,
-               "updated_at": now
-           }
-
-           tasks_db[next_task_id] = task
-           next_task_id += 1
-
-           return TaskResponse(**task)
+           task_id = str(uuid.uuid4())
+           task = Task(
+               id=task_id,
+               title=task_data.title,
+               description=task_data.description,
+               priority=task_data.priority,
+               due_date=task_data.due_date
+           )
+           tasks_db[task_id] = task
+           return task
 
        @staticmethod
-       def get_task(task_id: int) -> Optional[TaskResponse]:
+       def get_task(task_id: str) -> Optional[Task]:
            """Get task by ID"""
-           task = tasks_db.get(task_id)
-           return TaskResponse(**task) if task else None
+           return tasks_db.get(task_id)
 
        @staticmethod
-       def update_task(task_id: int, task_data: TaskUpdate) -> Optional[TaskResponse]:
+       def update_task(task_id: str, task_data: TaskUpdate) -> Optional[Task]:
            """Update existing task"""
            task = tasks_db.get(task_id)
            if not task:
                return None
 
-           # Update fields
-           update_data = {}
            if task_data.title is not None:
-               update_data["title"] = task_data.title
+               task.title = task_data.title
            if task_data.description is not None:
-               update_data["description"] = task_data.description
+               task.description = task_data.description
            if task_data.priority is not None:
-               update_data["priority"] = task_data.priority
+               task.priority = task_data.priority
            if task_data.due_date is not None:
-               update_data["due_date"] = task_data.due_date
+               task.due_date = task_data.due_date
            if task_data.completed is not None:
-               update_data["completed"] = task_data.completed
+               task.completed = task_data.completed
 
-           task.update(update_data)
-           task["updated_at"] = datetime.utcnow().isoformat()
-
-           return TaskResponse(**task)
+           task.updated_at = datetime.utcnow()
+           return task
 
        @staticmethod
-       def delete_task(task_id: int) -> bool:
+       def delete_task(task_id: str) -> bool:
            """Delete task"""
            return tasks_db.pop(task_id, None) is not None
 
        @staticmethod
-       def list_tasks(skip: int = 0, limit: int = 100, completed: Optional[bool] = None) -> List[TaskResponse]:
+       def list_tasks(skip: int = 0, limit: int = 100, completed: Optional[bool] = None) -> List[Task]:
            """List tasks with pagination and filtering"""
            all_tasks = list(tasks_db.values())
 
-           # Filter by completion status
            if completed is not None:
-               all_tasks = [t for t in all_tasks if t["completed"] == completed]
+               all_tasks = [t for t in all_tasks if t.completed == completed]
 
-           # Sort by created_at (newest first)
-           all_tasks.sort(key=lambda x: x["created_at"], reverse=True)
+           all_tasks.sort(key=lambda x: x.created_at, reverse=True)
+           return all_tasks[skip:skip + limit]
 
-           # Apply pagination
-           paginated_tasks = all_tasks[skip:skip + limit]
-
-           return [TaskResponse(**task) for task in paginated_tasks]
+   def serialize_task(task: Task) -> Dict[str, Any]:
+       """Serialize task for JSON response"""
+       return {
+           "id": task.id,
+           "title": task.title,
+           "description": task.description,
+           "priority": task.priority,
+           "due_date": task.due_date,
+           "completed": task.completed,
+           "created_at": task.created_at.isoformat(),
+           "updated_at": task.updated_at.isoformat()
+       }
 
    # REST API endpoints
    @app.get("/api/tasks")
@@ -413,78 +552,46 @@ Complete CRUD operations with validation:
        skip: int = Query(0, ge=0, description="Number of tasks to skip"),
        limit: int = Query(10, ge=1, le=100, description="Number of tasks to return"),
        completed: Optional[bool] = Query(None, description="Filter by completion status")
-   ):
+   ) -> Response:
        """List all tasks with pagination and filtering"""
        tasks = TaskService.list_tasks(skip=skip, limit=limit, completed=completed)
 
        return JSONResponse({
-           "tasks": [{
-               "id": task.id,
-               "title": task.title,
-               "description": task.description,
-               "priority": task.priority,
-               "due_date": task.due_date,
-               "completed": task.completed,
-               "created_at": task.created_at,
-               "updated_at": task.updated_at
-           } for task in tasks],
+           "tasks": [serialize_task(task) for task in tasks],
            "pagination": {
                "skip": skip,
                "limit": limit,
                "total": len(tasks_db),
                "returned": len(tasks)
            },
-           "filters": {
-               "completed": completed
-           }
+           "filters": {"completed": completed}
        })
 
    @app.post("/api/tasks")
-   def create_task(request: Request, task: TaskCreate):
+   def create_task(request: Request, task: TaskCreate) -> Response:
        """Create a new task"""
-       try:
-           new_task = TaskService.create_task(task)
-           return JSONResponse(
-               {"task": {
-                   "id": new_task.id,
-                   "title": new_task.title,
-                   "description": new_task.description,
-                   "priority": new_task.priority,
-                   "due_date": new_task.due_date,
-                   "completed": new_task.completed,
-                   "created_at": new_task.created_at,
-                   "updated_at": new_task.updated_at
-               }, "message": "Task created successfully"},
-               status_code=201
-           )
-       except Exception as e:
-           return JSONResponse({"error": str(e)}, status_code=400)
+       new_task = TaskService.create_task(task)
+       return JSONResponse(
+           {"task": serialize_task(new_task), "message": "Task created successfully"},
+           status_code=201
+       )
 
    @app.get("/api/tasks/{task_id}")
-   def get_task(request: Request, task_id: int = Path(..., ge=1, description="Task ID")):
+   def get_task(request: Request, task_id: str = Path(..., description="Task ID")) -> Response:
        """Get a specific task by ID"""
        task = TaskService.get_task(task_id)
 
        if not task:
            return JSONResponse({"error": "Task not found"}, status_code=404)
 
-       return JSONResponse({"task": {
-           "id": task.id,
-           "title": task.title,
-           "description": task.description,
-           "priority": task.priority,
-           "due_date": task.due_date,
-           "completed": task.completed,
-           "created_at": task.created_at,
-           "updated_at": task.updated_at
-       }})
+       return JSONResponse({"task": serialize_task(task)})
 
    @app.put("/api/tasks/{task_id}")
    def update_task(
        request: Request,
-       task_update: TaskUpdate = None,
-       task_id: int = Path(..., ge=1, description="Task ID")
-   ):
+       task_id: str = Path(..., description="Task ID"),
+       task_update: TaskUpdate = None
+   ) -> Response:
        """Update an existing task"""
        updated_task = TaskService.update_task(task_id, task_update)
 
@@ -492,21 +599,12 @@ Complete CRUD operations with validation:
            return JSONResponse({"error": "Task not found"}, status_code=404)
 
        return JSONResponse({
-           "task": {
-               "id": updated_task.id,
-               "title": updated_task.title,
-               "description": updated_task.description,
-               "priority": updated_task.priority,
-               "due_date": updated_task.due_date,
-               "completed": updated_task.completed,
-               "created_at": updated_task.created_at,
-               "updated_at": updated_task.updated_at
-           },
+           "task": serialize_task(updated_task),
            "message": "Task updated successfully"
        })
 
    @app.delete("/api/tasks/{task_id}")
-   def delete_task(request: Request, task_id: int = Path(..., ge=1, description="Task ID")):
+   def delete_task(request: Request, task_id: str = Path(..., description="Task ID")) -> Response:
        """Delete a task"""
        deleted = TaskService.delete_task(task_id)
 
@@ -517,9 +615,9 @@ Complete CRUD operations with validation:
 
    # Bulk operations
    @app.post("/api/tasks/bulk")
-   def bulk_create_tasks(request: Request, tasks: List[TaskCreate]):
+   def bulk_create_tasks(request: Request, tasks: List[TaskCreate]) -> Response:
        """Create multiple tasks"""
-       if len(tasks) > 50:  # Limit bulk operations
+       if len(tasks) > 50:
            return JSONResponse({"error": "Maximum 50 tasks per bulk operation"}, status_code=400)
 
        created_tasks = []
@@ -528,16 +626,7 @@ Complete CRUD operations with validation:
        for i, task_data in enumerate(tasks):
            try:
                new_task = TaskService.create_task(task_data)
-               created_tasks.append({
-                   "id": new_task.id,
-                   "title": new_task.title,
-                   "description": new_task.description,
-                   "priority": new_task.priority,
-                   "due_date": new_task.due_date,
-                   "completed": new_task.completed,
-                   "created_at": new_task.created_at,
-                   "updated_at": new_task.updated_at
-               })
+               created_tasks.append(serialize_task(new_task))
            except Exception as e:
                errors.append({"index": i, "error": str(e)})
 
@@ -551,39 +640,8 @@ Complete CRUD operations with validation:
            }
        })
 
-   @app.patch("/api/tasks/bulk/complete")
-   def bulk_complete_tasks(request: Request, task_ids: List[int]):
-       """Mark multiple tasks as completed"""
-       updated_tasks = []
-       not_found = []
-
-       for task_id in task_ids:
-           update_data = TaskUpdate(completed=True)
-           updated_task = TaskService.update_task(task_id, update_data)
-
-           if updated_task:
-               updated_tasks.append({
-                   "id": updated_task.id,
-                   "title": updated_task.title,
-                   "description": updated_task.description,
-                   "priority": updated_task.priority,
-                   "due_date": updated_task.due_date,
-                   "completed": updated_task.completed,
-                   "created_at": updated_task.created_at,
-                   "updated_at": updated_task.updated_at
-               })
-           else:
-               not_found.append(task_id)
-
-       return JSONResponse({
-           "updated_tasks": updated_tasks,
-           "not_found": not_found,
-           "summary": {
-               "total_requested": len(task_ids),
-               "updated": len(updated_tasks),
-               "not_found": len(not_found)
-           }
-       })
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 API Versioning
 ~~~~~~~~~~~~~~
@@ -592,9 +650,17 @@ Implement API versioning strategies:
 
 .. code-block:: python
 
-   # URL path versioning
-   @app.get("/api/v1/users/{user_id}")
-   def get_user_v1(request: Request, user_id: int):
+   from catzilla import Catzilla, Request, Response, JSONResponse, Path
+   from catzilla.router import RouterGroup
+
+   app = Catzilla(production=False, show_banner=True, log_requests=True)
+
+   # URL path versioning with RouterGroups
+   v1_router = RouterGroup(prefix="/api/v1")
+   v2_router = RouterGroup(prefix="/api/v2")
+
+   @v1_router.get("/users/{user_id}")
+   def get_user_v1(request: Request, user_id: str = Path(..., description="User ID")) -> Response:
        """Version 1 of user API"""
        return JSONResponse({
            "id": user_id,
@@ -602,8 +668,8 @@ Implement API versioning strategies:
            "version": "1.0"
        })
 
-   @app.get("/api/v2/users/{user_id}")
-   def get_user_v2(request: Request, user_id: int):
+   @v2_router.get("/users/{user_id}")
+   def get_user_v2(request: Request, user_id: str = Path(..., description="User ID")) -> Response:
        """Version 2 of user API with additional fields"""
        return JSONResponse({
            "id": user_id,
@@ -622,18 +688,34 @@ Implement API versioning strategies:
        return request.headers.get("API-Version", "v1")
 
    @app.get("/api/users/{user_id}")
-   def get_user_versioned(request: Request, user_id: int):
+   def get_user_versioned(request: Request, user_id: str = Path(..., description="User ID")) -> Response:
        """Versioned user endpoint using headers"""
        version = get_api_version(request)
 
+       base_data = {
+           "id": user_id,
+           "name": f"User {user_id}"
+       }
+
        if version == "v2":
-           return get_user_v2(request, user_id)
+           return JSONResponse({
+               **base_data,
+               "email": f"user{user_id}@example.com",
+               "profile": {
+                   "created_at": "2023-01-01",
+                   "last_login": "2024-01-01"
+               },
+               "version": "2.0"
+           })
        else:
-           return get_user_v1(request, user_id)
+           return JSONResponse({
+               **base_data,
+               "version": "1.0"
+           })
 
    # Content negotiation versioning
    @app.get("/api/data/{item_id}")
-   def get_data_with_content_negotiation(request: Request, item_id: int):
+   def get_data_with_content_negotiation(request: Request, item_id: str = Path(..., description="Item ID")) -> Response:
        """API versioning through content negotiation"""
        accept_header = request.headers.get("Accept", "application/json")
 
@@ -646,11 +728,13 @@ Implement API versioning strategies:
            # Version 2 format
            return JSONResponse({
                "data": {
-                   "type": "item",
-                   "id": str(item_id),
-                   "attributes": base_data,
-                   "meta": {"version": "2.0"}
-               }
+                   **base_data,
+                   "metadata": {
+                       "created_at": "2023-01-01",
+                       "updated_at": "2024-01-01"
+                   }
+               },
+               "version": "2.0"
            })
        else:
            # Version 1 format (default)
@@ -658,6 +742,13 @@ Implement API versioning strategies:
                **base_data,
                "version": "1.0"
            })
+
+   # Register router groups
+   app.include_routes(v1_router)
+   app.include_routes(v2_router)
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Error Handling Patterns
 -----------------------
@@ -669,13 +760,13 @@ Structured error responses and logging:
 
 .. code-block:: python
 
-   import logging
-   import traceback
+   from catzilla import Catzilla, Request, Response, JSONResponse, BaseModel, Field, Path
+   import uuid
+   import time
    from enum import Enum
+   from typing import Optional, Dict, Any
 
-   # Configure logging
-   logging.basicConfig(level=logging.INFO)
-   logger = logging.getLogger(__name__)
+   app = Catzilla(production=False, show_banner=True, log_requests=True)
 
    class ErrorCode(Enum):
        VALIDATION_ERROR = "VALIDATION_ERROR"
@@ -693,99 +784,160 @@ Structured error responses and logging:
            self.status_code = status_code
            super().__init__(self.message)
 
-   @app.middleware()
-   def error_handling_middleware(request: Request, call_next):
-       """Global error handling middleware"""
-       try:
-           return call_next(request)
+   class UserCreate(BaseModel):
+       name: str = Field(min_length=2, max_length=50, description="User name")
+       email: str = Field(regex=r'^[^@]+@[^@]+\.[^@]+$', description="Email address")
 
-       except APIError as e:
-           # Custom API errors
-           logger.warning(f"API Error: {e.code.value} - {e.message}", extra={
-               "error_code": e.code.value,
-               "request_path": str(request.url),
-               "request_method": request.method
-           })
+   # Custom exception handlers
+   def validation_error_handler(request: Request, exc: Exception) -> Response:
+       """Handle validation errors"""
+       return JSONResponse({
+           "error": "validation_error",
+           "message": str(exc),
+           "status_code": 422,
+           "request_id": f"req_{int(time.time() * 1000)}"
+       }, status_code=422)
 
+   def api_error_handler(request: Request, exc: APIError) -> Response:
+       """Handle custom API errors"""
+       return JSONResponse({
+           "error": exc.code.value,
+           "message": exc.message,
+           "details": exc.details,
+           "status_code": exc.status_code,
+           "request_id": f"req_{int(time.time() * 1000)}"
+       }, status_code=exc.status_code)
+
+   # Register exception handlers
+   app.set_exception_handler(APIError, api_error_handler)
+   app.set_exception_handler(ValueError, validation_error_handler)
+
+   # Custom 404 handler
+   @app.set_not_found_handler
+   def custom_404_handler(request: Request) -> Response:
+       """Custom 404 handler"""
+       return JSONResponse({
+           "error": "not_found",
+           "message": f"Endpoint {request.path} not found",
+           "method": request.method,
+           "path": request.path,
+           "available_endpoints": [
+               "/api/users/{user_id}",
+               "/api/validation-error",
+               "/api/server-error",
+               "/api/protected"
+           ]
+       }, status_code=404)
+
+   # Custom 500 handler
+   @app.set_internal_error_handler
+   def custom_500_handler(request: Request, exc: Exception) -> Response:
+       """Custom internal server error handler"""
+       if app.production:
            return JSONResponse({
-               "error": {
-                   "code": e.code.value,
-                   "message": e.message,
-                   "details": e.details
-               },
-               "request_id": request.headers.get("X-Request-ID", "unknown")
-           }, status_code=e.status_code)
-
-       except ValidationError as e:
-           # Validation errors
-           logger.warning(f"Validation Error: {str(e)}")
-
+               "error": "internal_server_error",
+               "message": "An internal error occurred",
+               "status_code": 500,
+               "request_id": f"req_{int(time.time() * 1000)}"
+           }, status_code=500)
+       else:
            return JSONResponse({
-               "error": {
-                   "code": ErrorCode.VALIDATION_ERROR.value,
-                   "message": "Validation failed",
-                   "details": {"validation_errors": str(e)}
-               }
-           }, status_code=422)
-
-       except Exception as e:
-           # Unexpected errors
-           error_id = str(uuid.uuid4())
-           logger.error(f"Unexpected error [{error_id}]: {str(e)}", extra={
-               "error_id": error_id,
-               "traceback": traceback.format_exc(),
-               "request_path": str(request.url)
-           })
-
-           return JSONResponse({
-               "error": {
-                   "code": ErrorCode.INTERNAL_ERROR.value,
-                   "message": "An internal error occurred",
-                   "error_id": error_id
-               }
+               "error": "internal_server_error",
+               "message": str(exc),
+               "type": type(exc).__name__,
+               "status_code": 500,
+               "path": request.path,
+               "method": request.method
            }, status_code=500)
 
-   # Usage examples
-   @app.get("/api/protected-resource/{resource_id}")
-   def get_protected_resource(request: Request, resource_id: int):
-       """Example endpoint with comprehensive error handling"""
-
-       # Simulate authentication check
-       if not request.headers.get("Authorization"):
-           raise APIError(
-               ErrorCode.UNAUTHORIZED,
-               "Authentication required",
-               {"required_header": "Authorization"},
-               status_code=401
-           )
-
-       # Simulate authorization check
-       user_role = request.headers.get("X-User-Role", "user")
-       if user_role != "admin" and resource_id > 100:
-           raise APIError(
-               ErrorCode.FORBIDDEN,
-               "Insufficient permissions to access this resource",
-               {"required_role": "admin", "user_role": user_role},
-               status_code=403
-           )
-
-       # Simulate resource not found
-       if resource_id > 1000:
+   # Routes that demonstrate error handling
+   @app.get("/api/users/{user_id}")
+   def get_user(request: Request, user_id: str = Path(..., description="User ID")) -> Response:
+       """Get user - demonstrates NotFoundError"""
+       if user_id == "999":
            raise APIError(
                ErrorCode.NOT_FOUND,
-               f"Resource {resource_id} not found",
-               {"resource_id": resource_id},
+               f"User {user_id} not found",
+               {"resource": "User", "resource_id": user_id},
                status_code=404
            )
 
-       # Simulate successful response
        return JSONResponse({
-           "resource": {
-               "id": resource_id,
-               "name": f"Resource {resource_id}",
-               "access_level": "granted"
+           "id": user_id,
+           "name": f"User {user_id}",
+           "email": f"user{user_id}@example.com"
+       })
+
+   @app.post("/api/users")
+   def create_user(request: Request, user_data: UserCreate) -> Response:
+       """Create user - demonstrates auto-validation with BaseModel"""
+       return JSONResponse({
+           "message": "User created successfully",
+           "user": {
+               "id": str(uuid.uuid4()),
+               "name": user_data.name,
+               "email": user_data.email
+           }
+       }, status_code=201)
+
+   @app.get("/api/validation-error")
+   def trigger_validation_error(request: Request) -> Response:
+       """Endpoint to test validation error handling"""
+       raise APIError(
+           ErrorCode.VALIDATION_ERROR,
+           "This is a test validation error",
+           {"field": "test_field"},
+           status_code=422
+       )
+
+   @app.get("/api/server-error")
+   def trigger_server_error(request: Request) -> Response:
+       """Endpoint to test server error handling"""
+       result = 1 / 0  # This will trigger a ZeroDivisionError
+       return JSONResponse({"result": result})
+
+   @app.get("/api/protected")
+   def protected_endpoint(request: Request) -> Response:
+       """Protected endpoint - demonstrates authentication error"""
+       auth_header = request.headers.get("Authorization", "")
+
+       if not auth_header.startswith("Bearer "):
+           raise APIError(
+               ErrorCode.UNAUTHORIZED,
+               "Authentication required",
+               {"required_header": "Authorization: Bearer <token>"},
+               status_code=401
+           )
+
+       token = auth_header[7:]
+       if token != "valid-token":
+           raise APIError(
+               ErrorCode.UNAUTHORIZED,
+               "Invalid token",
+               {"token": token},
+               status_code=401
+           )
+
+       return JSONResponse({
+           "message": "Access granted to protected resource",
+           "user": "authenticated_user"
+       })
+
+   @app.get("/health")
+   def health_check(request: Request) -> Response:
+       """Health check with error handling info"""
+       return JSONResponse({
+           "status": "healthy",
+           "error_handling": {
+               "production_mode": app.production,
+               "custom_handlers": ["APIError", "ValueError"],
+               "custom_404": True,
+               "custom_500": True
            }
        })
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Rate Limiting and Throttling
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -794,19 +946,23 @@ Implement rate limiting for API protection:
 
 .. code-block:: python
 
+   from catzilla import Catzilla, Request, Response, JSONResponse, Path
    import time
    from collections import defaultdict
+   from typing import Dict, Tuple, Optional
+
+   app = Catzilla(production=False, show_banner=True, log_requests=True)
 
    class RateLimiter:
        def __init__(self):
-           self.requests = defaultdict(list)
+           self.requests: Dict[str, list] = defaultdict(list)
            self.limits = {
                "default": {"count": 100, "window": 3600},  # 100 requests per hour
                "premium": {"count": 1000, "window": 3600},  # 1000 requests per hour
                "admin": {"count": 10000, "window": 3600}    # 10000 requests per hour
            }
 
-       def is_allowed(self, identifier: str, tier: str = "default") -> tuple[bool, dict]:
+       def is_allowed(self, identifier: str, tier: str = "default") -> Tuple[bool, dict]:
            """Check if request is allowed"""
            now = time.time()
            limit_config = self.limits.get(tier, self.limits["default"])
@@ -826,64 +982,107 @@ Implement rate limiting for API protection:
 
            return allowed, {
                "limit": limit_config["count"],
-               "remaining": max(0, limit_config["count"] - current_count - (1 if allowed else 0)),
+               "remaining": limit_config["count"] - current_count - (1 if allowed else 0),
                "reset_time": window_start + limit_config["window"],
-               "window_seconds": limit_config["window"]
+               "window": limit_config["window"]
            }
 
    rate_limiter = RateLimiter()
 
    def rate_limit_middleware(tier: str = "default"):
        """Rate limiting middleware factory"""
-       def middleware(request: Request, call_next):
+       def middleware_func(request: Request) -> Optional[Response]:
            # Identify client (could use IP, user ID, API key, etc.)
-           client_id = request.client.host
+           client_id = request.headers.get("X-Forwarded-For", "127.0.0.1")
            api_key = request.headers.get("X-API-Key")
 
-           if api_key:
-               client_id = f"api_key:{api_key}"
+           # Determine tier based on API key
+           if api_key == "premium-key":
+               tier = "premium"
+           elif api_key == "admin-key":
+               tier = "admin"
+           else:
+               tier = "default"
 
            # Check rate limit
            allowed, limit_info = rate_limiter.is_allowed(client_id, tier)
 
            if not allowed:
                return JSONResponse({
-                   "error": {
-                       "code": ErrorCode.RATE_LIMITED.value,
-                       "message": "Rate limit exceeded",
-                       "details": limit_info
-                   }
+                   "error": "Rate limit exceeded",
+                   "limit": limit_info["limit"],
+                   "window": limit_info["window"],
+                   "retry_after": int(limit_info["reset_time"] - time.time())
                }, status_code=429, headers={
                    "X-RateLimit-Limit": str(limit_info["limit"]),
-                   "X-RateLimit-Remaining": str(limit_info["remaining"]),
+                   "X-RateLimit-Remaining": "0",
                    "X-RateLimit-Reset": str(int(limit_info["reset_time"])),
-                   "Retry-After": str(limit_info["window_seconds"])
+                   "Retry-After": str(int(limit_info["reset_time"] - time.time()))
                })
 
-           # Add rate limit headers to response
-           response = call_next(request)
-           response.headers.update({
-               "X-RateLimit-Limit": str(limit_info["limit"]),
-               "X-RateLimit-Remaining": str(limit_info["remaining"]),
-               "X-RateLimit-Reset": str(int(limit_info["reset_time"]))
-           })
+           # Add rate limit info to request context
+           if not hasattr(request, 'context'):
+               request.context = {}
+           request.context['rate_limit'] = limit_info
 
-           return response
+           return None  # Continue to next middleware/handler
 
-       return middleware
+       return middleware_func
 
    # Apply rate limiting to different endpoint groups
-   @app.get("/api/public/data")
-   @app.middleware([rate_limit_middleware("default")])
-   def public_data_endpoint(request: Request):
+   @app.get("/api/public/data", middleware=[rate_limit_middleware("default")])
+   def public_data_endpoint(request: Request) -> Response:
        """Public endpoint with default rate limiting"""
-       return JSONResponse({"data": "public information"})
+       rate_limit = getattr(request, 'context', {}).get('rate_limit', {})
+       response = JSONResponse({"data": "public information"})
 
-   @app.get("/api/premium/analytics")
-   @app.middleware([rate_limit_middleware("premium")])
-   def premium_analytics_endpoint(request: Request):
+       # Add rate limit headers to response
+       if rate_limit:
+           response.headers.update({
+               "X-RateLimit-Limit": str(rate_limit["limit"]),
+               "X-RateLimit-Remaining": str(rate_limit["remaining"]),
+               "X-RateLimit-Reset": str(int(rate_limit["reset_time"]))
+           })
+
+       return response
+
+   @app.get("/api/premium/analytics", middleware=[rate_limit_middleware("premium")])
+   def premium_analytics_endpoint(request: Request) -> Response:
        """Premium endpoint with higher rate limits"""
-       return JSONResponse({"analytics": "premium data"})
+       rate_limit = getattr(request, 'context', {}).get('rate_limit', {})
+       response = JSONResponse({"analytics": "premium data"})
+
+       if rate_limit:
+           response.headers.update({
+               "X-RateLimit-Limit": str(rate_limit["limit"]),
+               "X-RateLimit-Remaining": str(rate_limit["remaining"]),
+               "X-RateLimit-Reset": str(int(rate_limit["reset_time"]))
+           })
+
+       return response
+
+   @app.get("/api/rate-limit-status")
+   def rate_limit_status(request: Request) -> Response:
+       """Get current rate limit status"""
+       client_id = request.headers.get("X-Forwarded-For", "127.0.0.1")
+
+       status = {}
+       for tier_name, tier_config in rate_limiter.limits.items():
+           allowed, limit_info = rate_limiter.is_allowed(client_id, tier_name)
+           status[tier_name] = {
+               "allowed": allowed,
+               "limit": limit_info["limit"],
+               "remaining": limit_info["remaining"],
+               "reset_time": limit_info["reset_time"]
+           }
+
+       return JSONResponse({
+           "client_id": client_id,
+           "rate_limits": status
+       })
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
 
 Performance Monitoring
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -892,72 +1091,94 @@ Monitor API performance and health:
 
 .. code-block:: python
 
+   from catzilla import Catzilla, Request, Response, JSONResponse
+   import time
    import psutil
    from collections import deque
+   from dataclasses import dataclass
+   from typing import Dict, Any
+
+   app = Catzilla(production=False, show_banner=True, log_requests=True)
+
+   @dataclass
+   class PerformanceMetrics:
+       request_count: int = 0
+       error_count: int = 0
+       total_response_time: float = 0.0
+       start_time: float = None
+
+       def __post_init__(self):
+           if self.start_time is None:
+               self.start_time = time.time()
 
    class PerformanceMonitor:
        def __init__(self, max_samples: int = 1000):
            self.request_times = deque(maxlen=max_samples)
-           self.error_count = 0
-           self.total_requests = 0
-           self.start_time = time.time()
+           self.metrics = PerformanceMetrics()
 
        def record_request(self, duration: float, status_code: int):
            """Record request metrics"""
            self.request_times.append(duration)
-           self.total_requests += 1
+           self.metrics.request_count += 1
+           self.metrics.total_response_time += duration
 
            if status_code >= 400:
-               self.error_count += 1
+               self.metrics.error_count += 1
 
-       def get_metrics(self) -> dict:
+       def get_metrics(self) -> Dict[str, Any]:
            """Get current performance metrics"""
            if not self.request_times:
-               return {"error": "No requests recorded"}
+               return {"message": "No requests recorded yet"}
 
            avg_response_time = sum(self.request_times) / len(self.request_times)
-           uptime = time.time() - self.start_time
+           uptime = time.time() - self.metrics.start_time
 
            # System metrics
-           cpu_percent = psutil.cpu_percent()
-           memory = psutil.virtual_memory()
+           try:
+               cpu_percent = psutil.cpu_percent(interval=None)
+               memory = psutil.virtual_memory()
+           except:
+               cpu_percent = 0.0
+               memory = None
 
            return {
                "performance": {
-                   "avg_response_time_ms": round(avg_response_time * 1000, 2),
-                   "min_response_time_ms": round(min(self.request_times) * 1000, 2),
-                   "max_response_time_ms": round(max(self.request_times) * 1000, 2),
-                   "total_requests": self.total_requests,
-                   "error_rate_percent": round((self.error_count / self.total_requests) * 100, 2),
-                   "requests_per_second": round(self.total_requests / uptime, 2)
+                   "avg_response_time_ms": round(avg_response_time * 1000, 3),
+                   "total_requests": self.metrics.request_count,
+                   "error_rate_percent": round((self.metrics.error_count / max(self.metrics.request_count, 1)) * 100, 2),
+                   "requests_per_second": round(self.metrics.request_count / max(uptime, 1), 2),
+                   "uptime_seconds": round(uptime, 2)
                },
                "system": {
                    "cpu_percent": cpu_percent,
-                   "memory_percent": memory.percent,
-                   "memory_available_gb": round(memory.available / (1024**3), 2),
-                   "uptime_seconds": round(uptime, 2)
+                   "memory_percent": memory.percent if memory else 0,
+                   "memory_available_mb": round(memory.available / 1024 / 1024, 2) if memory else 0
                }
            }
 
    performance_monitor = PerformanceMonitor()
 
-   @app.middleware()
-   def performance_monitoring_middleware(request: Request, call_next):
+   @app.middleware(priority=5, pre_route=True, name="performance_monitor")
+   def performance_monitoring_middleware(request: Request) -> None:
        """Performance monitoring middleware"""
-       start_time = time.time()
+       if not hasattr(request, 'context'):
+           request.context = {}
+       request.context['start_time'] = time.time()
+       return None
 
-       response = call_next(request)
-
-       duration = time.time() - start_time
-       performance_monitor.record_request(duration, response.status_code)
-
-       # Add performance headers
-       response.headers["X-Response-Time"] = f"{duration:.4f}"
-
-       return response
+   @app.middleware(priority=5, pre_route=False, post_route=True, name="performance_recorder")
+   def performance_recording_middleware(request: Request) -> None:
+       """Record performance metrics after request"""
+       start_time = getattr(request, 'context', {}).get('start_time')
+       if start_time:
+           duration = time.time() - start_time
+           # Simulate status code (in real implementation, get from response)
+           status_code = 200  # Default success
+           performance_monitor.record_request(duration, status_code)
+       return None
 
    @app.get("/api/health")
-   def health_check(request: Request):
+   def health_check(request: Request) -> Response:
        """Comprehensive health check endpoint"""
        metrics = performance_monitor.get_metrics()
 
@@ -967,26 +1188,50 @@ Monitor API performance and health:
 
        if "performance" in metrics:
            if metrics["performance"]["avg_response_time_ms"] > 1000:
+               issues.append("High response time")
                health_status = "degraded"
-               issues.append("High average response time")
 
            if metrics["performance"]["error_rate_percent"] > 5:
-               health_status = "unhealthy"
                issues.append("High error rate")
+               health_status = "degraded"
 
            if metrics["system"]["cpu_percent"] > 80:
-               health_status = "degraded"
                issues.append("High CPU usage")
+               health_status = "degraded"
 
            if metrics["system"]["memory_percent"] > 85:
-               health_status = "degraded"
                issues.append("High memory usage")
+               health_status = "degraded"
 
        return JSONResponse({
            "status": health_status,
-           "timestamp": datetime.utcnow().isoformat(),
+           "timestamp": time.time(),
            "issues": issues,
            "metrics": metrics
        })
 
-These real-world recipes provide production-ready patterns that you can adapt and extend for your specific use cases with Catzilla.
+   @app.get("/api/metrics")
+   def get_metrics(request: Request) -> Response:
+       """Get detailed performance metrics"""
+       return JSONResponse(performance_monitor.get_metrics())
+
+   @app.get("/api/slow-endpoint")
+   def slow_endpoint(request: Request) -> Response:
+       """Endpoint that simulates slow processing"""
+       time.sleep(0.5)  # Simulate slow operation
+       return JSONResponse({"message": "This endpoint is intentionally slow"})
+
+   @app.get("/api/error-endpoint")
+   def error_endpoint(request: Request) -> Response:
+       """Endpoint that returns an error for testing"""
+       return JSONResponse({"error": "This is a test error"}, status_code=500)
+
+   @app.get("/api/fast-endpoint")
+   def fast_endpoint(request: Request) -> Response:
+       """Fast endpoint for comparison"""
+       return JSONResponse({"message": "This endpoint is fast", "timestamp": time.time()})
+
+   if __name__ == "__main__":
+       app.listen(port=8000)
+
+These real-world recipes provide production-ready patterns that you can adapt and extend for your specific use cases with Catzilla. All examples use actual Catzilla APIs and demonstrate best practices for building high-performance web applications.
