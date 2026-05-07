@@ -439,6 +439,7 @@ def create_fastapi_tasks_server():
     # SYSTEM MONITORING ENDPOINTS
     # ==========================================
 
+    @app.get("/queue/stats")
     @app.get("/stats")
     async def get_system_stats():
         """Get system and task statistics"""

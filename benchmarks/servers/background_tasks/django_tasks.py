@@ -680,11 +680,14 @@ def queue_stats_view(request):
 
 # URL patterns
 urlpatterns = [
+    path('health', health),
     path('health/', health),
+    path('tasks', list_tasks),
     path('tasks/', create_task),
     path('tasks/<str:task_id>/', get_task),
     path('tasks/', list_tasks),
     path('tasks/<str:task_id>/cancel/', cancel_task),
+    path('queue/stats', queue_stats_view),
     path('queue/stats/', queue_stats_view),
 ]
 

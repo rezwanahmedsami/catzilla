@@ -387,6 +387,40 @@ def create_catzilla_background_server():
             "framework": "catzilla"
         })
 
+    @app.get("/tasks")
+    def list_tasks(request,
+                   status: Optional[str] = Query(None),
+                   limit: int = Query(50, ge=1, le=1000),
+                   offset: int = Query(0, ge=0)) -> Response:
+        """List tasks with optional status filtering"""
+        tasks = list(tasks_storage.values())
+
+        if status:
+            tasks = [task for task in tasks if task["status"] == status]
+
+        tasks.sort(key=lambda task: task["created_at"], reverse=True)
+        paginated_tasks = tasks[offset:offset + limit]
+
+        task_list = []
+        for task in paginated_tasks:
+            task_list.append({
+                "task_id": task["task_id"],
+                "task_type": task["task_type"],
+                "priority": task["priority"],
+                "status": task["status"],
+                "created_at": task["created_at"].isoformat(),
+                "started_at": task["started_at"].isoformat() if task["started_at"] else None,
+                "completed_at": task["completed_at"].isoformat() if task["completed_at"] else None
+            })
+
+        return JSONResponse({
+            "tasks": task_list,
+            "total": len(tasks),
+            "limit": limit,
+            "offset": offset,
+            "framework": "catzilla"
+        })
+
     @app.delete("/tasks/{task_id}")
     def cancel_task(request, task_id: str = PathParam(...)) -> Response:
         """Cancel a background task"""
@@ -492,6 +526,7 @@ def create_catzilla_background_server():
     # TASK QUEUE MANAGEMENT
     # ==========================================
 
+    @app.get("/queue/stats")
     @app.get("/tasks/queue/stats")
     def get_queue_stats(request) -> Response:
         """Get task queue statistics"""

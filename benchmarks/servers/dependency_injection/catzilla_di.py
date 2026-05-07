@@ -325,6 +325,7 @@ def health_check(request: Request) -> Response:
         "di_container": "active"
     })
 
+@app.get("/di/simple")
 @app.get("/di-simple")
 def di_simple_test(config: BenchmarkConfig = Depends("benchmark_config")) -> Response:
     """Simple DI test - singleton injection"""
@@ -339,6 +340,7 @@ def di_simple_test(config: BenchmarkConfig = Depends("benchmark_config")) -> Res
         "di_scope": "singleton"
     })
 
+@app.get("/di/request")
 @app.get("/di-request")
 async def di_request_test(
     session: BenchmarkSession = Depends("benchmark_session"),
@@ -358,6 +360,7 @@ async def di_request_test(
         "di_scope": "request"
     })
 
+@app.get("/di/transient")
 @app.get("/di-transient")
 async def di_transient_test(
     logger1: BenchmarkLogger = Depends("benchmark_logger"),
@@ -379,6 +382,7 @@ async def di_transient_test(
         "di_scope": "transient"
     })
 
+@app.get("/di/complex")
 @app.get("/di-complex")
 async def di_complex_test(
     user_repo: UserRepository = Depends("user_repository"),

@@ -96,23 +96,22 @@ BASIC_ENDPOINTS=(
 
 # Test endpoints for dependency injection benchmarks
 DI_ENDPOINTS=(
+    "/health:health_check"
     "/di/simple:simple_di"
-    "/di/transient:transient_di"
-    "/di/singleton:singleton_di"
     "/di/request:request_scoped_di"
+    "/di/transient:transient_di"
     "/di/complex:complex_di_chain"
 )
 
 # Test endpoints for SQLAlchemy DI benchmarks
 SQLALCHEMY_DI_ENDPOINTS=(
     "/health:health_check"
-    "/di/simple:simple_di"
-    "/di/transient:transient_di"
-    "/di/db/users:db_users_list"
-    "/di/db/user/1:db_user_detail"
-    "/di/db/posts:db_posts_list"
-    "/di/db/complex:complex_db_operations"
-    "/di/db/chain:complex_di_chain"
+    "/users:db_users_list"
+    "/users/1:db_user_detail"
+    "/posts:db_posts_list"
+    "/posts/by-user/1:db_posts_by_user"
+    "/analytics/transient-test:transient_analytics"
+    "/di-complex-chain:complex_di_chain"
 )
 
 # Test endpoints for middleware benchmarks
@@ -122,9 +121,6 @@ MIDDLEWARE_ENDPOINTS=(
     "/middleware-light:light_middleware"
     "/middleware-heavy:heavy_middleware"
     "/middleware-auth:auth_middleware"
-    "/middleware-cors:cors_middleware"
-    "/middleware-logging:logging_middleware"
-    "/middleware-compression:compression_middleware"
 )
 
 # Test endpoints for validation benchmarks
@@ -141,24 +137,14 @@ VALIDATION_ENDPOINTS=(
 # Test endpoints for file operations benchmarks
 FILE_OPERATIONS_ENDPOINTS=(
     "/health:health_check"
-    "/upload/small:small_file_upload"
-    "/upload/medium:medium_file_upload"
-    "/upload/large:large_file_upload"
-    "/download/text:text_file_download"
-    "/download/binary:binary_file_download"
-    "/static/image:static_image_serve"
-    "/stream/data:data_streaming"
+    "/files/list:file_listing"
 )
 
 # Test endpoints for background tasks benchmarks
 BACKGROUND_TASKS_ENDPOINTS=(
     "/health:health_check"
-    "/task/simple:simple_task"
-    "/task/email:email_task"
-    "/task/batch:batch_processing"
-    "/task/scheduled:scheduled_task"
-    "/task/queue:queue_processing"
-    "/task/parallel:parallel_tasks"
+    "/tasks:task_listing"
+    "/queue/stats:queue_stats"
 )
 
 # Test endpoints for real-world scenarios benchmarks
@@ -166,11 +152,8 @@ REAL_WORLD_ENDPOINTS=(
     "/health:health_check"
     "/api/products:product_search"
     "/api/products/1:product_detail"
-    "/api/orders:order_processing"
     "/api/blog/posts:blog_listing"
     "/api/blog/posts/1:blog_post_detail"
-    "/api/analytics/dashboard:analytics_dashboard"
-    "/api/analytics/track:analytics_tracking"
 )
 
 # Colors for output
@@ -369,6 +352,12 @@ EOF
         wrk -t1 -c10 -d"$WARMUP_TIME" "$url" >/dev/null 2>&1 || true
     fi
 
+    local preflight_status=$(curl -s -o /dev/null -w "%{http_code}" "$url")
+    if [[ ! "$preflight_status" =~ ^2[0-9][0-9]$ ]]; then
+        print_error "Skipping $framework - $endpoint_name: preflight returned HTTP $preflight_status"
+        return 1
+    fi
+
     # Main benchmark
     local result_file="$RESULTS_DIR/${framework}_${endpoint_name}.txt"
     local json_file="$RESULTS_DIR/${framework}_${endpoint_name}.json"
@@ -398,6 +387,12 @@ EOF
     fi
 
     if [ "$wrk_success" = true ]; then
+        local invalid_responses=$(grep "Non-2xx or 3xx responses:" "$result_file" | awk '{print $5}' | head -1)
+        if [ -n "$invalid_responses" ] && [ "$invalid_responses" != "0" ]; then
+            print_error "Benchmark produced $invalid_responses invalid responses for $framework - $endpoint_name"
+            return 1
+        fi
+
         print_success "Benchmark completed for $framework - $endpoint_name"
 
         # Extract key metrics and save as JSON
