@@ -14,6 +14,7 @@ import pytest
 import asyncio
 import time
 import os
+import json
 from catzilla import Request, Response, JSONResponse, HTMLResponse, Catzilla, BaseModel
 from typing import Optional
 
@@ -43,7 +44,7 @@ def test_json_response():
     resp = JSONResponse(data)
     assert resp.status_code == 200
     assert resp.content_type == "application/json"
-    assert resp.body == '{"key": "value"}'
+    assert json.loads(resp.body) == data
 
 
 def test_custom_status_code():

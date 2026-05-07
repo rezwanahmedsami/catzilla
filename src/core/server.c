@@ -66,6 +66,7 @@ static void send_response_with_connection(uv_stream_t* client, int status_code, 
 static void request_capsule_destructor(PyObject* capsule);
 int parse_query_params(catzilla_request_t* request, const char* query_string);
 void url_decode(const char* src, char* dst);
+static void url_decode_segment(const char* src, size_t length, char* dst);
 
 // Add a new function to get client context from client handle
 static client_context_t* get_client_context(uv_stream_t* client) {
@@ -998,6 +999,44 @@ void url_decode(const char* src, char* dst) {
     *dst = '\0';
 }
 
+static void url_decode_segment(const char* src, size_t length, char* dst) {
+    const char* end = src + length;
+
+    while (src < end) {
+        char a, b;
+
+        if (
+            *src == '%' && (src + 2) < end &&
+            isxdigit((unsigned char)src[1]) &&
+            isxdigit((unsigned char)src[2])
+        ) {
+            a = src[1];
+            b = src[2];
+
+            if (a >= 'a') a -= 'a' - 'A';
+            if (a >= 'A') a -= ('A' - 10);
+            else a -= '0';
+            if (b >= 'a') b -= 'a' - 'A';
+            if (b >= 'A') b -= ('A' - 10);
+            else b -= '0';
+
+            *dst++ = (char)(16 * a + b);
+            src += 3;
+            continue;
+        }
+
+        if (*src == '+') {
+            *dst++ = ' ';
+        } else {
+            *dst++ = *src;
+        }
+
+        src++;
+    }
+
+    *dst = '\0';
+}
+
 int catzilla_server_init(catzilla_server_t* server) {
     memset(server, 0, sizeof(*server));
     server->loop = uv_default_loop();
@@ -1704,70 +1743,56 @@ int parse_query_params(catzilla_request_t* request, const char* query_string) {
 
     LOG_HTTP_DEBUG("Parsing query string: %s", query_string);
 
-    // Create a copy we can modify using Catzilla memory allocator
-    size_t query_len = strlen(query_string) + 1;
-    char* query = catzilla_request_alloc(query_len);
-    if (!query) return -1;
-    memcpy(query, query_string, query_len);
+    const char* cursor = query_string;
 
-    char* token;
-    char* rest = query;
-    char* saveptr;
+    while (*cursor && request->query_param_count < CATZILLA_MAX_QUERY_PARAMS) {
+        const char* key_start = cursor;
+        const char* key_end = cursor;
+        const char* value_start = NULL;
+        const char* value_end = NULL;
 
-    token = strtok_r(rest, "&", &saveptr);
-    while (token) {
-        char* key = token;
-        char* value = strchr(token, '=');
+        while (*cursor && *cursor != '&' && *cursor != '=') {
+            cursor++;
+        }
+        key_end = cursor;
 
-        if (value) {
-            *value = '\0';  // Split key=value
-            value++;
+        if (*cursor == '=') {
+            cursor++;
+            value_start = cursor;
+            while (*cursor && *cursor != '&') {
+                cursor++;
+            }
+            value_end = cursor;
+        }
 
-            // URL decode key and value
-            char* decoded_key = catzilla_request_alloc(strlen(key) + 1);
-            char* decoded_value = catzilla_request_alloc(strlen(value) + 1);
+        if (value_start) {
+            size_t key_length = (size_t)(key_end - key_start);
+            size_t value_length = (size_t)(value_end - value_start);
+
+            char* decoded_key = catzilla_request_alloc(key_length + 1);
+            char* decoded_value = catzilla_request_alloc(value_length + 1);
 
             if (!decoded_key || !decoded_value) {
                 catzilla_request_free(decoded_key);
                 catzilla_request_free(decoded_value);
-                catzilla_request_free(query);
                 return -1;
             }
 
-            url_decode(key, decoded_key);
-            url_decode(value, decoded_value);
+            url_decode_segment(key_start, key_length, decoded_key);
+            url_decode_segment(value_start, value_length, decoded_value);
 
-            LOG_HTTP_DEBUG("Query param: %s = %s", decoded_key, decoded_value);
-            LOG_HTTP_DEBUG("Memory allocated - key at %p, value at %p", decoded_key, decoded_value);
-
-            if (request->query_param_count < CATZILLA_MAX_QUERY_PARAMS) {
-                request->query_params[request->query_param_count] = decoded_key;
-                request->query_values[request->query_param_count] = decoded_value;
-                request->query_param_count++;
-                request->has_query_params = true;
-                LOG_HTTP_DEBUG("Stored query param %d: %s=%s at %p/%p",
-                    request->query_param_count - 1, decoded_key, decoded_value, decoded_key, decoded_value);
-            } else {
-                catzilla_request_free(decoded_key);
-                catzilla_request_free(decoded_value);
-                LOG_HTTP_DEBUG("Max query params reached, freed extra params");
-                break;
-            }
-        } else {
-            LOG_HTTP_DEBUG("Query param without value: %s", key);
+            request->query_params[request->query_param_count] = decoded_key;
+            request->query_values[request->query_param_count] = decoded_value;
+            request->query_param_count++;
+            request->has_query_params = true;
         }
-        LOG_HTTP_DEBUG("End of loop iteration, continuing...");
-        LOG_HTTP_DEBUG("About to call strtok_r(NULL, \"&\", &saveptr), saveptr=%p", saveptr);
 
-        // Get next token
-        token = strtok_r(NULL, "&", &saveptr);
-        LOG_HTTP_DEBUG("strtok_r returned token=%p", token);
+        if (*cursor == '&') {
+            cursor++;
+        }
     }
 
     LOG_HTTP_DEBUG("Exited while loop successfully");
-
-    catzilla_request_free(query);
-    LOG_HTTP_DEBUG("Freed query string copy");
     LOG_HTTP_DEBUG("Query parsing complete with %d parameters", request->query_param_count);
     LOG_HTTP_DEBUG("parse_query_params function returning 0 (success)");
     return 0;

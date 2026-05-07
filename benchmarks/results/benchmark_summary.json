@@ -1,14 +1,14 @@
 {
   "metadata": {
     "created": "2025-08-21T05:36:57+00:00",
-    "last_updated": "2026-05-08T01:38:07+06:00",
+    "last_updated": "2026-05-08T02:05:14+06:00",
     "version": "3.0",
     "description": "Catzilla Framework Transparent Benchmarking System - Framework Keyed"
   },
   "system_info": {},
   "categories": {
     "basic": {
-      "last_run": "2026-05-08T01:36:19+06:00",
+      "last_run": "2026-05-08T02:05:14+06:00",
       "test_params": {
         "duration": "2s",
         "connections": 20,
@@ -26,11 +26,11 @@
             "duration": "2s",
             "connections": 20,
             "threads": 2,
-            "requests_per_sec": "37409.31",
-            "avg_latency": "554.50us",
-            "p99_latency": "1.56ms",
-            "transfer_per_sec": "16.85MB",
-            "timestamp": "2026-05-08T01:36:09+06:00"
+            "requests_per_sec": "41053.41",
+            "avg_latency": "488.35us",
+            "p99_latency": "0.96ms",
+            "transfer_per_sec": "17.35MB",
+            "timestamp": "2026-05-08T02:05:03+06:00"
           },
           {
             "framework": "catzilla",
@@ -41,11 +41,11 @@
             "duration": "2s",
             "connections": 20,
             "threads": 2,
-            "requests_per_sec": "60315.06",
-            "avg_latency": "332.65us",
-            "p99_latency": "681.00us",
-            "transfer_per_sec": "5.81MB",
-            "timestamp": "2026-05-08T01:35:40+06:00"
+            "requests_per_sec": "70585.14",
+            "avg_latency": "283.91us",
+            "p99_latency": "583.00us",
+            "transfer_per_sec": "6.80MB",
+            "timestamp": "2026-05-08T02:04:34+06:00"
           },
           {
             "framework": "catzilla",
@@ -56,11 +56,11 @@
             "duration": "2s",
             "connections": 20,
             "threads": 2,
-            "requests_per_sec": "49608.23",
-            "avg_latency": "427.45us",
-            "p99_latency": "1.43ms",
-            "transfer_per_sec": "7.33MB",
-            "timestamp": "2026-05-08T01:35:47+06:00"
+            "requests_per_sec": "55081.50",
+            "avg_latency": "377.69us",
+            "p99_latency": "1.01ms",
+            "transfer_per_sec": "7.93MB",
+            "timestamp": "2026-05-08T02:04:41+06:00"
           },
           {
             "framework": "catzilla",
@@ -71,11 +71,11 @@
             "duration": "2s",
             "connections": 20,
             "threads": 2,
-            "requests_per_sec": "44213.38",
-            "avg_latency": "453.50us",
-            "p99_latency": "0.89ms",
-            "transfer_per_sec": "8.26MB",
-            "timestamp": "2026-05-08T01:35:54+06:00"
+            "requests_per_sec": "48190.11",
+            "avg_latency": "415.86us",
+            "p99_latency": "813.00us",
+            "transfer_per_sec": "8.64MB",
+            "timestamp": "2026-05-08T02:04:49+06:00"
           },
           {
             "framework": "catzilla",
@@ -86,11 +86,11 @@
             "duration": "2s",
             "connections": 20,
             "threads": 2,
-            "requests_per_sec": "26527.10",
-            "avg_latency": "781.19us",
-            "p99_latency": "2.12ms",
-            "transfer_per_sec": "35.14MB",
-            "timestamp": "2026-05-08T01:36:02+06:00"
+            "requests_per_sec": "29814.74",
+            "avg_latency": "672.86us",
+            "p99_latency": "1.43ms",
+            "transfer_per_sec": "35.91MB",
+            "timestamp": "2026-05-08T02:04:56+06:00"
           }
         ],
         "fastapi": [
