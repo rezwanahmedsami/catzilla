@@ -1,14 +1,87 @@
 {
   "metadata": {
     "created": "2025-08-21T05:36:57+00:00",
-    "last_updated": "2025-08-21T07:12:23+00:00",
+    "last_updated": "2026-05-08T00:43:52+06:00",
     "version": "3.0",
     "description": "Catzilla Framework Transparent Benchmarking System - Framework Keyed"
   },
-  "system_info": {},
+  "system_info": {
+    "collection_timestamp": "2026-05-08T00:43:51.924887",
+    "os": {
+      "system": "Darwin",
+      "machine": "arm64",
+      "architecture": "64bit",
+      "macos_details": {
+        "ProductName": "macOS",
+        "ProductVersion": "26.4.1"
+      }
+    },
+    "cpu": {
+      "processor": "arm",
+      "machine": "arm64",
+      "architecture": "64bit",
+      "cpu_count_logical": 10,
+      "cpu_count_physical": 10,
+      "cpu_freq": {
+        "current": 4,
+        "min": null,
+        "max": 4
+      },
+      "total_cores": "10 (4 Performance and 6 Efficiency)"
+    },
+    "memory": {
+      "total": 17179869184,
+      "available": 5864603648,
+      "used": 7968849920,
+      "free": 78774272,
+      "percent_used": 65.9,
+      "total_gb": 16.0,
+      "available_gb": 5.46,
+      "used_gb": 7.42,
+      "swap": {
+        "total": 2147483648,
+        "used": 481230848,
+        "free": 1666252800,
+        "percent": 22.4,
+        "total_gb": 2.0
+      }
+    },
+    "disk": {
+      "total_gb": 460.43,
+      "free_gb": 231.42,
+      "percent_used": 44.64
+    },
+    "network": {
+      "interface_count": 21,
+      "has_ipv4": true,
+      "has_ipv6": true
+    },
+    "python": {
+      "version_info": {
+        "major": 3,
+        "minor": 9,
+        "micro": 6,
+        "releaselevel": "final"
+      },
+      "platform": "darwin",
+      "implementation": {
+        "name": "cpython",
+        "version": "3.9.6"
+      }
+    },
+    "process": {
+      "name": "Python",
+      "memory_usage_mb": 14.81
+    },
+    "load_average": {
+      "1min": 2.08,
+      "5min": 2.06,
+      "15min": 2.08
+    }
+  },
   "categories": {
     "basic": {
-      "last_run": "2025-08-21T05:41:15+00:00",
+      "last_run": "2026-05-08T00:43:52+06:00",
       "test_params": {
         "duration": "10s",
         "connections": 100,
@@ -26,11 +99,11 @@
             "duration": "10s",
             "connections": 100,
             "threads": 4,
-            "requests_per_sec": "17360.10",
-            "avg_latency": "5.92ms",
-            "p99_latency": "17.95ms",
-            "transfer_per_sec": "7.83MB",
-            "timestamp": "2025-08-21T05:36:50+00:00"
+            "requests_per_sec": "40987.19",
+            "avg_latency": "2.54ms",
+            "p99_latency": "2.54ms",
+            "transfer_per_sec": "18.46MB",
+            "timestamp": "2026-05-08T00:41:06+06:00"
           },
           {
             "framework": "catzilla",
@@ -41,11 +114,11 @@
             "duration": "10s",
             "connections": 100,
             "threads": 4,
-            "requests_per_sec": "26431.91",
-            "avg_latency": "4.05ms",
-            "p99_latency": "16.99ms",
-            "transfer_per_sec": "2.55MB",
-            "timestamp": "2025-08-21T05:35:50+00:00"
+            "requests_per_sec": "63576.01",
+            "avg_latency": "1.62ms",
+            "p99_latency": "3.34ms",
+            "transfer_per_sec": "6.12MB",
+            "timestamp": "2026-05-08T00:40:05+06:00"
           },
           {
             "framework": "catzilla",
@@ -56,11 +129,11 @@
             "duration": "10s",
             "connections": 100,
             "threads": 4,
-            "requests_per_sec": "20868.37",
-            "avg_latency": "5.10ms",
-            "p99_latency": "21.86ms",
-            "transfer_per_sec": "3.10MB",
-            "timestamp": "2025-08-21T05:36:05+00:00"
+            "requests_per_sec": "55365.83",
+            "avg_latency": "1.86ms",
+            "p99_latency": "1.92ms",
+            "transfer_per_sec": "8.18MB",
+            "timestamp": "2026-05-08T00:40:20+06:00"
           },
           {
             "framework": "catzilla",
@@ -71,11 +144,11 @@
             "duration": "10s",
             "connections": 100,
             "threads": 4,
-            "requests_per_sec": "18689.69",
-            "avg_latency": "5.59ms",
-            "p99_latency": "21.77ms",
-            "transfer_per_sec": "3.49MB",
-            "timestamp": "2025-08-21T05:36:20+00:00"
+            "requests_per_sec": "47918.38",
+            "avg_latency": "2.16ms",
+            "p99_latency": "2.20ms",
+            "transfer_per_sec": "8.96MB",
+            "timestamp": "2026-05-08T00:40:35+06:00"
           },
           {
             "framework": "catzilla",
@@ -86,11 +159,11 @@
             "duration": "10s",
             "connections": 100,
             "threads": 4,
-            "requests_per_sec": "13095.84",
-            "avg_latency": "7.97ms",
-            "p99_latency": "25.87ms",
-            "transfer_per_sec": "17.35MB",
-            "timestamp": "2025-08-21T05:36:35+00:00"
+            "requests_per_sec": "29070.69",
+            "avg_latency": "3.67ms",
+            "p99_latency": "3.63ms",
+            "transfer_per_sec": "38.51MB",
+            "timestamp": "2026-05-08T00:40:50+06:00"
           }
         ],
         "fastapi": [
@@ -103,11 +176,11 @@
             "duration": "10s",
             "connections": 100,
             "threads": 4,
-            "requests_per_sec": "4389.42",
-            "avg_latency": "22.73ms",
-            "p99_latency": "40.02ms",
-            "transfer_per_sec": "1.98MB",
-            "timestamp": "2025-08-21T05:38:15+00:00"
+            "requests_per_sec": "6424.14",
+            "avg_latency": "15.47ms",
+            "p99_latency": "16.67ms",
+            "transfer_per_sec": "2.90MB",
+            "timestamp": "2026-05-08T00:42:39+06:00"
           },
           {
             "framework": "fastapi",
@@ -118,11 +191,11 @@
             "duration": "10s",
             "connections": 100,
             "threads": 4,
-            "requests_per_sec": "6309.05",
-            "avg_latency": "15.88ms",
-            "p99_latency": "33.40ms",
-            "transfer_per_sec": "0.88MB",
-            "timestamp": "2025-08-21T05:37:14+00:00"
+            "requests_per_sec": "8754.32",
+            "avg_latency": "11.46ms",
+            "p99_latency": "16.75ms",
+            "transfer_per_sec": "1.23MB",
+            "timestamp": "2026-05-08T00:41:38+06:00"
           },
           {
             "framework": "fastapi",
@@ -133,11 +206,11 @@
             "duration": "10s",
             "connections": 100,
             "threads": 4,
-            "requests_per_sec": "5656.60",
-            "avg_latency": "17.66ms",
-            "p99_latency": "34.25ms",
-            "transfer_per_sec": "0.99MB",
-            "timestamp": "2025-08-21T05:37:29+00:00"
+            "requests_per_sec": "8037.99",
+            "avg_latency": "12.43ms",
+            "p99_latency": "13.23ms",
+            "transfer_per_sec": "1.40MB",
+            "timestamp": "2026-05-08T00:41:54+06:00"
           },
           {
             "framework": "fastapi",
@@ -148,11 +221,11 @@
             "duration": "10s",
             "connections": 100,
             "threads": 4,
-            "requests_per_sec": "5186.92",
-            "avg_latency": "19.27ms",
-            "p99_latency": "35.95ms",
-            "transfer_per_sec": "1.08MB",
-            "timestamp": "2025-08-21T05:37:44+00:00"
+            "requests_per_sec": "7613.69",
+            "avg_latency": "13.12ms",
+            "p99_latency": "13.56ms",
+            "transfer_per_sec": "1.58MB",
+            "timestamp": "2026-05-08T00:42:09+06:00"
           },
           {
             "framework": "fastapi",
@@ -163,31 +236,16 @@
             "duration": "10s",
             "connections": 100,
             "threads": 4,
-            "requests_per_sec": "2767.89",
-            "avg_latency": "35.99ms",
-            "p99_latency": "53.62ms",
-            "transfer_per_sec": "3.41MB",
-            "timestamp": "2025-08-21T05:38:00+00:00"
+            "requests_per_sec": "4043.03",
+            "avg_latency": "24.61ms",
+            "p99_latency": "31.46ms",
+            "transfer_per_sec": "4.99MB",
+            "timestamp": "2026-05-08T00:42:24+06:00"
           }
         ],
         "flask": [
           {
             "framework": "flask",
-            "endpoint": "/user/123/profile",
-            "endpoint_name": "basic_complex_json",
-            "benchmark_type": "basic",
-            "method": "GET",
-            "duration": "10s",
-            "connections": 100,
-            "threads": 4,
-            "requests_per_sec": "16427.06",
-            "avg_latency": "5.89ms",
-            "p99_latency": "20.23ms",
-            "transfer_per_sec": "7.75MB",
-            "timestamp": "2025-08-21T05:39:40+00:00"
-          },
-          {
-            "framework": "flask",
             "endpoint": "/",
             "endpoint_name": "basic_hello_world",
             "benchmark_type": "basic",
@@ -195,135 +253,14 @@
             "duration": "10s",
             "connections": 100,
             "threads": 4,
-            "requests_per_sec": "17435.09",
-            "avg_latency": "5.32ms",
-            "p99_latency": "17.91ms",
-            "transfer_per_sec": "2.76MB",
-            "timestamp": "2025-08-21T05:38:39+00:00"
-          },
-          {
-            "framework": "flask",
-            "endpoint": "/json",
-            "endpoint_name": "basic_json_response",
-            "benchmark_type": "basic",
-            "method": "GET",
-            "duration": "10s",
-            "connections": 100,
-            "threads": 4,
-            "requests_per_sec": "17193.68",
-            "avg_latency": "5.51ms",
-            "p99_latency": "17.85ms",
-            "transfer_per_sec": "3.34MB",
-            "timestamp": "2025-08-21T05:38:54+00:00"
-          },
-          {
-            "framework": "flask",
-            "endpoint": "/user/42",
-            "endpoint_name": "basic_path_params",
-            "benchmark_type": "basic",
-            "method": "GET",
-            "duration": "10s",
-            "connections": 100,
-            "threads": 4,
-            "requests_per_sec": "16823.57",
-            "avg_latency": "5.64ms",
-            "p99_latency": "18.48ms",
-            "transfer_per_sec": "3.83MB",
-            "timestamp": "2025-08-21T05:39:09+00:00"
-          },
-          {
-            "framework": "flask",
-            "endpoint": "/users?limit=20&offset=10",
-            "endpoint_name": "basic_query_params",
-            "benchmark_type": "basic",
-            "method": "GET",
-            "duration": "10s",
-            "connections": 100,
-            "threads": 4,
-            "requests_per_sec": "16176.58",
-            "avg_latency": "6.10ms",
-            "p99_latency": "22.24ms",
-            "transfer_per_sec": "20.27MB",
-            "timestamp": "2025-08-21T05:39:24+00:00"
+            "requests_per_sec": "0.00",
+            "avg_latency": "0.00us",
+            "p99_latency": "0.00us",
+            "transfer_per_sec": "0.00B",
+            "timestamp": "2026-05-08T00:43:04+06:00"
           }
         ],
-        "django": [
-          {
-            "framework": "django",
-            "endpoint": "/user/123/profile",
-            "endpoint_name": "basic_complex_json",
-            "benchmark_type": "basic",
-            "method": "GET",
-            "duration": "10s",
-            "connections": 100,
-            "threads": 4,
-            "requests_per_sec": "14714.80",
-            "avg_latency": "6.71ms",
-            "p99_latency": "19.77ms",
-            "transfer_per_sec": "7.34MB",
-            "timestamp": "2025-08-21T05:41:05+00:00"
-          },
-          {
-            "framework": "django",
-            "endpoint": "/",
-            "endpoint_name": "basic_hello_world",
-            "benchmark_type": "basic",
-            "method": "GET",
-            "duration": "10s",
-            "connections": 100,
-            "threads": 4,
-            "requests_per_sec": "15626.47",
-            "avg_latency": "6.14ms",
-            "p99_latency": "20.52ms",
-            "transfer_per_sec": "2.27MB",
-            "timestamp": "2025-08-21T05:40:04+00:00"
-          },
-          {
-            "framework": "django",
-            "endpoint": "/json",
-            "endpoint_name": "basic_json_response",
-            "benchmark_type": "basic",
-            "method": "GET",
-            "duration": "10s",
-            "connections": 100,
-            "threads": 4,
-            "requests_per_sec": "15282.53",
-            "avg_latency": "6.31ms",
-            "p99_latency": "18.82ms",
-            "transfer_per_sec": "3.00MB",
-            "timestamp": "2025-08-21T05:40:19+00:00"
-          },
-          {
-            "framework": "django",
-            "endpoint": "/user/42",
-            "endpoint_name": "basic_path_params",
-            "benchmark_type": "basic",
-            "method": "GET",
-            "duration": "10s",
-            "connections": 100,
-            "threads": 4,
-            "requests_per_sec": "14921.24",
-            "avg_latency": "6.51ms",
-            "p99_latency": "18.01ms",
-            "transfer_per_sec": "3.50MB",
-            "timestamp": "2025-08-21T05:40:34+00:00"
-          },
-          {
-            "framework": "django",
-            "endpoint": "/users?limit=20&offset=10",
-            "endpoint_name": "basic_query_params",
-            "benchmark_type": "basic",
-            "method": "GET",
-            "duration": "10s",
-            "connections": 100,
-            "threads": 4,
-            "requests_per_sec": "13926.44",
-            "avg_latency": "7.18ms",
-            "p99_latency": "19.08ms",
-            "transfer_per_sec": "19.11MB",
-            "timestamp": "2025-08-21T05:40:49+00:00"
-          }
-        ]
+        "django": []
       }
     },
     "di": {

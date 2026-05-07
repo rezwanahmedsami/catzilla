@@ -1088,8 +1088,25 @@ if(NOT WHEEL_BUILD_MODE)
         endif()
 
         # Link Python libraries for tests (needed for symbols in catzilla_core)
-        if(Python3_LIBRARIES)
+        if(TARGET Python3::Python)
+            target_link_libraries(${target_name} PRIVATE Python3::Python)
+        elseif(Python3_LIBRARIES)
             target_link_libraries(${target_name} PRIVATE ${Python3_LIBRARIES})
+        endif()
+
+        if(APPLE)
+            if(Python3_LIBRARY_DIRS)
+                set(_catzilla_test_python_rpath "${Python3_LIBRARY_DIRS}")
+            elseif(Python3_LIBRARIES)
+                get_filename_component(_catzilla_test_python_rpath "${Python3_LIBRARIES}" DIRECTORY)
+            endif()
+
+            if(_catzilla_test_python_rpath)
+                set_target_properties(${target_name} PROPERTIES
+                    BUILD_RPATH "${_catzilla_test_python_rpath}"
+                    INSTALL_RPATH "${_catzilla_test_python_rpath}"
+                )
+            endif()
         endif()
 
         # Windows-specific linking
