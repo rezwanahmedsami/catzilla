@@ -73,6 +73,40 @@ static client_context_t* get_client_context(uv_stream_t* client) {
     return (client_context_t*)client->data;
 }
 
+static void reset_client_request_state(client_context_t* context) {
+    if (!context) {
+        return;
+    }
+
+    if (context->current_header_name) {
+        catzilla_cache_free(context->current_header_name);
+        context->current_header_name = NULL;
+    }
+    context->current_header_name_len = 0;
+
+    if (context->content_type_header) {
+        catzilla_cache_free(context->content_type_header);
+        context->content_type_header = NULL;
+    }
+
+    for (int i = 0; i < context->header_count; i++) {
+        if (context->headers[i].name) {
+            catzilla_cache_free(context->headers[i].name);
+            context->headers[i].name = NULL;
+        }
+        if (context->headers[i].value) {
+            catzilla_cache_free(context->headers[i].value);
+            context->headers[i].value = NULL;
+        }
+    }
+
+    context->header_count = 0;
+    context->parsing_content_type = false;
+    context->parsing_connection = false;
+    context->has_connection_header = false;
+    context->content_type = CONTENT_TYPE_NONE;
+}
+
 // Global reference to the active server for signal handling
 static catzilla_server_t* active_server = NULL;
 
@@ -331,6 +365,28 @@ static void request_capsule_destructor(PyObject* capsule) {
     if (request) {
         if (request->json_doc) yyjson_doc_free(request->json_doc);
 
+        for (int i = 0; i < request->query_param_count; i++) {
+            if (request->query_params[i]) {
+                catzilla_request_free(request->query_params[i]);
+                request->query_params[i] = NULL;
+            }
+            if (request->query_values[i]) {
+                catzilla_request_free(request->query_values[i]);
+                request->query_values[i] = NULL;
+            }
+        }
+
+        for (int i = 0; i < request->form_field_count; i++) {
+            if (request->form_fields[i]) {
+                catzilla_request_free(request->form_fields[i]);
+                request->form_fields[i] = NULL;
+            }
+            if (request->form_values[i]) {
+                catzilla_request_free(request->form_values[i]);
+                request->form_values[i] = NULL;
+            }
+        }
+
         // Clean up copied headers
         for (int i = 0; i < request->header_count; i++) {
             if (request->headers[i].name) {
@@ -521,9 +577,7 @@ PyObject* handle_request_in_server(PyObject* callback,
     // Call the Python function
     PyObject* result = PyObject_CallObject(callback, args);
     Py_DECREF(args);
-    // DO NOT DECREF request_capsule here - let Python manage the capsule lifecycle
-    // The Request object will hold a reference to the capsule and the destructor
-    // will be called when the Request object is garbage collected
+    Py_DECREF(request_capsule);
 
     if (!result) {
         PyErr_Print();
@@ -1404,6 +1458,7 @@ static int on_message_complete(llhttp_t* parser) {
         const char* body = "415 Unsupported Media Type\r\nThe server cannot process the request because the content type is not supported.\r\n";
         const char* headers = "Content-Type: text/plain\r\n";
         send_response_with_connection((uv_stream_t*)&context->client, 415, headers, body, strlen(body), context->keep_alive);
+        reset_client_request_state(context);
         return 0;
     }
 
@@ -1434,6 +1489,7 @@ static int on_message_complete(llhttp_t* parser) {
                                                                (uv_stream_t*)&context->client);
             if (result == 0) {
                 LOG_STATIC_INFO("Static file served successfully");
+                reset_client_request_state(context);
                 return 0;  // Static file handled successfully
             } else {
                 LOG_STATIC_WARN("Static file serving failed with code: %d", result);
@@ -1463,6 +1519,7 @@ static int on_message_complete(llhttp_t* parser) {
             Py_DECREF(client_capsule);
         }
         PyGILState_Release(gstate);
+        reset_client_request_state(context);
         return 0;
     }
 
@@ -1629,25 +1686,7 @@ static int on_message_complete(llhttp_t* parser) {
         }
     }
 
-    // Clean up headers from context for next request (keep-alive connections)
-    if (context->current_header_name) {
-        catzilla_cache_free(context->current_header_name);
-        context->current_header_name = NULL;
-        context->current_header_name_len = 0;
-    }
-
-    // Clean up stored headers for reuse of context
-    for (int i = 0; i < context->header_count; i++) {
-        if (context->headers[i].name) {
-            catzilla_cache_free(context->headers[i].name);
-            context->headers[i].name = NULL;
-        }
-        if (context->headers[i].value) {
-            catzilla_cache_free(context->headers[i].value);
-            context->headers[i].value = NULL;
-        }
-    }
-    context->header_count = 0;
+    reset_client_request_state(context);
 
     return 0;
 }

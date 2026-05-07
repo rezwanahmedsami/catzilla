@@ -70,6 +70,25 @@ static bool g_memory_initialized = false;
 static bool g_profiling_enabled = false;
 static catzilla_allocator_type_t g_current_allocator = CATZILLA_ALLOCATOR_MALLOC;
 
+static void catzilla_memory_configure_jemalloc_runtime(void) {
+#ifdef CATZILLA_HAS_JEMALLOC
+    if (g_current_allocator != CATZILLA_ALLOCATOR_JEMALLOC) {
+        return;
+    }
+
+    // Let jemalloc reclaim dirty pages in the background when supported.
+    bool background_thread = true;
+    JEMALLOC_MALLCTL("background_thread", NULL, NULL, &background_thread, sizeof(background_thread));
+
+    // Use a short decay so repeated wrk bursts do not keep RSS inflated for long.
+    ssize_t dirty_decay_ms = 1000;
+    JEMALLOC_MALLCTL("arenas.dirty_decay_ms", NULL, NULL, &dirty_decay_ms, sizeof(dirty_decay_ms));
+
+    ssize_t muzzy_decay_ms = 1000;
+    JEMALLOC_MALLCTL("arenas.muzzy_decay_ms", NULL, NULL, &muzzy_decay_ms, sizeof(muzzy_decay_ms));
+#endif
+}
+
 // ============================================================================
 // CONDITIONAL JEMALLOC RUNTIME FUNCTIONS
 // ============================================================================
@@ -438,21 +457,8 @@ int catzilla_memory_init(void) {
 
 #ifdef CATZILLA_HAS_JEMALLOC
     if (g_current_allocator == CATZILLA_ALLOCATOR_JEMALLOC) {
-        // Note: jemalloc configuration should ideally be done via environment variable:
-        // export MALLOC_CONF="background_thread:true,metadata_thp:auto,dirty_decay_ms:10000,muzzy_decay_ms:30000"
-        // The config.malloc_conf mallctl is read-only at runtime
-
-        // Try to set some runtime options that are configurable
-        bool background_thread = true;
-        if (JEMALLOC_MALLCTL("background_thread", NULL, NULL, &background_thread, sizeof(background_thread)) != 0) {
-            // This is not critical, continue
-        }
-
-        // Set dirty decay for runtime optimization
-        ssize_t dirty_decay_ms = 10000;  // 10 seconds
-        if (JEMALLOC_MALLCTL("arenas.dirty_decay_ms", NULL, NULL, &dirty_decay_ms, sizeof(dirty_decay_ms)) != 0) {
-            // This is not critical for functionality
-        }
+        // Note: config.malloc_conf is read-only at runtime, so configure tunables here.
+        catzilla_memory_configure_jemalloc_runtime();
 
         // Create specialized arenas only once per process (many jemalloc versions don't support arena destruction)
         if (!g_arenas_created) {
@@ -519,6 +525,8 @@ int catzilla_memory_init_quiet(int quiet) {
 
 #ifdef CATZILLA_HAS_JEMALLOC
     if (g_current_allocator == CATZILLA_ALLOCATOR_JEMALLOC) {
+        catzilla_memory_configure_jemalloc_runtime();
+
         // Initialize jemalloc arenas for performance optimization
         if (!g_arenas_created) {
             size_t sz = sizeof(unsigned);
@@ -582,6 +590,10 @@ void catzilla_memory_get_stats(catzilla_memory_stats_t* stats) {
 
 #ifdef CATZILLA_HAS_JEMALLOC
     if (g_current_allocator == CATZILLA_ALLOCATOR_JEMALLOC) {
+        uint64_t epoch = 1;
+        size_t epoch_size = sizeof(epoch);
+        JEMALLOC_MALLCTL("epoch", &epoch, &epoch_size, &epoch, sizeof(epoch));
+
         size_t sz = sizeof(size_t);
 
         // Get jemalloc statistics

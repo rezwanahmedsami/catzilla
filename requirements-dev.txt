@@ -14,11 +14,13 @@ PyJWT>=2.8.0
 pre-commit
 flake8>=6.0.0
 bandit>=1.7.0
-safety>=2.0.0
+# Safety v3 requires Pydantic v2 and conflicts with benchmark deps pinned to FastAPI/Pydantic v1.
+safety>=2.0.0,<3.0.0
 pip-audit>=2.0.0
 
 # HTTP client for integration testing
 requests>=2.31.0
+urllib3<2
 
 # Build tools (usually installed separately)
 build

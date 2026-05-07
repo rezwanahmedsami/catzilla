@@ -504,31 +504,84 @@ static PyObject* CatzillaServer_match_route(CatzillaServerObject *self, PyObject
         return NULL;
     }
 
-    PyDict_SetItemString(match_dict, "matched", PyBool_FromLong(result == 0));
-    PyDict_SetItemString(match_dict, "status_code", PyLong_FromLong(match.status_code));
+    PyObject *matched_obj = PyBool_FromLong(result == 0);
+    PyObject *status_code_obj = PyLong_FromLong(match.status_code);
+    if (!matched_obj || !status_code_obj ||
+        PyDict_SetItemString(match_dict, "matched", matched_obj) < 0 ||
+        PyDict_SetItemString(match_dict, "status_code", status_code_obj) < 0) {
+        Py_XDECREF(matched_obj);
+        Py_XDECREF(status_code_obj);
+        Py_DECREF(match_dict);
+        return NULL;
+    }
+    Py_DECREF(matched_obj);
+    Py_DECREF(status_code_obj);
 
     if (result == 0 && match.route) {
-        PyDict_SetItemString(match_dict, "method", PyUnicode_FromString(match.route->method));
-        PyDict_SetItemString(match_dict, "path", PyUnicode_FromString(match.route->path));
-        PyDict_SetItemString(match_dict, "route_id", PyLong_FromLong(match.route->id));
+        PyObject *method_obj = PyUnicode_FromString(match.route->method);
+        PyObject *path_obj = PyUnicode_FromString(match.route->path);
+        PyObject *route_id_obj = PyLong_FromLong(match.route->id);
+        if (!method_obj || !path_obj || !route_id_obj ||
+            PyDict_SetItemString(match_dict, "method", method_obj) < 0 ||
+            PyDict_SetItemString(match_dict, "path", path_obj) < 0 ||
+            PyDict_SetItemString(match_dict, "route_id", route_id_obj) < 0) {
+            Py_XDECREF(method_obj);
+            Py_XDECREF(path_obj);
+            Py_XDECREF(route_id_obj);
+            Py_DECREF(match_dict);
+            return NULL;
+        }
+        Py_DECREF(method_obj);
+        Py_DECREF(path_obj);
+        Py_DECREF(route_id_obj);
 
         // Add path parameters
         PyObject *params_dict = PyDict_New();
-        for (int i = 0; i < match.param_count; i++) {
-            PyDict_SetItemString(params_dict, match.params[i].name,
-                                PyUnicode_FromString(match.params[i].value));
+        if (!params_dict) {
+            Py_DECREF(match_dict);
+            return NULL;
         }
-        PyDict_SetItemString(match_dict, "path_params", params_dict);
+        for (int i = 0; i < match.param_count; i++) {
+            PyObject *param_value_obj = PyUnicode_FromString(match.params[i].value);
+            if (!param_value_obj ||
+                PyDict_SetItemString(params_dict, match.params[i].name, param_value_obj) < 0) {
+                Py_XDECREF(param_value_obj);
+                Py_DECREF(params_dict);
+                Py_DECREF(match_dict);
+                return NULL;
+            }
+            Py_DECREF(param_value_obj);
+        }
+        if (PyDict_SetItemString(match_dict, "path_params", params_dict) < 0) {
+            Py_DECREF(params_dict);
+            Py_DECREF(match_dict);
+            return NULL;
+        }
+        Py_DECREF(params_dict);
     } else {
-        PyDict_SetItemString(match_dict, "path_params", PyDict_New());
+        PyObject *empty_params_dict = PyDict_New();
+        if (!empty_params_dict || PyDict_SetItemString(match_dict, "path_params", empty_params_dict) < 0) {
+            Py_XDECREF(empty_params_dict);
+            Py_DECREF(match_dict);
+            return NULL;
+        }
+        Py_DECREF(empty_params_dict);
     }
 
     if (match.has_allowed_methods) {
-        PyDict_SetItemString(match_dict, "allowed_methods",
-                            PyUnicode_FromString(match.allowed_methods));
+        PyObject *allowed_methods_obj = PyUnicode_FromString(match.allowed_methods);
+        if (!allowed_methods_obj ||
+            PyDict_SetItemString(match_dict, "allowed_methods", allowed_methods_obj) < 0) {
+            Py_XDECREF(allowed_methods_obj);
+            Py_DECREF(match_dict);
+            return NULL;
+        }
+        Py_DECREF(allowed_methods_obj);
     } else {
-        Py_INCREF(Py_None);
-        PyDict_SetItemString(match_dict, "allowed_methods", Py_None);
+        if (PyDict_SetItemString(match_dict, "allowed_methods", Py_None) < 0) {
+            Py_DECREF(match_dict);
+            return NULL;
+        }
     }
 
     return match_dict;
@@ -1780,31 +1833,84 @@ static PyObject* router_match(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    PyDict_SetItemString(match_dict, "matched", PyBool_FromLong(result == 0));
-    PyDict_SetItemString(match_dict, "status_code", PyLong_FromLong(match.status_code));
+    PyObject *matched_obj = PyBool_FromLong(result == 0);
+    PyObject *status_code_obj = PyLong_FromLong(match.status_code);
+    if (!matched_obj || !status_code_obj ||
+        PyDict_SetItemString(match_dict, "matched", matched_obj) < 0 ||
+        PyDict_SetItemString(match_dict, "status_code", status_code_obj) < 0) {
+        Py_XDECREF(matched_obj);
+        Py_XDECREF(status_code_obj);
+        Py_DECREF(match_dict);
+        return NULL;
+    }
+    Py_DECREF(matched_obj);
+    Py_DECREF(status_code_obj);
 
     if (result == 0 && match.route) {
-        PyDict_SetItemString(match_dict, "method", PyUnicode_FromString(match.route->method));
-        PyDict_SetItemString(match_dict, "path", PyUnicode_FromString(match.route->path));
-        PyDict_SetItemString(match_dict, "route_id", PyLong_FromLong(match.route->id));
+        PyObject *method_obj = PyUnicode_FromString(match.route->method);
+        PyObject *path_obj = PyUnicode_FromString(match.route->path);
+        PyObject *route_id_obj = PyLong_FromLong(match.route->id);
+        if (!method_obj || !path_obj || !route_id_obj ||
+            PyDict_SetItemString(match_dict, "method", method_obj) < 0 ||
+            PyDict_SetItemString(match_dict, "path", path_obj) < 0 ||
+            PyDict_SetItemString(match_dict, "route_id", route_id_obj) < 0) {
+            Py_XDECREF(method_obj);
+            Py_XDECREF(path_obj);
+            Py_XDECREF(route_id_obj);
+            Py_DECREF(match_dict);
+            return NULL;
+        }
+        Py_DECREF(method_obj);
+        Py_DECREF(path_obj);
+        Py_DECREF(route_id_obj);
 
         // Add path parameters
         PyObject *params_dict = PyDict_New();
-        for (int i = 0; i < match.param_count; i++) {
-            PyDict_SetItemString(params_dict, match.params[i].name,
-                                PyUnicode_FromString(match.params[i].value));
+        if (!params_dict) {
+            Py_DECREF(match_dict);
+            return NULL;
         }
-        PyDict_SetItemString(match_dict, "path_params", params_dict);
+        for (int i = 0; i < match.param_count; i++) {
+            PyObject *param_value_obj = PyUnicode_FromString(match.params[i].value);
+            if (!param_value_obj ||
+                PyDict_SetItemString(params_dict, match.params[i].name, param_value_obj) < 0) {
+                Py_XDECREF(param_value_obj);
+                Py_DECREF(params_dict);
+                Py_DECREF(match_dict);
+                return NULL;
+            }
+            Py_DECREF(param_value_obj);
+        }
+        if (PyDict_SetItemString(match_dict, "path_params", params_dict) < 0) {
+            Py_DECREF(params_dict);
+            Py_DECREF(match_dict);
+            return NULL;
+        }
+        Py_DECREF(params_dict);
     } else {
-        PyDict_SetItemString(match_dict, "path_params", PyDict_New());
+        PyObject *empty_params_dict = PyDict_New();
+        if (!empty_params_dict || PyDict_SetItemString(match_dict, "path_params", empty_params_dict) < 0) {
+            Py_XDECREF(empty_params_dict);
+            Py_DECREF(match_dict);
+            return NULL;
+        }
+        Py_DECREF(empty_params_dict);
     }
 
     if (match.has_allowed_methods) {
-        PyDict_SetItemString(match_dict, "allowed_methods",
-                            PyUnicode_FromString(match.allowed_methods));
+        PyObject *allowed_methods_obj = PyUnicode_FromString(match.allowed_methods);
+        if (!allowed_methods_obj ||
+            PyDict_SetItemString(match_dict, "allowed_methods", allowed_methods_obj) < 0) {
+            Py_XDECREF(allowed_methods_obj);
+            Py_DECREF(match_dict);
+            return NULL;
+        }
+        Py_DECREF(allowed_methods_obj);
     } else {
-        Py_INCREF(Py_None);
-        PyDict_SetItemString(match_dict, "allowed_methods", Py_None);
+        if (PyDict_SetItemString(match_dict, "allowed_methods", Py_None) < 0) {
+            Py_DECREF(match_dict);
+            return NULL;
+        }
     }
 
     return match_dict;

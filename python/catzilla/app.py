@@ -431,6 +431,7 @@ class Catzilla:
             # Add computed metrics
             stats["allocated_mb"] = stats.get("allocated", 0) / (1024 * 1024)
             stats["active_mb"] = stats.get("active", 0) / (1024 * 1024)
+            stats["resident_mb"] = stats.get("resident", 0) / (1024 * 1024)
             stats["fragmentation_percent"] = (
                 1.0 - stats.get("fragmentation_ratio", 1.0)
             ) * 100
