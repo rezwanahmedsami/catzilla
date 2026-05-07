@@ -189,12 +189,20 @@ if(CATZILLA_USE_JEMALLOC)
                 check_c_source_compiles("
                     #include <jemalloc/jemalloc.h>
                     int main() {
-                        void* ptr = je_malloc(100);
-                        if (ptr) je_free(ptr);
+                        void* ptr = mallocx(100, 0);
+                        if (ptr) dallocx(ptr, 0);
                         return 0;
-                    }" JEMALLOC_LINK_TEST)
+                    }" JEMALLOC_LINK_TEST_DIRECT)
 
-                if(JEMALLOC_LINK_TEST)
+                check_c_source_compiles("
+                    #include <jemalloc/jemalloc.h>
+                    int main() {
+                        void* ptr = je_mallocx(100, 0);
+                        if (ptr) je_dallocx(ptr, 0);
+                        return 0;
+                    }" JEMALLOC_LINK_TEST_PREFIXED)
+
+                if(JEMALLOC_LINK_TEST_DIRECT OR JEMALLOC_LINK_TEST_PREFIXED)
                     set(JEMALLOC_FOUND TRUE)
                     set(JEMALLOC_INCLUDE_DIRS ${JEMALLOC_INCLUDE_DIR})
                     set(JEMALLOC_LIBRARIES ${JEMALLOC_LIBRARY})

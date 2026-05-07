@@ -99,7 +99,7 @@ class CMakeBuild(build_ext):
         configure_cmd = [
             'cmake', '-S', '.', '-B', build_dir,
             f'-DPython3_EXECUTABLE={sys.executable}',
-            f'-DUSE_JEMALLOC={"ON" if use_jemalloc else "OFF"}'
+            f'-DCATZILLA_USE_JEMALLOC={"ON" if use_jemalloc else "OFF"}'
         ]
 
         # Add macOS deployment target only on macOS
@@ -226,7 +226,7 @@ class CMakeBuild(build_ext):
                 fallback_cmd = [
                     'cmake', '-S', '.', '-B', build_dir,
                     f'-DPython3_EXECUTABLE={sys.executable}',
-                    '-DUSE_JEMALLOC=OFF',
+                    '-DCATZILLA_USE_JEMALLOC=OFF',
                     '-DCATZILLA_BUILD_TESTS=OFF',  # Skip tests in wheel builds
                     '-DCMAKE_BUILD_TYPE=Release'
                 ]
@@ -261,7 +261,7 @@ class CMakeBuild(build_ext):
             fallback_cmd = [
                 'cmake', '-S', '.', '-B', build_dir,
                 f'-DPython3_EXECUTABLE={sys.executable}',
-                f'-DUSE_JEMALLOC={"ON" if use_jemalloc else "OFF"}'
+                f'-DCATZILLA_USE_JEMALLOC={"ON" if use_jemalloc else "OFF"}'
             ]
 
             # For Windows, try different generators in fallback
