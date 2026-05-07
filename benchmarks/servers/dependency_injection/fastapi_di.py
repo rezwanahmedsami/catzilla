@@ -288,6 +288,7 @@ async def health_check():
         "di_container": "function_based"
     }
 
+@app.get("/di/simple")
 @app.get("/di-simple")
 async def di_simple_test(config: BenchmarkConfig = Depends(get_config)):
     """Simple DI test - configuration injection"""
@@ -302,6 +303,7 @@ async def di_simple_test(config: BenchmarkConfig = Depends(get_config)):
         "di_scope": "function_call"
     }
 
+@app.get("/di/request")
 @app.get("/di-request")
 async def di_request_test(
     session: BenchmarkSession = Depends(get_session),
@@ -321,6 +323,7 @@ async def di_request_test(
         "di_scope": "function_call"
     }
 
+@app.get("/di/transient")
 @app.get("/di-transient")
 async def di_transient_test(
     logger1: BenchmarkLogger = Depends(get_logger),
@@ -342,6 +345,7 @@ async def di_transient_test(
         "di_scope": "function_call"
     }
 
+@app.get("/di/complex")
 @app.get("/di-complex")
 async def di_complex_test(
     user_repo: UserRepository = Depends(get_user_repository),

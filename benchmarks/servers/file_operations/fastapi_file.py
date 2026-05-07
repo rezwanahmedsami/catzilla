@@ -296,6 +296,7 @@ def create_fastapi_file_server():
     # FILE MANAGEMENT ENDPOINTS
     # ==========================================
 
+    @app.get("/files/list")
     @app.get("/files")
     async def list_files(
         category: Optional[str] = Query(None),

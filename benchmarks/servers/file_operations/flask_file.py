@@ -293,6 +293,7 @@ def create_flask_file_server():
     # FILE MANAGEMENT ENDPOINTS
     # ==========================================
 
+    @app.route('/files/list')
     @app.route('/files')
     def list_files():
         """List uploaded files with filtering"""

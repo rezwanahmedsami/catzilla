@@ -611,12 +611,14 @@ def cleanup_view(request):
 
 # URL patterns
 urlpatterns = [
+    path('health', health),
     path('health/', health),
     path('upload/', upload_file),
     path('upload/multiple/', upload_multiple_files),
     path('download/<str:file_id>/', download_file),
     path('stream/<str:file_id>/', stream_file),
     path('info/<str:file_id>/', file_info_view),
+    path('files/list', list_files),
     path('list/', list_files),
     path('process/<str:file_id>/', process_file_view),
     path('process/status/<str:file_id>/', process_status_view),

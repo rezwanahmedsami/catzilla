@@ -266,6 +266,7 @@ urlpatterns = [
     path('health', health_check, name='health_check'),
     path('middleware-light', light_middleware, name='light_middleware'),
     path('middleware-heavy', heavy_middleware, name='heavy_middleware'),
+    path('middleware-auth', auth_test, name='middleware_auth'),
     path('auth-test', auth_test, name='auth_test'),
     path('cors-test', cors_test, name='cors_test'),
     path('rate-limit-test', rate_limit_test, name='rate_limit_test'),

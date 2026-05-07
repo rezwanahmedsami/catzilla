@@ -121,6 +121,19 @@ class BatchValidationRequest(BaseModel):
     batch_id: str = Field(regex=r'^[A-Z0-9\-]+$')
 
 
+def to_json_safe(value: Any) -> Any:
+    """Convert benchmark model output into JSON-safe primitives."""
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, list):
+        return [to_json_safe(item) for item in value]
+    if isinstance(value, dict):
+        return {key: to_json_safe(item) for key, item in value.items()}
+    return value
+
+
 def create_catzilla_validation_server():
     """Create Catzilla server optimized for validation benchmarks"""
 
@@ -179,7 +192,7 @@ def create_catzilla_validation_server():
         """Product validation with comprehensive constraints"""
         return JSONResponse({
             "validated": True,
-            "product": product.dict(),
+            "product": to_json_safe(product.dict()),
             "framework": "catzilla",
             "validation_type": "comprehensive_product",
             "decimal_precision": "validated"
@@ -472,7 +485,7 @@ def create_catzilla_validation_server():
             "count": len(sample_products),
             "validation_time_ms": round(validation_time, 3),
             "throughput_per_sec": round(len(sample_products) / (validation_time / 1000), 2) if validation_time > 0 else 0,
-            "products": [product.model_dump() for product in sample_products],
+            "products": [to_json_safe(product.model_dump()) for product in sample_products],
             "framework": "catzilla",
             "validation_type": "performance_benchmark",
             "performance": get_performance_stats(),

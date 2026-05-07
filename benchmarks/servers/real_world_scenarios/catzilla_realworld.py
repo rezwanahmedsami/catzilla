@@ -174,18 +174,21 @@ def create_catzilla_realworld_server():
     # DEPENDENCY INJECTION SETUP
     # ==========================================
 
-    def get_current_user(user_id: int = Header(None, alias="X-User-ID")) -> Optional[User]:
-        """Get current authenticated user"""
-        if user_id and user_id in data_store["users"]:
-            return User(**data_store["users"][user_id])
+    def get_current_user(request) -> Optional[User]:
+        """Get the current user, defaulting to the seeded admin for benchmarks."""
+        user_id = request.headers.get("x-user-id") or request.headers.get("X-User-ID")
+        try:
+            resolved_user_id = int(user_id) if user_id is not None else 1
+        except (TypeError, ValueError):
+            resolved_user_id = 1
+
+        if resolved_user_id in data_store["users"]:
+            return User(**data_store["users"][resolved_user_id])
         return None
 
     def get_analytics_tracker():
         """Get analytics tracking service"""
         return AnalyticsTracker(data_store)
-
-    # app.register_dependency("current_user", get_current_user)
-    # app.register_dependency("analytics", get_analytics_tracker)
 
     # ==========================================
     # E-COMMERCE API SCENARIOS
@@ -199,11 +202,11 @@ def create_catzilla_realworld_server():
         category_id: Optional[int] = Query(None),
         search: Optional[str] = Query(None),
         sort_by: str = Query("created_at", regex=r'^(name|price|created_at|popularity)$'),
-        sort_order: str = Query("desc", regex=r'^(asc|desc)$'),
-        analytics = Depends("analytics")
+        sort_order: str = Query("desc", regex=r'^(asc|desc)$')
     ) -> Response:
         """Product listing with pagination, filtering, and search"""
         start_time = time.perf_counter()
+        analytics = get_analytics_tracker()
 
         # Track page view
         analytics.track_event("page_view", {"page": "products", "filters": {
@@ -264,12 +267,12 @@ def create_catzilla_realworld_server():
     @app.get("/api/products/{product_id}")
     def get_product(
         request,
-        product_id: int = PathParam(...),
-        current_user: Optional[User] = Depends("current_user"),
-        analytics = Depends("analytics")
+        product_id: int = PathParam(...)
     ) -> Response:
         """Get single product with view tracking"""
         start_time = time.perf_counter()
+        current_user = get_current_user(request)
+        analytics = get_analytics_tracker()
 
         if product_id not in data_store["products"]:
             return JSONResponse({"error": "Product not found"}, status_code=404)
@@ -305,12 +308,12 @@ def create_catzilla_realworld_server():
     @app.post("/api/orders")
     def create_order(
         request,
-        order: Order,
-        current_user: User = Depends("current_user"),
-        analytics = Depends("analytics")
+        order: Order
     ) -> Response:
         """Create new order with validation and processing"""
         start_time = time.perf_counter()
+        current_user = get_current_user(request)
+        analytics = get_analytics_tracker()
 
         if not current_user:
             return JSONResponse({"error": "Authentication required"}, status_code=401)
@@ -401,11 +404,11 @@ def create_catzilla_realworld_server():
         limit: int = Query(10, ge=1, le=50),
         status: str = Query("published"),
         tag: Optional[str] = Query(None),
-        search: Optional[str] = Query(None),
-        analytics = Depends("analytics")
+        search: Optional[str] = Query(None)
     ) -> Response:
         """Blog post listing with filtering"""
         start_time = time.perf_counter()
+        analytics = get_analytics_tracker()
 
         analytics.track_event("page_view", {"page": "blog", "filters": {
             "status": status, "tag": tag, "search": search
@@ -461,11 +464,11 @@ def create_catzilla_realworld_server():
     @app.get("/api/blog/posts/{post_id}")
     def get_blog_post(
         request,
-        post_id: int = PathParam(...),
-        analytics = Depends("analytics")
+        post_id: int = PathParam(...)
     ) -> Response:
         """Get single blog post with comments"""
         start_time = time.perf_counter()
+        analytics = get_analytics_tracker()
 
         if post_id not in data_store["blog_posts"]:
             return JSONResponse({"error": "Post not found"}, status_code=404)
@@ -527,11 +530,11 @@ def create_catzilla_realworld_server():
         request,
         file: UploadFile = File(...),
         product_id: int = Form(...),
-        alt_text: Optional[str] = Form(None),
-        current_user: User = Depends("current_user")
+        alt_text: Optional[str] = Form(None)
     ) -> Response:
         """Upload product image with processing"""
         start_time = time.perf_counter()
+        current_user = get_current_user(request)
 
         if not current_user or not current_user.is_admin:
             return JSONResponse({"error": "Admin access required"}, status_code=403)
@@ -596,11 +599,11 @@ def create_catzilla_realworld_server():
     def get_analytics_dashboard(
         request,
         date_from: Optional[str] = Query(None),
-        date_to: Optional[str] = Query(None),
-        current_user: User = Depends("current_user")
+        date_to: Optional[str] = Query(None)
     ) -> Response:
         """Analytics dashboard with real-time metrics"""
         start_time = time.perf_counter()
+        current_user = get_current_user(request)
 
         if not current_user or not current_user.is_admin:
             return JSONResponse({"error": "Admin access required"}, status_code=403)
@@ -619,11 +622,11 @@ def create_catzilla_realworld_server():
     @app.post("/api/analytics/track")
     def track_event(
         request,
-        event: AnalyticsEvent,
-        analytics = Depends("analytics")
+        event: AnalyticsEvent
     ) -> Response:
         """Track analytics event"""
         start_time = time.perf_counter()
+        analytics = get_analytics_tracker()
 
         # Process event
         event_id = analytics.track_event(event.event_type, event.dict())
