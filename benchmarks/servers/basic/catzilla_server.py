@@ -333,7 +333,7 @@ def main():
     parser = argparse.ArgumentParser(description="Catzilla Benchmark Server")
     parser.add_argument("--port", type=int, default=8000, help="Port to run server on")
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind to")
-    parser.add_argument("--workers", type=int, default=1, help="Number of workers (ignored for compatibility)")
+    parser.add_argument("--workers", type=int, default=1, help="Single-process server; use the benchmark launcher for multi-worker mode")
     args = parser.parse_args()
 
     app = create_catzilla_server()

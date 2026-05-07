@@ -41,6 +41,26 @@ class BenchmarkVisualizer:
         self.summary_data = None
         self.categories = set()
 
+    @staticmethod
+    def worker_file_suffix(worker_mode: str, workers: int) -> str:
+        return f"{worker_mode}_{workers}w"
+
+    @staticmethod
+    def worker_label(worker_mode: str, workers: int) -> str:
+        unit = "worker" if workers == 1 else "workers"
+        return f"{worker_mode.title()} / {workers} {unit}"
+
+    def get_worker_signatures(self, df: pd.DataFrame) -> List[tuple]:
+        signatures = []
+        unique_rows = (
+            df[["worker_mode", "workers"]]
+            .drop_duplicates()
+            .sort_values(by=["worker_mode", "workers"])
+        )
+        for row in unique_rows.itertuples(index=False):
+            signatures.append((str(row.worker_mode), int(row.workers)))
+        return signatures
+
     def load_data(self) -> bool:
         """Load benchmark results from JSON files"""
         try:
@@ -151,6 +171,8 @@ class BenchmarkVisualizer:
                 'endpoint_name': item.get('endpoint_name', 'unknown'),
                 'endpoint': item.get('endpoint', '/'),
                 'benchmark_type': item.get('benchmark_type', 'unknown'),
+                'worker_mode': item.get('worker_mode', 'single'),
+                'workers': int(item.get('workers', 1) or 1),
                 'requests_per_sec': rps,
                 'avg_latency_ms': avg_latency,
                 'connections': item.get('connections', 100),
@@ -159,7 +181,7 @@ class BenchmarkVisualizer:
 
         return pd.DataFrame(processed_data)
 
-    def create_requests_per_second_chart(self, df: pd.DataFrame, save_path: str):
+    def create_requests_per_second_chart(self, df: pd.DataFrame, save_path: str, title_suffix: str = ""):
         """Create requests per second comparison chart"""
         plt.figure(figsize=(14, 8))
 
@@ -169,7 +191,10 @@ class BenchmarkVisualizer:
         # Create grouped bar chart
         ax = pivot_data.plot(kind='bar', width=0.8, figsize=(14, 8))
 
-        plt.title('🚀 Requests per Second by Framework and Endpoint', fontsize=16, fontweight='bold', pad=20)
+        title = '🚀 Requests per Second by Framework and Endpoint'
+        if title_suffix:
+            title = f'{title} ({title_suffix})'
+        plt.title(title, fontsize=16, fontweight='bold', pad=20)
         plt.xlabel('Endpoint Type', fontsize=12)
         plt.ylabel('Requests per Second', fontsize=12)
         plt.xticks(rotation=45, ha='right')
@@ -184,7 +209,7 @@ class BenchmarkVisualizer:
         plt.close()
         print(f"✅ Requests per second chart saved: {save_path}")
 
-    def create_latency_chart(self, df: pd.DataFrame, save_path: str):
+    def create_latency_chart(self, df: pd.DataFrame, save_path: str, title_suffix: str = ""):
         """Create average latency comparison chart"""
         plt.figure(figsize=(14, 8))
 
@@ -194,7 +219,10 @@ class BenchmarkVisualizer:
         # Create grouped bar chart
         ax = pivot_data.plot(kind='bar', width=0.8, figsize=(14, 8))
 
-        plt.title('⚡ Average Response Latency by Framework and Endpoint', fontsize=16, fontweight='bold', pad=20)
+        title = '⚡ Average Response Latency by Framework and Endpoint'
+        if title_suffix:
+            title = f'{title} ({title_suffix})'
+        plt.title(title, fontsize=16, fontweight='bold', pad=20)
         plt.xlabel('Endpoint Type', fontsize=12)
         plt.ylabel('Average Latency (ms)', fontsize=12)
         plt.xticks(rotation=45, ha='right')
@@ -209,7 +237,7 @@ class BenchmarkVisualizer:
         plt.close()
         print(f"✅ Latency chart saved: {save_path}")
 
-    def create_overall_performance_chart(self, df: pd.DataFrame, save_path: str):
+    def create_overall_performance_chart(self, df: pd.DataFrame, save_path: str, title_suffix: str = ""):
         """Create overall performance summary chart"""
         # Calculate average performance across all endpoints
         framework_stats = df.groupby('framework').agg({
@@ -245,13 +273,16 @@ class BenchmarkVisualizer:
             ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(latency_values)*0.01,
                     f'{value:.2f}', ha='center', va='bottom', fontweight='bold')
 
-        plt.suptitle('🏆 Overall Performance Comparison', fontsize=16, fontweight='bold')
+        title = '🏆 Overall Performance Comparison'
+        if title_suffix:
+            title = f'{title} ({title_suffix})'
+        plt.suptitle(title, fontsize=16, fontweight='bold')
         plt.tight_layout()
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close()
         print(f"✅ Overall performance chart saved: {save_path}")
 
-    def create_performance_matrix(self, df: pd.DataFrame, save_path: str):
+    def create_performance_matrix(self, df: pd.DataFrame, save_path: str, title_suffix: str = ""):
         """Create a heatmap showing performance across frameworks and endpoints"""
         plt.figure(figsize=(12, 8))
 
@@ -262,7 +293,10 @@ class BenchmarkVisualizer:
         sns.heatmap(pivot_data, annot=True, fmt='.0f', cmap='YlOrRd',
                    cbar_kws={'label': 'Requests per Second'})
 
-        plt.title('🔥 Performance Heatmap: Requests per Second', fontsize=16, fontweight='bold', pad=20)
+        title = '🔥 Performance Heatmap: Requests per Second'
+        if title_suffix:
+            title = f'{title} ({title_suffix})'
+        plt.title(title, fontsize=16, fontweight='bold', pad=20)
         plt.xlabel('Framework', fontsize=12)
         plt.ylabel('Endpoint Type', fontsize=12)
 
@@ -271,10 +305,25 @@ class BenchmarkVisualizer:
         plt.close()
         print(f"✅ Performance heatmap saved: {save_path}")
 
-    def create_category_comparison_chart(self, df: pd.DataFrame, category: str, save_path: str):
+    def create_category_comparison_chart(
+        self,
+        df: pd.DataFrame,
+        category: str,
+        save_path: str,
+        worker_mode: str = None,
+        workers: int = None,
+    ):
         """Create performance comparison chart for a specific category"""
         # Filter data for the specific category
         category_df = df[df['benchmark_type'] == category].copy()
+
+        worker_title_suffix = ""
+        if worker_mode is not None and workers is not None:
+            category_df = category_df[
+                (category_df['worker_mode'] == worker_mode) &
+                (category_df['workers'] == workers)
+            ].copy()
+            worker_title_suffix = f" ({self.worker_label(worker_mode, workers)})"
 
         if category_df.empty:
             print(f"⚠️  No data found for category: {category}")
@@ -288,7 +337,7 @@ class BenchmarkVisualizer:
         # 1. Requests per Second by Framework
         rps_data = category_df.groupby(['endpoint_name', 'framework'])['requests_per_sec'].mean().unstack(fill_value=0)
         rps_data.plot(kind='bar', ax=ax1, width=0.8)
-        ax1.set_title(f'{category.title()} - Requests per Second', fontsize=14, fontweight='bold')
+        ax1.set_title(f'{category.title()} - Requests per Second{worker_title_suffix}', fontsize=14, fontweight='bold')
         ax1.set_ylabel('Requests/sec')
         ax1.tick_params(axis='x', rotation=45)
         ax1.legend(title='Framework')
@@ -300,7 +349,7 @@ class BenchmarkVisualizer:
         # 2. Average Latency by Framework
         latency_data = category_df.groupby(['endpoint_name', 'framework'])['avg_latency_ms'].mean().unstack(fill_value=0)
         latency_data.plot(kind='bar', ax=ax2, width=0.8)
-        ax2.set_title(f'{category.title()} - Average Latency', fontsize=14, fontweight='bold')
+        ax2.set_title(f'{category.title()} - Average Latency{worker_title_suffix}', fontsize=14, fontweight='bold')
         ax2.set_ylabel('Latency (ms)')
         ax2.tick_params(axis='x', rotation=45)
         ax2.legend(title='Framework')
@@ -320,7 +369,7 @@ class BenchmarkVisualizer:
         colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12'][:len(frameworks)]
 
         bars3 = ax3.bar(frameworks, rps_values, color=colors)
-        ax3.set_title(f'{category.title()} - Framework Average RPS', fontsize=14, fontweight='bold')
+        ax3.set_title(f'{category.title()} - Framework Average RPS{worker_title_suffix}', fontsize=14, fontweight='bold')
         ax3.set_ylabel('Average Requests/sec')
         ax3.tick_params(axis='x', rotation=45)
 
@@ -333,7 +382,7 @@ class BenchmarkVisualizer:
         # 4. Latency Comparison
         latency_values = framework_summary['avg_latency_ms']
         bars4 = ax4.bar(frameworks, latency_values, color=colors)
-        ax4.set_title(f'{category.title()} - Framework Average Latency', fontsize=14, fontweight='bold')
+        ax4.set_title(f'{category.title()} - Framework Average Latency{worker_title_suffix}', fontsize=14, fontweight='bold')
         ax4.set_ylabel('Average Latency (ms)')
         ax4.tick_params(axis='x', rotation=45)
 
@@ -343,7 +392,7 @@ class BenchmarkVisualizer:
             ax4.text(bar.get_x() + bar.get_width()/2., height + height*0.01,
                     f'{value:.1f}', ha='center', va='bottom', fontweight='bold')
 
-        plt.suptitle(f'🚀 {category.title()} Performance Analysis - Catzilla vs Competition',
+        plt.suptitle(f'🚀 {category.title()} Performance Analysis - Catzilla vs Competition{worker_title_suffix}',
                      fontsize=18, fontweight='bold', y=0.98)
         plt.tight_layout()
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
@@ -361,18 +410,56 @@ class BenchmarkVisualizer:
         print(f"📊 Processing {len(self.data)} benchmark results")
         df = self.prepare_dataframe()
 
-        # Generate overall visualizations
-        self.create_requests_per_second_chart(df, os.path.join(output_dir, 'overall_requests_per_second.png'))
-        self.create_latency_chart(df, os.path.join(output_dir, 'overall_latency_comparison.png'))
-        self.create_overall_performance_chart(df, os.path.join(output_dir, 'overall_performance_summary.png'))
-        self.create_performance_matrix(df, os.path.join(output_dir, 'overall_performance_heatmap.png'))
+        worker_signatures = self.get_worker_signatures(df)
+
+        if len(worker_signatures) > 1:
+            for worker_mode, workers in worker_signatures:
+                worker_df = df[
+                    (df['worker_mode'] == worker_mode) &
+                    (df['workers'] == workers)
+                ].copy()
+                suffix = self.worker_file_suffix(worker_mode, workers)
+                title_suffix = self.worker_label(worker_mode, workers)
+                self.create_requests_per_second_chart(
+                    worker_df,
+                    os.path.join(output_dir, f'overall_{suffix}_requests_per_second.png'),
+                    title_suffix,
+                )
+                self.create_latency_chart(
+                    worker_df,
+                    os.path.join(output_dir, f'overall_{suffix}_latency_comparison.png'),
+                    title_suffix,
+                )
+                self.create_overall_performance_chart(
+                    worker_df,
+                    os.path.join(output_dir, f'overall_{suffix}_performance_summary.png'),
+                    title_suffix,
+                )
+                self.create_performance_matrix(
+                    worker_df,
+                    os.path.join(output_dir, f'overall_{suffix}_performance_heatmap.png'),
+                    title_suffix,
+                )
+        else:
+            self.create_requests_per_second_chart(df, os.path.join(output_dir, 'overall_requests_per_second.png'))
+            self.create_latency_chart(df, os.path.join(output_dir, 'overall_latency_comparison.png'))
+            self.create_overall_performance_chart(df, os.path.join(output_dir, 'overall_performance_summary.png'))
+            self.create_performance_matrix(df, os.path.join(output_dir, 'overall_performance_heatmap.png'))
 
         # Generate category-specific visualizations
         print(f"\n🎯 Generating category-specific visualizations...")
         for category in sorted(self.categories):
             category_safe = category.replace(' ', '_').replace('-', '_')
-            category_file = os.path.join(output_dir, f'{category_safe}_performance_analysis.png')
-            self.create_category_comparison_chart(df, category, category_file)
+            category_df = df[df['benchmark_type'] == category].copy()
+            category_signatures = self.get_worker_signatures(category_df)
+            if len(category_signatures) > 1:
+                for worker_mode, workers in category_signatures:
+                    worker_suffix = self.worker_file_suffix(worker_mode, workers)
+                    category_file = os.path.join(output_dir, f'{category_safe}_{worker_suffix}_performance_analysis.png')
+                    self.create_category_comparison_chart(df, category, category_file, worker_mode, workers)
+            else:
+                category_file = os.path.join(output_dir, f'{category_safe}_performance_analysis.png')
+                self.create_category_comparison_chart(df, category, category_file)
 
         return True
 
@@ -518,10 +605,12 @@ Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         total_tests = len(df)
         frameworks = sorted(df['framework'].unique())
         categories = sorted(df['benchmark_type'].unique())
+        worker_signatures = self.get_worker_signatures(df)
 
         report.append(f"- **Total Benchmarks**: {total_tests}")
         report.append(f"- **Frameworks Tested**: {', '.join(frameworks)}")
         report.append(f"- **Feature Categories**: {len(categories)}")
+        report.append(f"- **Worker Configurations**: {', '.join(self.worker_label(mode, workers) for mode, workers in worker_signatures)}")
         report.append("")
 
         # Category-by-category analysis
@@ -600,7 +689,15 @@ Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         report.append("### Category-Specific Analysis")
         for category in sorted(categories):
             category_safe = category.replace(' ', '_').replace('-', '_')
-            report.append(f"- `{category_safe}_performance_analysis.png` - {category.replace('_', ' ').title()} detailed analysis")
+            category_df = df[df['benchmark_type'] == category]
+            category_signatures = self.get_worker_signatures(category_df)
+            if len(category_signatures) > 1:
+                for worker_mode, workers in category_signatures:
+                    worker_suffix = self.worker_file_suffix(worker_mode, workers)
+                    worker_label = self.worker_label(worker_mode, workers)
+                    report.append(f"- `{category_safe}_{worker_suffix}_performance_analysis.png` - {category.replace('_', ' ').title()} detailed analysis ({worker_label})")
+            else:
+                report.append(f"- `{category_safe}_performance_analysis.png` - {category.replace('_', ' ').title()} detailed analysis")
 
         report.append("")
         report.append("---")
