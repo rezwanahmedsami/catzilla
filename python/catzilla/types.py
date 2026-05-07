@@ -6,7 +6,6 @@ import json
 from dataclasses import dataclass
 from http.cookies import SimpleCookie
 from typing import Any, Callable, Dict, List, Optional, Union
-from urllib.parse import parse_qs
 
 from .ui import log_types_debug, log_types_error
 
@@ -57,20 +56,11 @@ class Request:
         """Lazily load query parameters from C when accessed"""
         if not self._loaded_query_params:
             try:
-                from catzilla._catzilla import get_query_param
+                from catzilla._catzilla import get_query_params
 
-                # Try to get each parameter from the query string
-                if "?" in self.path:
-                    query_string = self.path.split("?", 1)[1]
-                    for pair in query_string.split("&"):
-                        if "=" in pair:
-                            key = pair.split("=", 1)[0]
-                            value = get_query_param(self.request_capsule, key)
-                            if value is not None:
-                                log_types_debug(
-                                    "Got query param from C: %s=%s", key, value
-                                )
-                                self._query_params[key] = value
+                loaded_query_params = get_query_params(self.request_capsule)
+                if loaded_query_params:
+                    self._query_params = dict(loaded_query_params)
                 self._loaded_query_params = True
             except Exception as e:
                 log_types_error("Error loading query params from C: %s", e)
@@ -501,7 +491,7 @@ class JSONResponse(Response):
         super().__init__(
             status_code=status_code,
             content_type="application/json",
-            body=json.dumps(data),
+            body=json.dumps(data, separators=(",", ":"), ensure_ascii=False),
             headers=headers,
         )
 

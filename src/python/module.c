@@ -1631,6 +1631,50 @@ static PyObject* get_query_param(PyObject *self, PyObject *args)
     return PyUnicode_FromString(value);
 }
 
+// get_query_params(request_capsule)
+static PyObject* get_query_params(PyObject *self, PyObject *args)
+{
+    PyObject *capsule;
+    if (!PyArg_ParseTuple(args, "O", &capsule))
+        return NULL;
+
+    catzilla_request_t *request = PyCapsule_GetPointer(capsule, "catzilla.request");
+    if (!request) {
+        PyErr_SetString(PyExc_TypeError, "Invalid request capsule");
+        return NULL;
+    }
+
+    PyObject *query_params = PyDict_New();
+    if (!query_params) {
+        return NULL;
+    }
+
+    for (int i = 0; i < request->query_param_count; i++) {
+        const char *key = request->query_params[i];
+        const char *value = request->query_values[i];
+
+        if (!key || !value) {
+            continue;
+        }
+
+        PyObject *py_value = PyUnicode_FromString(value);
+        if (!py_value) {
+            Py_DECREF(query_params);
+            return NULL;
+        }
+
+        if (PyDict_SetItemString(query_params, key, py_value) != 0) {
+            Py_DECREF(py_value);
+            Py_DECREF(query_params);
+            return NULL;
+        }
+
+        Py_DECREF(py_value);
+    }
+
+    return query_params;
+}
+
 // Get uploaded files from request
 static PyObject* get_files(PyObject *self, PyObject *args) {
     catzilla_request_t* request;
@@ -2501,6 +2545,7 @@ static PyMethodDef module_methods[] = {
     {"get_files", get_files, METH_VARARGS, "Get uploaded files from request"},
     {"get_content_type", get_content_type, METH_VARARGS, "Get content type from request"},
     {"get_query_param", get_query_param, METH_VARARGS, "Get query parameter value"},
+    {"get_query_params", get_query_params, METH_VARARGS, "Get all query parameters"},
     {"router_match", router_match, METH_VARARGS, "Match route using C router"},
     {"router_add_route", router_add_route, METH_VARARGS, "Add route to C router"},
     {"router_add_route_with_middleware", router_add_route_with_middleware, METH_VARARGS, "Add route to C router with per-route middleware"},

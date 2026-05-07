@@ -619,11 +619,18 @@ class Catzilla:
         """Internal request handler that bridges C and Python"""
         import time
 
-        # Start timing for request logging
-        start_time = time.time()
+        should_log_request = bool(self.logger and self.log_requests)
+        start_time = time.time() if should_log_request else None
         status_code = 200
         response_size = 0
         error_message = None
+
+        if should_log_request:
+            def response_size_for(response: Response) -> int:
+                return len(response.body.encode("utf-8")) if response.body else 0
+        else:
+            def response_size_for(response: Response) -> int:
+                return 0
 
         try:
             # Get base path for routing (strip query string if present)
@@ -650,29 +657,28 @@ class Catzilla:
 
             if route:
                 try:
-                    # Check content type before calling handler
-                    content_type = request.content_type
-                    if content_type and content_type not in [
-                        "application/json",
-                        "application/x-www-form-urlencoded",
-                        "text/plain",
-                        "multipart/form-data",
-                    ]:
-                        # Return 415 Unsupported Media Type
-                        status_code = 415
-                        err_resp = Response(
-                            status_code=415,
-                            content_type="text/plain",
-                            body=f"Unsupported Media Type: {content_type}",
-                            headers={
-                                "X-Error-Detail": f"Content-Type {content_type} is not supported"
-                            },
-                        )
-                        response_size = (
-                            len(err_resp.body.encode("utf-8")) if err_resp.body else 0
-                        )
-                        err_resp.send(client)
-                        return
+                    # Only inspect content type when the request actually carries a body.
+                    if body:
+                        content_type = request.content_type
+                        if content_type and content_type not in [
+                            "application/json",
+                            "application/x-www-form-urlencoded",
+                            "text/plain",
+                            "multipart/form-data",
+                        ]:
+                            # Return 415 Unsupported Media Type
+                            status_code = 415
+                            err_resp = Response(
+                                status_code=415,
+                                content_type="text/plain",
+                                body=f"Unsupported Media Type: {content_type}",
+                                headers={
+                                    "X-Error-Detail": f"Content-Type {content_type} is not supported"
+                                },
+                            )
+                            response_size = response_size_for(err_resp)
+                            err_resp.send(client)
+                            return
 
                     # Execute global middleware first (pre-route)
                     pre_route_middlewares = [
@@ -691,11 +697,7 @@ class Catzilla:
                                 # Global middleware returned a response - short circuit
                                 if isinstance(middleware_result, Response):
                                     status_code = middleware_result.status_code
-                                    response_size = (
-                                        len(middleware_result.body.encode("utf-8"))
-                                        if middleware_result.body
-                                        else 0
-                                    )
+                                    response_size = response_size_for(middleware_result)
                                     middleware_result.send(client)
                                     return  # Skip everything else
                                 else:
@@ -725,11 +727,7 @@ class Catzilla:
                                     },
                                 )
                             status_code = 500
-                            response_size = (
-                                len(error_resp.body.encode("utf-8"))
-                                if error_resp.body
-                                else 0
-                            )
+                            response_size = response_size_for(error_resp)
                             error_resp.send(client)
                             return
 
@@ -743,11 +741,7 @@ class Catzilla:
                                     # Middleware returned a response - short circuit
                                     if isinstance(middleware_result, Response):
                                         status_code = middleware_result.status_code
-                                        response_size = (
-                                            len(middleware_result.body.encode("utf-8"))
-                                            if middleware_result.body
-                                            else 0
-                                        )
+                                        response_size = response_size_for(middleware_result)
                                         middleware_result.send(client)
                                         return  # Skip route handler
                                     else:
@@ -775,11 +769,7 @@ class Catzilla:
                                         },
                                     )
                                 status_code = 500
-                                response_size = (
-                                    len(error_resp.body.encode("utf-8"))
-                                    if error_resp.body
-                                    else 0
-                                )
+                                response_size = response_size_for(error_resp)
                                 error_resp.send(client)
                                 return
 
@@ -817,9 +807,7 @@ class Catzilla:
 
                     # Capture response details for logging
                     status_code = response.status_code
-                    response_size = (
-                        len(response.body.encode("utf-8")) if response.body else 0
-                    )
+                    response_size = response_size_for(response)
 
                     # Execute global post-route middleware
                     post_route_middlewares = [
@@ -845,11 +833,7 @@ class Catzilla:
                                 if isinstance(middleware_result, Response):
                                     response = middleware_result
                                     status_code = response.status_code
-                                    response_size = (
-                                        len(response.body.encode("utf-8"))
-                                        if response.body
-                                        else 0
-                                    )
+                                    response_size = response_size_for(response)
                         except Exception as middleware_error:
                             # Post-route middleware failed - log but don't break response
                             if not self.production:
@@ -865,9 +849,7 @@ class Catzilla:
                     error_message = str(e)
                     err_resp = self._handle_exception(request, e)
                     status_code = err_resp.status_code
-                    response_size = (
-                        len(err_resp.body.encode("utf-8")) if err_resp.body else 0
-                    )
+                    response_size = response_size_for(err_resp)
                     err_resp.send(client)
             else:
                 if allowed_methods:
@@ -889,9 +871,7 @@ class Catzilla:
                                 "X-Error-Path": path,
                             },
                         )
-                    response_size = (
-                        len(not_allowed.body.encode("utf-8")) if not_allowed.body else 0
-                    )
+                    response_size = response_size_for(not_allowed)
                     not_allowed.send(client)
                 else:
                     # No route found - use custom 404 handler if set
@@ -900,11 +880,7 @@ class Catzilla:
                         try:
                             not_found_resp = self._not_found_handler(request)
                             status_code = not_found_resp.status_code
-                            response_size = (
-                                len(not_found_resp.body.encode("utf-8"))
-                                if not_found_resp.body
-                                else 0
-                            )
+                            response_size = response_size_for(not_found_resp)
                             not_found_resp.send(client)
                         except Exception as handler_error:
                             # 404 handler failed, fall back to default
@@ -921,11 +897,7 @@ class Catzilla:
                                     body=f"404 handler failed: {str(handler_error)}",
                                     headers={"X-Error-Detail": str(handler_error)},
                                 )
-                            response_size = (
-                                len(fallback_resp.body.encode("utf-8"))
-                                if fallback_resp.body
-                                else 0
-                            )
+                            response_size = response_size_for(fallback_resp)
                             fallback_resp.send(client)
                     else:
                         # Default 404 handling
@@ -938,14 +910,12 @@ class Catzilla:
                                 body=f"Not Found: {method} {path}",
                                 headers={"X-Error-Path": path},
                             )
-                        response_size = (
-                            len(not_found.body.encode("utf-8")) if not_found.body else 0
-                        )
+                        response_size = response_size_for(not_found)
                         not_found.send(client)
 
         finally:
             # Log the request if logging is enabled
-            if self.logger and self.log_requests:
+            if should_log_request:
                 duration_ms = (time.time() - start_time) * 1000
                 client_ip = getattr(client, "remote_addr", "127.0.0.1")
 
