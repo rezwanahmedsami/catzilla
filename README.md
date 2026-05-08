@@ -19,6 +19,33 @@ Whether you're building **real-time AI applications**, **low-latency APIs**, or 
 
 <br>
 
+## 🏆 Benchmark Leadership
+
+Catzilla is built to be the **world's fastest Python web framework**.
+In the benchmark suite in this repository, it leads FastAPI, Flask, and Django in both single-worker and 10-worker direct HTTP benchmarks.
+
+### Single / 1 Worker
+
+- **Average throughput**: **52,700 req/s**
+- **Best endpoint**: **`basic_hello_world` at 76,169 req/s**
+- **Average latency**: **2.16ms**
+- **Average peak memory**: **28.52MB**
+- **Lead over FastAPI**: **6.3x average throughput**
+
+![Catzilla single-worker benchmark summary](benchmarks/results/overall_single_1w_performance_summary.png)
+
+### Multi / 10 Workers
+
+- **Average throughput**: **166,877 req/s**
+- **Best endpoint**: **`basic_hello_world` at 197,947 req/s**
+- **Average latency**: **6.84ms**
+- **Average peak memory**: **270.37MB**
+- **Lead over FastAPI**: **4.4x average throughput**
+
+![Catzilla 10-worker benchmark summary](benchmarks/results/overall_multi_10w_performance_summary.png)
+
+For benchmark methodology, reproducible commands, and output guidance, see [benchmarks/README.md](benchmarks/README.md).
+
 
 ## ✨ Features
 

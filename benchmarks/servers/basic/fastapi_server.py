@@ -317,8 +317,6 @@ def main():
     parser.add_argument("--workers", type=int, default=1, help="Number of worker processes")
     args = parser.parse_args()
 
-    app = create_fastapi_server()
-
     print(f"🚀 Starting FastAPI benchmark server on {args.host}:{args.port}")
     print("📊 FastAPI Features:")
     print("  🐍 Pydantic validation")
@@ -339,8 +337,9 @@ def main():
     print()
 
     try:
+        app_target = "benchmarks.servers.basic.fastapi_server:app"
         uvicorn.run(
-            app,
+            app_target,
             host=args.host,
             port=args.port,
             workers=args.workers,

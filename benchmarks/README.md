@@ -1,312 +1,130 @@
-# 🚀 Catzilla Feature-Based Benchmarking System
+# Catzilla Benchmarking Guide
 
-A comprehensive benchmarking framework for testing Catzilla's performance across different feature categories compared to other Python web frameworks.
+This directory contains the benchmark runner, comparison servers, result artifacts, and visualization tooling used to measure Catzilla against FastAPI, Flask, and Django.
 
-## 📋 Overview
+## Benchmark Claim
 
-This benchmarking system goes beyond simple HTTP tests to evaluate real-world performance across specific framework features:
+Catzilla is built to be the **world's fastest Python web framework**.
+The benchmark suite in this repository currently shows Catzilla leading the comparison frameworks in both single-worker and 10-worker direct HTTP benchmarks.
 
-- **Middleware Performance** - Sync vs async middleware implementations
-- **Dependency Injection** - Service resolution across different scopes
-- **Async Operations** - Hybrid async/sync performance
-- **Database Integration** - ORM and database operations
-- **Validation** - Auto-validation engine performance
-- **File Operations** - Upload and static file serving
-- **Background Tasks** - Task queue performance
-- **Real-World Scenarios** - Complete application benchmarks
+## Current Highlights
 
-## 🏗️ Directory Structure
+### Single / 1 Worker
 
+| Framework | Avg RPS | Avg Latency | Avg Peak Memory | Best Endpoint |
+|-----------|---------|-------------|-----------------|---------------|
+| Catzilla | 52,700 | 2.16ms | 28.52MB | `basic_hello_world` at 76,169 RPS |
+| FastAPI | 8,400 | 13.01ms | 31.45MB | `basic_hello_world` at 10,990 RPS |
+| Flask | 2,993 | 48.76ms | 46.33MB | `basic_hello_world` at 3,087 RPS |
+| Django | 2,731 | 55.77ms | 52.88MB | `basic_hello_world` at 2,854 RPS |
+
+![Single worker benchmark summary](results/overall_single_1w_performance_summary.png)
+
+### Multi / 10 Workers
+
+| Framework | Avg RPS | Avg Latency | Avg Peak Memory | Best Endpoint |
+|-----------|---------|-------------|-----------------|---------------|
+| Catzilla | 166,877 | 6.84ms | 270.37MB | `basic_hello_world` at 197,947 RPS |
+| FastAPI | 37,585 | 29.49ms | 352.40MB | `basic_hello_world` at 49,098 RPS |
+| Flask | 5,613 | 173.19ms | 288.23MB | `basic_path_params` at 5,672 RPS |
+| Django | 5,656 | 171.23ms | 349.32MB | `basic_complex_json` at 5,736 RPS |
+
+![10 worker benchmark summary](results/overall_multi_10w_performance_summary.png)
+
+## Benchmark Guidance
+
+- Use the project virtual environment when running benchmarks or the visualizer. From the repository root, prefer `/Users/rezwanahmedsami/devwork/catzilla/.venv/bin/python` over a bare `python` command.
+- Use `10s` runs for publishable numbers and README/report screenshots. Use `1s` runs only for smoke checks while iterating.
+- In `--worker-mode multi`, `--connections` means **connections per worker**. Total offered load is `workers * connections_per_worker`.
+- In Catzilla multi-worker mode, `--threads` is the **requested** total client thread count. The runner may raise the **effective** wrk thread count so each backend worker receives load.
+- `peak_memory_mb` is the peak summed RSS of the benchmark server process tree while `wrk` is active. For multi-worker Catzilla, that includes the launcher/proxy plus the backend worker processes.
+- Compare single-worker and multi-worker charts separately. Do not average them together for marketing or release claims.
+
+## Quick Start
+
+### 1. Activate the Environment
+
+```bash
+cd /Users/rezwanahmedsami/devwork/catzilla
+source .venv/bin/activate
 ```
+
+### 2. Run Single-Worker Basic Benchmarks
+
+```bash
+cd benchmarks
+./run_all.sh --type basic --worker-mode single --duration 10s
+```
+
+### 3. Run 10-Worker Basic Benchmarks
+
+```bash
+cd /Users/rezwanahmedsami/devwork/catzilla/benchmarks
+./run_all.sh --type basic --worker-mode multi --workers 10 --duration 10s
+```
+
+### 4. Regenerate Visual Reports
+
+```bash
+cd /Users/rezwanahmedsami/devwork/catzilla
+/Users/rezwanahmedsami/devwork/catzilla/.venv/bin/python ./benchmarks/tools/visualize_results.py
+```
+
+## Recommended Commands
+
+### Smoke Check
+
+```bash
+cd /Users/rezwanahmedsami/devwork/catzilla/benchmarks
+./run_all.sh --type basic --framework catzilla --worker-mode single --duration 1s
+```
+
+### Full Basic Comparison
+
+```bash
+cd /Users/rezwanahmedsami/devwork/catzilla/benchmarks
+./run_all.sh --type basic --duration 10s
+./run_all.sh --type basic --worker-mode multi --workers 10 --duration 10s
+```
+
+### Per-Worker Load Override
+
+```bash
+cd /Users/rezwanahmedsami/devwork/catzilla/benchmarks
+./run_all.sh --type basic --worker-mode multi --workers 10 --connections 200 --duration 10s
+```
+
+That command applies `200` concurrent connections to each worker, for `2000` total connections.
+
+## Output Files
+
+The benchmark pipeline emits both raw and summarized artifacts:
+
+- `results/*_single_1w.json` and `results/*_multi_10w.json` contain structured metrics including `requests_per_sec`, latency, and `peak_memory_mb`.
+- `results/benchmark_summary.json` stores the merged dataset used by the visualizer.
+- `results/overall_single_1w_performance_summary.png` and `results/overall_multi_10w_performance_summary.png` are the best headline charts for single-worker and 10-worker results.
+- `results/overall_single_1w_memory_comparison.png` and `results/overall_multi_10w_memory_comparison.png` show memory comparison directly.
+- `results/basic_single_1w_performance_analysis.png` and `results/basic_multi_10w_performance_analysis.png` include endpoint-by-endpoint RPS, latency, and peak-memory panels.
+- `results/transparent_performance_report.md` is the generated markdown report that embeds the benchmark story.
+
+## Interpretation Notes
+
+- Single-worker results are the cleanest way to compare raw framework overhead.
+- 10-worker results show how each framework behaves when the load shape is scaled out.
+- Peak memory should be read together with RPS and latency. Lower memory is useful, but lower memory with poor throughput is not a performance win.
+- The current benchmark suite measures localhost performance. Treat it as framework overhead and runtime efficiency comparison, not a universal internet-scale guarantee.
+
+## Directory Structure
+
+```text
 benchmarks/
-├── servers/                          # Feature-specific server implementations
-│   ├── basic/                        # Basic HTTP benchmarks
-│   │   ├── catzilla_server.py        # Catzilla basic server
-│   │   ├── fastapi_server.py         # FastAPI basic server
-│   │   └── endpoints.json            # Endpoint configurations
-│   ├── middleware/                   # Middleware performance
-│   │   ├── catzilla_middleware.py    # Catzilla middleware server
-│   │   ├── fastapi_middleware.py     # FastAPI middleware server
-│   │   └── endpoints.json            # Middleware test endpoints
-│   ├── dependency_injection/         # DI system performance
-│   │   ├── catzilla_di.py           # Catzilla DI server
-│   │   ├── fastapi_di.py            # FastAPI DI server
-│   │   └── endpoints.json            # DI test endpoints
-│   └── async_operations/             # Async/sync hybrid tests
-├── shared/                           # Shared utilities
-│   └── shared_endpoints.py          # Common endpoint definitions
-├── tools/                            # Benchmarking tools
-│   ├── system_info.py               # System information collection
-│   └── visualize_results.py         # Results visualization
-├── results/                          # Benchmark results
-├── run_feature_benchmarks.sh        # Main shell-based runner
-└── run_benchmarks.py               # Enhanced Python runner
+├── run_all.sh
+├── run_enhanced_benchmarks.py
+├── run_enhanced_feature_benchmarks.sh
+├── servers/
+├── shared/
+├── tools/
+│   ├── system_info.py
+│   └── visualize_results.py
+└── results/
 ```
-
-## 🚀 Quick Start
-
-### 1. Check Dependencies
-
-```bash
-# Check if all dependencies are available
-python run_benchmarks.py --check
-```
-
-### 2. List Available Features
-
-```bash
-# See all available feature categories
-python run_benchmarks.py --list
-```
-
-### 3. Run Specific Feature Benchmark
-
-```bash
-# Run middleware benchmarks
-python run_benchmarks.py --feature middleware
-
-# Run dependency injection benchmarks
-python run_benchmarks.py --feature dependency_injection
-
-# Run basic HTTP benchmarks
-python run_benchmarks.py --feature basic
-```
-
-### 4. Run All Benchmarks
-
-```bash
-# Run comprehensive benchmarks for all features
-python run_benchmarks.py --all
-```
-
-## 🔧 Advanced Usage
-
-### Using the Shell Runner Directly
-
-```bash
-# Run specific feature with custom port
-./run_feature_benchmarks.sh middleware 8100
-
-# Run all features
-./run_feature_benchmarks.sh all
-```
-
-### Custom Port Ranges
-
-```bash
-# Start benchmarks from port 9000
-python run_benchmarks.py --all --port 9000
-
-# Run middleware benchmarks on port 8500
-python run_benchmarks.py --feature middleware --port 8500
-```
-
-### Generate Reports Only
-
-```bash
-# Generate reports from existing results
-python run_benchmarks.py --report-only
-```
-
-## 📊 Results and Reporting
-
-### Result Files
-
-Each benchmark run generates:
-- `{framework}_{endpoint_name}.txt` - Raw wrk output
-- `{framework}_{endpoint_name}.json` - Structured results
-- `benchmark_summary.json` - Comprehensive summary
-- `system_info.json` - System specifications
-
-### Visualization
-
-Performance charts are automatically generated showing:
-- Requests per second comparison
-- Latency distribution
-- Memory usage patterns
-- Feature-specific metrics
-
-### Example Result Structure
-
-```json
-{
-  "framework": "catzilla",
-  "endpoint": "/middleware-heavy",
-  "endpoint_name": "heavy_middleware",
-  "method": "GET",
-  "requests_per_sec": "15240.56",
-  "avg_latency": "3.2ms",
-  "p99_latency": "8.5ms",
-  "feature_category": "middleware"
-}
-```
-
-## 🎯 Feature Categories
-
-### Basic Benchmarks
-- HTTP request handling fundamentals
-- JSON serialization/deserialization
-- Path and query parameter processing
-- Auto-validation performance
-
-### Middleware Benchmarks
-- Authentication middleware overhead
-- CORS handling performance
-- Rate limiting efficiency
-- Request/response logging impact
-- Async operations in middleware
-
-### Dependency Injection Benchmarks
-- Service resolution speed
-- Scope management (singleton, request, transient)
-- Complex dependency graphs
-- Repository pattern performance
-
-### Async Operations Benchmarks
-- Mixed async/sync handler performance
-- Concurrent operation handling
-- Event loop efficiency
-- Thread pool utilization
-
-## 🔬 Benchmark Methodology
-
-### Load Testing Configuration
-- **Duration**: 10 seconds per test
-- **Connections**: 100 concurrent connections
-- **Threads**: 4 worker threads
-- **Warmup**: 3 seconds before measurement
-
-### Metrics Collected
-- Requests per second
-- Average latency
-- 99th percentile latency
-- Transfer rate
-- Memory usage
-- CPU utilization
-
-### Framework Comparison
-Current frameworks tested:
-- **Catzilla** - C-accelerated with jemalloc optimization
-- **FastAPI** - Async-first Python framework
-- **Flask** - Traditional WSGI framework
-- **Django** - Full-featured web framework (planned)
-
-## 📈 Performance Targets
-
-Catzilla aims to demonstrate:
-- **25%+ faster** middleware processing than FastAPI
-- **40%+ faster** dependency injection resolution
-- **30%+ lower** memory usage with jemalloc
-- **20%+ better** database integration performance
-- **Comparable** async operation performance to specialized frameworks
-
-## 🛠️ Adding New Features
-
-### 1. Create Feature Directory
-```bash
-mkdir benchmarks/servers/new_feature
-```
-
-### 2. Add Server Implementations
-```python
-# benchmarks/servers/new_feature/catzilla_new_feature.py
-# Implement Catzilla server for the new feature
-
-# benchmarks/servers/new_feature/fastapi_new_feature.py
-# Implement FastAPI server for comparison
-```
-
-### 3. Define Endpoints
-```json
-// benchmarks/servers/new_feature/endpoints.json
-{
-  "feature_category": "new_feature",
-  "description": "Description of the new feature",
-  "endpoints": [
-    {
-      "path": "/test",
-      "name": "test_endpoint",
-      "method": "GET",
-      "description": "Test endpoint description"
-    }
-  ]
-}
-```
-
-### 4. Run Benchmarks
-```bash
-python run_benchmarks.py --feature new_feature
-```
-
-## 🔍 Troubleshooting
-
-### Common Issues
-
-#### Port Already in Use
-```bash
-# Kill existing processes
-lsof -ti:8000 | xargs kill -9
-
-# Use different port range
-python run_benchmarks.py --all --port 9000
-```
-
-#### Missing Dependencies
-```bash
-# Install wrk (macOS)
-brew install wrk
-
-# Install wrk (Ubuntu)
-sudo apt-get install wrk
-
-# Install Python dependencies
-pip install matplotlib pandas seaborn psutil
-```
-
-#### Server Start Failures
-- Check Python path configuration
-- Verify framework installations
-- Review server logs in results directory
-
-### Debug Mode
-
-Enable verbose output:
-```bash
-# Use shell runner with verbose output
-./run_feature_benchmarks.sh middleware 8000
-
-# Check individual server functionality
-python benchmarks/servers/middleware/catzilla_middleware.py --port 8100
-```
-
-## 📝 Contributing
-
-### Adding Framework Support
-1. Create server implementation following existing patterns
-2. Ensure consistent endpoint definitions
-3. Add argument parsing for port/host configuration
-4. Test with benchmark runner
-
-### Improving Benchmarks
-1. Add realistic business logic scenarios
-2. Implement proper error handling
-3. Include comprehensive validation tests
-4. Document performance expectations
-
-## 📊 Compatibility
-
-This system maintains compatibility with the original benchmarking infrastructure:
-- Same result format as `benchmarks_old/`
-- Compatible with existing visualization tools
-- Reuses system information collection
-- Maintains same wrk-based testing methodology
-
-## 🎉 Getting Started
-
-1. **Check your setup**: `python run_benchmarks.py --check`
-2. **List features**: `python run_benchmarks.py --list`
-3. **Run a quick test**: `python run_benchmarks.py --feature basic`
-4. **Run full suite**: `python run_benchmarks.py --all`
-5. **View results**: Check `benchmarks/results/` directory
-
-Happy benchmarking! 🚀

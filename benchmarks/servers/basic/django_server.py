@@ -243,9 +243,10 @@ def main():
             options = {
                 'bind': f'{args.host}:{args.port}',
                 'workers': args.workers,
-                'worker_class': 'sync',
-                'timeout': 30,
-                'keepalive': 2,
+                'worker_class': 'gthread',
+                'threads': 8,
+                'timeout': 120,
+                'keepalive': 30,
                 'max_requests': 1000,
                 'max_requests_jitter': 100,
                 'access_log_format': '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s',

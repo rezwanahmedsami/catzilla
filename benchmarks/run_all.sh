@@ -24,6 +24,7 @@ fi
 PYTHON_CMD="python3"
 UVICORN_CMD="uvicorn"
 GUNICORN_CMD="gunicorn"
+GUNICORN_WSGI_FLAGS="--worker-class gthread --threads 8 --keep-alive 30 --timeout 120"
 
 if [ -x "$VENV_PATH/bin/python" ]; then
     PYTHON_CMD="$VENV_PATH/bin/python"
@@ -40,11 +41,13 @@ mkdir -p "$RESULTS_DIR"
 
 # Benchmark settings
 DURATION="10s"          # Duration of each test
-CONNECTIONS="100"       # Number of concurrent connections
+CONNECTIONS="100"       # Total connections in single mode; per-worker connections in multi mode
+CONNECTIONS_PER_WORKER="100"
 THREADS="4"             # Number of threads to use
 WARMUP_TIME="3s"        # Warmup duration
 WORKER_MODE="single"    # HTTP worker mode for direct basic benchmarks
 WORKERS="1"             # Number of HTTP worker processes in multi mode
+WORKERS_EXPLICIT=false
 
 BASIC_MULTI_CATZILLA_BACKEND_BASE_PORT="8100"
 BASIC_MULTI_CATZILLA_MAX_WORKERS="16"
@@ -56,54 +59,54 @@ BASIC_SERVERS=()
 DI_SERVERS=(
     "catzilla:8010:$PYTHON_CMD $SERVERS_DIR/dependency_injection/catzilla_di.py --port 8010"
     "fastapi:8011:$UVICORN_CMD benchmarks.servers.dependency_injection.fastapi_di:app --host 127.0.0.1 --port 8011"
-    "django:8012:$GUNICORN_CMD --bind 127.0.0.1:8012 --workers 4 --worker-class sync benchmarks.servers.dependency_injection.django_di:application"
+    "django:8012:$GUNICORN_CMD --bind 127.0.0.1:8012 --workers 4 $GUNICORN_WSGI_FLAGS benchmarks.servers.dependency_injection.django_di:application"
 )
 
 # Server configurations for SQLAlchemy DI benchmarks
 SQLALCHEMY_DI_SERVERS=(
     "catzilla:8020:$PYTHON_CMD $SERVERS_DIR/dependency_injection/catzilla_sqlalchemy_di.py --port 8020"
     "fastapi:8021:$UVICORN_CMD benchmarks.servers.dependency_injection.fastapi_sqlalchemy_di:app --host 127.0.0.1 --port 8021"
-    "flask:8022:$GUNICORN_CMD --bind 127.0.0.1:8022 --workers 4 --worker-class sync benchmarks.servers.dependency_injection.flask_sqlalchemy_di:app"
+    "flask:8022:$GUNICORN_CMD --bind 127.0.0.1:8022 --workers 4 $GUNICORN_WSGI_FLAGS benchmarks.servers.dependency_injection.flask_sqlalchemy_di:app"
 )
 
 # Server configurations for middleware benchmarks
 MIDDLEWARE_SERVERS=(
     "catzilla:8030:$PYTHON_CMD $SERVERS_DIR/middleware/catzilla_middleware.py --port 8030"
     "fastapi:8031:$UVICORN_CMD benchmarks.servers.middleware.fastapi_middleware:app --host 127.0.0.1 --port 8031"
-    "flask:8033:$GUNICORN_CMD --bind 127.0.0.1:8033 --workers 4 --worker-class sync benchmarks.servers.middleware.flask_middleware:app"
-    "django:8032:$GUNICORN_CMD --bind 127.0.0.1:8032 --workers 4 --worker-class sync benchmarks.servers.middleware.django_middleware:application"
+    "flask:8033:$GUNICORN_CMD --bind 127.0.0.1:8033 --workers 4 $GUNICORN_WSGI_FLAGS benchmarks.servers.middleware.flask_middleware:app"
+    "django:8032:$GUNICORN_CMD --bind 127.0.0.1:8032 --workers 4 $GUNICORN_WSGI_FLAGS benchmarks.servers.middleware.django_middleware:application"
 )
 
 # Server configurations for validation benchmarks
 VALIDATION_SERVERS=(
     "catzilla:8040:$PYTHON_CMD $SERVERS_DIR/validation/catzilla_validation.py --port 8040"
     "fastapi:8041:$UVICORN_CMD benchmarks.servers.validation.fastapi_validation:app --host 127.0.0.1 --port 8041"
-    "flask:8042:$GUNICORN_CMD --bind 127.0.0.1:8042 --workers 4 --worker-class sync benchmarks.servers.validation.flask_validation:app"
-    "django:8043:$GUNICORN_CMD --bind 127.0.0.1:8043 --workers 4 --worker-class sync benchmarks.servers.validation.django_validation:application"
+    "flask:8042:$GUNICORN_CMD --bind 127.0.0.1:8042 --workers 4 $GUNICORN_WSGI_FLAGS benchmarks.servers.validation.flask_validation:app"
+    "django:8043:$GUNICORN_CMD --bind 127.0.0.1:8043 --workers 4 $GUNICORN_WSGI_FLAGS benchmarks.servers.validation.django_validation:application"
 )
 
 # Server configurations for file operations benchmarks
 FILE_OPERATIONS_SERVERS=(
     "catzilla:8050:$PYTHON_CMD $SERVERS_DIR/file_operations/catzilla_file.py --port 8050"
     "fastapi:8051:$UVICORN_CMD benchmarks.servers.file_operations.fastapi_file:app --host 127.0.0.1 --port 8051"
-    "flask:8052:$GUNICORN_CMD --bind 127.0.0.1:8052 --workers 4 --worker-class sync benchmarks.servers.file_operations.flask_file:app"
-    "django:8053:$GUNICORN_CMD --bind 127.0.0.1:8053 --workers 4 --worker-class sync benchmarks.servers.file_operations.django_file:application"
+    "flask:8052:$GUNICORN_CMD --bind 127.0.0.1:8052 --workers 4 $GUNICORN_WSGI_FLAGS benchmarks.servers.file_operations.flask_file:app"
+    "django:8053:$GUNICORN_CMD --bind 127.0.0.1:8053 --workers 4 $GUNICORN_WSGI_FLAGS benchmarks.servers.file_operations.django_file:application"
 )
 
 # Server configurations for background tasks benchmarks
 BACKGROUND_TASKS_SERVERS=(
     "catzilla:8060:$PYTHON_CMD $SERVERS_DIR/background_tasks/catzilla_tasks.py --port 8060"
     "fastapi:8061:$UVICORN_CMD benchmarks.servers.background_tasks.fastapi_tasks:app --host 127.0.0.1 --port 8061"
-    "flask:8062:$GUNICORN_CMD --bind 127.0.0.1:8062 --workers 4 --worker-class sync benchmarks.servers.background_tasks.flask_tasks:app"
-    "django:8063:$GUNICORN_CMD --bind 127.0.0.1:8063 --workers 4 --worker-class sync benchmarks.servers.background_tasks.django_tasks:application"
+    "flask:8062:$GUNICORN_CMD --bind 127.0.0.1:8062 --workers 4 $GUNICORN_WSGI_FLAGS benchmarks.servers.background_tasks.flask_tasks:app"
+    "django:8063:$GUNICORN_CMD --bind 127.0.0.1:8063 --workers 4 $GUNICORN_WSGI_FLAGS benchmarks.servers.background_tasks.django_tasks:application"
 )
 
 # Server configurations for real-world scenarios benchmarks
 REAL_WORLD_SERVERS=(
     "catzilla:8080:$PYTHON_CMD $SERVERS_DIR/real_world_scenarios/catzilla_realworld.py --port 8080"
     "fastapi:8081:$UVICORN_CMD benchmarks.servers.real_world_scenarios.fastapi_realworld:app --host 127.0.0.1 --port 8081"
-    "django:8082:$GUNICORN_CMD --bind 127.0.0.1:8082 --workers 4 --worker-class sync benchmarks.servers.real_world_scenarios.django_realworld:application"
-    "flask:8083:$GUNICORN_CMD --bind 127.0.0.1:8083 --workers 4 --worker-class sync benchmarks.servers.real_world_scenarios.flask_realworld:app"
+    "django:8082:$GUNICORN_CMD --bind 127.0.0.1:8082 --workers 4 $GUNICORN_WSGI_FLAGS benchmarks.servers.real_world_scenarios.django_realworld:application"
+    "flask:8083:$GUNICORN_CMD --bind 127.0.0.1:8083 --workers 4 $GUNICORN_WSGI_FLAGS benchmarks.servers.real_world_scenarios.flask_realworld:app"
 )
 
 # Test endpoints for basic benchmarks
@@ -221,9 +224,9 @@ get_basic_server_configs() {
 
     cat << EOF
 catzilla:$catzilla_port:$catzilla_command
-fastapi:8001:$PYTHON_CMD $SERVERS_DIR/basic/fastapi_server.py --host 127.0.0.1 --port 8001 --workers $effective_workers
-flask:8002:$GUNICORN_CMD --bind 127.0.0.1:8002 --workers $effective_workers --worker-class sync benchmarks.servers.basic.flask_server:app
-django:8003:$GUNICORN_CMD --bind 127.0.0.1:8003 --workers $effective_workers --worker-class sync benchmarks.servers.basic.django_server:application
+fastapi:8001:$UVICORN_CMD benchmarks.servers.basic.fastapi_server:app --host 127.0.0.1 --port 8001 --workers $effective_workers --no-access-log --log-level warning
+flask:8002:$GUNICORN_CMD --bind 127.0.0.1:8002 --workers $effective_workers $GUNICORN_WSGI_FLAGS benchmarks.servers.basic.flask_server:app
+django:8003:$GUNICORN_CMD --bind 127.0.0.1:8003 --workers $effective_workers $GUNICORN_WSGI_FLAGS benchmarks.servers.basic.django_server:application
 EOF
 }
 
@@ -240,6 +243,68 @@ get_server_configs_for_type() {
         "real-world") printf "%s\n" "${REAL_WORLD_SERVERS[@]}" ;;
         *) return 1 ;;
     esac
+}
+
+detect_default_worker_count() {
+    local detected_workers=""
+
+    if command -v nproc >/dev/null 2>&1; then
+        detected_workers=$(nproc 2>/dev/null || true)
+    elif command -v sysctl >/dev/null 2>&1; then
+        detected_workers=$(sysctl -n hw.logicalcpu 2>/dev/null || true)
+    elif command -v getconf >/dev/null 2>&1; then
+        detected_workers=$(getconf _NPROCESSORS_ONLN 2>/dev/null || true)
+    fi
+
+    if ! [[ "$detected_workers" =~ ^[0-9]+$ ]] || [ "$detected_workers" -lt 2 ]; then
+        detected_workers="2"
+    fi
+
+    echo "$detected_workers"
+}
+
+apply_connection_mode_settings() {
+    if [ "$WORKER_MODE" = "multi" ]; then
+        CONNECTIONS_PER_WORKER="$CONNECTIONS"
+        CONNECTIONS="$((CONNECTIONS_PER_WORKER * WORKERS))"
+    else
+        CONNECTIONS_PER_WORKER="$CONNECTIONS"
+    fi
+}
+
+format_connection_summary() {
+    if [ "$WORKER_MODE" = "multi" ]; then
+        echo "$CONNECTIONS total (${CONNECTIONS_PER_WORKER}/worker)"
+    else
+        echo "$CONNECTIONS"
+    fi
+}
+
+format_requested_thread_summary() {
+    if [ "$WORKER_MODE" = "multi" ]; then
+        echo "$THREADS requested"
+    else
+        echo "$THREADS"
+    fi
+}
+
+find_server_config() {
+    local benchmark_type=$1
+    local framework=$2
+    local config=""
+    local normalized_config=""
+
+    while IFS= read -r config; do
+        normalized_config="${config//$'\r'/}"
+        normalized_config="${normalized_config#"${normalized_config%%[![:space:]]*}"}"
+
+        if [ -n "$normalized_config" ] && [ "${normalized_config%%:*}" = "$framework" ]; then
+            printf "%s\n" "$normalized_config"
+            return 0
+        fi
+    done <<< "$(get_server_configs_for_type "$benchmark_type")"
+
+    return 1
 }
 
 result_worker_suffix() {
@@ -314,6 +379,98 @@ format_transfer_per_sec() {
     '
 }
 
+sum_process_tree_rss_kb() {
+    local root_pid=$1
+
+    if [ -z "$root_pid" ] || ! kill -0 "$root_pid" 2>/dev/null; then
+        echo "0"
+        return
+    fi
+
+    local -a pending_pids
+    local -a collected_pids
+    local total_rss_kb=0
+    local current_pid=""
+    local child_pid=""
+    local rss_kb=""
+
+    pending_pids=("$root_pid")
+    collected_pids=("$root_pid")
+
+    while [ ${#pending_pids[@]} -gt 0 ]; do
+        current_pid="${pending_pids[1]}"
+        pending_pids=("${pending_pids[@]:1}")
+
+        while IFS= read -r child_pid; do
+            if [ -n "$child_pid" ]; then
+                collected_pids+=("$child_pid")
+                pending_pids+=("$child_pid")
+            fi
+        done < <(pgrep -P "$current_pid" 2>/dev/null || true)
+    done
+
+    for current_pid in "${collected_pids[@]}"; do
+        rss_kb=$(ps -o rss= -p "$current_pid" 2>/dev/null | awk '{sum += $1} END {print sum + 0}')
+        total_rss_kb=$((total_rss_kb + ${rss_kb:-0}))
+    done
+
+    echo "$total_rss_kb"
+}
+
+start_memory_monitor() {
+    local root_pid=$1
+    local output_file=$2
+    local sample_interval="${3:-0.2}"
+
+    (
+        local peak_rss_kb=0
+        local current_rss_kb=0
+
+        while kill -0 "$root_pid" 2>/dev/null; do
+            current_rss_kb=$(sum_process_tree_rss_kb "$root_pid")
+            if [ "$current_rss_kb" -gt "$peak_rss_kb" ]; then
+                peak_rss_kb="$current_rss_kb"
+            fi
+            sleep "$sample_interval"
+        done
+
+        echo "$peak_rss_kb" > "$output_file"
+    ) &
+
+    MEMORY_MONITOR_PID="$!"
+}
+
+stop_memory_monitor() {
+    local monitor_pid=$1
+    local output_file=$2
+    local root_pid=$3
+    local final_rss_kb="0"
+
+    final_rss_kb=$(sum_process_tree_rss_kb "$root_pid")
+
+    if [ -n "$monitor_pid" ] && kill -0 "$monitor_pid" 2>/dev/null; then
+        kill -TERM "$monitor_pid" 2>/dev/null || true
+        wait "$monitor_pid" 2>/dev/null || true
+    fi
+
+    if [ -f "$output_file" ]; then
+        local peak_rss_kb=$(cat "$output_file" 2>/dev/null || echo "0")
+        rm -f "$output_file"
+        if [ "$final_rss_kb" -gt "$peak_rss_kb" ]; then
+            echo "$final_rss_kb"
+        else
+            echo "$peak_rss_kb"
+        fi
+    else
+        echo "$final_rss_kb"
+    fi
+}
+
+format_memory_mb() {
+    local rss_kb=$1
+    awk -v value="$rss_kb" 'BEGIN { printf "%.2f", (value + 0) / 1024 }'
+}
+
 write_benchmark_json() {
     local json_file=$1
     local framework=$2
@@ -325,6 +482,9 @@ write_benchmark_json() {
     local avg_latency=$8
     local p99_latency=$9
     local transfer_per_sec=${10}
+    local requested_threads=${11:-$THREADS}
+    local effective_threads=${12:-$requested_threads}
+    local peak_memory_mb=${13:-0}
 
     cat > "$json_file" << EOF
 {
@@ -337,7 +497,10 @@ write_benchmark_json() {
   "workers": $WORKERS,
   "duration": "$DURATION",
   "connections": $CONNECTIONS,
-  "threads": $THREADS,
+    "connections_per_worker": $CONNECTIONS_PER_WORKER,
+    "threads": $effective_threads,
+    "requested_threads": $requested_threads,
+    "peak_memory_mb": $peak_memory_mb,
   "requests_per_sec": "${requests_per_sec:-0}",
   "avg_latency": "$avg_latency",
   "p99_latency": "$p99_latency",
@@ -356,15 +519,21 @@ run_multiworker_catzilla_benchmark() {
     local worker_suffix=$(result_worker_suffix)
     local result_file="$RESULTS_DIR/catzilla_${endpoint_name}_${worker_suffix}.txt"
     local json_file="$RESULTS_DIR/catzilla_${endpoint_name}_${worker_suffix}.json"
-    local worker_connections=$(( (CONNECTIONS + WORKERS - 1) / WORKERS ))
-    local worker_threads=$(( (THREADS + WORKERS - 1) / WORKERS ))
+    local server_pid=$(cat "$RESULTS_DIR/catzilla_server.pid" 2>/dev/null || echo "")
+    local worker_connections=$CONNECTIONS_PER_WORKER
+    local effective_threads=$THREADS
+    local base_worker_threads=1
+    local extra_worker_threads=0
 
     if [ "$worker_connections" -lt 1 ]; then
         worker_connections=1
     fi
-    if [ "$worker_threads" -lt 1 ]; then
-        worker_threads=1
+    if [ "$effective_threads" -lt "$WORKERS" ]; then
+        effective_threads=$WORKERS
     fi
+
+    base_worker_threads=$(( effective_threads / WORKERS ))
+    extra_worker_threads=$(( effective_threads % WORKERS ))
 
     local worker_ports=()
     for ((worker_index = 0; worker_index < WORKERS; worker_index++)); do
@@ -395,13 +564,31 @@ EOF
     done
 
     print_status "Running aggregated multi-worker benchmark across ${WORKERS} catzilla worker processes..."
+    print_status "Requested wrk threads: ${THREADS}; effective wrk threads: ${effective_threads}"
+
+    local memory_stats_file="$RESULTS_DIR/catzilla_${endpoint_name}_${worker_suffix}.memory"
+    local memory_monitor_pid=""
+    local peak_memory_kb="0"
+    local peak_memory_mb="0"
+
+    if [ -n "$server_pid" ]; then
+        start_memory_monitor "$server_pid" "$memory_stats_file"
+        memory_monitor_pid="$MEMORY_MONITOR_PID"
+    fi
 
     local worker_result_files=()
     local worker_pids=()
     local worker_lua_files=()
+    local worker_index=0
     for worker_port in "${worker_ports[@]}"; do
         local worker_url="http://127.0.0.1:${worker_port}${endpoint}"
         local worker_result_file="$RESULTS_DIR/catzilla_${endpoint_name}_${worker_suffix}_${worker_port}.wrk.txt"
+        local worker_threads=$base_worker_threads
+
+        if [ "$worker_index" -lt "$extra_worker_threads" ]; then
+            worker_threads=$((worker_threads + 1))
+        fi
+
         worker_result_files+=("$worker_result_file")
 
         if [ "$method" = "POST" ] && [ -n "$post_data" ]; then
@@ -417,6 +604,7 @@ EOF
             wrk -t"$worker_threads" -c"$worker_connections" -d"$DURATION" --latency "$worker_url" > "$worker_result_file" 2>&1 &
         fi
         worker_pids+=("$!")
+        worker_index=$((worker_index + 1))
     done
 
     local all_wrk_succeeded=true
@@ -425,6 +613,11 @@ EOF
             all_wrk_succeeded=false
         fi
     done
+
+    if [ -n "$server_pid" ]; then
+        peak_memory_kb=$(stop_memory_monitor "$memory_monitor_pid" "$memory_stats_file" "$server_pid")
+        peak_memory_mb=$(format_memory_mb "$peak_memory_kb")
+    fi
 
     for worker_lua in "${worker_lua_files[@]}"; do
         rm -f "$worker_lua"
@@ -480,20 +673,24 @@ EOF
 Multi-worker aggregate benchmark for catzilla
 Worker mode: $WORKER_MODE
 Workers: $WORKERS
+Requested Threads: $THREADS
+Effective wrk Threads: $effective_threads
 Endpoint: $endpoint
 Requests/sec: $total_rps_display
 Latency $aggregate_avg_latency
 99% $aggregate_p99_latency
 Transfer/sec: $aggregate_transfer
+Peak Memory: ${peak_memory_mb}MB
 EOF
 
-    write_benchmark_json "$json_file" "catzilla" "$endpoint" "$endpoint_name" "$benchmark_type" "$method" "$total_rps_display" "$aggregate_avg_latency" "$aggregate_p99_latency" "$aggregate_transfer"
+    write_benchmark_json "$json_file" "catzilla" "$endpoint" "$endpoint_name" "$benchmark_type" "$method" "$total_rps_display" "$aggregate_avg_latency" "$aggregate_p99_latency" "$aggregate_transfer" "$THREADS" "$effective_threads" "$peak_memory_mb"
 
     print_success "Benchmark completed for catzilla - $endpoint_name"
     print_success "Results saved: $result_file, $json_file"
     echo "  Requests/sec: $total_rps_display"
     echo "  Avg Latency: $aggregate_avg_latency"
     echo "  99% Latency: $aggregate_p99_latency"
+    echo "  Peak Memory: ${peak_memory_mb}MB"
     return 0
 }
 
@@ -569,6 +766,7 @@ start_server() {
     local framework=$1
     local port=$2
     local command=$3
+    local log_file="$RESULTS_DIR/${framework}_server.log"
 
     print_status "Starting $framework server on port $port..."
 
@@ -582,17 +780,40 @@ start_server() {
         fi
     fi
 
-    # Start the server in background
-    cd "$PROJECT_ROOT"  # Run from project root
-
     # Activate virtual environment if it exists
     if [ -f "$VENV_PATH/bin/activate" ]; then
         source "$VENV_PATH/bin/activate"
     fi
 
-    # Start server
-    eval "$command" > "$RESULTS_DIR/${framework}_server.log" 2>&1 &
-    local server_pid=$!
+    # Start the server in its own session so benchmark-side shells and wrk
+    # do not forward terminal signals into Gunicorn/Uvicorn worker trees.
+    local server_pid=$(
+        SERVER_LAUNCH_COMMAND="$command" \
+        SERVER_LAUNCH_LOG="$log_file" \
+        SERVER_LAUNCH_CWD="$PROJECT_ROOT" \
+        "$PYTHON_CMD" - <<'PY'
+import os
+import subprocess
+
+command = os.environ["SERVER_LAUNCH_COMMAND"]
+log_path = os.environ["SERVER_LAUNCH_LOG"]
+cwd = os.environ["SERVER_LAUNCH_CWD"]
+
+with open(log_path, "wb") as handle:
+    process = subprocess.Popen(
+        command,
+        cwd=cwd,
+        shell=True,
+        executable="/bin/zsh",
+        stdin=subprocess.DEVNULL,
+        stdout=handle,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+    )
+
+print(process.pid)
+PY
+    )
 
     # Wait for server to start
     if wait_for_server "127.0.0.1" "$port" 30; then
@@ -617,17 +838,11 @@ run_benchmark() {
     local post_data=${5:-""}
     local benchmark_type=${6:-"basic"}  # Add benchmark_type parameter
 
-    # Extract port from appropriate server configuration based on benchmark type
-    local servers_to_check=("${(@f)$(get_server_configs_for_type "$benchmark_type")}"
-    )
-
-    for server_config in "${servers_to_check[@]}"; do
-        local server_name=${server_config%%:*}
-        if [ "$server_name" = "$framework" ]; then
-            port=$(echo "$server_config" | cut -d':' -f2)
-            break
-        fi
-    done
+    local server_config=""
+    server_config=$(find_server_config "$benchmark_type" "$framework" || true)
+    if [ -n "$server_config" ]; then
+        port=$(echo "$server_config" | cut -d':' -f2)
+    fi
 
     if [ -z "$port" ]; then
         print_error "Port not found for framework: $framework (type: $benchmark_type)"
@@ -669,8 +884,18 @@ EOF
     local worker_suffix=$(result_worker_suffix)
     local result_file="$RESULTS_DIR/${framework}_${endpoint_name}_${worker_suffix}.txt"
     local json_file="$RESULTS_DIR/${framework}_${endpoint_name}_${worker_suffix}.json"
+    local server_pid=$(cat "$RESULTS_DIR/${framework}_server.pid" 2>/dev/null || echo "")
+    local memory_stats_file="$RESULTS_DIR/${framework}_${endpoint_name}_${worker_suffix}.memory"
+    local memory_monitor_pid=""
+    local peak_memory_kb="0"
+    local peak_memory_mb="0"
 
     print_status "Running main benchmark..."
+
+    if [ -n "$server_pid" ]; then
+        start_memory_monitor "$server_pid" "$memory_stats_file"
+        memory_monitor_pid="$MEMORY_MONITOR_PID"
+    fi
 
     # Run wrk and capture output
     local wrk_success=false
@@ -694,6 +919,11 @@ EOF
         fi
     fi
 
+    if [ -n "$server_pid" ]; then
+        peak_memory_kb=$(stop_memory_monitor "$memory_monitor_pid" "$memory_stats_file" "$server_pid")
+        peak_memory_mb=$(format_memory_mb "$peak_memory_kb")
+    fi
+
     if [ "$wrk_success" = true ]; then
         local invalid_responses=$(grep "Non-2xx or 3xx responses:" "$result_file" | awk '{print $5}' | head -1)
         if [ -n "$invalid_responses" ] && [ "$invalid_responses" != "0" ]; then
@@ -709,12 +939,13 @@ EOF
         local p99_latency=$(grep "99%" "$result_file" | awk '{print $2}' | head -1)
         local transfer_per_sec=$(grep "Transfer/sec:" "$result_file" | awk '{print $2}' | head -1)
 
-                write_benchmark_json "$json_file" "$framework" "$endpoint" "$endpoint_name" "$benchmark_type" "$method" "${requests_per_sec:-0}" "$avg_latency" "$p99_latency" "$transfer_per_sec"
+            write_benchmark_json "$json_file" "$framework" "$endpoint" "$endpoint_name" "$benchmark_type" "$method" "${requests_per_sec:-0}" "$avg_latency" "$p99_latency" "$transfer_per_sec" "$THREADS" "$THREADS" "$peak_memory_mb"
 
         print_success "Results saved: $result_file, $json_file"
         echo "  Requests/sec: $requests_per_sec"
         echo "  Avg Latency: $avg_latency"
         echo "  99% Latency: $p99_latency"
+            echo "  Peak Memory: ${peak_memory_mb}MB"
 
     else
         print_error "Benchmark failed for $framework - $endpoint_name"
@@ -731,41 +962,31 @@ benchmark_framework() {
     echo "=================================================="
 
     # Select server configuration and endpoints based on benchmark type
-    local servers_array
     local endpoints_array
-    local port_offset
 
     case "$benchmark_type" in
         "basic")
-            servers_array=("${(@f)$(get_server_configs_for_type "$benchmark_type")}")
             endpoints_array=("${BASIC_ENDPOINTS[@]}")
             ;;
         "di")
-            servers_array=("${DI_SERVERS[@]}")
             endpoints_array=("${DI_ENDPOINTS[@]}")
             ;;
         "sqlalchemy-di")
-            servers_array=("${SQLALCHEMY_DI_SERVERS[@]}")
             endpoints_array=("${SQLALCHEMY_DI_ENDPOINTS[@]}")
             ;;
         "middleware")
-            servers_array=("${MIDDLEWARE_SERVERS[@]}")
             endpoints_array=("${MIDDLEWARE_ENDPOINTS[@]}")
             ;;
         "validation")
-            servers_array=("${VALIDATION_SERVERS[@]}")
             endpoints_array=("${VALIDATION_ENDPOINTS[@]}")
             ;;
         "file-operations")
-            servers_array=("${FILE_OPERATIONS_SERVERS[@]}")
             endpoints_array=("${FILE_OPERATIONS_ENDPOINTS[@]}")
             ;;
         "background-tasks")
-            servers_array=("${BACKGROUND_TASKS_SERVERS[@]}")
             endpoints_array=("${BACKGROUND_TASKS_ENDPOINTS[@]}")
             ;;
         "real-world")
-            servers_array=("${REAL_WORLD_SERVERS[@]}")
             endpoints_array=("${REAL_WORLD_ENDPOINTS[@]}")
             ;;
         *)
@@ -779,15 +1000,11 @@ benchmark_framework() {
     local port=""
     local command=""
 
-    for config in "${servers_array[@]}"; do
-        local server_name=${config%%:*}
-        if [ "$server_name" = "$framework" ]; then
-            server_config="$config"
-            port=$(echo "$config" | cut -d':' -f2)
-            command=$(echo "$config" | cut -d':' -f3-)
-            break
-        fi
-    done
+    server_config=$(find_server_config "$benchmark_type" "$framework" || true)
+    if [ -n "$server_config" ]; then
+        port=$(echo "$server_config" | cut -d':' -f2)
+        command=$(echo "$server_config" | cut -d':' -f3-)
+    fi
 
     if [ -z "$server_config" ]; then
         print_error "Server configuration not found for $framework ($benchmark_type)"
@@ -1029,7 +1246,9 @@ generate_summary() {
       "test_params": {
         "duration": "$DURATION",
         "connections": $CONNECTIONS,
+        "connections_per_worker": $CONNECTIONS_PER_WORKER,
         "threads": $THREADS,
+        "requested_threads": $THREADS,
                 "worker_mode": "$WORKER_MODE",
                 "workers": $WORKERS,
         "tool": "wrk"
@@ -1082,7 +1301,9 @@ EOF
   "test_params": {
     "duration": "$DURATION",
     "connections": $CONNECTIONS,
+        "connections_per_worker": $CONNECTIONS_PER_WORKER,
     "threads": $THREADS,
+    "requested_threads": $THREADS,
         "worker_mode": "$WORKER_MODE",
         "workers": $WORKERS,
     "tool": "wrk"
@@ -1175,7 +1396,8 @@ generate_category_markdown_report() {
 - **Category**: $current_benchmark_type
 - **Duration**: $DURATION
 - **Connections**: $CONNECTIONS
-- **Threads**: $THREADS
+- **Connections Per Worker**: $CONNECTIONS_PER_WORKER
+- **Requested Threads**: $THREADS
 - **Worker Mode**: $WORKER_MODE
 - **Workers**: $WORKERS
 - **Tool**: wrk
@@ -1183,8 +1405,8 @@ generate_category_markdown_report() {
 
 ## Performance Results
 
-| Framework | Endpoint | Worker Mode | Workers | Requests/sec | Avg Latency | 99% Latency |
-|-----------|----------|-------------|---------|--------------|-------------|-------------|
+| Framework | Endpoint | Worker Mode | Workers | Requests/sec | Avg Latency | 99% Latency | Peak Memory |
+|-----------|----------|-------------|---------|--------------|-------------|-------------|-------------|
 EOF
 
     # Parse JSON results to create table for current category
@@ -1197,7 +1419,8 @@ EOF
             local rps=$(grep '"requests_per_sec"' "$json_file" | cut -d'"' -f4)
             local avg_lat=$(grep '"avg_latency"' "$json_file" | cut -d'"' -f4)
             local p99_lat=$(grep '"p99_latency"' "$json_file" | cut -d'"' -f4)
-            echo "| $framework | $endpoint | $worker_mode | $workers | $rps | $avg_lat | $p99_lat |" >> "$category_md"
+            local peak_memory_mb=$(grep '"peak_memory_mb"' "$json_file" | head -1 | awk -F': ' '{print $2}' | tr -d ',')
+            echo "| $framework | $endpoint | $worker_mode | $workers | $rps | $avg_lat | $p99_lat | ${peak_memory_mb}MB |" >> "$category_md"
         fi
     done
 
@@ -1276,10 +1499,10 @@ usage() {
     echo "  --type TYPE         Benchmark type (see available types below)"
     echo "  --framework FRAMEWORK    Run specific framework only (catzilla,fastapi,flask,django)"
     echo "  --duration TIME     Test duration (default: 10s)"
-    echo "  --connections NUM   Number of connections (default: 100)"
+    echo "  --connections NUM   Total connections in single mode, per-worker connections in multi mode (default: 100)"
     echo "  --threads NUM       Number of threads (default: 4)"
     echo "  --worker-mode MODE  HTTP worker mode for direct basic benchmarks: single or multi"
-    echo "  --workers NUM       HTTP worker count for --worker-mode multi (default: 1)"
+    echo "  --workers NUM       HTTP worker count for --worker-mode multi (default: auto logical CPU count)"
     echo "  --all              Run all available benchmark types"
     echo "  --clear            Clear individual benchmark result files (.json/.txt)"
     echo "  --help             Show this help message"
@@ -1292,6 +1515,8 @@ usage() {
     echo "  $0 --type middleware                       # Run middleware benchmarks"
     echo "  $0 --framework catzilla --type validation  # Run Catzilla validation only"
     echo "  $0 --type basic --worker-mode single       # Basic benchmark in single-worker mode"
+    echo "  $0 --type basic --worker-mode multi        # Basic benchmark in auto multi-worker mode"
+    echo "  $0 --type basic --worker-mode multi --connections 200  # 200 connections sent to each worker"
     echo "  $0 --type basic --worker-mode multi --workers 4  # Basic benchmark in 4-worker mode"
     echo "  $0 --all                                   # Run ALL benchmark types"
     echo "  $0 --clear                                 # Clear individual result files"
@@ -1349,6 +1574,7 @@ parse_arguments() {
     SELECTED_FRAMEWORK=""
     PYTHON_ARGS=""
     RUN_ALL_TYPES=false
+    WORKERS_EXPLICIT=false
 
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -1382,6 +1608,7 @@ parse_arguments() {
                 ;;
             --workers)
                 WORKERS="$2"
+                WORKERS_EXPLICIT=true
                 shift 2
                 ;;
             --all)
@@ -1467,7 +1694,11 @@ parse_arguments() {
 
     if [ "$WORKER_MODE" = "single" ]; then
         WORKERS="1"
+    elif [ "$WORKER_MODE" = "multi" ] && [ "$WORKERS_EXPLICIT" = false ]; then
+        WORKERS="$(detect_default_worker_count)"
     fi
+
+    apply_connection_mode_settings
 
     if [ "$MODE" = "python" ] && [ "$WORKER_MODE" = "multi" ]; then
         print_error "--worker-mode is currently supported only in direct mode"
@@ -1492,7 +1723,7 @@ run_direct_benchmarks() {
         local all_types=("$BENCHMARK_TYPE")
     fi
 
-    echo "Duration: $DURATION, Connections: $CONNECTIONS, Threads: $THREADS"
+    echo "Duration: $DURATION, Connections: $(format_connection_summary), Threads: $(format_requested_thread_summary)"
     echo "=========================================="
 
     # Activate virtual environment if it exists
@@ -1621,7 +1852,7 @@ run_python_benchmarks() {
 
     print_status "Running enhanced benchmarks for categories: $categories"
     print_status "PYTHON_ARGS was: $PYTHON_ARGS"
-    print_status "Duration: $DURATION, Connections: $CONNECTIONS, Threads: $THREADS"
+    print_status "Duration: $DURATION, Connections: $(format_connection_summary), Threads: $(format_requested_thread_summary)"
 
     # Convert duration from "10s" format to just "10" for the enhanced script
     local duration_numeric=$(echo "$DURATION" | sed 's/s$//')
