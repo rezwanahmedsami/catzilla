@@ -115,6 +115,10 @@ class AsyncHandlerDetector:
         Raises:
             HandlerTypeError: If handler type cannot be determined
         """
+        handler_type = getattr(handler, "_catzilla_handler_type", None)
+        if handler_type in {"async", "sync"}:
+            return handler_type
+
         # Use handler's id for caching (memory address)
         handler_id = id(handler)
 
@@ -139,6 +143,13 @@ class AsyncHandlerDetector:
 
                 # Cache the result
                 self._handler_cache[handler_id] = handler_type
+
+                try:
+                    handler._catzilla_handler_type = handler_type
+                    handler._catzilla_is_async = is_async
+                except Exception:
+                    # Some callables do not allow attribute assignment.
+                    pass
 
                 # Add to weak reference set for tracking
                 self._handler_refs.add(handler)

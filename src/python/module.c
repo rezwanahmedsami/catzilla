@@ -440,8 +440,10 @@ static PyObject* CatzillaServer_listen(CatzillaServerObject *self, PyObject *arg
     if (!PyArg_ParseTuple(args, "i|s", &port, &host))
         return NULL;
 
-
-    int rc = catzilla_server_listen(&self->server, host, port);
+    int rc;
+    Py_BEGIN_ALLOW_THREADS
+    rc = catzilla_server_listen(&self->server, host, port);
+    Py_END_ALLOW_THREADS
     if (rc != 0) {
         PyErr_Format(PyExc_RuntimeError, "Listen error: %s", uv_strerror(rc));
         return NULL;
@@ -909,6 +911,98 @@ static PyObject* send_response(PyObject *self, PyObject *args)
     // Regular response handling
     catzilla_send_response(client, status, headers, body, strlen(body));
     Py_RETURN_NONE;
+}
+
+typedef struct {
+    PyObject* completion_callback;
+} python_async_response_context_t;
+
+static void free_python_async_response_context(python_async_response_context_t* context) {
+    if (!context) {
+        return;
+    }
+
+    Py_XDECREF(context->completion_callback);
+    free(context);
+}
+
+static void on_python_async_response_complete(async_bridge_task_t* task, void* user_data) {
+    python_async_response_context_t* context = (python_async_response_context_t*)user_data;
+    if (!context) {
+        return;
+    }
+
+    PyGILState_STATE gstate = PyGILState_Ensure();
+
+    PyObject* result = catzilla_async_task_get_result(task);
+    PyObject* exception = catzilla_async_task_get_exception(task);
+
+    if (!result) {
+        Py_INCREF(Py_None);
+        result = Py_None;
+    }
+
+    if (!exception) {
+        Py_INCREF(Py_None);
+        exception = Py_None;
+    }
+
+    PyObject* callback_result = PyObject_CallFunctionObjArgs(
+        context->completion_callback,
+        result,
+        exception,
+        NULL
+    );
+    if (!callback_result) {
+        PyErr_Print();
+    } else {
+        Py_DECREF(callback_result);
+    }
+
+    Py_DECREF(result);
+    Py_DECREF(exception);
+
+    free_python_async_response_context(context);
+    PyGILState_Release(gstate);
+}
+
+static PyObject* schedule_async_response(PyObject *self, PyObject *args) {
+    PyObject *coroutine;
+    PyObject *completion_callback;
+
+    if (!PyArg_ParseTuple(args, "OO", &coroutine, &completion_callback)) {
+        return NULL;
+    }
+
+    if (!PyCallable_Check(completion_callback)) {
+        PyErr_SetString(PyExc_TypeError, "completion_callback must be callable");
+        return NULL;
+    }
+
+    python_async_response_context_t* context = calloc(1, sizeof(*context));
+    if (!context) {
+        PyErr_SetString(PyExc_MemoryError, "Failed to allocate async response context");
+        return NULL;
+    }
+
+    Py_INCREF(completion_callback);
+    context->completion_callback = completion_callback;
+
+    async_bridge_task_t* task = catzilla_execute_async_handler(
+        coroutine,
+        NULL,
+        on_python_async_response_complete,
+        context
+    );
+    if (!task) {
+        free_python_async_response_context(context);
+        if (!PyErr_Occurred()) {
+            PyErr_SetString(PyExc_RuntimeError, "Failed to schedule async response");
+        }
+        return NULL;
+    }
+
+    Py_RETURN_TRUE;
 }
 
 // Convert yyjson value to Python object
@@ -2536,6 +2630,7 @@ static PyTypeObject CatzillaServerType = {
 
 static PyMethodDef module_methods[] = {
     {"send_response", send_response, METH_VARARGS, "Send HTTP response"},
+    {"schedule_async_response", schedule_async_response, METH_VARARGS, "Schedule a coroutine and deliver its response on completion"},
     {"parse_json", parse_json, METH_VARARGS, "Parse JSON from request"},
     {"get_json", get_json, METH_VARARGS, "Get parsed JSON from request"},
     {"parse_form", parse_form, METH_VARARGS, "Parse form data from request"},

@@ -74,6 +74,7 @@ try:
         init_memory_system,
         init_memory_with_allocator,
         jemalloc_available,
+        schedule_async_response,
         send_response,
         set_allocator,
     )
@@ -303,7 +304,7 @@ class Catzilla:
         executor_config = ExecutorConfig(
             max_sync_threads=10,  # Configurable in future versions
             sync_thread_timeout=30.0,
-            async_timeout=30.0,
+            async_timeout=0.0 if production else 30.0,
             enable_performance_monitoring=not production,
             thread_name_prefix="catzilla-sync",
             enable_context_vars=True,
@@ -593,27 +594,145 @@ class Catzilla:
                 # Fallback to synchronous execution
                 return handler(request)
 
-            # Detect handler type
-            handler_type = self.async_detector.get_handler_type(handler)
+            is_async_handler = getattr(handler, "_catzilla_is_async", None)
+            if is_async_handler is None:
+                handler_type = self.async_detector.get_handler_type(handler)
+                is_async_handler = handler_type == "async"
 
-            if handler_type == "async":
-                # Handler is async - need to run in event loop
-                try:
-                    # Check if we're already in an event loop
-                    loop = asyncio.get_running_loop()
-                    # We're in an async context - this shouldn't happen in normal request handling
-                    # For now, just run the handler directly since we're already async
-                    return asyncio.run(handler(request))
-
-                except RuntimeError:
-                    # No running event loop - create one for this execution
-                    return asyncio.run(handler(request))
+            if is_async_handler:
+                return self.hybrid_executor.execute_known_async_handler_sync(
+                    handler, request
+                )
             else:
                 # Handler is sync - execute directly for optimal performance
                 return handler(request)
 
         except Exception as e:
             raise ExecutionError(f"Handler execution failed: {e}") from e
+
+    def _is_async_route_handler(self, handler: Callable) -> bool:
+        """Return whether a route handler is async using cached detector metadata."""
+        is_async_route = getattr(handler, "_catzilla_is_async", None)
+        if is_async_route is None:
+            handler_type = self.async_detector.get_handler_type(handler)
+            return handler_type == "async"
+
+        return is_async_route
+
+    def _normalize_response_value(self, response: Any) -> Response:
+        """Normalize handler return values to a Response instance."""
+        if isinstance(response, Response):
+            return response
+        if isinstance(response, dict):
+            return JSONResponse(response)
+        if isinstance(response, str):
+            return HTMLResponse(response)
+
+        raise TypeError(
+            f"Handler returned unsupported type {type(response)}. "
+            "Must return Response, dict, or str."
+        )
+
+    def _apply_post_route_middlewares(
+        self,
+        request: Request,
+        response: Response,
+        response_size_for: Callable[[Response], int],
+    ) -> tuple[Response, int, int]:
+        """Run post-route middleware and return the final response and logging metadata."""
+        status_code = response.status_code
+        response_size = response_size_for(response)
+
+        post_route_middlewares = [
+            mw for mw in self._registered_middlewares if mw.get("post_route", False)
+        ]
+        post_route_middlewares.sort(key=lambda x: x.get("priority", 50))
+
+        for middleware_info in post_route_middlewares:
+            try:
+                middleware_func = middleware_info["handler"]
+                if middleware_func.__code__.co_argcount == 2:
+                    middleware_result = middleware_func(request, response)
+                else:
+                    middleware_result = middleware_func(request)
+
+                if middleware_result is not None and isinstance(
+                    middleware_result, Response
+                ):
+                    response = middleware_result
+                    status_code = response.status_code
+                    response_size = response_size_for(response)
+            except Exception as middleware_error:
+                if not self.production:
+                    print(
+                        f"Warning: Post-route middleware '{middleware_info.get('name', 'unknown')}' failed: {middleware_error}"
+                    )
+
+        return response, status_code, response_size
+
+    async def _execute_async_route_request(
+        self,
+        route,
+        request: Request,
+        response_size_for: Callable[[Response], int],
+    ) -> tuple[Response, int, int, Optional[str]]:
+        """Execute an async route and return the final response plus logging metadata."""
+        try:
+            if self.enable_di:
+                with self.di_container.resolution_context() as di_context:
+                    _set_current_context(di_context)
+                    try:
+                        response = await route.handler(request)
+                    finally:
+                        _clear_current_context()
+            else:
+                response = await route.handler(request)
+
+            response = self._normalize_response_value(response)
+            response, status_code, response_size = self._apply_post_route_middlewares(
+                request,
+                response,
+                response_size_for,
+            )
+            return response, status_code, response_size, None
+        except Exception as error:
+            error_response = self._handle_exception(request, error)
+            return (
+                error_response,
+                error_response.status_code,
+                response_size_for(error_response),
+                str(error),
+            )
+
+    def _log_completed_request(
+        self,
+        *,
+        should_log_request: bool,
+        start_time: Optional[float],
+        client,
+        method: str,
+        base_path: str,
+        query_string: Optional[str],
+        status_code: int,
+        response_size: int,
+        error_message: Optional[str],
+    ) -> None:
+        """Emit a request log entry if request logging is enabled."""
+        if not should_log_request or start_time is None:
+            return
+
+        duration_ms = (time.time() - start_time) * 1000
+        client_ip = getattr(client, "remote_addr", "127.0.0.1")
+        self.logger.log_request(
+            method=method,
+            path=base_path,
+            status_code=status_code,
+            duration_ms=duration_ms,
+            response_size=response_size,
+            client_ip=client_ip,
+            error_message=error_message,
+            query_params=query_string,
+        )
 
     def _handle_request(self, client, method, path, body, request_capsule):
         """Internal request handler that bridges C and Python"""
@@ -624,6 +743,9 @@ class Catzilla:
         status_code = 200
         response_size = 0
         error_message = None
+        deferred_response = False
+        base_path = path.split("?", 1)[0] if "?" in path else path
+        query_string = path.split("?", 1)[1] if "?" in path else None
 
         if should_log_request:
             def response_size_for(response: Response) -> int:
@@ -633,10 +755,6 @@ class Catzilla:
                 return 0
 
         try:
-            # Get base path for routing (strip query string if present)
-            base_path = path.split("?", 1)[0] if "?" in path else path
-            query_string = path.split("?", 1)[1] if "?" in path else None
-
             # Create request object with empty query params dict - will be populated by C layer
             request = Request(
                 method=method,
@@ -773,6 +891,75 @@ class Catzilla:
                                 error_resp.send(client)
                                 return
 
+                    is_async_route = self._is_async_route_handler(route.handler)
+
+                    if is_async_route and schedule_async_response is not None:
+                        async_coro = self._execute_async_route_request(
+                            route,
+                            request,
+                            response_size_for,
+                        )
+
+                        def complete_async_response(async_result, async_error):
+                            final_status_code = 500
+                            final_response_size = 0
+                            final_error_message = None
+
+                            try:
+                                if async_error is not None:
+                                    raise async_error
+
+                                if async_result is None:
+                                    raise RuntimeError(
+                                        "Async route completed without a result"
+                                    )
+
+                                (
+                                    response,
+                                    final_status_code,
+                                    final_response_size,
+                                    final_error_message,
+                                ) = async_result
+                                response.send(client)
+                            except Exception as completion_error:
+                                final_error_message = str(completion_error)
+                                completion_response = self._handle_exception(
+                                    request, completion_error
+                                )
+                                final_status_code = completion_response.status_code
+                                final_response_size = response_size_for(
+                                    completion_response
+                                )
+                                completion_response.send(client)
+                            finally:
+                                self._log_completed_request(
+                                    should_log_request=should_log_request,
+                                    start_time=start_time,
+                                    client=client,
+                                    method=method,
+                                    base_path=base_path,
+                                    query_string=query_string,
+                                    status_code=final_status_code,
+                                    response_size=final_response_size,
+                                    error_message=final_error_message,
+                                )
+
+                        try:
+                            scheduled = schedule_async_response(
+                                async_coro,
+                                complete_async_response,
+                            )
+                        except Exception:
+                            async_coro.close()
+                            raise
+
+                        if not scheduled:
+                            async_coro.close()
+                            raise RuntimeError("Failed to defer async response")
+
+                        deferred_response = True
+                        return True
+
                     # Call the handler with hybrid async/sync execution
                     if self.enable_di:
                         # Create DI context for this request
@@ -788,58 +975,12 @@ class Catzilla:
                         # No DI - call handler directly with hybrid execution
                         response = self._execute_handler_hybrid(route.handler, request)
 
-                    # Normalize response based on return type
-                    if isinstance(response, Response):
-                        # Response object - use as is
-                        pass
-                    elif isinstance(response, dict):
-                        # Dictionary - convert to JSONResponse
-                        response = JSONResponse(response)
-                    elif isinstance(response, str):
-                        # String - convert to HTMLResponse
-                        response = HTMLResponse(response)
-                    else:
-                        # Unsupported type
-                        raise TypeError(
-                            f"Handler returned unsupported type {type(response)}. "
-                            "Must return Response, dict, or str."
-                        )
-
-                    # Capture response details for logging
-                    status_code = response.status_code
-                    response_size = response_size_for(response)
-
-                    # Execute global post-route middleware
-                    post_route_middlewares = [
-                        mw
-                        for mw in self._registered_middlewares
-                        if mw.get("post_route", False)
-                    ]
-                    # Sort by priority (lower numbers run first)
-                    post_route_middlewares.sort(key=lambda x: x.get("priority", 50))
-
-                    for middleware_info in post_route_middlewares:
-                        try:
-                            middleware_func = middleware_info["handler"]
-                            # Post-route middleware gets both request and response
-                            if middleware_func.__code__.co_argcount == 2:
-                                middleware_result = middleware_func(request, response)
-                            else:
-                                # Legacy single-argument middleware
-                                middleware_result = middleware_func(request)
-
-                            if middleware_result is not None:
-                                # Post-route middleware can modify response
-                                if isinstance(middleware_result, Response):
-                                    response = middleware_result
-                                    status_code = response.status_code
-                                    response_size = response_size_for(response)
-                        except Exception as middleware_error:
-                            # Post-route middleware failed - log but don't break response
-                            if not self.production:
-                                print(
-                                    f"Warning: Post-route middleware '{middleware_info.get('name', 'unknown')}' failed: {middleware_error}"
-                                )
+                    response = self._normalize_response_value(response)
+                    response, status_code, response_size = self._apply_post_route_middlewares(
+                        request,
+                        response,
+                        response_size_for,
+                    )
 
                     # Send the response
                     response.send(client)
@@ -915,19 +1056,17 @@ class Catzilla:
 
         finally:
             # Log the request if logging is enabled
-            if should_log_request:
-                duration_ms = (time.time() - start_time) * 1000
-                client_ip = getattr(client, "remote_addr", "127.0.0.1")
-
-                self.logger.log_request(
+            if not deferred_response:
+                self._log_completed_request(
+                    should_log_request=should_log_request,
+                    start_time=start_time,
+                    client=client,
                     method=method,
-                    path=base_path,
+                    base_path=base_path,
+                    query_string=query_string,
                     status_code=status_code,
-                    duration_ms=duration_ms,
                     response_size=response_size,
-                    client_ip=client_ip,
                     error_message=error_message,
-                    query_params=query_string,
                 )
 
     def route(

@@ -16,6 +16,8 @@
 #include <inttypes.h>  // For PRIu64
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 // Platform-specific includes
 #ifdef _WIN32
@@ -90,6 +92,8 @@ struct async_bridge_s {
     uv_cond_t shutdown_cond;       // Condition variable for shutdown
     bool is_running;               // Bridge running state
     bool shutdown_requested;       // Shutdown flag
+    bool loop_ready;               // Whether the asyncio loop is ready to accept work
+    bool loop_initialization_complete; // Whether loop initialization has finished
 
     // Task management
     async_bridge_task_t** active_tasks;  // Array of active tasks
@@ -125,6 +129,9 @@ static void async_task_unref(async_bridge_task_t* task);
 // libuv callbacks
 static void on_async_completion(uv_async_t* handle);
 static void on_task_timeout(uv_timer_t* timer);
+static void on_async_handle_closed(uv_handle_t* handle);
+static PyObject* on_coroutine_done(PyObject* self, PyObject* future);
+static PyObject* start_coroutine_on_loop(PyObject* self, PyObject* ignored);
 
 // Python/asyncio integration
 static PyObject* execute_coroutine_in_asyncio(PyObject* coroutine);
@@ -133,6 +140,20 @@ static void schedule_coroutine_completion(async_bridge_task_t* task);
 // Error handling and logging
 static void log_async_error(const char* format, ...);
 static const char* task_state_to_string(async_task_state_t state);
+
+static PyMethodDef coroutine_done_callback_method = {
+    "_catzilla_async_done",
+    on_coroutine_done,
+    METH_O,
+    NULL,
+};
+
+static PyMethodDef coroutine_start_callback_method = {
+    "_catzilla_async_start",
+    (PyCFunction)start_coroutine_on_loop,
+    METH_NOARGS,
+    NULL,
+};
 
 // ============================================================================
 // PUBLIC API IMPLEMENTATION
@@ -294,6 +315,30 @@ void catzilla_async_bridge_shutdown(void) {
     g_async_bridge->shutdown_requested = true;
     uv_mutex_unlock(&g_async_bridge->bridge_mutex);
 
+    PyGILState_STATE gstate = PyGILState_Ensure();
+    if (g_async_bridge->asyncio_loop) {
+        PyObject* stop_method = PyObject_GetAttrString(g_async_bridge->asyncio_loop, "stop");
+        PyObject* call_soon_threadsafe = PyObject_GetAttrString(
+            g_async_bridge->asyncio_loop,
+            "call_soon_threadsafe"
+        );
+
+        if (stop_method && call_soon_threadsafe) {
+            PyObject* stop_result = PyObject_CallFunctionObjArgs(
+                call_soon_threadsafe,
+                stop_method,
+                NULL
+            );
+            Py_XDECREF(stop_result);
+        } else {
+            PyErr_Clear();
+        }
+
+        Py_XDECREF(stop_method);
+        Py_XDECREF(call_soon_threadsafe);
+    }
+    PyGILState_Release(gstate);
+
     // Wait for asyncio thread to shutdown
     uv_thread_join(&g_async_bridge->asyncio_thread);
 
@@ -334,6 +379,8 @@ static void init_async_bridge_once(void) {
     g_async_bridge->max_concurrent_tasks = 1000; // Configurable limit
     g_async_bridge->is_running = false;
     g_async_bridge->shutdown_requested = false;
+    g_async_bridge->loop_ready = false;
+    g_async_bridge->loop_initialization_complete = false;
 }
 
 static int async_bridge_init(async_bridge_t* bridge, uv_loop_t* main_loop) {
@@ -359,23 +406,6 @@ static int async_bridge_init(async_bridge_t* bridge, uv_loop_t* main_loop) {
     if (!bridge->asyncio_future_class) {
         PyGILState_Release(gstate);
         log_async_error("Failed to get asyncio.Future class");
-        return -1;
-    }
-
-    // Create new event loop for asyncio thread
-    PyObject* new_loop_func = PyObject_GetAttrString(bridge->asyncio_module, "new_event_loop");
-    if (!new_loop_func) {
-        PyGILState_Release(gstate);
-        log_async_error("Failed to get new_event_loop function");
-        return -1;
-    }
-
-    bridge->asyncio_loop = PyObject_CallObject(new_loop_func, NULL);
-    Py_DECREF(new_loop_func);
-
-    if (!bridge->asyncio_loop) {
-        PyGILState_Release(gstate);
-        log_async_error("Failed to create asyncio event loop");
         return -1;
     }
 
@@ -431,6 +461,22 @@ static void asyncio_thread_main(void* arg) {
     // Acquire GIL for this thread
     PyGILState_STATE gstate = PyGILState_Ensure();
 
+    PyObject* new_loop_func = PyObject_GetAttrString(bridge->asyncio_module, "new_event_loop");
+    if (new_loop_func) {
+        bridge->asyncio_loop = PyObject_CallObject(new_loop_func, NULL);
+        Py_DECREF(new_loop_func);
+    }
+
+    if (!bridge->asyncio_loop) {
+        uv_mutex_lock(&bridge->bridge_mutex);
+        bridge->loop_ready = false;
+        bridge->loop_initialization_complete = true;
+        uv_cond_signal(&bridge->shutdown_cond);
+        uv_mutex_unlock(&bridge->bridge_mutex);
+        PyGILState_Release(gstate);
+        return;
+    }
+
     // Set event loop for this thread
     PyObject* set_event_loop_func = PyObject_GetAttrString(bridge->asyncio_module, "set_event_loop");
     if (set_event_loop_func) {
@@ -439,6 +485,12 @@ static void asyncio_thread_main(void* arg) {
         Py_DECREF(args);
         Py_DECREF(set_event_loop_func);
     }
+
+    uv_mutex_lock(&bridge->bridge_mutex);
+    bridge->loop_ready = true;
+    bridge->loop_initialization_complete = true;
+    uv_cond_signal(&bridge->shutdown_cond);
+    uv_mutex_unlock(&bridge->bridge_mutex);
 
     // Run event loop until shutdown
     PyObject* run_forever_func = PyObject_GetAttrString(bridge->asyncio_loop, "run_forever");
@@ -493,19 +545,26 @@ static void async_task_destroy(async_bridge_task_t* task) {
         return;
     }
 
-    // Close libuv handle
-    uv_close((uv_handle_t*)&task->uv_async, NULL);
+    if (!uv_is_closing((uv_handle_t*)&task->uv_async)) {
+        uv_close((uv_handle_t*)&task->uv_async, on_async_handle_closed);
+    }
+}
 
-    // Release Python objects
+static void on_async_handle_closed(uv_handle_t* handle) {
+    async_bridge_task_t* task = (async_bridge_task_t*)handle->data;
+    if (!task) {
+        return;
+    }
+
+    PyGILState_STATE gstate = PyGILState_Ensure();
     Py_XDECREF(task->py_coroutine);
     Py_XDECREF(task->py_future);
     Py_XDECREF(task->py_request);
     Py_XDECREF(task->py_result);
     Py_XDECREF(task->py_exception);
+    PyGILState_Release(gstate);
 
-    // Destroy mutex
     uv_mutex_destroy(&task->state_mutex);
-
     free(task);
 }
 
@@ -561,31 +620,200 @@ static void on_async_completion(uv_async_t* handle) {
     async_task_unref(task);
 }
 
-static void schedule_coroutine_completion(async_bridge_task_t* task) {
-    // This function schedules the coroutine to run in the asyncio loop
-    // The actual implementation would involve creating a callback that:
-    // 1. Executes the coroutine in the asyncio event loop
-    // 2. Captures the result or exception
-    // 3. Signals completion via uv_async_send
+static PyObject* on_coroutine_done(PyObject* self, PyObject* future) {
+    async_bridge_task_t* task = (async_bridge_task_t*)PyCapsule_GetPointer(
+        self,
+        "catzilla.async_task"
+    );
+    if (!task) {
+        PyErr_Clear();
+        Py_RETURN_NONE;
+    }
 
-    PyGILState_STATE gstate = PyGILState_Ensure();
+    PyObject* result_method = PyObject_GetAttrString(future, "result");
+    PyObject* result = NULL;
+    PyObject* exc_type = NULL;
+    PyObject* exc_value = NULL;
+    PyObject* exc_traceback = NULL;
 
-    // Create a future and schedule the coroutine
-    // This is a simplified version - full implementation would need
-    // proper asyncio.create_task() integration
+    if (result_method) {
+        result = PyObject_CallObject(result_method, NULL);
+        Py_DECREF(result_method);
+    }
 
-    task->py_future = PyObject_CallObject(g_async_bridge->asyncio_future_class, NULL);
-
-    // TODO: Complete asyncio integration
-    // For now, mark as completed to prevent hanging
     uv_mutex_lock(&task->state_mutex);
-    task->state = ASYNC_TASK_COMPLETED;
+
+    if (result) {
+        task->py_result = result;
+        task->state = ASYNC_TASK_COMPLETED;
+    } else {
+        PyErr_Fetch(&exc_type, &exc_value, &exc_traceback);
+        PyErr_NormalizeException(&exc_type, &exc_value, &exc_traceback);
+        Py_XDECREF(exc_type);
+        Py_XDECREF(exc_traceback);
+
+        if (!exc_value) {
+            exc_value = PyUnicode_FromString("Async handler failed");
+        }
+
+        task->py_exception = exc_value;
+        task->state = ASYNC_TASK_ERROR;
+    }
+
     task->completion_time = uv_hrtime();
     uv_mutex_unlock(&task->state_mutex);
 
-    PyGILState_Release(gstate);
+    uv_async_send(&task->uv_async);
+    async_task_unref(task);
 
-    // Signal completion
+    Py_RETURN_NONE;
+}
+
+static PyObject* start_coroutine_on_loop(PyObject* self, PyObject* ignored) {
+    async_bridge_task_t* task = (async_bridge_task_t*)PyCapsule_GetPointer(
+        self,
+        "catzilla.async_task"
+    );
+    if (!task) {
+        PyErr_Clear();
+        Py_RETURN_NONE;
+    }
+
+    PyObject* created_task = PyObject_CallMethod(g_async_bridge->asyncio_loop, "create_task", "O", task->py_coroutine);
+    if (!created_task) {
+        goto start_error;
+    }
+
+    task->py_future = created_task;
+
+    PyObject* task_capsule = PyCapsule_New(task, "catzilla.async_task", NULL);
+    if (!task_capsule) {
+        goto start_error;
+    }
+
+    PyObject* done_callback = PyCFunction_NewEx(
+        &coroutine_done_callback_method,
+        task_capsule,
+        NULL
+    );
+    Py_DECREF(task_capsule);
+    if (!done_callback) {
+        goto start_error;
+    }
+
+    PyObject* add_done_callback = PyObject_GetAttrString(created_task, "add_done_callback");
+    if (!add_done_callback) {
+        Py_DECREF(done_callback);
+        goto start_error;
+    }
+
+    async_task_ref(task);
+    PyObject* add_result = PyObject_CallFunctionObjArgs(add_done_callback, done_callback, NULL);
+    Py_DECREF(add_done_callback);
+    Py_DECREF(done_callback);
+    if (!add_result) {
+        async_task_unref(task);
+        goto start_error;
+    }
+    Py_DECREF(add_result);
+
+    uv_mutex_lock(&task->state_mutex);
+    task->state = ASYNC_TASK_RUNNING;
+    uv_mutex_unlock(&task->state_mutex);
+
+    Py_RETURN_NONE;
+
+start_error:
+    if (PyErr_Occurred()) {
+        PyObject* exc_type = NULL;
+        PyObject* exc_value = NULL;
+        PyObject* exc_traceback = NULL;
+        PyErr_Fetch(&exc_type, &exc_value, &exc_traceback);
+        PyErr_NormalizeException(&exc_type, &exc_value, &exc_traceback);
+        Py_XDECREF(exc_type);
+        Py_XDECREF(exc_traceback);
+
+        uv_mutex_lock(&task->state_mutex);
+        task->py_exception = exc_value ? exc_value : PyUnicode_FromString("Failed to start async handler");
+        task->state = ASYNC_TASK_ERROR;
+        task->completion_time = uv_hrtime();
+        uv_mutex_unlock(&task->state_mutex);
+    }
+
+    uv_async_send(&task->uv_async);
+    Py_RETURN_NONE;
+}
+
+static void schedule_coroutine_completion(async_bridge_task_t* task) {
+    PyGILState_STATE gstate = PyGILState_Ensure();
+
+    uv_mutex_lock(&g_async_bridge->bridge_mutex);
+    bool loop_ready = g_async_bridge->loop_ready;
+    uv_mutex_unlock(&g_async_bridge->bridge_mutex);
+
+    if (!loop_ready || !g_async_bridge->asyncio_loop) {
+        PyErr_SetString(PyExc_RuntimeError, "Asyncio bridge loop is not ready");
+        goto schedule_error;
+    }
+
+    PyObject* call_soon_threadsafe = PyObject_GetAttrString(
+        g_async_bridge->asyncio_loop,
+        "call_soon_threadsafe"
+    );
+    if (!call_soon_threadsafe) {
+        goto schedule_error;
+    }
+
+    PyObject* task_capsule = PyCapsule_New(task, "catzilla.async_task", NULL);
+    if (!task_capsule) {
+        Py_DECREF(call_soon_threadsafe);
+        goto schedule_error;
+    }
+
+    PyObject* start_callback = PyCFunction_NewEx(
+        &coroutine_start_callback_method,
+        task_capsule,
+        NULL
+    );
+    Py_DECREF(task_capsule);
+    if (!start_callback) {
+        Py_DECREF(call_soon_threadsafe);
+        goto schedule_error;
+    }
+
+    PyObject* schedule_result = PyObject_CallFunctionObjArgs(
+        call_soon_threadsafe,
+        start_callback,
+        NULL
+    );
+    Py_DECREF(call_soon_threadsafe);
+    Py_DECREF(start_callback);
+    if (!schedule_result) {
+        goto schedule_error;
+    }
+    Py_DECREF(schedule_result);
+
+    PyGILState_Release(gstate);
+    return;
+
+schedule_error:
+    if (PyErr_Occurred()) {
+        PyObject* exc_type = NULL;
+        PyObject* exc_value = NULL;
+        PyObject* exc_traceback = NULL;
+        PyErr_Fetch(&exc_type, &exc_value, &exc_traceback);
+        PyErr_NormalizeException(&exc_type, &exc_value, &exc_traceback);
+        Py_XDECREF(exc_type);
+        Py_XDECREF(exc_traceback);
+
+        uv_mutex_lock(&task->state_mutex);
+        task->py_exception = exc_value ? exc_value : PyUnicode_FromString("Failed to schedule async handler");
+        task->state = ASYNC_TASK_ERROR;
+        task->completion_time = uv_hrtime();
+        uv_mutex_unlock(&task->state_mutex);
+    }
+
+    PyGILState_Release(gstate);
     uv_async_send(&task->uv_async);
 }
 

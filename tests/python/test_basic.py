@@ -15,6 +15,7 @@ import asyncio
 import time
 import os
 import json
+import catzilla.app as app_module
 from catzilla import Request, Response, JSONResponse, HTMLResponse, Catzilla, BaseModel
 from typing import Optional
 
@@ -227,6 +228,69 @@ def test_app_route_registration():
     assert route["method"] == "GET"
     assert route["path"] == "/hello"
     # Note: handler_name not available in C router
+
+
+def test_async_handler_sync_bridge_reuses_event_loop():
+    """Async handlers executed from sync request handling should reuse the same loop."""
+    app = Catzilla(production=True)
+
+    async def async_handler(request):
+        return JSONResponse({"ok": True})
+
+    request = Request(
+        method="GET",
+        path="/async-bridge",
+        body="",
+        client=None,
+        request_capsule=None,
+        headers={},
+        _query_params={}
+    )
+
+    first_response = app._execute_handler_hybrid(async_handler, request)
+    first_loop = app.hybrid_executor._get_event_loop()
+    second_response = app._execute_handler_hybrid(async_handler, request)
+    second_loop = app.hybrid_executor._get_event_loop()
+
+    assert json.loads(first_response.body) == {"ok": True}
+    assert json.loads(second_response.body) == {"ok": True}
+    assert first_loop is second_loop
+    assert getattr(async_handler, "_catzilla_handler_type", None) == "async"
+
+
+def test_production_async_timeout_disabled_by_default():
+    """Production apps should avoid per-request async timeout wrapping by default."""
+    production_app = Catzilla(production=True)
+    development_app = Catzilla(production=False)
+
+    assert production_app.hybrid_executor.config.async_timeout == 0.0
+    assert development_app.hybrid_executor.config.async_timeout == 30.0
+
+
+def test_async_route_can_defer_response_completion(monkeypatch):
+    """Async routes should defer completion through the bridge callback contract."""
+    app = Catzilla(production=True)
+    sent_responses = []
+
+    @app.get("/async-deferred")
+    async def async_handler(request):
+        return JSONResponse({"ok": True})
+
+    def fake_send(self, client):
+        sent_responses.append((client, self.status_code, self.body))
+
+    def fake_schedule(coroutine, completion_callback):
+        completion_callback(asyncio.run(coroutine), None)
+        return True
+
+    monkeypatch.setattr(Response, "send", fake_send)
+    monkeypatch.setattr(app_module, "schedule_async_response", fake_schedule)
+
+    client = object()
+    result = app._handle_request(client, "GET", "/async-deferred", "", None)
+
+    assert result is True
+    assert sent_responses == [(client, 200, '{"ok":true}')]
 
 
 # =====================================================
