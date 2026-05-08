@@ -26,6 +26,8 @@ import os
 import gc
 import socket
 import signal
+import tempfile
+from pathlib import Path
 from typing import Optional, Dict, Any, List
 from unittest.mock import Mock, patch
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -141,6 +143,16 @@ class TestCriticalProductionErrors:
                             os.remove(server_info['script_path'])
                         except:
                             pass
+                    if 'log_handle' in server_info and server_info['log_handle']:
+                        try:
+                            server_info['log_handle'].close()
+                        except:
+                            pass
+                    if 'log_path' in server_info:
+                        try:
+                            os.remove(server_info['log_path'])
+                        except:
+                            pass
             except:
                 pass
         self.active_servers.clear()
@@ -192,12 +204,19 @@ class TestCriticalProductionErrors:
 
     def start_error_test_server(self, app_code: str, port: int, timeout: float = 30.0) -> subprocess.Popen:
         """Start a test server for error scenario testing with robust startup"""
+        project_root = repr(str(Path(__file__).resolve().parents[2]))
+
         script = f'''
 import sys
 import os
 import time
 import signal
-sys.path.insert(0, "{os.path.dirname(os.path.dirname(os.path.dirname(__file__)))}")
+for stream in (sys.stdout, sys.stderr):
+    try:
+        stream.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+sys.path.insert(0, {project_root})
 
 from catzilla import Catzilla, service, Depends, JSONResponse
 import time
@@ -231,20 +250,24 @@ if __name__ == "__main__":
 '''
 
         # Write script to temporary file with unique name
-        script_path = f"/tmp/error_test_server_{port}_{int(time.time())}.py"
-        with open(script_path, 'w') as f:
+        script_path = os.path.join(tempfile.gettempdir(), f"error_test_server_{port}_{int(time.time())}.py")
+        with open(script_path, 'w', encoding='utf-8') as f:
             f.write(script)
 
         # Start subprocess
+        log_path = os.path.join(tempfile.gettempdir(), f"error_test_server_{port}_{int(time.time())}.log")
+        log_handle = open(log_path, 'w', encoding='utf-8')
         process = subprocess.Popen([
             sys.executable, script_path
-        ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+        ], stdout=log_handle, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', bufsize=1)
 
         # Track for cleanup
         self.active_servers.append({
             'process': process,
             'port': port,
-            'script_path': script_path
+            'script_path': script_path,
+            'log_path': log_path,
+            'log_handle': log_handle,
         })
 
         # Wait for server to start with multiple health checks
@@ -255,7 +278,9 @@ if __name__ == "__main__":
 
         while time.time() - start_time < timeout:
             if process.poll() is not None:
-                output, _ = process.communicate()
+                log_handle.flush()
+                log_handle.close()
+                output = Path(log_path).read_text(encoding='utf-8', errors='replace')
                 raise RuntimeError(f"Error test server process died: {output}")
 
             try:
@@ -298,7 +323,7 @@ import threading
 import socket
 
 clear_default_container()
-app = Catzilla(enable_di=True)
+app = Catzilla(enable_di=True, show_banner=False, log_requests=False)
 set_default_container(app.di_container)
 
 # Simulate external service calls
@@ -458,7 +483,7 @@ import threading
 import random
 
 clear_default_container()
-app = Catzilla(enable_di=True)
+app = Catzilla(enable_di=True, show_banner=False, log_requests=False)
 set_default_container(app.di_container)
 
 @service("database_service")
@@ -660,7 +685,7 @@ import queue
 clear_default_container()
 time.sleep(0.1)  # Small delay for cleanup
 
-app = Catzilla(enable_di=True)
+app = Catzilla(enable_di=True, show_banner=False, log_requests=False)
 set_default_container(app.di_container)
 
 @service("resource_manager")
@@ -903,7 +928,7 @@ import threading
 import random
 
 clear_default_container()
-app = Catzilla(enable_di=True)
+app = Catzilla(enable_di=True, show_banner=False, log_requests=False)
 set_default_container(app.di_container)
 
 @service("error_service")
@@ -1087,7 +1112,7 @@ from catzilla.dependency_injection import set_default_container, clear_default_c
 import json
 
 clear_default_container()
-app = Catzilla(enable_di=True)
+app = Catzilla(enable_di=True, show_banner=False, log_requests=False)
 
 malformed_request_count = 0
 

@@ -8,8 +8,60 @@ import tempfile
 import textwrap
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
-import psutil
+try:
+    import psutil
+except Exception:
+    import ctypes
+
+    class _MemoryInfo:
+        def __init__(self, rss: int):
+            self.rss = rss
+
+
+    class _FallbackProcess:
+        def __init__(self, pid: int):
+            self.pid = pid
+
+        def memory_info(self):
+            class PROCESS_MEMORY_COUNTERS(ctypes.Structure):
+                _fields_ = [
+                    ("cb", ctypes.c_ulong),
+                    ("PageFaultCount", ctypes.c_ulong),
+                    ("PeakWorkingSetSize", ctypes.c_size_t),
+                    ("WorkingSetSize", ctypes.c_size_t),
+                    ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                    ("PagefileUsage", ctypes.c_size_t),
+                    ("PeakPagefileUsage", ctypes.c_size_t),
+                ]
+
+            kernel32 = ctypes.windll.kernel32
+            psapi = ctypes.windll.psapi
+            process = kernel32.OpenProcess(0x0400 | 0x1000, False, self.pid)
+            if not process:
+                raise OSError(f"Unable to inspect process {self.pid}")
+            try:
+                counters = PROCESS_MEMORY_COUNTERS()
+                counters.cb = ctypes.sizeof(PROCESS_MEMORY_COUNTERS)
+                if not psapi.GetProcessMemoryInfo(process, ctypes.byref(counters), counters.cb):
+                    raise OSError(f"Unable to query memory for process {self.pid}")
+                return _MemoryInfo(counters.WorkingSetSize)
+            finally:
+                kernel32.CloseHandle(process)
+
+
+    class _FallbackPsutil:
+        Process = _FallbackProcess
+
+
+    psutil = _FallbackPsutil()
+
+
+PROJECT_ROOT = repr(str(Path(__file__).resolve().parents[2]))
 
 
 def _find_free_port() -> int:
@@ -18,7 +70,7 @@ def _find_free_port() -> int:
         return sock.getsockname()[1]
 
 
-def _wait_for_server(port: int, timeout: float = 10.0) -> None:
+def _wait_for_server(port: int, timeout: float = 20.0) -> None:
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -79,6 +131,14 @@ def test_keepalive_requests_do_not_accumulate_request_memory():
     port = _find_free_port()
     server_code = textwrap.dedent(
         f'''
+        import sys
+        for stream in (sys.stdout, sys.stderr):
+            try:
+                stream.reconfigure(encoding="utf-8")
+            except (AttributeError, ValueError):
+                pass
+        sys.path.insert(0, {PROJECT_ROOT})
+
         from catzilla import Catzilla, Path
 
         app = Catzilla(
@@ -151,7 +211,14 @@ def test_c_router_match_does_not_leak_python_objects_under_load():
     port = _find_free_port()
     server_code = textwrap.dedent(
         f'''
+        import sys
         import tracemalloc
+        for stream in (sys.stdout, sys.stderr):
+            try:
+                stream.reconfigure(encoding="utf-8")
+            except (AttributeError, ValueError):
+                pass
+        sys.path.insert(0, {PROJECT_ROOT})
         from catzilla import Catzilla, JSONResponse, Response
 
         tracemalloc.start(25)

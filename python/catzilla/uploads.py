@@ -366,7 +366,9 @@ class CatzillaUploadFile:
     def _quarantine_file(self, file_path: str):
         """Move infected file to quarantine directory."""
         try:
-            quarantine_dir = "/tmp/catzilla_quarantine"
+            import tempfile
+
+            quarantine_dir = os.path.join(tempfile.gettempdir(), "catzilla_quarantine")
             os.makedirs(quarantine_dir, exist_ok=True)
 
             quarantine_path = os.path.join(
@@ -410,24 +412,32 @@ class CatzillaUploadFile:
 
     def _validate_file_path(self, path: str) -> bool:
         """Validate file path to prevent path traversal attacks."""
-        # Normalize path
         normalized = os.path.normpath(path)
+        raw_segments = [
+            segment for segment in path.replace("\\", "/").split("/") if segment not in ("", ".")
+        ]
 
-        # Check for path traversal attempts
-        if ".." in normalized:
+        # Reject any explicit parent-directory segment before normalization collapses it away.
+        if any(segment == ".." for segment in raw_segments):
             return False
 
         # Check for absolute paths outside allowed directories
         if os.path.isabs(normalized):
-            # Add your allowed directories here, including common temp dirs
             import tempfile
 
-            temp_dir = tempfile.gettempdir()
-            allowed_dirs = ["/tmp", "/uploads", "/var/uploads", temp_dir]
-            # Allow any path under temp directory for testing
-            if not any(
-                normalized.startswith(allowed_dir) for allowed_dir in allowed_dirs
+            normalized_posix = normalized.replace("\\", "/")
+            allowed_posix_dirs = ["/tmp", "/uploads", "/var/uploads"]
+
+            if any(
+                normalized_posix == allowed_dir
+                or normalized_posix.startswith(f"{allowed_dir}/")
+                for allowed_dir in allowed_posix_dirs
             ):
+                return True
+
+            temp_dir = os.path.normcase(os.path.abspath(tempfile.gettempdir()))
+            normalized_abs = os.path.normcase(os.path.abspath(normalized))
+            if normalized_abs != temp_dir and not normalized_abs.startswith(temp_dir + os.sep):
                 return False
 
         return True
@@ -435,9 +445,10 @@ class CatzillaUploadFile:
     def _check_disk_space(self, path: str):
         """Check if there's enough disk space for the file."""
         try:
+            import shutil
+
             dir_path = os.path.dirname(path) if not os.path.isdir(path) else path
-            stat = os.statvfs(dir_path)
-            available_bytes = stat.f_bavail * stat.f_frsize
+            available_bytes = shutil.disk_usage(dir_path).free
 
             if self.size > available_bytes:
                 raise DiskSpaceError(

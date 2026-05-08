@@ -22,16 +22,9 @@ def _safe_print(message: str):
     try:
         print(message)
     except UnicodeEncodeError:
-        # Fallback for Windows console - replace problematic Unicode
-        safe_message = (
-            message.replace("⚡", "[LIGHTNING]")
-            .replace("⚠️", "[WARNING]")
-            .replace("❌", "[ERROR]")
-            .replace("✅", "[SUCCESS]")
-            .replace("🔧", "[TOOL]")
-            .replace("📊", "[CHART]")
-            .replace("💾", "[DISK]")
-            .replace("🚀", "[ROCKET]")
+        encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+        safe_message = message.encode(encoding, errors="replace").decode(
+            encoding, errors="replace"
         )
         print(safe_message)
 
@@ -1904,19 +1897,19 @@ class Catzilla:
                     banner = self.banner_renderer.render_startup_banner(server_info)
                 else:
                     banner = self.banner_renderer.render_minimal_banner(server_info)
-                print(banner)
+                _safe_print(banner)
             except Exception as e:
                 # Fallback to simple startup message if banner fails
                 mode = "DEVELOPMENT" if self.debug else "PRODUCTION"
-                print(f"\n🐱 Catzilla v0.1.0 - {mode}")
-                print(f"Server starting on http://{host}:{port}")
+                _safe_print(f"\n🐱 Catzilla v0.1.0 - {mode}")
+                _safe_print(f"Server starting on http://{host}:{port}")
                 if self.debug:
-                    print(f"Banner error: {e}")
+                    _safe_print(f"Banner error: {e}")
         else:
             # Simple startup message
             mode = "DEVELOPMENT" if self.debug else "PRODUCTION"
-            print(f"\n🐱 Catzilla v0.1.0 - {mode}")
-            print(f"Server starting on http://{host}:{port}")
+            _safe_print(f"\n🐱 Catzilla v0.1.0 - {mode}")
+            _safe_print(f"Server starting on http://{host}:{port}")
 
         # Display buffered route registrations after banner
         self._display_buffered_routes()
@@ -2112,6 +2105,9 @@ class Catzilla:
         Args:
             timeout: Maximum time to wait for active handlers to complete
         """
+        if sys.is_finalizing():
+            return
+
         if self._async_enabled and self.hybrid_executor:
             try:
                 # Check if we're in an async context
@@ -2133,6 +2129,8 @@ class Catzilla:
     def __del__(self):
         """Cleanup when the Catzilla instance is destroyed."""
         try:
+            if sys.is_finalizing():
+                return
             if hasattr(self, "_async_enabled") and self._async_enabled:
                 self.shutdown_async_support_sync()
         except Exception:

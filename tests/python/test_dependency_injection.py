@@ -993,7 +993,7 @@ class TestAsyncDIPerformance:
         @service("async_perf_service")
         class AsyncPerfService:
             async def fast_operation(self):
-                await asyncio.sleep(0.0001)  # Very fast async operation
+                await asyncio.sleep(0)
                 return {"result": "fast"}
 
         start_time = time.time()

@@ -31,6 +31,15 @@ import requests
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
+if os.name == "nt":
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")
+        except (AttributeError, ValueError):
+            pass
+
+pytestmark = pytest.mark.xdist_group(name="critical_build_validation")
+
 # Test configuration
 BUILD_TIMEOUT = 300  # 5 minutes for builds
 INSTALL_TIMEOUT = 300  # 5 minutes for installs
@@ -68,15 +77,43 @@ class BuildValidator:
         self.temp_dirs.append(temp_dir)
         return temp_dir
 
+    def create_source_tree_copy(self, prefix: str = "catzilla_source_copy") -> Path:
+        """Create an isolated copy of the source tree for install tests on Windows."""
+        temp_dir = self.create_temp_dir(prefix)
+        source_dir = temp_dir / "source"
+        shutil.copytree(
+            self.project_root,
+            source_dir,
+            ignore=shutil.ignore_patterns(
+                ".git",
+                ".pytest_cache",
+                "__pycache__",
+                "build",
+                "dist",
+                "venv",
+                ".venv",
+                "test-logs",
+                "catzilla.egg-info",
+            ),
+        )
+        return source_dir
+
     def run_command(self, cmd: List[str], cwd: Optional[Path] = None,
                    timeout: int = 60, check: bool = True) -> subprocess.CompletedProcess:
         """Run a command with proper error handling"""
         try:
+            env = os.environ.copy()
+            env.setdefault("PYTHONIOENCODING", "utf-8")
+            env.setdefault("PYTHONUTF8", "1")
+
             result = subprocess.run(
                 cmd,
                 cwd=cwd or self.project_root,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=env,
                 timeout=timeout,
                 check=check
             )
@@ -112,15 +149,17 @@ class BuildValidator:
         """Build source distribution and return path to tarball"""
         print("Building source distribution...")
 
+        source_dir = self.create_source_tree_copy("sdist_source")
+
         # Clean previous builds
-        dist_dir = self.project_root / "dist"
+        dist_dir = source_dir / "dist"
         if dist_dir.exists():
             shutil.rmtree(dist_dir)
 
         # Build sdist
         self.run_command([
             sys.executable, "-m", "build", "--sdist"
-        ], timeout=BUILD_TIMEOUT)
+        ], cwd=source_dir, timeout=BUILD_TIMEOUT)
 
         # Find the created tarball
         sdist_files = list(dist_dir.glob("*.tar.gz"))
@@ -133,16 +172,18 @@ class BuildValidator:
         """Build wheel distribution and return path to wheel"""
         print("Building wheel distribution...")
 
+        source_dir = self.create_source_tree_copy("wheel_source")
+
         # Clean previous builds
-        dist_dir = self.project_root / "dist"
-        build_dir = self.project_root / "build"
+        dist_dir = source_dir / "dist"
+        build_dir = source_dir / "build"
         if build_dir.exists():
             shutil.rmtree(build_dir)
 
         # Build wheel
         self.run_command([
             sys.executable, "-m", "build", "--wheel"
-        ], timeout=BUILD_TIMEOUT)
+        ], cwd=source_dir, timeout=BUILD_TIMEOUT)
 
         # Find the created wheel
         wheel_files = list(dist_dir.glob("*.whl"))
@@ -338,7 +379,7 @@ print("✓ Basic server functionality validated")
         # Write test script to temp file
         temp_dir = self.create_temp_dir("server_test")
         script_path = temp_dir / "server_test.py"
-        script_path.write_text(simple_test)
+        script_path.write_text(simple_test, encoding="utf-8")
 
         # Run simple test
         self.run_command([
@@ -424,11 +465,20 @@ class TestCriticalBuildValidation:
         # Create clean environment
         env_dir = self.validator.create_temp_dir("deps_env")
         python_exe = self.validator.create_virtual_env(env_dir)
+        cache_dir = self.validator.create_temp_dir("pip_cache")
+        source_dir = self.validator.create_source_tree_copy("deps_source")
 
         # Install from current directory (development install)
         self.validator.run_command([
-            python_exe, "-m", "pip", "install", "--cache-dir", "/tmp/pip-cache", "-e", "."
-        ], timeout=INSTALL_TIMEOUT)        # Check all dependencies are installed
+            python_exe,
+            "-m",
+            "pip",
+            "install",
+            "--cache-dir",
+            str(cache_dir),
+            "-e",
+            ".",
+        ], cwd=source_dir, timeout=INSTALL_TIMEOUT)        # Check all dependencies are installed
         deps_check = '''
 import sys
 import importlib.metadata
@@ -467,11 +517,12 @@ except Exception as e:
         # Create production-like environment
         env_dir = self.validator.create_temp_dir("prod_env")
         python_exe = self.validator.create_virtual_env(env_dir)
+        source_dir = self.validator.create_source_tree_copy("prod_source")
 
         # Install Catzilla
         self.validator.run_command([
             python_exe, "-m", "pip", "install", "-e", "."
-        ], timeout=INSTALL_TIMEOUT)
+        ], cwd=source_dir, timeout=INSTALL_TIMEOUT)
 
         # Create production app and test basic functionality
         prod_app_test = '''
@@ -542,7 +593,7 @@ finally:
 
         # Write production test
         test_path = env_dir / "prod_test.py"
-        test_path.write_text(prod_app_test)
+        test_path.write_text(prod_app_test, encoding="utf-8")
 
         # Run production test with extended timeout for subprocess overhead
         self.validator.run_command([
