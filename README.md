@@ -11,18 +11,25 @@ Blazing-fast Python web framework with production-grade routing backed by a mini
 ## Overview
 <img align="right" src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/logo.png" width="250px" alt="Catzilla Logo" />
 
-Catzilla is a modern Python web framework purpose-built for extreme performance and developer productivity.
-At its heart is a sophisticated C HTTP engine—built using **libuv** and **llhttp**—featuring an advanced **trie-based routing system** that delivers O(log n) route lookup performance.
+Catzilla is a high-performance Python web framework built for teams that want Python ergonomics without paying the usual runtime tax.
+Its HTTP engine lives in C, uses **libuv** and **llhttp**, and exposes a clean decorator-based API that feels familiar to Python developers while keeping request handling tight and predictable.
 
-By exposing its speed-focused C core through a clean, Pythonic decorator API, Catzilla gives developers full control with minimal overhead.
-Whether you're building **real-time AI applications**, **low-latency APIs**, or **high-throughput microservices**, Catzilla is engineered to deliver maximum efficiency with minimal boilerplate.
+It is designed for **low-latency APIs**, **high-throughput services**, **streaming workloads**, and systems where memory usage matters just as much as raw throughput.
+
+### Why Catzilla
+
+- **Fast where it matters**: C-backed request parsing, routing, and response dispatch
+- **Pythonic to use**: `@app.get(...)`, typed parameters, validation, and clean handler code
+- **Built for production**: middleware, background tasks, uploads, streaming, caching, and DI
+- **Memory-aware by default**: jemalloc-backed allocation strategy where available
+- **Portable**: supports Linux, macOS, and Windows with source and wheel-based workflows
 
 <br>
 
-## 🏆 Benchmark Leadership
+## 🏆 Performance Snapshot
 
-Catzilla is built to be the **world's fastest Python web framework**.
-In the benchmark suite in this repository, it leads FastAPI, Flask, and Django in both single-worker and 10-worker direct HTTP benchmarks.
+In the benchmark suite included in this repository, Catzilla currently leads FastAPI, Flask, and Django in direct localhost HTTP benchmarks for both single-worker and 10-worker runs.
+These numbers should be read as **framework-overhead and runtime-efficiency comparisons**, not as universal production guarantees.
 
 ### Single / 1 Worker
 
@@ -44,54 +51,56 @@ In the benchmark suite in this repository, it leads FastAPI, Flask, and Django i
 
 ![Catzilla 10-worker benchmark summary](benchmarks/results/overall_multi_10w_performance_summary.png)
 
-For benchmark methodology, reproducible commands, and output guidance, see [benchmarks/README.md](benchmarks/README.md).
+### Async Operations
+
+- **Raw async endpoint**: **29,235 req/s**
+- **Lead over FastAPI**: **4.7x** on the current async benchmark slice
+- **Lead over Django**: **10.4x** on the current async benchmark slice
+
+For benchmark methodology, reproducible commands, fairness notes, and raw output guidance, see [benchmarks/README.md](benchmarks/README.md).
 
 
 ## ✨ Features
 
-### Core Performance
-- ⚡ **Hybrid C/Python Core** — Event-driven I/O in C, exposed to Python
-- 🔥 **Advanced Trie-Based Routing** — O(log n) lookup with dynamic path parameters
-- 🧱 **Zero Boilerplate** — Decorator-style routing: `@app.get(...)`
-- 🔁 **Concurrency First** — GIL-aware bindings, supports streaming & WebSockets
-- 📦 **Zero Dependencies** — Uses only Python standard library (no pydantic, no bloat!)
+### Core Runtime
 
-### Advanced Routing System
-- 🛣️ **Dynamic Path Parameters** — `/users/{user_id}`, `/posts/{post_id}/comments/{comment_id}`
-- 🚦 **HTTP Status Code Handling** — 404, 405 Method Not Allowed, 415 Unsupported Media Type
-- 🔍 **Route Introspection** — Debug routes, detect conflicts, performance monitoring
-- 📊 **Production-Grade Memory Management** — Zero memory leaks, efficient allocation
+- ⚡ **Hybrid C/Python architecture** for low-overhead request handling
+- 🔥 **Trie-based routing** with dynamic path parameters and fast lookup
+- 🧱 **Minimal API surface** with familiar decorator-style routing
+- 🔁 **Sync and async handlers** with native deferred async response support
+- 📦 **Lean dependency model** focused on the standard library and native code
+
+### Web Framework Features
+
+- 🛣️ **Dynamic path and query parameters** with typed extraction
+- ✅ **Validation layer** for request models and parameter constraints
+- 🧩 **Dependency injection** and middleware composition
+- 📤 **Streaming responses**, file uploads, background tasks, and static file serving
+- 🚦 **HTTP error handling** for 404, 405, 415, and framework-level exceptions
 
 ### Developer Experience
-- 🧩 **Modular Architecture** — Add plugins, middleware, or extend protocols easily
-- 🧪 **Comprehensive Testing** — 90 tests covering C core and Python integration
-- 📖 **Developer-Friendly** — Clear documentation and contribution guidelines
-- 🔧 **Method Normalization** — Case-insensitive HTTP methods (`get` → `GET`)
 
-## 🚀 NEW in v0.2.0: Memory Revolution
+- 📖 **Readable Python handlers** on top of a high-performance core
+- 🧪 **Comprehensive unit and end-to-end validation** across Python and C layers
+- 🔧 **Cross-platform build and packaging support**
+- 🧰 **Benchmark suite included** so performance claims are reproducible
 
-**The Python Framework That BREAKS THE RULES**
+## 🚀 Memory Architecture
 
-### **"Zero-Python-Overhead Architecture"**
-- 🔥 **30-35% Memory Efficiency** — Automatic jemalloc optimization
-- ⚡ **C-Speed Allocations** — Specialized arenas for web workloads
-- 🎯 **Zero Configuration** — Works automatically out of the box
-- 📈 **Gets Faster Over Time** — Adaptive memory management
-- 🛡️ **Production Ready** — Graceful fallback to standard malloc
+Catzilla ships with a memory strategy tuned for long-running services, including jemalloc integration where available.
+The goal is simple: keep throughput high while reducing fragmentation and avoiding the typical memory blow-up that shows up under sustained load.
 
-### **Memory Features**
+### Memory Features
 ```python
-app = Catzilla()  # Memory revolution activated!
+app = Catzilla()
 
 # Real-time memory statistics
 stats = app.get_memory_stats()
 print(f"Memory efficiency: {stats['fragmentation_percent']:.1f}%")
 print(f"Allocated: {stats['allocated_mb']:.2f} MB")
-
-# Automatic optimization - no configuration needed!
 ```
 
-### **Performance Gains**
+### Allocator Strategy
 - **Request Arena**: Optimized for short-lived request processing
 - **Response Arena**: Efficient response building and serialization
 - **Cache Arena**: Long-lived data with minimal fragmentation
@@ -162,99 +171,70 @@ pip install -e .
 
 ## 🚀 Quick Start
 
-Create your first Catzilla app with **Memory Revolution**:
+Create a small application with sync routes, async routes, and typed parameters:
 
 ```python
 # app.py
-from catzilla import (
-    Catzilla, Request, Response, JSONResponse, BaseModel,
-    Query, Path, ValidationError
-)
 from typing import Optional
 import asyncio
 
-# Initialize Catzilla
+from catzilla import BaseModel, Catzilla, JSONResponse, Path, Query, Request, Response
+
 app = Catzilla(
-    production=False,      # Enable development features
-    show_banner=True,      # Show startup banner
-    log_requests=True      # Log requests in development
+    production=False,
+    show_banner=True,
+    log_requests=True,
 )
 
-# Data model for validation
 class UserCreate(BaseModel):
-    """User creation model with auto-validation"""
-    id: Optional[int] = 1
-    name: str = "Unknown"
+    id: Optional[int] = None
+    name: str
     email: Optional[str] = None
 
-# Basic sync route
 @app.get("/")
 def home(request: Request) -> Response:
-    """Home endpoint - SYNC handler"""
     return JSONResponse({
-        "message": "Welcome to Catzilla v0.2.0!",
-        "framework": "Catzilla v0.2.0",
-        "router": "C-Accelerated with Async Support",
-        "handler_type": "sync"
+        "framework": "catzilla",
+        "message": "Hello from Catzilla",
+        "mode": "sync",
     })
 
-# Async route with I/O simulation
-@app.get("/async-home")
-async def async_home(request: Request) -> Response:
-    """Async home endpoint - ASYNC handler"""
-    await asyncio.sleep(0.1)  # Simulate async I/O
+@app.get("/health")
+async def health(request: Request) -> Response:
+    await asyncio.sleep(0)
     return JSONResponse({
-        "message": "Welcome to Async Catzilla!",
-        "framework": "Catzilla v0.2.0",
-        "handler_type": "async",
-        "async_feature": "Non-blocking I/O"
+        "status": "ok",
+        "mode": "async",
     })
 
-# Route with path parameters and validation
 @app.get("/users/{user_id}")
-def get_user(request, user_id: int = Path(..., description="User ID", ge=1)) -> Response:
-    """Get user by ID with path parameter validation"""
+def get_user(request: Request, user_id: int = Path(..., ge=1)) -> Response:
     return JSONResponse({
         "user_id": user_id,
         "message": f"Retrieved user {user_id}",
-        "handler_type": "sync"
     })
 
-# Route with query parameters
 @app.get("/search")
 def search(
-    request,
-    q: str = Query("", description="Search query"),
-    limit: int = Query(10, ge=1, le=100, description="Results limit")
+    request: Request,
+    q: str = Query(""),
+    limit: int = Query(10, ge=1, le=100),
 ) -> Response:
-    """Search with query parameter validation"""
     return JSONResponse({
         "query": q,
         "limit": limit,
-        "results": [{"id": i, "title": f"Result {i}"} for i in range(limit)]
+        "results": [{"id": index, "title": f"Result {index}"} for index in range(limit)],
     })
 
-# POST route with JSON body validation
 @app.post("/users")
-def create_user(request, user: UserCreate) -> Response:
-    """Create user with automatic JSON validation"""
+def create_user(request: Request, user: UserCreate) -> Response:
     return JSONResponse({
         "message": "User created successfully",
-        "user": {"id": user.id, "name": user.name, "email": user.email}
+        "user": {"id": user.id, "name": user.name, "email": user.email},
     }, status_code=201)
 
-# Health check
-@app.get("/health")
-def health_check(request: Request) -> Response:
-    """Health check endpoint"""
-    return JSONResponse({
-        "status": "healthy",
-        "version": "0.2.0",
-        "async_support": "enabled"
-    })
-
 if __name__ == "__main__":
-    app.listen(port=8000, host="0.0.0.0")
+    app.listen(port=8000, host="127.0.0.1")
 ```
 
 Run your app:
@@ -263,7 +243,7 @@ Run your app:
 python app.py
 ```
 
-Visit `http://localhost:8000` to see your blazing-fast API with **30% memory efficiency** in action! 🚀
+Then visit `http://127.0.0.1:8000`.
 
 ### Backward Compatibility
 
@@ -338,16 +318,15 @@ For detailed compatibility information, see [SYSTEM_COMPATIBILITY.md](SYSTEM_COM
 
 ## 📊 Performance Benchmarks
 
-Catzilla v0.2.0 has been extensively benchmarked against other popular Python web frameworks using `wrk` with 100 concurrent connections over 10 seconds across **comprehensive real-world scenarios**.
+Catzilla includes a benchmark harness that compares it against FastAPI, Flask, and Django across direct HTTP paths and feature-specific slices.
+The current published results cover basic endpoints, validation, background tasks, middleware, dependency injection, and async operations.
 
 ### 🏗️ Real Server Environment
 **Production Server** | **wrk Benchmarking Tool** | **macOS** | **10s duration, 100 connections, 4 threads**
 
-This is authentic benchmark data collected from real testing environments, covering 8 different performance categories.
+This is real benchmark data collected from the repository benchmark runner. It is useful for comparing framework overhead and implementation efficiency on the same machine and workload shape.
 
-### 🚀 Exceptional Performance Results
-
-**Massive Throughput Advantage**: Catzilla v0.2.0 delivers **extraordinary performance** across advanced features:
+### Current Benchmark Highlights
 
 #### Advanced Features Performance
 | Feature | Catzilla | FastAPI | Flask | Django | vs FastAPI |
@@ -358,7 +337,8 @@ This is authentic benchmark data collected from real testing environments, cover
 | **Middleware Processing** | **21,574** | 1,108 | N/A | 15,049 | **+1,847% faster** |
 | **Validation** | **17,344** | 4,759 | 16,946 | 15,396 | **+264% faster** |
 
-**Ultra-Low Latency**: Catzilla consistently delivers **significantly lower latency**:
+### Latency Snapshot
+
 - **Basic Operations**: 5.5ms vs FastAPI's 22.1ms (**75% lower**)
 - **Dependency Injection**: 3.1ms vs FastAPI's 17.7ms (**82% lower**)
 - **Database Operations**: 3.1ms vs FastAPI's 17.6ms (**82% lower**)
@@ -369,9 +349,11 @@ This is authentic benchmark data collected from real testing environments, cover
 - **Average Performance**: 24,000+ RPS across all categories
 - **Latency Leadership**: 3-6x lower latency than FastAPI
 - **Feature Advantage**: Outstanding performance even with complex features
-- **Framework Leadership**: Fastest Python web framework across all tested scenarios
+- **Framework Leadership**: Leads the current benchmark comparison set across the tested scenarios
 
 > 📋 **[View Complete Performance Report](./PERFORMANCE_REPORT_v0.2.0.md)** - Detailed analysis with technical insights
+
+> 📎 **[Benchmark Methodology](benchmarks/README.md)** - Commands, runner behavior, and interpretation notes
 
 ### 📈 Performance Visualizations
 
@@ -420,7 +402,7 @@ pip install -e .
 
 ### Testing
 
-The test suite includes 90 comprehensive tests covering both C and Python components:
+The project includes C tests, Python unit tests, and end-to-end validation:
 
 ```bash
 # Run all tests ( C + Python Unit + e2e)
@@ -468,34 +450,6 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 - **[System Compatibility](SYSTEM_COMPATIBILITY.md)** - Platform support and installation guide
 - **[Examples](examples/)** - Real-world example applications
 - **[Contributing](CONTRIBUTING.md)** - Development guide for contributors
-
----
-
-## 🤖 Built with the Help of AI Development Partners
-
-<div align="center">
-
-| **Claude Sonnet 4** | **GitHub Copilot** | **Visual Studio Code** |
-|:---:|:---:|:---:|
-| <img src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/assets/claude_app_icon.png" width="80" alt="Claude Logo"><br>**Technical Guidance** | <img src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/assets/githubcopilot.svg" width="80" alt="GitHub Copilot Logo"><br>**Code Assistance** | <img src="https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/assets/code-stable.png" width="80" alt="VS Code Logo"><br>**Development Environment** |
-
-</div>
-
-Catzilla was developed with the assistance of cutting-edge AI development tools that enhanced productivity and code quality:
-
-- **[Claude Sonnet 4](https://anthropic.com/)** - Technical consultation for architecture decisions, debugging assistance, and problem-solving guidance
-- **[GitHub Copilot](https://github.com/features/copilot)** - Intelligent code suggestions and development acceleration
-- **[Visual Studio Code](https://code.visualstudio.com/)** - Primary development environment with integrated AI assistance
-
-*AI partnership accelerated development from an estimated 3-6 months to just 1 week, while maintaining production-grade code quality, comprehensive testing (90 tests), and cross-platform compatibility.*
-
-### Development Approach
-- **Human-Driven Architecture**: Core design decisions and technical vision by the developer
-- **AI-Assisted Implementation**: Code suggestions, boilerplate generation, and pattern completion
-- **Collaborative Debugging**: AI-enhanced problem identification and solution guidance
-- **Enhanced Documentation**: AI-supported technical writing and comprehensive guides
-
-*This showcases the potential of human creativity amplified by AI assistance—developer expertise enhanced by intelligent tooling.* 🚀
 
 ---
 
