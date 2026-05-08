@@ -76,6 +76,32 @@ static client_context_t* get_client_context(uv_stream_t* client) {
     return (client_context_t*)client->data;
 }
 
+static bool headers_include_field(const char* headers, const char* field_name) {
+    if (!headers || !field_name) {
+        return false;
+    }
+
+    size_t field_name_len = strlen(field_name);
+    const char* cursor = headers;
+
+    while (*cursor) {
+        const char* line_end = strstr(cursor, "\r\n");
+        size_t line_len = line_end ? (size_t)(line_end - cursor) : strlen(cursor);
+
+        if (line_len > field_name_len && strncasecmp(cursor, field_name, field_name_len) == 0 && cursor[field_name_len] == ':') {
+            return true;
+        }
+
+        if (!line_end) {
+            break;
+        }
+
+        cursor = line_end + 2;
+    }
+
+    return false;
+}
+
 static void reset_client_request_state(client_context_t* context) {
     if (!context) {
         return;
@@ -1117,20 +1143,37 @@ int catzilla_server_listen(catzilla_server_t* server, const char* host, int port
     // Fallback to default host if NULL or empty
     const char* bind_host = (host != NULL && strlen(host) > 0) ? host : "0.0.0.0";
 
-    struct sockaddr_in addr;
-    int rc = uv_ip4_addr(bind_host, port, &addr);
-    if (rc) {
-        LOG_SERVER_ERROR("Failed to resolve %s:%d: %s", bind_host, port, uv_strerror(rc));
-        return rc;
+    int rc;
+#ifdef _WIN32
+    const char* effective_bind_host = (strcmp(bind_host, "0.0.0.0") == 0) ? "::" : bind_host;
+#else
+    const char* effective_bind_host = bind_host;
+#endif
+
+    if (strchr(effective_bind_host, ':') != NULL) {
+        struct sockaddr_in6 addr6;
+        rc = uv_ip6_addr(effective_bind_host, port, &addr6);
+        if (rc) {
+            LOG_SERVER_ERROR("Failed to resolve %s:%d: %s", effective_bind_host, port, uv_strerror(rc));
+            return rc;
+        }
+        rc = uv_tcp_bind(&server->server, (const struct sockaddr*)&addr6, 0);
+    } else {
+        struct sockaddr_in addr4;
+        rc = uv_ip4_addr(effective_bind_host, port, &addr4);
+        if (rc) {
+            LOG_SERVER_ERROR("Failed to resolve %s:%d: %s", effective_bind_host, port, uv_strerror(rc));
+            return rc;
+        }
+        rc = uv_tcp_bind(&server->server, (const struct sockaddr*)&addr4, 0);
     }
-    rc = uv_tcp_bind(&server->server, (const struct sockaddr*)&addr, 0);
     if (rc) {
-        LOG_SERVER_ERROR("Bind %s:%d: %s", bind_host, port, uv_strerror(rc));
+        LOG_SERVER_ERROR("Bind %s:%d: %s", effective_bind_host, port, uv_strerror(rc));
         return rc;
     }
     rc = uv_listen((uv_stream_t*)&server->server, 4096, on_connection);
     if (rc) {
-        LOG_SERVER_ERROR("Listen %s:%d: %s", bind_host, port, uv_strerror(rc));
+        LOG_SERVER_ERROR("Listen %s:%d: %s", effective_bind_host, port, uv_strerror(rc));
         return rc;
     }
 
@@ -1259,14 +1302,24 @@ static void send_response_with_connection(uv_stream_t* client,
         default:  status_text="Unknown";break;
     }
 
-    // Calculate required buffer size including Connection header
+    bool headers_are_formatted = headers && strchr(headers, ':') != NULL;
+    bool has_content_length = headers_are_formatted && headers_include_field(headers, "Content-Length");
+
+    // Calculate required buffer size including Connection and Content-Length headers
     size_t status_line_len = snprintf(NULL, 0, "HTTP/1.1 %d %s\r\n", status_code, status_text);
     size_t headers_len = headers ? strlen(headers) : 0;
     size_t connection_header_len = keep_alive ?
         strlen("Connection: keep-alive\r\n") :
         strlen("Connection: close\r\n");
+    size_t content_type_header_len = (!headers_are_formatted && headers_len > 0) ?
+        snprintf(NULL, 0, "Content-Type: %s\r\n", headers) : 0;
+    size_t content_length_header_len = has_content_length ? 0 :
+        snprintf(NULL, 0, "Content-Length: %zu\r\n", body_len);
     size_t separator_len = 2; // "\r\n" to separate headers from body
-    size_t total_header_len = status_line_len + headers_len + connection_header_len + separator_len;
+    size_t total_header_len = status_line_len + connection_header_len + separator_len + content_type_header_len + content_length_header_len;
+    if (headers_are_formatted) {
+        total_header_len += headers_len;
+    }
 
     char* response = catzilla_response_alloc(total_header_len + body_len);
     if (!response) { catzilla_response_free(req); return; }
@@ -1276,15 +1329,26 @@ static void send_response_with_connection(uv_stream_t* client,
     offset += snprintf(response + offset, total_header_len + body_len - offset,
                       "HTTP/1.1 %d %s\r\n", status_code, status_text);
 
-    if (headers && headers_len > 0) {
-        memcpy(response + offset, headers, headers_len);
-        offset += headers_len;
+    if (headers_len > 0) {
+        if (headers_are_formatted) {
+            memcpy(response + offset, headers, headers_len);
+            offset += headers_len;
+        } else {
+            offset += snprintf(response + offset, total_header_len + body_len - offset,
+                              "Content-Type: %s\r\n", headers);
+        }
     }
 
     // Add Connection header
     const char* connection_header = keep_alive ? "Connection: keep-alive\r\n" : "Connection: close\r\n";
     memcpy(response + offset, connection_header, connection_header_len);
     offset += connection_header_len;
+
+    if (!has_content_length) {
+        // Add Content-Length header so keep-alive clients can detect response completion.
+        offset += snprintf(response + offset, total_header_len + body_len - offset,
+                          "Content-Length: %zu\r\n", body_len);
+    }
 
     // Add separator between headers and body
     memcpy(response + offset, "\r\n", 2);
@@ -1468,10 +1532,12 @@ static void after_write(uv_write_t* req, int status) {
         uv_close((uv_handle_t*)req->handle, on_close);
     } else {
         LOG_SERVER_DEBUG("Keeping connection alive (keep_alive=true)");
-        if (context && context->read_paused) {
+        if (context) {
             reset_client_request_state(context);
-            context->read_paused = false;
-            uv_read_start((uv_stream_t*)&context->client, alloc_buffer, on_read);
+            if (context->read_paused) {
+                context->read_paused = false;
+                uv_read_start((uv_stream_t*)&context->client, alloc_buffer, on_read);
+            }
         }
     }
 

@@ -21,9 +21,15 @@ import subprocess
 import sys
 import os
 import gc
-import resource
+import tempfile
+from pathlib import Path
 from typing import Optional, Dict, Any, List
 from unittest.mock import Mock, patch
+
+try:
+    import resource
+except ImportError:
+    resource = None
 
 # Import Catzilla components
 try:
@@ -47,26 +53,64 @@ class MemoryMonitor:
     def get_memory_mb(self) -> float:
         """Get current memory usage in MB"""
         try:
+            if os.name == "nt":
+                import ctypes
+
+                class PROCESS_MEMORY_COUNTERS(ctypes.Structure):
+                    _fields_ = [
+                        ("cb", ctypes.c_ulong),
+                        ("PageFaultCount", ctypes.c_ulong),
+                        ("PeakWorkingSetSize", ctypes.c_size_t),
+                        ("WorkingSetSize", ctypes.c_size_t),
+                        ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                        ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                        ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                        ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                        ("PagefileUsage", ctypes.c_size_t),
+                        ("PeakPagefileUsage", ctypes.c_size_t),
+                    ]
+
+                kernel32 = ctypes.windll.kernel32
+                psapi = ctypes.windll.psapi
+                process = None
+
+                try:
+                    if self.process_pid:
+                        process = kernel32.OpenProcess(0x0400 | 0x1000, False, self.process_pid)
+                        if not process:
+                            return 0.0
+                    else:
+                        process = kernel32.GetCurrentProcess()
+
+                    counters = PROCESS_MEMORY_COUNTERS()
+                    counters.cb = ctypes.sizeof(PROCESS_MEMORY_COUNTERS)
+                    if not psapi.GetProcessMemoryInfo(process, ctypes.byref(counters), counters.cb):
+                        return 0.0
+                    return counters.WorkingSetSize / (1024 * 1024)
+                finally:
+                    if self.process_pid and process:
+                        kernel32.CloseHandle(process)
+
             if self.process_pid:
-                # Monitor external process using ps command
                 try:
                     result = subprocess.run(
                         ['ps', '-p', str(self.process_pid), '-o', 'rss='],
                         capture_output=True, text=True, timeout=5
                     )
                     if result.returncode == 0 and result.stdout.strip():
-                        # RSS is in KB on macOS, convert to MB
                         rss_kb = int(result.stdout.strip())
                         return rss_kb / 1024.0
                 except (subprocess.TimeoutExpired, ValueError, subprocess.SubprocessError):
                     pass
                 return 0.0
-            else:
-                # Monitor current process using resource module
-                usage = resource.getrusage(resource.RUSAGE_SELF)
-                # On macOS, ru_maxrss is in bytes, on Linux it's in KB
-                # We'll assume bytes and convert to MB
+
+            if resource is None:
+                return 0.0
+
+            usage = resource.getrusage(resource.RUSAGE_SELF)
+            if sys.platform == "darwin":
                 return usage.ru_maxrss / (1024 * 1024)
+            return usage.ru_maxrss / 1024
         except Exception:
             return 0.0
 
@@ -124,6 +168,16 @@ class TestCriticalMemoryLeaks:
                             os.remove(server_info['script_path'])
                         except:
                             pass
+                    if 'log_handle' in server_info and server_info['log_handle']:
+                        try:
+                            server_info['log_handle'].close()
+                        except:
+                            pass
+                    if 'log_path' in server_info:
+                        try:
+                            os.remove(server_info['log_path'])
+                        except:
+                            pass
             except:
                 pass
         self.active_servers.clear()
@@ -175,12 +229,19 @@ class TestCriticalMemoryLeaks:
 
     def start_memory_test_server(self, app_code: str, port: int, timeout: float = 30.0) -> subprocess.Popen:
         """Start a test server for memory testing with robust startup"""
+        project_root = repr(str(Path(__file__).resolve().parents[2]))
+
         script = f'''
 import sys
 import os
 import time
 import signal
-sys.path.insert(0, "{os.path.dirname(os.path.dirname(os.path.dirname(__file__)))}")
+for stream in (sys.stdout, sys.stderr):
+    try:
+        stream.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+sys.path.insert(0, {project_root})
 
 from catzilla import Catzilla, service, Depends, JSONResponse
 import time
@@ -213,20 +274,24 @@ if __name__ == "__main__":
 '''
 
         # Write script to temporary file with unique name
-        script_path = f"/tmp/memory_test_server_{port}_{int(time.time())}.py"
-        with open(script_path, 'w') as f:
+        script_path = os.path.join(tempfile.gettempdir(), f"memory_test_server_{port}_{int(time.time())}.py")
+        with open(script_path, 'w', encoding='utf-8') as f:
             f.write(script)
 
         # Start subprocess
+        log_path = os.path.join(tempfile.gettempdir(), f"memory_test_server_{port}_{int(time.time())}.log")
+        log_handle = open(log_path, 'w', encoding='utf-8')
         process = subprocess.Popen([
             sys.executable, script_path
-        ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+        ], stdout=log_handle, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace', bufsize=1)
 
         # Track for cleanup
         self.active_servers.append({
             'process': process,
             'port': port,
-            'script_path': script_path
+            'script_path': script_path,
+            'log_path': log_path,
+            'log_handle': log_handle,
         })
 
         # Wait for server to start with multiple health checks
@@ -237,7 +302,9 @@ if __name__ == "__main__":
 
         while time.time() - start_time < timeout:
             if process.poll() is not None:
-                output, _ = process.communicate()
+                log_handle.flush()
+                log_handle.close()
+                output = Path(log_path).read_text(encoding='utf-8', errors='replace')
                 raise RuntimeError(f"Memory test server process died: {output}")
 
             try:
@@ -279,7 +346,7 @@ import gc
 
 # Clear any existing default container
 clear_default_container()
-app = Catzilla(enable_di=True)
+app = Catzilla(enable_di=True, show_banner=False, log_requests=False)
 set_default_container(app.di_container)
 
 # Counter to track requests
@@ -403,7 +470,7 @@ import gc
 
 # Clear any existing default container
 clear_default_container()
-app = Catzilla(enable_di=True)
+app = Catzilla(enable_di=True, show_banner=False, log_requests=False)
 set_default_container(app.di_container)
 
 @service("data_service")
@@ -548,7 +615,7 @@ import time
 import gc
 
 clear_default_container()
-app = Catzilla(enable_di=True)
+app = Catzilla(enable_di=True, show_banner=False, log_requests=False)
 set_default_container(app.di_container)
 
 @service("session_manager")
@@ -704,7 +771,7 @@ import time
 import gc
 
 clear_default_container()
-app = Catzilla(enable_di=True)
+app = Catzilla(enable_di=True, show_banner=False, log_requests=False)
 set_default_container(app.di_container)
 
 request_counter = 0
@@ -853,7 +920,7 @@ from catzilla.dependency_injection import set_default_container, clear_default_c
 import gc
 
 clear_default_container()
-app = Catzilla(enable_di=True)
+app = Catzilla(enable_di=True, show_banner=False, log_requests=False)
 
 large_request_count = 0
 

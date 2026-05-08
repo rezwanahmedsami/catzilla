@@ -92,6 +92,7 @@ def expensive_calculation(request: Request, value: int = PathParam(..., descript
 
         def compute():
             # Simulate expensive operation
+            time.sleep(0.01)
             result = 1
             for i in range(1, min(value, 20) + 1):  # Limit to prevent huge calculations
                 result *= i

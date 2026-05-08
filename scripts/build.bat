@@ -5,8 +5,10 @@ setlocal enabledelayedexpansion
 echo 🔨 Starting Catzilla development build...
 
 REM Get script directory and project root
-set SCRIPT_DIR=%~dp0
-set PROJECT_ROOT=%SCRIPT_DIR%..
+set "SCRIPT_DIR=%~dp0"
+for %%I in ("%SCRIPT_DIR%..") do set "PROJECT_ROOT=%%~fI"
+
+cd /d "%PROJECT_ROOT%"
 
 REM Build jemalloc if needed
 echo.
@@ -30,15 +32,15 @@ if not exist "%PROJECT_ROOT%\deps\jemalloc" (
 ) else (
     echo DEBUG: Found jemalloc directory
     echo DEBUG: Contents of jemalloc directory:
-    dir "%PROJECT_ROOT%\deps\jemalloc" /b | head -10
+    dir "%PROJECT_ROOT%\deps\jemalloc" /b
 
     REM Navigate to jemalloc directory and run build script
-    cd /d "%PROJECT_ROOT%\deps\jemalloc"
+    pushd "%PROJECT_ROOT%\deps\jemalloc"
     call "%SCRIPT_DIR%build_jemalloc.bat"
     set JEMALLOC_BUILD_RESULT=!errorlevel!
 
     REM Return to project root
-    cd /d "%PROJECT_ROOT%"
+    popd
 
     if !JEMALLOC_BUILD_RESULT! neq 0 (
         echo ⚠️  Warning: jemalloc build failed with exit code !JEMALLOC_BUILD_RESULT!
@@ -69,30 +71,81 @@ mkdir build
 cd build
 
 REM Find Python executable
-where python >nul 2>&1
-if %errorlevel% == 0 (
-    for /f "tokens=*" %%i in ('where python') do set PYTHON_EXE=%%i
+set "PYTHON_EXE="
+if exist "%PROJECT_ROOT%\venv\Scripts\python.exe" (
+    set "PYTHON_EXE=%PROJECT_ROOT%\venv\Scripts\python.exe"
 ) else (
-    where python3 >nul 2>&1
-    if %errorlevel% == 0 (
-        for /f "tokens=*" %%i in ('where python3') do set PYTHON_EXE=%%i
-    ) else (
-        echo Error: Python not found in PATH
-        echo Tip: Install Python from python.org
-        exit /b 1
+    if defined VIRTUAL_ENV (
+        if exist "%VIRTUAL_ENV%\Scripts\python.exe" (
+            set "PYTHON_EXE=%VIRTUAL_ENV%\Scripts\python.exe"
+        )
     )
 )
 
+if not defined PYTHON_EXE (
+    where python3 >nul 2>&1
+    if %errorlevel% == 0 (
+        for /f "delims=" %%i in ('where python3') do (
+            set "PYTHON_EXE=%%i"
+            goto :python_found
+        )
+    ) else (
+        where python >nul 2>&1
+        if %errorlevel% == 0 (
+            for /f "delims=" %%i in ('where python') do (
+                set "PYTHON_EXE=%%i"
+                goto :python_found
+            )
+        ) else (
+            echo Error: Python not found in PATH
+            echo Tip: Install Python from python.org
+            exit /b 1
+        )
+    )
+)
+
+:python_found
+echo Using Python: "%PYTHON_EXE%"
+
+REM Find CMake executable
+set "CMAKE_EXE="
+where cmake >nul 2>&1
+if %errorlevel% == 0 (
+    for /f "delims=" %%i in ('where cmake') do (
+        set "CMAKE_EXE=%%i"
+        goto :cmake_found
+    )
+)
+
+for %%i in (
+    "C:\Program Files\CMake\bin\cmake.exe"
+    "C:\Program Files (x86)\CMake\bin\cmake.exe"
+    "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+    "C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+    "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+    "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+) do (
+    if exist "%%~i" (
+        set "CMAKE_EXE=%%~fi"
+        goto :cmake_found
+    )
+)
+
+echo Error: CMake not found
+echo Tip: Install CMake from https://cmake.org/download/ or with 'winget install Kitware.CMake'
+exit /b 1
+
+:cmake_found
+echo Using CMake: "%CMAKE_EXE%"
+
 REM Detect number of cores for parallel build
-for /f "tokens=2 delims==" %%i in ('wmic cpu get NumberOfCores /value ^| find "=" 2^>nul') do set cores=%%i
-REM Strip any whitespace/newlines from cores variable
-for /f "tokens=* delims= " %%a in ("!cores!") do set cores=%%a
-if "!cores!"=="" set cores=2
+set "CORES=%NUMBER_OF_PROCESSORS%"
+if "%CORES%"=="" set "CORES=2"
 
 REM Configure with CMake
 echo.
 echo Step 4: Configuring with CMake...
-cmake .. -DCMAKE_BUILD_TYPE=Release -DPython3_EXECUTABLE="%PYTHON_EXE%"
+"%CMAKE_EXE%" .. -DCMAKE_BUILD_TYPE=Release -DPython3_EXECUTABLE="%PYTHON_EXE%"
 
 if %errorlevel% neq 0 (
     echo CMake configuration failed!
@@ -106,7 +159,7 @@ if %errorlevel% neq 0 (
 REM Build
 echo.
 echo Step 5: Building...
-cmake --build . --config Release -j%cores%
+"%CMAKE_EXE%" --build . --config Release --parallel %CORES%
 
 if %errorlevel% neq 0 (
     echo Build failed!
@@ -122,15 +175,29 @@ echo.
 echo Step 6: Installing...
 cd ..
 
+REM Ensure packaging toolchain is compatible with editable installs in CI
+echo Updating packaging tools...
+"%PYTHON_EXE%" -m pip install --upgrade "packaging>=24.2" setuptools wheel
+if %errorlevel% neq 0 (
+    echo Warning: Failed to update packaging tools. Continuing with existing toolchain...
+)
+
 REM Uninstall any existing version
-python -m pip uninstall -y catzilla 2>nul
+"%PYTHON_EXE%" -m pip uninstall -y catzilla 2>nul
 
 REM Install in development mode
-python -m pip install -e .
+"%PYTHON_EXE%" -m pip install -e . --no-build-isolation
 if %errorlevel% neq 0 (
+    if defined GITHUB_ACTIONS (
+        echo Editable install failed in CI, retrying with a standard install...
+        "%PYTHON_EXE%" -m pip install . --no-build-isolation
+        if %errorlevel% equ 0 goto :install_success
+    )
     echo Installation failed!
     exit /b 1
 )
+
+:install_success
 
 echo.
 echo ✅ Build complete!

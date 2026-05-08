@@ -11,6 +11,46 @@ from typing import Any, Dict, Optional
 from .memory_c import CatzillaCExtension
 
 
+def _get_windows_memory_mb(process_pid: Optional[int] = None) -> float:
+    """Get process working-set memory on Windows without third-party deps."""
+    class PROCESS_MEMORY_COUNTERS(ctypes.Structure):
+        _fields_ = [
+            ("cb", ctypes.c_ulong),
+            ("PageFaultCount", ctypes.c_ulong),
+            ("PeakWorkingSetSize", ctypes.c_size_t),
+            ("WorkingSetSize", ctypes.c_size_t),
+            ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+            ("PagefileUsage", ctypes.c_size_t),
+            ("PeakPagefileUsage", ctypes.c_size_t),
+        ]
+
+    kernel32 = ctypes.windll.kernel32
+    psapi = ctypes.windll.psapi
+    process = None
+
+    try:
+        if process_pid is None:
+            process = kernel32.GetCurrentProcess()
+        else:
+            process = kernel32.OpenProcess(0x0400 | 0x1000, False, process_pid)
+            if not process:
+                return 0.0
+
+        counters = PROCESS_MEMORY_COUNTERS()
+        counters.cb = ctypes.sizeof(PROCESS_MEMORY_COUNTERS)
+        if not psapi.GetProcessMemoryInfo(process, ctypes.byref(counters), counters.cb):
+            return 0.0
+        return counters.WorkingSetSize / (1024 * 1024)
+    except Exception:
+        return 0.0
+    finally:
+        if process_pid is not None and process:
+            kernel32.CloseHandle(process)
+
+
 def get_memory_stats() -> Dict[str, Any]:
     """
     Get comprehensive memory statistics from C-level jemalloc system
@@ -33,16 +73,17 @@ def get_memory_stats() -> Dict[str, Any]:
 
     # Fallback to Python-based memory stats if C extension not available
     import gc
-    import resource
 
-    # Get current memory usage
-    rusage = resource.getrusage(resource.RUSAGE_SELF)
+    if os.name == "nt":
+        peak_memory_mb = _get_windows_memory_mb()
+    else:
+        import resource
 
-    # Convert to MB (ru_maxrss is in KB on Linux, bytes on macOS)
-    if sys.platform == "darwin":  # macOS
-        peak_memory_mb = rusage.ru_maxrss / (1024 * 1024)
-    else:  # Linux
-        peak_memory_mb = rusage.ru_maxrss / 1024
+        rusage = resource.getrusage(resource.RUSAGE_SELF)
+        if sys.platform == "darwin":
+            peak_memory_mb = rusage.ru_maxrss / (1024 * 1024)
+        else:
+            peak_memory_mb = rusage.ru_maxrss / 1024
 
     return {
         "allocated_mb": peak_memory_mb,
