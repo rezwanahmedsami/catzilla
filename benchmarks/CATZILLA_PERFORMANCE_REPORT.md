@@ -1,88 +1,64 @@
-# 🚀 Catzilla Performance Benchmark Report
+# Catzilla Benchmark Highlights
 
-**Date:** July 31, 2025
-**Framework:** Catzilla v0.2.0
-**Test Environment:** macOS with C-accelerated validation engine and jemalloc optimization
+**Date:** May 8, 2026  
+**Framework:** Catzilla v0.2.0  
+**Environment:** macOS arm64, direct `wrk` benchmarks against Catzilla, FastAPI, Flask, and Django
 
-## 📊 Performance Summary
+## Claim
 
-### Sequential Performance (100 requests each)
-| Test Case | RPS | Avg Response | Median | 95th Percentile | Success Rate |
-|-----------|-----|--------------|--------|-----------------|--------------|
-| Simple User Validation | 331.6 req/s | 2.906ms | 2.338ms | 4.404ms | 100.0% |
-| Advanced User Validation | 373.17 req/s | 2.586ms | 2.448ms | 3.747ms | 100.0% |
-| Product Validation | 392.56 req/s | 2.453ms | 2.298ms | 3.394ms | 100.0% |
-| **Combined Throughput** | **1,097.3 req/s** | **2.648ms** | - | - | **100.0%** |
+Catzilla is built to be the **world's fastest Python web framework**.
+The benchmark suite in this repository shows it leading the comparison frameworks in both single-worker and 10-worker direct HTTP runs.
 
-### Concurrent Performance (500 requests each, 20 workers)
-| Test Case | RPS | Avg Response | Median | 95th Percentile | Success Rate |
-|-----------|-----|--------------|--------|-----------------|--------------|
-| Simple User Validation | 582.19 req/s | 32.368ms | 32.002ms | 42.93ms | 100.0% |
-| Advanced User Validation | 567.28 req/s | 32.913ms | 33.018ms | 45.33ms | 100.0% |
-| Product Validation | 584.34 req/s | 31.94ms | 31.959ms | 42.557ms | 100.0% |
-| **Combined Throughput** | **1,733.8 req/s** | **32.407ms** | - | - | **100.0%** |
+## Single / 1 Worker
 
-## 🏆 Key Performance Highlights
+| Framework | Avg RPS | Avg Latency | Avg Peak Memory | Best Endpoint |
+|-----------|---------|-------------|-----------------|---------------|
+| Catzilla | 52,700 | 2.16ms | 28.52MB | `basic_hello_world` at 76,169 RPS |
+| FastAPI | 8,400 | 13.01ms | 31.45MB | `basic_hello_world` at 10,990 RPS |
+| Flask | 2,993 | 48.76ms | 46.33MB | `basic_hello_world` at 3,087 RPS |
+| Django | 2,731 | 55.77ms | 52.88MB | `basic_hello_world` at 2,854 RPS |
 
-### Outstanding Results
-- ✅ **100% Success Rate** across all tests
-- ✅ **Sub-3ms response times** in sequential mode
-- ✅ **1,700+ req/s** concurrent throughput
-- ✅ **Zero failures** in 3,000+ total requests
-- ✅ **Consistent performance** across validation types
+![Single worker overall performance summary](results/overall_single_1w_performance_summary.png)
 
-### Technical Advantages
-- 🔥 **C-accelerated validation engine** - Native performance
-- 🚀 **jemalloc memory optimization** - Superior memory management
-- ⚡ **Sub-millisecond processing** - Extremely fast validation
-- 🎯 **Perfect reliability** - No dropped requests or errors
-- 📈 **Excellent scalability** - 58% throughput increase under load
+![Single worker peak memory comparison](results/overall_single_1w_memory_comparison.png)
 
-## 🔬 Performance Analysis
+## Multi / 10 Workers
 
-### Sequential vs Concurrent Comparison
-- **Throughput Gain:** +58% increase (1,097 → 1,734 req/s)
-- **Response Time:** Expected increase due to concurrency overhead
-- **Reliability:** Maintained 100% success rate under load
-- **Scalability:** Linear scaling with worker threads
+| Framework | Avg RPS | Avg Latency | Avg Peak Memory | Best Endpoint |
+|-----------|---------|-------------|-----------------|---------------|
+| Catzilla | 166,877 | 6.84ms | 270.37MB | `basic_hello_world` at 197,947 RPS |
+| FastAPI | 37,585 | 29.49ms | 352.40MB | `basic_hello_world` at 49,098 RPS |
+| Flask | 5,613 | 173.19ms | 288.23MB | `basic_path_params` at 5,672 RPS |
+| Django | 5,656 | 171.23ms | 349.32MB | `basic_complex_json` at 5,736 RPS |
 
-### Validation Engine Performance
-1. **Simple User Validation:** Basic field validation with excellent performance
-2. **Advanced User Validation:** Complex constraints and regex validation
-3. **Product Validation:** Comprehensive model with nested data structures
+![10 worker overall performance summary](results/overall_multi_10w_performance_summary.png)
 
-All validation types performed consistently, demonstrating the robustness of Catzilla's C-accelerated validation engine.
+![10 worker peak memory comparison](results/overall_multi_10w_memory_comparison.png)
 
-## 🎯 Benchmark Methodology
+## What Matters
 
-### Test Configuration
-- **Framework:** Catzilla v0.2.0 with async/await support
-- **Server:** Production mode on localhost:8100
-- **Client:** Python requests with concurrent.futures
-- **Validation:** Real-world data models with constraints
-- **Metrics:** Response time, throughput, success rate, percentiles
+- Catzilla leads the suite in both single-worker and 10-worker throughput.
+- Catzilla keeps the lowest latency in both modes.
+- Catzilla also keeps peak memory below FastAPI and Django in both modes, and below Flask in the 10-worker run.
+- The strongest headline numbers come from `basic_hello_world`, but the lead remains across JSON, path-parameter, and query-parameter endpoints.
 
-### Test Data
-- **Simple User:** Basic user model (id, name, email, age)
-- **Advanced User:** Complex model with regex, ranges, and constraints
-- **Product:** E-commerce product with decimal pricing and validation
+## Reproduce These Results
 
-## 🚀 Conclusions
+```bash
+cd /Users/rezwanahmedsami/devwork/catzilla
+source .venv/bin/activate
 
-Catzilla demonstrates **exceptional performance** for validation-heavy workloads:
+cd benchmarks
+./run_all.sh --type basic --worker-mode single --duration 10s
+./run_all.sh --type basic --worker-mode multi --workers 10 --duration 10s
 
-1. **Speed:** Sub-3ms response times rival the fastest frameworks
-2. **Reliability:** Perfect success rate under various load patterns
-3. **Scalability:** Handles concurrent requests with linear scaling
-4. **Efficiency:** C-acceleration provides significant performance gains
-5. **Consistency:** Stable performance across different validation types
+cd ..
+/Users/rezwanahmedsami/devwork/catzilla/.venv/bin/python ./benchmarks/tools/visualize_results.py
+```
 
-### Recommended Use Cases
-- **High-throughput APIs** requiring fast validation
-- **Real-time applications** with strict latency requirements
-- **Microservices** with complex data validation needs
-- **Production systems** requiring reliable performance
+## Related Files
 
----
-
-*Generated by Catzilla Benchmark Suite - July 31, 2025*
+- `results/benchmark_summary.json`
+- `results/transparent_performance_report.md`
+- `results/basic_single_1w_performance_analysis.png`
+- `results/basic_multi_10w_performance_analysis.png`

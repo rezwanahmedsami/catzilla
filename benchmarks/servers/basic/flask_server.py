@@ -363,7 +363,10 @@ def main():
             options = {
                 'bind': f'{args.host}:{args.port}',
                 'workers': args.workers,
-                'worker_class': 'sync',
+                'worker_class': 'gthread',
+                'threads': 8,
+                'keepalive': 30,
+                'timeout': 120,
                 'accesslog': None,  # Use 'accesslog' instead of 'access_log'
                 'errorlog': '-',     # Use 'errorlog' instead of 'error_log'
                 'loglevel': 'warning'  # Use 'loglevel' instead of 'log_level'
