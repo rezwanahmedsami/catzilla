@@ -20,7 +20,7 @@ from typing import Dict, List, Tuple
 
 from packaging.version import InvalidVersion, Version
 
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 
 
 class VersionManager:
