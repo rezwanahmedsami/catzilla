@@ -224,6 +224,7 @@ class CMakeBuild(build_ext):
 
         # Ensure we're in the right working directory
         original_cwd = os.getcwd()
+        configure_succeeded = False
         try:
             # Change to source directory for CMake (source_dir already defined above)
             os.chdir(source_dir)
@@ -231,6 +232,7 @@ class CMakeBuild(build_ext):
             print(f"Running CMake configure: {' '.join(configure_cmd)}")
             subprocess.check_call(configure_cmd, env=env, cwd=source_dir)
             print(f"{platform_emoji('✅', '[SUCCESS]')} CMake configuration successful")
+            configure_succeeded = True
         except subprocess.CalledProcessError as e:
             print(f"{platform_emoji('❌', '[ERROR]')} CMake configuration failed with return code {e.returncode}")
 
@@ -266,6 +268,8 @@ class CMakeBuild(build_ext):
                     print(f"Running fallback CMake: {' '.join(fallback_cmd)}")
                     subprocess.check_call(fallback_cmd, env=env, cwd=source_dir)
                     print(f"{platform_emoji('✅', '[SUCCESS]')} Fallback CMake configuration successful")
+                    configure_succeeded = True
+                    use_jemalloc = False
                 except subprocess.CalledProcessError as fallback_e:
                     print(f"{platform_emoji('❌', '[ERROR]')} Fallback also failed: {fallback_e}")
                     # Continue with existing fallback logic below
@@ -273,31 +277,32 @@ class CMakeBuild(build_ext):
             else:
                 print("Attempting fallback configuration...")
 
-            # Fallback: minimal configuration without extra flags
-            fallback_cmd = [
-                'cmake', '-S', '.', '-B', build_dir,
-                f'-DPython3_EXECUTABLE={sys.executable}',
-                f'-DCATZILLA_USE_JEMALLOC={"ON" if use_jemalloc else "OFF"}'
-            ]
+            if not configure_succeeded:
+                # Fallback: minimal configuration without extra flags
+                fallback_cmd = [
+                    'cmake', '-S', '.', '-B', build_dir,
+                    f'-DPython3_EXECUTABLE={sys.executable}',
+                    f'-DCATZILLA_USE_JEMALLOC={"ON" if use_jemalloc else "OFF"}'
+                ]
 
-            # For Windows, try different generators in fallback
-            if sys.platform == 'win32':
-                # Try minimal Windows generators
-                for generator in ['Ninja', 'MinGW Makefiles', 'NMake Makefiles']:
-                    try:
-                        test_cmd = fallback_cmd + ['-G', generator]
-                        subprocess.check_call(test_cmd, env=env, cwd=source_dir)
-                        print(f"Success with {generator} generator")
-                        break
-                    except subprocess.CalledProcessError:
-                        print(f"Failed with {generator} generator, trying next...")
-                        continue
+                # For Windows, try different generators in fallback
+                if sys.platform == 'win32':
+                    # Try minimal Windows generators
+                    for generator in ['Ninja', 'MinGW Makefiles', 'NMake Makefiles']:
+                        try:
+                            test_cmd = fallback_cmd + ['-G', generator]
+                            subprocess.check_call(test_cmd, env=env, cwd=source_dir)
+                            print(f"Success with {generator} generator")
+                            break
+                        except subprocess.CalledProcessError:
+                            print(f"Failed with {generator} generator, trying next...")
+                            continue
+                    else:
+                        # Final fallback - no generator specified
+                        print("Trying default generator...")
+                        subprocess.check_call(fallback_cmd, env=env, cwd=source_dir)
                 else:
-                    # Final fallback - no generator specified
-                    print("Trying default generator...")
                     subprocess.check_call(fallback_cmd, env=env, cwd=source_dir)
-            else:
-                subprocess.check_call(fallback_cmd, env=env, cwd=source_dir)
         finally:
             # Restore original working directory
             os.chdir(original_cwd)
