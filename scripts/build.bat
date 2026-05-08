@@ -175,15 +175,29 @@ echo.
 echo Step 6: Installing...
 cd ..
 
+REM Ensure packaging toolchain is compatible with editable installs in CI
+echo Updating packaging tools...
+"%PYTHON_EXE%" -m pip install --upgrade "packaging>=24.2" setuptools wheel
+if %errorlevel% neq 0 (
+    echo Warning: Failed to update packaging tools. Continuing with existing toolchain...
+)
+
 REM Uninstall any existing version
 "%PYTHON_EXE%" -m pip uninstall -y catzilla 2>nul
 
 REM Install in development mode
 "%PYTHON_EXE%" -m pip install -e . --no-build-isolation
 if %errorlevel% neq 0 (
+    if defined GITHUB_ACTIONS (
+        echo Editable install failed in CI, retrying with a standard install...
+        "%PYTHON_EXE%" -m pip install . --no-build-isolation
+        if %errorlevel% equ 0 goto :install_success
+    )
     echo Installation failed!
     exit /b 1
 )
+
+:install_success
 
 echo.
 echo ✅ Build complete!
