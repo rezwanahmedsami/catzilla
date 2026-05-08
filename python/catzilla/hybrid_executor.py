@@ -19,7 +19,6 @@ import logging
 import sys
 import threading
 import time
-import weakref
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextvars import copy_context
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
@@ -195,12 +194,13 @@ class HybridExecutor:
         self._thread_pool: Optional[ThreadPoolExecutor] = None
         self._pool_lock = threading.Lock()
 
-        # Async event loop management
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
-        self._loop_lock = threading.Lock()
+        # Per-thread event loops for sync-to-async execution.
+        self._event_loops: Dict[int, asyncio.AbstractEventLoop] = {}
+        self._event_loops_lock = threading.Lock()
+        self._thread_local = threading.local()
 
         # Handler tracking
-        self._active_handlers: weakref.WeakSet = weakref.WeakSet()
+        self._active_handler_count = 0
         self._shutdown_event = threading.Event()
 
         # Performance monitoring
@@ -224,23 +224,53 @@ class HybridExecutor:
         return self._thread_pool
 
     def _get_event_loop(self) -> asyncio.AbstractEventLoop:
-        """Get the current event loop or create one."""
-        try:
-            loop = asyncio.get_running_loop()
+        """Get or create the executor-managed loop for the current thread."""
+        loop = getattr(self._thread_local, "event_loop", None)
+        if loop is not None and not loop.is_closed():
             return loop
-        except RuntimeError:
-            # No running loop, try to get the default one
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_closed():
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                return loop
-            except RuntimeError:
-                # Create a new event loop
+
+        thread_id = threading.get_ident()
+        with self._event_loops_lock:
+            loop = self._event_loops.get(thread_id)
+            if loop is None or loop.is_closed():
                 loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                return loop
+                self._event_loops[thread_id] = loop
+
+        self._thread_local.event_loop = loop
+        asyncio.set_event_loop(loop)
+
+        return loop
+
+    def _close_event_loops(self) -> None:
+        """Close executor-managed event loops during shutdown."""
+        with self._event_loops_lock:
+            loops = list(self._event_loops.values())
+            self._event_loops.clear()
+
+        for loop in loops:
+            if loop.is_closed():
+                continue
+
+            if loop.is_running():
+                loop.call_soon_threadsafe(loop.stop)
+
+            loop.close()
+
+        self._thread_local.__dict__.pop("event_loop", None)
+
+    def _get_running_loop(self) -> asyncio.AbstractEventLoop:
+        """Get the currently running loop, if any."""
+        try:
+            return asyncio.get_running_loop()
+        except RuntimeError:
+            return None
+
+    def _mark_handler_started(self) -> None:
+        self._active_handler_count += 1
+
+    def _mark_handler_finished(self) -> None:
+        if self._active_handler_count > 0:
+            self._active_handler_count -= 1
 
     async def execute_handler(self, handler: Callable, *args, **kwargs) -> Any:
         """
@@ -264,8 +294,7 @@ class HybridExecutor:
         if self._shutdown_event.is_set():
             raise ExecutionError("Executor is shutting down")
 
-        # Add to active handlers tracking
-        self._active_handlers.add(handler)
+        self._mark_handler_started()
 
         try:
             # Detect handler type
@@ -280,22 +309,22 @@ class HybridExecutor:
             logger.error(f"Handler execution failed: {e}")
             raise ExecutionError(f"Handler execution failed: {e}") from e
         finally:
-            # Handler completed, remove from tracking
-            self._active_handlers.discard(handler)
+            self._mark_handler_finished()
 
     async def _execute_async_handler(self, handler: Callable, *args, **kwargs) -> Any:
         """Execute an async handler with proper timeout and error handling."""
-        start_time = time.time()
+        start_time = time.time() if self._monitoring_enabled else 0.0
         success = False
         timeout_occurred = False
+        timeout = self.config.async_timeout
 
         try:
             # Handler is already validated as async by detector, no need to re-check
 
-            # Execute with timeout
-            result = await asyncio.wait_for(
-                handler(*args, **kwargs), timeout=self.config.async_timeout
-            )
+            if timeout is None or timeout <= 0:
+                result = await handler(*args, **kwargs)
+            else:
+                result = await asyncio.wait_for(handler(*args, **kwargs), timeout=timeout)
 
             success = True
             return result
@@ -303,10 +332,10 @@ class HybridExecutor:
         except asyncio.TimeoutError:
             timeout_occurred = True
             logger.warning(
-                f"Async handler {handler.__name__} timed out after {self.config.async_timeout}s"
+                f"Async handler {handler.__name__} timed out after {timeout}s"
             )
             raise ExecutionError(
-                f"Async handler timed out after {self.config.async_timeout}s"
+                f"Async handler timed out after {timeout}s"
             )
 
         except Exception as e:
@@ -322,7 +351,7 @@ class HybridExecutor:
 
     async def _execute_sync_handler(self, handler: Callable, *args, **kwargs) -> Any:
         """Execute a sync handler in a thread pool."""
-        start_time = time.time()
+        start_time = time.time() if self._monitoring_enabled else 0.0
         success = False
         timeout_occurred = False
 
@@ -390,7 +419,9 @@ class HybridExecutor:
         """
         # Check if we're already in an async context
         try:
-            loop = asyncio.get_running_loop()
+            loop = self._get_running_loop()
+            if loop is None:
+                raise RuntimeError
             # We're in an async context, can't use run()
             raise ExecutionError(
                 "execute_handler_sync cannot be called from an async context. "
@@ -399,17 +430,32 @@ class HybridExecutor:
         except RuntimeError:
             # No running loop, we can proceed
             pass
+ 
+        loop = self._get_event_loop()
+        return loop.run_until_complete(self.execute_handler(handler, *args, **kwargs))
 
-        # Create new event loop for this execution
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+    def execute_known_async_handler_sync(self, handler: Callable, *args, **kwargs) -> Any:
+        """Execute an already-classified async handler from a sync context."""
+        if self._shutdown_event.is_set():
+            raise ExecutionError("Executor is shutting down")
 
-        try:
-            return loop.run_until_complete(
-                self.execute_handler(handler, *args, **kwargs)
+        running_loop = self._get_running_loop()
+        if running_loop is not None:
+            raise ExecutionError(
+                "execute_known_async_handler_sync cannot be called from an async context"
             )
+
+        self._mark_handler_started()
+        try:
+            loop = self._get_event_loop()
+            if self.config.async_timeout is None or self.config.async_timeout <= 0:
+                return loop.run_until_complete(handler(*args, **kwargs))
+
+            return loop.run_until_complete(self._execute_async_handler(handler, *args, **kwargs))
+        except Exception as e:
+            raise ExecutionError(f"Async handler execution failed: {e}") from e
         finally:
-            loop.close()
+            self._mark_handler_finished()
 
     async def execute_multiple_handlers(
         self, handlers_with_args: List[tuple]
@@ -447,7 +493,7 @@ class HybridExecutor:
         # Add executor-specific stats
         stats.update(
             {
-                "active_handlers": len(self._active_handlers),
+                "active_handlers": self._active_handler_count,
                 "thread_pool_initialized": self._thread_pool is not None,
                 "shutdown_requested": self._shutdown_event.is_set(),
             }
@@ -489,12 +535,12 @@ class HybridExecutor:
 
         # Wait for active handlers to complete
         start_time = time.time()
-        while self._active_handlers and (time.time() - start_time) < timeout:
+        while self._active_handler_count and (time.time() - start_time) < timeout:
             await asyncio.sleep(0.1)
 
-        if self._active_handlers:
+        if self._active_handler_count:
             logger.warning(
-                f"Shutdown timeout reached with {len(self._active_handlers)} handlers still active"
+                f"Shutdown timeout reached with {self._active_handler_count} handlers still active"
             )
 
         # Shutdown thread pool
@@ -506,6 +552,8 @@ class HybridExecutor:
                     )  # timeout not supported in Python 3.10
                     self._thread_pool = None
                     logger.info("Thread pool shutdown completed")
+
+        self._close_event_loops()
 
         logger.info("Executor shutdown completed")
 

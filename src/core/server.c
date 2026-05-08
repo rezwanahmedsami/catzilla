@@ -46,6 +46,8 @@ typedef struct {
     bool keep_alive;  // Track if client wants keep-alive
     bool parsing_connection;  // Track if we're parsing Connection header
     bool has_connection_header;  // Track if Connection header was sent
+    bool read_paused;  // Track paused reads for deferred async responses
+    bool deferred_response_pending;  // Track a deferred response using this request state
     // Header storage for all headers
     catzilla_header_t headers[CATZILLA_MAX_HEADERS];
     int header_count;
@@ -106,6 +108,7 @@ static void reset_client_request_state(client_context_t* context) {
     context->parsing_connection = false;
     context->has_connection_header = false;
     context->content_type = CONTENT_TYPE_NONE;
+    context->deferred_response_pending = false;
 }
 
 // Global reference to the active server for signal handling
@@ -1380,6 +1383,8 @@ static void on_connection(uv_stream_t* server, int status) {
     ctx->parsing_connection = false;
     ctx->has_connection_header = false;
     ctx->keep_alive = false;  // Default to close connection (HTTP/1.0 behavior)
+    ctx->read_paused = false;
+    ctx->deferred_response_pending = false;
     ctx->body = NULL;
     ctx->body_length = 0;
     ctx->body_size = 0;
@@ -1455,6 +1460,7 @@ static void after_write(uv_write_t* req, int status) {
     if (status < 0) LOG_SERVER_DEBUG("Write error: %s", uv_strerror(status));
 
     write_req_t* wr = (write_req_t*)req;
+    client_context_t* context = req->handle ? (client_context_t*)req->handle->data : NULL;
 
     // Only close connection if keep_alive is false
     if (!wr->keep_alive) {
@@ -1462,8 +1468,11 @@ static void after_write(uv_write_t* req, int status) {
         uv_close((uv_handle_t*)req->handle, on_close);
     } else {
         LOG_SERVER_DEBUG("Keeping connection alive (keep_alive=true)");
-        // Connection stays open for next request
-        // The client context and parser will handle subsequent requests
+        if (context && context->read_paused) {
+            reset_client_request_state(context);
+            context->read_paused = false;
+            uv_read_start((uv_stream_t*)&context->client, alloc_buffer, on_read);
+        }
     }
 
     catzilla_response_free(wr->buf.base);
@@ -1541,6 +1550,7 @@ static int on_message_complete(llhttp_t* parser) {
     if (server->py_request_callback != NULL) {
         PyGILState_STATE gstate = PyGILState_Ensure();
         PyObject* client_capsule = PyCapsule_New((void*)&context->client, "catzilla.client", NULL);
+        bool deferred_response = false;
         if (!client_capsule) {
             PyErr_Print();
             send_response_with_connection((uv_stream_t*)&context->client, 500, "text/plain", "500 Internal Server Error", strlen("500 Internal Server Error"), context->keep_alive);
@@ -1554,11 +1564,21 @@ static int on_message_complete(llhttp_t* parser) {
                 context->body_length,
                 context  // Pass context for headers
             );
+            deferred_response = (result == Py_True);
             Py_XDECREF(result);
             Py_DECREF(client_capsule);
         }
         PyGILState_Release(gstate);
-        reset_client_request_state(context);
+
+        if (deferred_response) {
+            context->deferred_response_pending = true;
+            if (!context->read_paused) {
+                uv_read_stop((uv_stream_t*)&context->client);
+                context->read_paused = true;
+            }
+        } else {
+            reset_client_request_state(context);
+        }
         return 0;
     }
 

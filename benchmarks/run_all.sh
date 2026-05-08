@@ -109,6 +109,13 @@ REAL_WORLD_SERVERS=(
     "flask:8083:$GUNICORN_CMD --bind 127.0.0.1:8083 --workers 4 $GUNICORN_WSGI_FLAGS benchmarks.servers.real_world_scenarios.flask_realworld:app"
 )
 
+# Server configurations for async operations benchmarks
+ASYNC_OPERATIONS_SERVERS=(
+    "catzilla:8070:$PYTHON_CMD $SERVERS_DIR/async_operations/catzilla_async.py --port 8070"
+    "fastapi:8071:$UVICORN_CMD benchmarks.servers.async_operations.fastapi_async:app --host 127.0.0.1 --port 8071"
+    "django:8072:$UVICORN_CMD benchmarks.servers.async_operations.django_async:application --host 127.0.0.1 --port 8072"
+)
+
 # Test endpoints for basic benchmarks
 BASIC_ENDPOINTS=(
     "/:hello_world"
@@ -180,6 +187,14 @@ REAL_WORLD_ENDPOINTS=(
     "/api/blog/posts/1:blog_post_detail"
 )
 
+# Test endpoints for async operations benchmarks
+ASYNC_OPERATIONS_ENDPOINTS=(
+    "/async/raw:raw_async"
+    "/async/yield-once:yield_once"
+    "/async/fanout:fanout_async"
+    "/async/chain/42:chain_async"
+)
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -238,6 +253,7 @@ get_server_configs_for_type() {
         "sqlalchemy-di") printf "%s\n" "${SQLALCHEMY_DI_SERVERS[@]}" ;;
         "middleware") printf "%s\n" "${MIDDLEWARE_SERVERS[@]}" ;;
         "validation") printf "%s\n" "${VALIDATION_SERVERS[@]}" ;;
+        "async-operations") printf "%s\n" "${ASYNC_OPERATIONS_SERVERS[@]}" ;;
         "file-operations") printf "%s\n" "${FILE_OPERATIONS_SERVERS[@]}" ;;
         "background-tasks") printf "%s\n" "${BACKGROUND_TASKS_SERVERS[@]}" ;;
         "real-world") printf "%s\n" "${REAL_WORLD_SERVERS[@]}" ;;
@@ -980,6 +996,9 @@ benchmark_framework() {
         "validation")
             endpoints_array=("${VALIDATION_ENDPOINTS[@]}")
             ;;
+        "async-operations")
+            endpoints_array=("${ASYNC_OPERATIONS_ENDPOINTS[@]}")
+            ;;
         "file-operations")
             endpoints_array=("${FILE_OPERATIONS_ENDPOINTS[@]}")
             ;;
@@ -1088,6 +1107,7 @@ cleanup_servers() {
         "${SQLALCHEMY_DI_SERVERS[@]}"
         "${MIDDLEWARE_SERVERS[@]}"
         "${VALIDATION_SERVERS[@]}"
+        "${ASYNC_OPERATIONS_SERVERS[@]}"
         "${FILE_OPERATIONS_SERVERS[@]}"
         "${BACKGROUND_TASKS_SERVERS[@]}"
         "${REAL_WORLD_SERVERS[@]}"
@@ -1521,6 +1541,7 @@ usage() {
     echo "  $0 --all                                   # Run ALL benchmark types"
     echo "  $0 --clear                                 # Clear individual result files"
     echo "  $0 --duration 30s --connections 200        # Custom settings"
+    echo "  $0 --type async-operations                 # Run raw async operation benchmarks"
     echo ""
     echo "Python Feature Mode Examples:"
     echo "  $0 --mode python --basic             # Run basic HTTP benchmarks"
@@ -1538,6 +1559,7 @@ usage() {
     echo "  sqlalchemy-di      - SQLAlchemy with dependency injection"
     echo "  middleware         - Middleware performance"
     echo "  validation         - Input validation engines"
+    echo "  async-operations   - Raw async handler operations"
     echo "  file-operations    - File upload/download/streaming"
     echo "  background-tasks   - Background task processing"
     echo "  real-world         - Real-world API scenarios"
@@ -1567,7 +1589,7 @@ check_dependencies() {
 # Parse command line arguments
 parse_arguments() {
     # Define valid benchmark types
-    local valid_types=("basic" "di" "sqlalchemy-di" "middleware" "validation" "file-operations" "background-tasks" "real-world")
+    local valid_types=("basic" "di" "sqlalchemy-di" "middleware" "validation" "async-operations" "file-operations" "background-tasks" "real-world")
 
     MODE="direct"  # Default to direct wrk mode
     BENCHMARK_TYPE="basic"  # Default benchmark type
@@ -1717,7 +1739,7 @@ parse_arguments() {
 run_direct_benchmarks() {
     if [ "$RUN_ALL_TYPES" = true ]; then
         print_header "🚀 Direct wrk Benchmark Mode - ALL TYPES"
-        local all_types=("basic" "di" "sqlalchemy-di" "middleware" "validation" "file-operations" "background-tasks" "real-world")
+        local all_types=("basic" "di" "sqlalchemy-di" "middleware" "validation" "async-operations" "file-operations" "background-tasks" "real-world")
     else
         print_header "🚀 Direct wrk Benchmark Mode - $BENCHMARK_TYPE"
         local all_types=("$BENCHMARK_TYPE")
@@ -1765,6 +1787,9 @@ run_direct_benchmarks() {
                     ;;
                 "validation")
                     frameworks_to_test=("catzilla" "fastapi" "flask" "django")  # All have validation servers
+                    ;;
+                "async-operations")
+                    frameworks_to_test=("catzilla" "fastapi" "django")  # Native async benchmark servers
                     ;;
                 "file-operations")
                     frameworks_to_test=("catzilla" "fastapi" "flask" "django")  # All have file servers

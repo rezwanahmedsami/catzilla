@@ -4,6 +4,7 @@ FastAPI-style decorators for service registration and injection
 """
 
 import inspect
+from contextvars import ContextVar
 from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
 
@@ -281,10 +282,17 @@ def scoped(scope_name: str = "request", container: Optional[DIContainer] = None)
 import threading
 
 _local = threading.local()
+_di_context_var: ContextVar[Optional[DIContext]] = ContextVar(
+    "catzilla_di_context", default=None
+)
 
 
 def _get_current_context(container: DIContainer) -> Optional[DIContext]:
     """Get the current DI context from thread-local storage"""
+    async_context = _di_context_var.get()
+    if async_context is not None:
+        return async_context
+
     context = getattr(_local, "di_context", None)
     if context is None:
         # Create a new context if none exists
@@ -295,11 +303,21 @@ def _get_current_context(container: DIContainer) -> Optional[DIContext]:
 
 def _set_current_context(context: DIContext):
     """Set the current DI context in thread-local storage"""
+    _di_context_var.set(context)
     _local.di_context = context
 
 
 def _clear_current_context():
     """Clear the current DI context from thread-local storage"""
+    async_context = _di_context_var.get()
+    if async_context is not None:
+        async_context.cleanup()
+        _di_context_var.set(None)
+
+        if getattr(_local, "di_context", None) is async_context:
+            del _local.di_context
+        return
+
     if hasattr(_local, "di_context"):
         context = _local.di_context
         if context:
