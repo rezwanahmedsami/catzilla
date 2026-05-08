@@ -45,8 +45,10 @@ if not exist "%PROJECT_ROOT%\deps\jemalloc" (
     if !JEMALLOC_BUILD_RESULT! neq 0 (
         echo ⚠️  Warning: jemalloc build failed with exit code !JEMALLOC_BUILD_RESULT!
         echo ⚠️  Continuing with system malloc - performance may be reduced
+        set "CATZILLA_USE_JEMALLOC="
     ) else (
         echo ✅ jemalloc build completed successfully
+        set "CATZILLA_USE_JEMALLOC=1"
     )
 )
 

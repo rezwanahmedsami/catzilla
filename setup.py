@@ -67,18 +67,34 @@ class CMakeBuild(build_ext):
                 use_jemalloc = False
                 print("CI environment detected: Disabling jemalloc for reliable builds (use CATZILLA_USE_JEMALLOC=1 to force enable)")
 
-        # Additional check: if jemalloc source/lib is missing, disable it
-        jemalloc_lib_path = os.path.join(source_dir, 'deps', 'jemalloc', 'lib')
-        if use_jemalloc and not os.path.exists(jemalloc_lib_path):
+        # Additional check: disable jemalloc only when no staged/prebuilt library exists.
+        if sys.platform == 'win32':
+            jemalloc_lib_candidates = [
+                os.path.join(source_dir, '.catzilla-cache', 'jemalloc-windows', 'lib', 'jemalloc.lib'),
+                os.path.join(source_dir, 'deps', 'jemalloc', 'lib', 'jemalloc.lib'),
+            ]
+        else:
+            jemalloc_lib_candidates = [
+                os.path.join(source_dir, 'deps', 'jemalloc', 'lib', 'libjemalloc.a'),
+            ]
+
+        jemalloc_lib_path = next((path for path in jemalloc_lib_candidates if os.path.exists(path)), None)
+        if use_jemalloc and jemalloc_lib_path is None:
             use_jemalloc = False
-            print(f"jemalloc library not found at {jemalloc_lib_path}, disabling jemalloc")        # Python version compatibility checks
+            print(
+                "jemalloc staged library not found in any known location, disabling jemalloc"
+            )
+
+        # Python version compatibility checks
         python_version = sys.version_info
         print(f"Building for Python {python_version.major}.{python_version.minor}.{python_version.micro} on {platform.system()}")
 
         # Disable jemalloc for problematic Python versions in CI
-        if python_version.minor == 11 and os.getenv('CI'):
+        if python_version.minor == 11 and os.getenv('CI') and not catzilla_use_jemalloc:
             print("Warning: Disabling jemalloc for Python 3.11 in CI environment for compatibility")
             use_jemalloc = False
+        elif python_version.minor == 11 and os.getenv('CI') and catzilla_use_jemalloc:
+            print("CI Python 3.11 build: preserving explicit CATZILLA_USE_JEMALLOC=1 override")
 
                 # Ensure build directory exists and is clean
         if os.path.exists(build_dir):
