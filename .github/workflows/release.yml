@@ -8,7 +8,7 @@ on:
 
 # 🚀 PRODUCTION-SAFE RELEASE STRATEGY:
 # - Pure semantic versions (v1.0.0, v0.2.1) → Production PyPI
-# - Pre-releases (v1.0.0-beta, v0.1.0-rc1) → Test PyPI only
+# - Pre-releases (v1.0.0b1, v1.0.0rc1, v1.0.0-beta1) → Test PyPI only
 # - All releases create GitHub releases with wheels
 
 env:
@@ -19,6 +19,49 @@ permissions:
   contents: write
 
 jobs:
+  classify-release:
+    name: Classify Release Tag
+    runs-on: ubuntu-latest
+    outputs:
+      is_tag: ${{ steps.classify.outputs.is_tag }}
+      tag: ${{ steps.classify.outputs.tag }}
+      pypi_version: ${{ steps.classify.outputs.pypi_version }}
+      is_prerelease: ${{ steps.classify.outputs.is_prerelease }}
+
+    steps:
+    - name: Classify tag
+      id: classify
+      shell: bash
+      run: |
+        if [[ "${GITHUB_REF}" != refs/tags/* ]]; then
+          echo "is_tag=false" >> "$GITHUB_OUTPUT"
+          echo "tag=" >> "$GITHUB_OUTPUT"
+          echo "pypi_version=" >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        tag="${GITHUB_REF#refs/tags/}"
+        version="${tag#v}"
+
+        echo "is_tag=true" >> "$GITHUB_OUTPUT"
+        echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+        if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "pypi_version=$version" >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+        elif [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+((a|b|rc)[0-9]+)$ ]]; then
+          echo "pypi_version=$version" >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+        elif [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-(alpha|beta|rc)[0-9]+$ ]]; then
+          pypi_version=$(echo "$version" | sed 's/-beta/b/' | sed 's/-rc/rc/' | sed 's/-alpha/a/')
+          echo "pypi_version=$pypi_version" >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "Unsupported release tag format: $tag"
+          exit 1
+        fi
+
   # Comprehensive pre-release testing
   test:
     name: Pre-Release Test (${{ matrix.python-version }}, ${{ matrix.os }})
@@ -336,9 +379,9 @@ jobs:
   # Create GitHub release
   release:
     name: Create GitHub Release
-    needs: [test, build-sdist, build-wheels]
+    needs: [classify-release, test, build-sdist, build-wheels]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: needs.classify-release.outputs.is_tag == 'true'
 
     steps:
     - name: Checkout
@@ -364,27 +407,8 @@ jobs:
           fi
         done
 
-    - name: Extract tag name and convert to PyPI format
-      id: tag
-      run: |
-        tag=${GITHUB_REF#refs/tags/}
-        echo "tag=$tag" >> $GITHUB_OUTPUT
-
-        # Convert tag to PyPI version format for test releases
-        # v0.2.0-beta3 -> 0.2.0b3
-        # v1.0.0-rc1 -> 1.0.0rc1
-        # v1.0.0 -> 1.0.0 (unchanged)
-        if [[ "$tag" == *"-"* ]]; then
-          pypi_version=$(echo "$tag" | sed 's/^v//' | sed 's/-beta/b/' | sed 's/-rc/rc/' | sed 's/-alpha/a/')
-          echo "is_prerelease=true" >> $GITHUB_OUTPUT
-        else
-          pypi_version=$(echo "$tag" | sed 's/^v//')
-          echo "is_prerelease=false" >> $GITHUB_OUTPUT
-        fi
-        echo "pypi_version=$pypi_version" >> $GITHUB_OUTPUT
-
     - name: Create release body for test releases
-      if: steps.tag.outputs.is_prerelease == 'true'
+      if: needs.classify-release.outputs.is_prerelease == 'true'
       run: |
         cat > release_body.md << 'EOF'
 
@@ -394,7 +418,7 @@ jobs:
 
         ### Test Release (Test PyPI)
         ```bash
-        pip install -i https://test.pypi.org/simple/ catzilla==${{ steps.tag.outputs.pypi_version }}
+        pip install -i https://test.pypi.org/simple/ catzilla==${{ needs.classify-release.outputs.pypi_version }}
         ```
 
         **Note:** This is a pre-release version available on Test PyPI for testing purposes.
@@ -473,7 +497,7 @@ jobs:
         EOF
 
     - name: Create release body for production releases
-      if: steps.tag.outputs.is_prerelease == 'false'
+      if: needs.classify-release.outputs.is_prerelease == 'false'
       run: |
         cat > release_body.md << 'EOF'
 
@@ -562,25 +586,25 @@ jobs:
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ steps.tag.outputs.tag }}
-        name: "Catzilla ${{ steps.tag.outputs.tag }}"
+        tag_name: ${{ needs.classify-release.outputs.tag }}
+        name: "Catzilla ${{ needs.classify-release.outputs.tag }}"
         body_path: release_body.md
         files: release-assets/*
         draft: false
-        prerelease: ${{ contains(steps.tag.outputs.tag, '-') }}
+        prerelease: ${{ needs.classify-release.outputs.is_prerelease == 'true' }}
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # Publish to PyPI using Trusted Publisher (OIDC) - PRODUCTION SAFE
   # Only publishes for pure semantic versions (v1.0.0, v0.2.1, etc.)
-  # Pre-releases (v1.0.0-beta, v0.1.0-rc1) are excluded for safety
+  # Pre-releases (v1.0.0b1, v0.1.0rc1, v1.0.0-beta1) are excluded for safety
   publish-pypi:
     name: Publish to Production PyPI
-    needs: [test, build-sdist, build-wheels, release]
+    needs: [classify-release, test, build-sdist, build-wheels, release]
     runs-on: ubuntu-latest
     # PRODUCTION SAFETY: Only pure semantic versions (vX.Y.Z) - no pre-release suffixes
-    if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')
+    if: needs.classify-release.outputs.is_tag == 'true' && needs.classify-release.outputs.is_prerelease == 'false'
     permissions:
       id-token: write  # Required for trusted publishing
 
@@ -622,10 +646,10 @@ jobs:
   # This handles all non-production releases safely
   publish-test-pypi:
     name: Publish to Test PyPI
-    needs: [test, build-sdist, build-wheels]
+    needs: [classify-release, test, build-sdist, build-wheels]
     runs-on: ubuntu-latest
-    # SAFETY: Only pre-releases (tags with -) go to Test PyPI
-    if: startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '-')
+    # SAFETY: Only prereleases go to Test PyPI
+    if: needs.classify-release.outputs.is_tag == 'true' && needs.classify-release.outputs.is_prerelease == 'true'
     permissions:
       id-token: write  # Required for trusted publishing
 
