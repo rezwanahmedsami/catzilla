@@ -523,9 +523,10 @@ PyObject* handle_request_in_server(PyObject* callback,
     }
 
     if (body && body_length > 0) {
-        request->body = malloc(body_length);
+        request->body = catzilla_request_alloc(body_length + 1);
         if (request->body) {
             memcpy(request->body, body, body_length);
+            request->body[body_length] = '\0';
             request->body_length = body_length;
         } else {
             PyErr_NoMemory();
