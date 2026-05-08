@@ -11,6 +11,13 @@ function(detect_jemalloc_prefix JEMALLOC_INCLUDE_DIRS JEMALLOC_LIBRARIES)
         return()
     endif()
 
+    if(WIN32)
+        message(STATUS "✅ Windows jemalloc uses je_ prefixed functions for static linking")
+        set(JEMALLOC_USES_PREFIX TRUE PARENT_SCOPE)
+        set(JEMALLOC_PREFIX_DETECTED "je_" PARENT_SCOPE)
+        return()
+    endif()
+
     # Create a temporary directory for testing
     set(TEST_DIR "${CMAKE_BINARY_DIR}/jemalloc_prefix_test")
     file(MAKE_DIRECTORY "${TEST_DIR}")

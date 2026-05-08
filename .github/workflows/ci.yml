@@ -198,22 +198,21 @@ jobs:
       if: runner.os == 'Windows'
       run: scripts\build.bat
 
-    - name: Validate Windows malloc fallback
+    - name: Validate Windows jemalloc integration
       if: runner.os == 'Windows'
       run: |
-        echo "Validating Windows build with malloc fallback..."
+        echo "Validating Windows build with staged jemalloc..."
         python -c "
         import sys
         sys.path.insert(0, '.')
         try:
             from catzilla import Catzilla
             app = Catzilla()
-            print('[SUCCESS] Windows malloc fallback working correctly')
+            print('[SUCCESS] Windows jemalloc build working correctly')
             print(f'jemalloc available: {Catzilla.jemalloc_available()}')
             if not Catzilla.jemalloc_available():
-                print('[SUCCESS] Expected: jemalloc not available on Windows (using malloc)')
-            else:
-                print('[INFO] Unexpected: jemalloc is available (this is fine too)')
+                print('[ERROR] Expected jemalloc to be available on Windows CI')
+                sys.exit(1)
         except Exception as e:
             print(f'[ERROR] Error: {e}')
             sys.exit(1)

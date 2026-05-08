@@ -80,18 +80,29 @@ if(CATZILLA_USE_JEMALLOC)
 
     # Primary approach: Look for pre-built jemalloc static library
     set(JEMALLOC_PREBUILT_FOUND FALSE)
+    set(JEMALLOC_PREBUILT_ROOT "")
 
     # Windows-specific paths
     if(WIN32)
-        if(EXISTS "${CMAKE_SOURCE_DIR}/deps/jemalloc/lib/jemalloc.lib")
-            message(STATUS "📦 Using pre-built jemalloc static library (deps/jemalloc) - Windows")
-            set(JEMALLOC_LIBRARY_STATIC "${CMAKE_SOURCE_DIR}/deps/jemalloc/lib/jemalloc.lib")
-            set(JEMALLOC_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/deps/jemalloc/include")
-            set(JEMALLOC_PREBUILT_FOUND TRUE)
-        endif()
+        set(JEMALLOC_WINDOWS_PREBUILT_ROOTS
+            "${CMAKE_SOURCE_DIR}/.catzilla-cache/jemalloc-windows"
+            "${CMAKE_SOURCE_DIR}/deps/jemalloc"
+        )
+        foreach(JEMALLOC_CANDIDATE_ROOT IN LISTS JEMALLOC_WINDOWS_PREBUILT_ROOTS)
+            if(EXISTS "${JEMALLOC_CANDIDATE_ROOT}/lib/jemalloc.lib"
+               AND EXISTS "${JEMALLOC_CANDIDATE_ROOT}/include/jemalloc/jemalloc.h")
+                set(JEMALLOC_PREBUILT_ROOT "${JEMALLOC_CANDIDATE_ROOT}")
+                set(JEMALLOC_LIBRARY_STATIC "${JEMALLOC_PREBUILT_ROOT}/lib/jemalloc.lib")
+                set(JEMALLOC_INCLUDE_DIR "${JEMALLOC_PREBUILT_ROOT}/include")
+                set(JEMALLOC_PREBUILT_FOUND TRUE)
+                message(STATUS "📦 Using pre-built jemalloc static library (${JEMALLOC_PREBUILT_ROOT}) - Windows")
+                break()
+            endif()
+        endforeach()
     # Unix-specific paths
     elseif(EXISTS "${CMAKE_SOURCE_DIR}/deps/jemalloc/lib/libjemalloc.a")
         message(STATUS "📦 Using pre-built jemalloc static library (deps/jemalloc) - Unix")
+        set(JEMALLOC_PREBUILT_ROOT "${CMAKE_SOURCE_DIR}/deps/jemalloc")
         set(JEMALLOC_LIBRARY_STATIC "${CMAKE_SOURCE_DIR}/deps/jemalloc/lib/libjemalloc.a")
         set(JEMALLOC_LIBRARY_PIC "${CMAKE_SOURCE_DIR}/deps/jemalloc/lib/libjemalloc_pic.a")
         set(JEMALLOC_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/deps/jemalloc/include")
@@ -99,15 +110,19 @@ if(CATZILLA_USE_JEMALLOC)
     endif()
 
     if(JEMALLOC_PREBUILT_FOUND)
-        message(STATUS "📦 Using pre-built jemalloc static library (deps/jemalloc)")
+        message(STATUS "📦 Using pre-built jemalloc static library (${JEMALLOC_PREBUILT_ROOT})")
 
         # Define both PIC and non-PIC library paths
-        set(JEMALLOC_LIBRARY_STATIC "${CMAKE_SOURCE_DIR}/deps/jemalloc/lib/libjemalloc.a")
-        set(JEMALLOC_LIBRARY_PIC "${CMAKE_SOURCE_DIR}/deps/jemalloc/lib/libjemalloc_pic.a")
-        set(JEMALLOC_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/deps/jemalloc/include")
+        if(WIN32)
+            set(JEMALLOC_LIBRARY_STATIC "${JEMALLOC_PREBUILT_ROOT}/lib/jemalloc.lib")
+        else()
+            set(JEMALLOC_INCLUDE_DIR "${JEMALLOC_PREBUILT_ROOT}/include")
+            set(JEMALLOC_LIBRARY_STATIC "${JEMALLOC_PREBUILT_ROOT}/lib/libjemalloc.a")
+            set(JEMALLOC_LIBRARY_PIC "${JEMALLOC_PREBUILT_ROOT}/lib/libjemalloc_pic.a")
+        endif()
 
         # Verify the library files exist and headers exist
-        if(EXISTS "${JEMALLOC_LIBRARY_STATIC}" AND EXISTS "${JEMALLOC_INCLUDE_DIR}")
+        if(EXISTS "${JEMALLOC_LIBRARY_STATIC}" AND EXISTS "${JEMALLOC_INCLUDE_DIR}/jemalloc/jemalloc.h")
             set(JEMALLOC_FOUND TRUE)
             set(JEMALLOC_LIBRARIES "${JEMALLOC_LIBRARY_STATIC}")
             set(JEMALLOC_INCLUDE_DIRS "${JEMALLOC_INCLUDE_DIR}")
@@ -142,21 +157,41 @@ if(CATZILLA_USE_JEMALLOC)
         # Platform-specific jemalloc detection
         if(WIN32)
             # Windows: Look for vcpkg or custom installation
+            set(JEMALLOC_WINDOWS_TRIPLETS "x64-windows-static-md" "x64-windows-static" "x64-windows")
+            if(DEFINED VCPKG_TARGET_TRIPLET AND NOT "${VCPKG_TARGET_TRIPLET}" STREQUAL "")
+                list(INSERT JEMALLOC_WINDOWS_TRIPLETS 0 "${VCPKG_TARGET_TRIPLET}")
+            endif()
+            list(REMOVE_DUPLICATES JEMALLOC_WINDOWS_TRIPLETS)
+
+            set(JEMALLOC_WINDOWS_INCLUDE_PATHS
+                ${CMAKE_SOURCE_DIR}/.catzilla-cache/jemalloc-windows/include
+                ${CMAKE_PREFIX_PATH}/include
+                $ENV{PROGRAMFILES}/jemalloc/include
+            )
+            set(JEMALLOC_WINDOWS_LIBRARY_PATHS
+                ${CMAKE_SOURCE_DIR}/.catzilla-cache/jemalloc-windows/lib
+                ${CMAKE_PREFIX_PATH}/lib
+                $ENV{PROGRAMFILES}/jemalloc/lib
+            )
+
+            foreach(JEMALLOC_WINDOWS_TRIPLET IN LISTS JEMALLOC_WINDOWS_TRIPLETS)
+                list(APPEND JEMALLOC_WINDOWS_INCLUDE_PATHS
+                    "$ENV{VCPKG_ROOT}/installed/${JEMALLOC_WINDOWS_TRIPLET}/include"
+                    "C:/vcpkg/installed/${JEMALLOC_WINDOWS_TRIPLET}/include"
+                )
+                list(APPEND JEMALLOC_WINDOWS_LIBRARY_PATHS
+                    "$ENV{VCPKG_ROOT}/installed/${JEMALLOC_WINDOWS_TRIPLET}/lib"
+                    "C:/vcpkg/installed/${JEMALLOC_WINDOWS_TRIPLET}/lib"
+                )
+            endforeach()
+
             find_path(JEMALLOC_INCLUDE_DIR
                 NAMES jemalloc/jemalloc.h
-                PATHS
-                    ${CMAKE_PREFIX_PATH}/include
-                    $ENV{VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/include
-                    $ENV{PROGRAMFILES}/jemalloc/include
-                    C:/vcpkg/installed/${VCPKG_TARGET_TRIPLET}/include
+                PATHS ${JEMALLOC_WINDOWS_INCLUDE_PATHS}
             )
             find_library(JEMALLOC_LIBRARY
-                NAMES jemalloc
-                PATHS
-                    ${CMAKE_PREFIX_PATH}/lib
-                    $ENV{VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/lib
-                    $ENV{PROGRAMFILES}/jemalloc/lib
-                    C:/vcpkg/installed/${VCPKG_TARGET_TRIPLET}/lib
+                NAMES jemalloc jemalloc_s
+                PATHS ${JEMALLOC_WINDOWS_LIBRARY_PATHS}
             )
         else()
             # Unix-like systems (Linux, macOS)
@@ -305,7 +340,7 @@ if(CATZILLA_USE_JEMALLOC)
         message(STATUS "      macOS:    brew install jemalloc")
         message(STATUS "      Ubuntu:   sudo apt-get install libjemalloc-dev")
         message(STATUS "      RHEL/CentOS/AlmaLinux: sudo yum install jemalloc-devel")
-        message(STATUS "      Windows:  vcpkg install jemalloc")
+        message(STATUS "      Windows:  scripts\\build_jemalloc.bat or vcpkg install jemalloc")
 
         set(CATZILLA_USE_JEMALLOC OFF)
         set(CATZILLA_HAS_JEMALLOC FALSE)
@@ -785,6 +820,9 @@ if(CATZILLA_USE_JEMALLOC AND CATZILLA_HAS_JEMALLOC)
     # Set target-specific compile definitions for jemalloc support
     target_compile_definitions(catzilla_core PRIVATE CATZILLA_USE_JEMALLOC=1)
     target_compile_definitions(catzilla_core PRIVATE CATZILLA_HAS_JEMALLOC=1)
+    if(WIN32)
+        target_compile_definitions(catzilla_core PRIVATE JEMALLOC_EXPORT=)
+    endif()
 
     # Validate jemalloc library before linking
     if(JEMALLOC_LIBRARIES)
