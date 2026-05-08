@@ -15,11 +15,6 @@ typedef enum {
     CATZILLA_ALLOCATOR_JEMALLOC  // jemalloc (if available)
 } catzilla_allocator_type_t;
 
-// Include jemalloc headers if available
-#ifdef CATZILLA_HAS_JEMALLOC
-#include <jemalloc/jemalloc.h>
-#endif
-
 /**
  * Memory system statistics
  */

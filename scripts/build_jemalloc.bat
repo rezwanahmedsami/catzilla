@@ -10,128 +10,102 @@ if not exist "Makefile.in" (
     exit /b 1
 )
 
+for %%I in ("%CD%\..\..") do set "PROJECT_ROOT=%%~fI"
+set "JEMALLOC_SOURCE_DIR=%CD%"
+set "STAGE_ROOT=%PROJECT_ROOT%\.catzilla-cache\jemalloc-windows"
+set "STAGED_LIB_DIR=%STAGE_ROOT%\lib"
+set "STAGED_LIB_FILE=%STAGED_LIB_DIR%\jemalloc.lib"
+set "STAGED_INCLUDE_DIR=%STAGE_ROOT%\include\jemalloc"
+set "VCPKG_TRIPLET=x64-windows-static-md"
+set "OVERLAY_TRIPLETS=%PROJECT_ROOT%\cmake\vcpkg-triplets"
+set "CATZILLA_VCPKG_ROOT=%VCPKG_ROOT%"
+if not defined CATZILLA_VCPKG_ROOT set "CATZILLA_VCPKG_ROOT=%PROJECT_ROOT%\.catzilla-cache\tools\vcpkg"
+set "VCPKG_INSTALL_ROOT=%CATZILLA_VCPKG_ROOT%\installed\%VCPKG_TRIPLET%"
+
 echo Current directory: %CD%
+echo Repo root: %PROJECT_ROOT%
 
 echo.
-echo Cleaning previous build artifacts...
-if exist "msvc\x64\Release" rmdir /s /q "msvc\x64\Release"
-if exist "msvc\x64\Debug" rmdir /s /q "msvc\x64\Debug"
-if exist "lib\jemalloc.lib" del /q "lib\jemalloc.lib"
+echo Cleaning previous staged artifacts...
+if exist "%STAGE_ROOT%" rmdir /s /q "%STAGE_ROOT%"
+if not exist "%STAGED_LIB_DIR%" mkdir "%STAGED_LIB_DIR%"
+if not exist "%STAGED_INCLUDE_DIR%" mkdir "%STAGED_INCLUDE_DIR%"
 
 echo.
-echo Checking build environment...
+echo Step 1: Trying the INSTALL.md vcpkg flow for Windows...
+if not exist "%OVERLAY_TRIPLETS%\%VCPKG_TRIPLET%.cmake" (
+    echo Error: Missing vcpkg triplet file: %OVERLAY_TRIPLETS%\%VCPKG_TRIPLET%.cmake
+    exit /b 1
+)
 
-REM Check for Visual Studio solution files (native Windows build)
-if not exist "msvc\jemalloc_vc2022.sln" (
-    if not exist "msvc\jemalloc_vc2019.sln" (
-        echo Error: No Visual Studio solution files found in msvc directory
-        echo Expected jemalloc_vc2022.sln or jemalloc_vc2019.sln
+if not exist "%CATZILLA_VCPKG_ROOT%\vcpkg.exe" (
+    where git >nul 2>&1
+    if errorlevel 1 (
+        echo Error: git is not available, cannot bootstrap vcpkg automatically
+        exit /b 1
+    )
+
+    for %%I in ("%CATZILLA_VCPKG_ROOT%\..") do set "VCPKG_PARENT=%%~fI"
+    if not exist "!VCPKG_PARENT!" mkdir "!VCPKG_PARENT!"
+
+    if not exist "%CATZILLA_VCPKG_ROOT%\.git" (
+        echo Cloning vcpkg into %CATZILLA_VCPKG_ROOT%...
+        git clone --depth 1 https://github.com/microsoft/vcpkg.git "%CATZILLA_VCPKG_ROOT%"
+        if errorlevel 1 (
+            echo Error: Failed to clone vcpkg
+            exit /b 1
+        )
+    )
+
+    echo Bootstrapping vcpkg...
+    call "%CATZILLA_VCPKG_ROOT%\bootstrap-vcpkg.bat" -disableMetrics
+    if errorlevel 1 (
+        echo Error: Failed to bootstrap vcpkg
         exit /b 1
     )
 )
-echo Found Visual Studio solution files
 
-echo Setting up Visual Studio environment...
-set "VCVARSALL_FOUND="
-for %%i in (
-    "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
-    "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat"
-    "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat"
-    "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
-    "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
-    "C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build\vcvarsall.bat"
-    "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat"
-    "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
-    "F:\VSBuildTools\VC\Auxiliary\Build\vcvarsall.bat"
-) do (
-    if not defined VCVARSALL_FOUND if exist "%%~i" (
-        set "VCVARSALL_FOUND=%%~fi"
-    )
+echo Installing jemalloc via vcpkg triplet %VCPKG_TRIPLET%...
+"%CATZILLA_VCPKG_ROOT%\vcpkg.exe" install jemalloc --triplet "%VCPKG_TRIPLET%" --overlay-triplets "%OVERLAY_TRIPLETS%"
+if errorlevel 1 (
+    echo Error: vcpkg install jemalloc failed
+    exit /b 1
 )
 
-if defined VCVARSALL_FOUND (
-    echo Found Visual Studio at: !VCVARSALL_FOUND!
-    call "!VCVARSALL_FOUND!" x64
-    if !errorlevel! neq 0 (
-        echo Error: Failed to setup Visual Studio environment
-        exit /b 1
-    )
-    echo Visual Studio environment setup successful
-) else (
-    echo Error: Visual Studio not found
+set "VCPKG_LIB_CANDIDATE="
+if exist "%VCPKG_INSTALL_ROOT%\lib\jemalloc.lib" set "VCPKG_LIB_CANDIDATE=%VCPKG_INSTALL_ROOT%\lib\jemalloc.lib"
+if not defined VCPKG_LIB_CANDIDATE if exist "%VCPKG_INSTALL_ROOT%\lib\jemalloc_s.lib" set "VCPKG_LIB_CANDIDATE=%VCPKG_INSTALL_ROOT%\lib\jemalloc_s.lib"
+
+if not defined VCPKG_LIB_CANDIDATE (
+    echo Error: vcpkg completed but no static jemalloc library was found in %VCPKG_INSTALL_ROOT%\lib
+    exit /b 1
+)
+
+if not exist "%VCPKG_INSTALL_ROOT%\include\jemalloc\jemalloc.h" (
+    echo Error: vcpkg completed but jemalloc headers were not found in %VCPKG_INSTALL_ROOT%\include
+    exit /b 1
+)
+
+echo Staging vcpkg jemalloc artifacts into .catzilla-cache\jemalloc-windows...
+copy /y "%VCPKG_LIB_CANDIDATE%" "%STAGED_LIB_FILE%" >nul
+if errorlevel 1 (
+    echo Error: Failed to stage jemalloc.lib from vcpkg
+    exit /b 1
+)
+
+PowerShell -NoLogo -NoProfile -Command "Copy-Item -Path '%VCPKG_INSTALL_ROOT%\include\jemalloc\*' -Destination '%STAGED_INCLUDE_DIR%' -Recurse -Force"
+if errorlevel 1 (
+    echo Error: Failed to stage jemalloc headers from vcpkg
+    exit /b 1
+)
+
+if not exist "%STAGED_INCLUDE_DIR%\jemalloc.h" (
+    echo Error: Staged jemalloc headers are incomplete: jemalloc.h is missing
     exit /b 1
 )
 
 echo.
-echo Step 1: Using native Windows MSVC build (skipping autotools)...
-REM Skip problematic autogen.sh/configure - use native MSVC solution files directly
-echo Jemalloc for Windows uses native MSVC project files - no autotools needed
-echo This avoids pthread.h and MSYS environment detection issues
-
-echo Step 2: Building with MSBuild...
-set LIBRARY_FOUND=0
-
-REM Try VS2022 first
-if exist "msvc\jemalloc_vc2022.sln" (
-    echo Building with VS2022 solution: msvc\jemalloc_vc2022.sln
-    msbuild "msvc\jemalloc_vc2022.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal
-    if !errorlevel! equ 0 (
-        echo VS2022 build successful
-        goto :check_library
-    ) else (
-        echo VS2022 build failed with exit code !errorlevel!
-    )
-)
-
-REM Try VS2019 as fallback
-if exist "msvc\jemalloc_vc2019.sln" (
-    echo Building with VS2019 solution: msvc\jemalloc_vc2019.sln
-    msbuild "msvc\jemalloc_vc2019.sln" /p:Configuration=Release /p:Platform=x64 /m /verbosity:minimal
-    if !errorlevel! equ 0 (
-        echo VS2019 build successful
-        goto :check_library
-    ) else (
-        echo VS2019 build failed with exit code !errorlevel!
-    )
-)
-
-echo Error: All MSBuild attempts failed
-exit /b 1
-
-:check_library
-echo.
-echo Step 3: Checking for output libraries...
-
-REM Create lib directory if it doesn't exist
-if not exist "lib" mkdir lib
-
-REM Check VS2022 output first
-if exist "msvc\projects\vc2022\jemalloc\x64\Release\jemalloc.lib" (
-    echo Found VS2022 library: msvc\projects\vc2022\jemalloc\x64\Release\jemalloc.lib
-    copy "msvc\projects\vc2022\jemalloc\x64\Release\jemalloc.lib" "lib\jemalloc.lib" >nul 2>&1
-    if !errorlevel! equ 0 set LIBRARY_FOUND=1
-)
-
-if !LIBRARY_FOUND! equ 0 (
-    if exist "msvc\projects\vc2019\jemalloc\x64\Release\jemalloc.lib" (
-        echo Found VS2019 library: msvc\projects\vc2019\jemalloc\x64\Release\jemalloc.lib
-        copy "msvc\projects\vc2019\jemalloc\x64\Release\jemalloc.lib" "lib\jemalloc.lib" >nul 2>&1
-        if !errorlevel! equ 0 set LIBRARY_FOUND=1
-    )
-)
-
-if !LIBRARY_FOUND! equ 0 (
-    echo Error: No jemalloc library found after build
-    echo.
-    echo Debugging: Searching for library files...
-    if exist "msvc\projects\" (
-        echo Available project directories:
-        dir "msvc\projects\" /s /b | findstr /i "jemalloc.lib"
-    )
-    exit /b 1
-)
-
-echo.
-echo ✅ jemalloc Windows build completed successfully
-echo Library created: lib\jemalloc.lib
+echo jemalloc Windows build completed successfully via vcpkg
+echo Library created: .catzilla-cache\jemalloc-windows\lib\jemalloc.lib
+echo Headers staged under: .catzilla-cache\jemalloc-windows\include\jemalloc
 exit /b 0
