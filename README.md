@@ -30,34 +30,33 @@ It is designed for **low-latency APIs**, **high-throughput services**, **streami
 
 In the benchmark suite included in this repository, Catzilla currently leads FastAPI, Flask, and Django in direct localhost HTTP benchmarks for both single-worker and 10-worker runs.
 These numbers should be read as **framework-overhead and runtime-efficiency comparisons**, not as universal production guarantees.
+The current published artifact set covers the **basic direct HTTP suite**: hello world, JSON response, complex JSON, path parameters, and query parameters.
 
 ### Single / 1 Worker
 
-- **Average throughput**: **52,700 req/s**
-- **Best endpoint**: **`basic_hello_world` at 76,169 req/s**
-- **Average latency**: **2.16ms**
-- **Average peak memory**: **28.52MB**
-- **Lead over FastAPI**: **6.3x average throughput**
+- **Average throughput**: **50,610 req/s**
+- **Best endpoint**: **`basic_hello_world` at 72,249 req/s**
+- **Average latency**: **2.22ms**
+- **Average peak memory**: **28.26MB**
+- **Lead over FastAPI**: **5.9x average throughput**
 
-![Catzilla single-worker benchmark summary](benchmarks/results/overall_single_1w_performance_summary.png)
+![Catzilla single-worker benchmark summary](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.2/benchmarks/results/overall_single_1w_performance_summary.png)
 
 ### Multi / 10 Workers
 
-- **Average throughput**: **166,877 req/s**
-- **Best endpoint**: **`basic_hello_world` at 197,947 req/s**
-- **Average latency**: **6.84ms**
-- **Average peak memory**: **270.37MB**
-- **Lead over FastAPI**: **4.4x average throughput**
+- **Average throughput**: **180,023 req/s**
+- **Best endpoint**: **`basic_hello_world` at 212,426 req/s**
+- **Average latency**: **6.03ms**
+- **Average peak memory**: **303.53MB**
+- **Lead over FastAPI**: **4.2x average throughput**
 
-![Catzilla 10-worker benchmark summary](benchmarks/results/overall_multi_10w_performance_summary.png)
+![Catzilla 10-worker benchmark summary](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.2/benchmarks/results/overall_multi_10w_performance_summary.png)
 
-### Async Operations
+Current benchmark docs and artifacts:
 
-- **Raw async endpoint**: **29,235 req/s**
-- **Lead over FastAPI**: **4.7x** on the current async benchmark slice
-- **Lead over Django**: **10.4x** on the current async benchmark slice
-
-For benchmark methodology, reproducible commands, fairness notes, and raw output guidance, see [benchmarks/README.md](benchmarks/README.md).
+- **Versioned report:** [PERFORMANCE_REPORT_v0.2.2.md](PERFORMANCE_REPORT_v0.2.2.md)
+- **Transparent generated report:** [benchmarks/results/transparent_performance_report.md](benchmarks/results/transparent_performance_report.md)
+- **Methodology and reproduction guide:** [benchmarks/README.md](benchmarks/README.md)
 
 
 ## ✨ Features
@@ -142,7 +141,7 @@ For specific versions or if PyPI is unavailable:
 
 ```bash
 # Download specific wheel for your platform from:
-# https://github.com/rezwanahmedsami/catzilla/releases/tag/v0.1.0
+# https://github.com/rezwanahmedsami/catzilla/releases/latest
 pip install <downloaded-wheel-file>
 ```
 
@@ -319,60 +318,50 @@ For detailed compatibility information, see [SYSTEM_COMPATIBILITY.md](SYSTEM_COM
 ## 📊 Performance Benchmarks
 
 Catzilla includes a benchmark harness that compares it against FastAPI, Flask, and Django across direct HTTP paths and feature-specific slices.
-The current published results cover basic endpoints, validation, background tasks, middleware, dependency injection, and async operations.
+The current published benchmark artifacts in this repository cover the **basic direct HTTP suite** in two modes: **Single / 1 worker** and **Multi / 10 workers**.
 
 ### 🏗️ Real Server Environment
-**Production Server** | **wrk Benchmarking Tool** | **macOS** | **10s duration, 100 connections, 4 threads**
+**Direct localhost server benchmarking** | **wrk** | **macOS arm64** | **10s duration**
 
 This is real benchmark data collected from the repository benchmark runner. It is useful for comparing framework overhead and implementation efficiency on the same machine and workload shape.
 
 ### Current Benchmark Highlights
 
-#### Advanced Features Performance
-| Feature | Catzilla | FastAPI | Flask | Django | vs FastAPI |
-|---------|----------|---------|--------|---------|------------|
-| **Dependency Injection** | **34,947** | 5,778 | N/A | 15,080 | **+505% faster** |
-| **Database Operations** | **35,984** | 5,721 | 15,221 | N/A | **+529% faster** |
-| **Background Tasks** | **32,614** | 4,669 | 15,417 | 1,834 | **+598% faster** |
-| **Middleware Processing** | **21,574** | 1,108 | N/A | 15,049 | **+1,847% faster** |
-| **Validation** | **17,344** | 4,759 | 16,946 | 15,396 | **+264% faster** |
+#### Framework Averages
 
-### Latency Snapshot
+| Mode | Catzilla | FastAPI | Flask | Django |
+|------|----------|---------|-------|--------|
+| **Single / 1 worker avg RPS** | **50,610** | 8,537 | 3,004 | 2,780 |
+| **Single / 1 worker avg latency** | **2.22ms** | 12.74ms | 48.91ms | 54.80ms |
+| **Single / 1 worker avg peak memory** | **28.26MB** | 31.50MB | 46.45MB | 52.92MB |
+| **Multi / 10 workers avg RPS** | **180,023** | 42,890 | 5,488 | 5,549 |
+| **Multi / 10 workers avg latency** | **6.03ms** | 25.26ms | 177.89ms | 175.11ms |
+| **Multi / 10 workers avg peak memory** | **303.53MB** | 350.71MB | 288.68MB | 349.75MB |
 
-- **Basic Operations**: 5.5ms vs FastAPI's 22.1ms (**75% lower**)
-- **Dependency Injection**: 3.1ms vs FastAPI's 17.7ms (**82% lower**)
-- **Database Operations**: 3.1ms vs FastAPI's 17.6ms (**82% lower**)
-- **Background Tasks**: 3.3ms vs FastAPI's 21.3ms (**85% lower**)
+### Endpoint Highlights
 
-### Performance Summary
-- **Peak Performance**: 35,984 RPS (Database Operations)
-- **Average Performance**: 24,000+ RPS across all categories
-- **Latency Leadership**: 3-6x lower latency than FastAPI
-- **Feature Advantage**: Outstanding performance even with complex features
-- **Framework Leadership**: Leads the current benchmark comparison set across the tested scenarios
+- **Best current result:** `basic_hello_world` at **72,249 req/s** single-worker and **212,426 req/s** at 10 workers.
+- **Lowest current Catzilla result in the published basic suite:** `basic_query_params` at **31,707 req/s** single-worker and **137,966 req/s** at 10 workers.
+- **Catzilla leads every published endpoint in both worker modes** in the current direct HTTP dataset.
 
-> 📋 **[View Complete Performance Report](./PERFORMANCE_REPORT_v0.2.0.md)** - Detailed analysis with technical insights
+### Benchmark Links
 
-> 📎 **[Benchmark Methodology](benchmarks/README.md)** - Commands, runner behavior, and interpretation notes
+- [PERFORMANCE_REPORT_v0.2.2.md](PERFORMANCE_REPORT_v0.2.2.md): release-facing benchmark report for the current stable version
+- [benchmarks/results/basic_performance_report.md](benchmarks/results/basic_performance_report.md): generated detailed table for the latest basic run
+- [benchmarks/results/transparent_performance_report.md](benchmarks/results/transparent_performance_report.md): generated artifact summary with embedded charts
+- [benchmarks/README.md](benchmarks/README.md): methodology, commands, and interpretation notes
 
 ### 📈 Performance Visualizations
 
-#### Overall Performance Comparison
+![Overall performance comparison - single worker](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.2/benchmarks/results/overall_single_1w_performance_summary.png)
 
-![Overall Performance Summary](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/overall_performance_summary.png)
+![Overall performance comparison - 10 workers](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.2/benchmarks/results/overall_multi_10w_performance_summary.png)
 
-![Overall Requests per Second](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/overall_requests_per_second.png)
+![Requests per second heatmap - single worker](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.2/benchmarks/results/overall_single_1w_performance_heatmap.png)
 
+![Requests per second heatmap - 10 workers](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.2/benchmarks/results/overall_multi_10w_performance_heatmap.png)
 
-#### Feature-Specific Performance
-
-![Basic Operations Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/basic_performance_analysis.png)
-
-![Dependency Injection Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/di_performance_analysis.png)
-
-![Background Tasks Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/background_tasks_performance_analysis.png)
-
-*📋 **[View Complete Performance Report](./PERFORMANCE_REPORT_v0.2.0.md)** - Detailed analysis with all benchmark visualizations and technical insights*
+*📋 **[View Complete Performance Report](./PERFORMANCE_REPORT_v0.2.2.md)** - Detailed analysis with current charts and endpoint-by-endpoint data*
 
 ### When to Choose Catzilla
 - ⚡ **High-throughput requirements** (API gateways, microservices, data pipelines)

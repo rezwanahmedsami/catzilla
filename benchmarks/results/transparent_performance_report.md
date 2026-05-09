@@ -1,5 +1,5 @@
 # 🚀 Catzilla Framework - Transparent Performance Report
-Generated: 2026-05-08 14:28:26
+Generated: 2026-05-09 12:38:47
 
 ## 📋 Executive Summary
 
@@ -18,11 +18,11 @@ In the benchmark suite in this repository, it leads FastAPI, Flask, and Django i
 
 ### Multi / 10 workers
 
-- **Catzilla Avg RPS**: 166877
-- **Catzilla Best Endpoint**: basic_hello_world (197947 RPS)
-- **Catzilla Avg Latency**: 6.84ms
-- **Catzilla Avg Peak Memory**: 270.37MB
-- **Lead over Fastapi**: 4.4x average throughput
+- **Catzilla Avg RPS**: 180023
+- **Catzilla Best Endpoint**: basic_hello_world (212426 RPS)
+- **Catzilla Avg Latency**: 6.03ms
+- **Catzilla Avg Peak Memory**: 303.53MB
+- **Lead over Fastapi**: 4.2x average throughput
 
 ![Multi / 10 workers performance summary](overall_multi_10w_performance_summary.png)
 
@@ -30,11 +30,11 @@ In the benchmark suite in this repository, it leads FastAPI, Flask, and Django i
 
 ### Single / 1 worker
 
-- **Catzilla Avg RPS**: 52700
-- **Catzilla Best Endpoint**: basic_hello_world (76169 RPS)
-- **Catzilla Avg Latency**: 2.16ms
-- **Catzilla Avg Peak Memory**: 28.52MB
-- **Lead over Fastapi**: 6.3x average throughput
+- **Catzilla Avg RPS**: 50610
+- **Catzilla Best Endpoint**: basic_hello_world (72249 RPS)
+- **Catzilla Avg Latency**: 2.22ms
+- **Catzilla Avg Peak Memory**: 28.26MB
+- **Lead over Fastapi**: 5.9x average throughput
 
 ![Single / 1 worker performance summary](overall_single_1w_performance_summary.png)
 
@@ -46,20 +46,20 @@ In the benchmark suite in this repository, it leads FastAPI, Flask, and Django i
 
 | Framework | Avg RPS | Max RPS | Avg Latency (ms) | Min Latency (ms) | Avg Peak Memory (MB) | Max Peak Memory (MB) |
 |-----------|---------|---------|------------------|------------------|----------------------|----------------------|
-| Catzilla | 109788 | 197947 | 4.50 | 1.33 | 149.45 | 308.69 |
-| Django | 4194 | 5736 | 113.50 | 52.43 | 201.10 | 351.61 |
-| Fastapi | 22993 | 49098 | 21.25 | 9.04 | 191.92 | 360.52 |
-| Flask | 4303 | 5672 | 110.97 | 46.85 | 167.28 | 290.08 |
+| Catzilla | 115316 | 212426 | 4.12 | 1.41 | 165.90 | 306.23 |
+| Django | 4164 | 5623 | 114.96 | 51.90 | 201.34 | 352.05 |
+| Fastapi | 25713 | 55122 | 19.00 | 8.98 | 191.11 | 358.19 |
+| Flask | 4246 | 5537 | 113.40 | 45.41 | 167.56 | 291.47 |
 
 **Catzilla Performance Advantage:**
 
-- **2518.0% faster** than Django
-- **377.5% faster** than Fastapi
-- **2451.3% faster** than Flask
+- **2669.2% faster** than Django
+- **348.5% faster** than Fastapi
+- **2615.9% faster** than Flask
 
 ## 🏆 Top Performers by Category
 
-- **Basic**: Catzilla (197947 RPS)
+- **Basic**: Catzilla (212426 RPS)
 
 ## 📊 Visualization Files
 

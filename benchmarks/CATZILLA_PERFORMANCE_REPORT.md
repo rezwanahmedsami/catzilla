@@ -1,22 +1,21 @@
 # Catzilla Benchmark Highlights
 
-**Date:** May 8, 2026  
-**Framework:** Catzilla v0.2.0  
+**Date:** May 9, 2026  
+**Framework:** Catzilla v0.2.2  
 **Environment:** macOS arm64, direct `wrk` benchmarks against Catzilla, FastAPI, Flask, and Django
 
 ## Claim
 
-Catzilla is built to be the **world's fastest Python web framework**.
-The benchmark suite in this repository shows it leading the comparison frameworks in both single-worker and 10-worker direct HTTP runs.
+The benchmark suite in this repository currently shows Catzilla leading the comparison frameworks in both single-worker and 10-worker direct HTTP runs.
 
 ## Single / 1 Worker
 
 | Framework | Avg RPS | Avg Latency | Avg Peak Memory | Best Endpoint |
 |-----------|---------|-------------|-----------------|---------------|
-| Catzilla | 52,700 | 2.16ms | 28.52MB | `basic_hello_world` at 76,169 RPS |
-| FastAPI | 8,400 | 13.01ms | 31.45MB | `basic_hello_world` at 10,990 RPS |
-| Flask | 2,993 | 48.76ms | 46.33MB | `basic_hello_world` at 3,087 RPS |
-| Django | 2,731 | 55.77ms | 52.88MB | `basic_hello_world` at 2,854 RPS |
+| Catzilla | 50,610 | 2.22ms | 28.26MB | `basic_hello_world` at 72,249 RPS |
+| FastAPI | 8,537 | 12.74ms | 31.50MB | `basic_hello_world` at 11,132 RPS |
+| Flask | 3,004 | 48.91ms | 46.45MB | `basic_hello_world` at 3,094 RPS |
+| Django | 2,780 | 54.80ms | 52.92MB | `basic_hello_world` at 2,866 RPS |
 
 ![Single worker overall performance summary](results/overall_single_1w_performance_summary.png)
 
@@ -26,10 +25,10 @@ The benchmark suite in this repository shows it leading the comparison framework
 
 | Framework | Avg RPS | Avg Latency | Avg Peak Memory | Best Endpoint |
 |-----------|---------|-------------|-----------------|---------------|
-| Catzilla | 166,877 | 6.84ms | 270.37MB | `basic_hello_world` at 197,947 RPS |
-| FastAPI | 37,585 | 29.49ms | 352.40MB | `basic_hello_world` at 49,098 RPS |
-| Flask | 5,613 | 173.19ms | 288.23MB | `basic_path_params` at 5,672 RPS |
-| Django | 5,656 | 171.23ms | 349.32MB | `basic_complex_json` at 5,736 RPS |
+| Catzilla | 180,023 | 6.03ms | 303.53MB | `basic_hello_world` at 212,426 RPS |
+| FastAPI | 42,890 | 25.26ms | 350.71MB | `basic_hello_world` at 55,122 RPS |
+| Flask | 5,488 | 177.89ms | 288.68MB | `basic_json_response` at 5,537 RPS |
+| Django | 5,549 | 175.11ms | 349.75MB | `basic_query_params` at 5,623 RPS |
 
 ![10 worker overall performance summary](results/overall_multi_10w_performance_summary.png)
 
@@ -39,8 +38,8 @@ The benchmark suite in this repository shows it leading the comparison framework
 
 - Catzilla leads the suite in both single-worker and 10-worker throughput.
 - Catzilla keeps the lowest latency in both modes.
-- Catzilla also keeps peak memory below FastAPI and Django in both modes, and below Flask in the 10-worker run.
-- The strongest headline numbers come from `basic_hello_world`, but the lead remains across JSON, path-parameter, and query-parameter endpoints.
+- Catzilla keeps peak memory below FastAPI and Django in both modes.
+- The strongest headline numbers come from `basic_hello_world`, but the lead remains across complex JSON, path-parameter, and query-parameter endpoints.
 
 ## Reproduce These Results
 

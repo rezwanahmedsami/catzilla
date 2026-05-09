@@ -1,5 +1,8 @@
 # Catzilla Framework Performance Report v0.2.0
 
+> Historical note: this file documents the older `v0.2.0` benchmark set.
+> The current release-facing report is [PERFORMANCE_REPORT_v0.2.2.md](PERFORMANCE_REPORT_v0.2.2.md).
+
 **Report Date:** August 21, 2025
 **Version:** v0.2.0-async
 **Benchmark Tool:** wrk
@@ -175,41 +178,41 @@ Input validation and data processing performance.
 
 ### Overall Performance Comparison
 
-![Overall Performance Summary](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/overall_performance_summary.png)
+![Overall Performance Summary](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.0/benchmarks/results/overall_performance_summary.png)
 
-![Overall Requests per Second](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/overall_requests_per_second.png)
+![Overall Requests per Second](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.0/benchmarks/results/overall_requests_per_second.png)
 
-![Overall Performance Heatmap](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/overall_performance_heatmap.png)
+![Overall Performance Heatmap](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.0/benchmarks/results/overall_performance_heatmap.png)
 
 ### Feature-Specific Performance Analysis
 
 #### Basic Operations Performance
-![Basic Operations Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/basic_performance_analysis.png)
+![Basic Operations Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.0/benchmarks/results/basic_performance_analysis.png)
 
 #### Dependency Injection Performance
-![Dependency Injection Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/di_performance_analysis.png)
+![Dependency Injection Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.0/benchmarks/results/di_performance_analysis.png)
 
 #### SQLAlchemy with Dependency Injection Performance
-![SQLAlchemy DI Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/sqlalchemy_di_performance_analysis.png)
+![SQLAlchemy DI Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.0/benchmarks/results/sqlalchemy_di_performance_analysis.png)
 
 #### File Operations Performance
-![File Operations Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/file_operations_performance_analysis.png)
+![File Operations Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.0/benchmarks/results/file_operations_performance_analysis.png)
 
 #### Background Tasks Performance
-![Background Tasks Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/background_tasks_performance_analysis.png)
+![Background Tasks Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.0/benchmarks/results/background_tasks_performance_analysis.png)
 
 #### Real-World Scenarios Performance
-![Real-World Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/real_world_performance_analysis.png)
+![Real-World Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.0/benchmarks/results/real_world_performance_analysis.png)
 
 #### Middleware Performance
-![Middleware Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/middleware_performance_analysis.png)
+![Middleware Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.0/benchmarks/results/middleware_performance_analysis.png)
 
 #### Validation Performance
-![Validation Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/validation_performance_analysis.png)
+![Validation Performance](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.0/benchmarks/results/validation_performance_analysis.png)
 
 ### Comprehensive Comparisons
 
-![Overall Latency Comparison](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/overall_latency_comparison.png)
+![Overall Latency Comparison](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.0/benchmarks/results/overall_latency_comparison.png)
 
 
 ## Latency Analysis
