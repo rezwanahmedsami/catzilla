@@ -1,0 +1,9 @@
+# https://www.catzilla.dev/robots.txt
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://www.catzilla.dev/sitemap.xml
+
+# Crawl-delay (be polite, but don't slow indexing)
+# Crawl-delay: 1
