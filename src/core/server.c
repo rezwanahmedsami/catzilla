@@ -69,6 +69,7 @@ static void request_capsule_destructor(PyObject* capsule);
 int parse_query_params(catzilla_request_t* request, const char* query_string);
 void url_decode(const char* src, char* dst);
 static void url_decode_segment(const char* src, size_t length, char* dst);
+static PyObject* create_python_route_match_info(const catzilla_route_match_t* match, int match_result);
 
 // Add a new function to get client context from client handle
 static client_context_t* get_client_context(uv_stream_t* client) {
@@ -444,13 +445,94 @@ static void request_capsule_destructor(PyObject* capsule) {
 }
 
 // Python callback helper
+static PyObject* create_python_route_match_info(const catzilla_route_match_t* match, int match_result) {
+    PyObject* match_dict = NULL;
+    PyObject* path_params = NULL;
+    PyObject* matched_obj = NULL;
+    PyObject* status_code_obj = NULL;
+    bool matched = (match_result == 0 && match && match->route != NULL);
+    int status_code = 404;
+
+    if (match) {
+        status_code = match->status_code;
+    }
+
+    match_dict = PyDict_New();
+    path_params = PyDict_New();
+    matched_obj = PyBool_FromLong(matched ? 1 : 0);
+    status_code_obj = PyLong_FromLong(status_code);
+    if (!match_dict || !path_params || !matched_obj || !status_code_obj) {
+        Py_XDECREF(match_dict);
+        Py_XDECREF(path_params);
+        Py_XDECREF(matched_obj);
+        Py_XDECREF(status_code_obj);
+        return NULL;
+    }
+
+    if (PyDict_SetItemString(match_dict, "matched", matched_obj) < 0 ||
+        PyDict_SetItemString(match_dict, "status_code", status_code_obj) < 0 ||
+        PyDict_SetItemString(match_dict, "path_params", path_params) < 0) {
+        Py_DECREF(match_dict);
+        Py_DECREF(path_params);
+        Py_DECREF(matched_obj);
+        Py_DECREF(status_code_obj);
+        return NULL;
+    }
+    Py_DECREF(path_params);
+    Py_DECREF(matched_obj);
+    Py_DECREF(status_code_obj);
+
+    if (matched && match && match->route) {
+        long route_id = (long)(uintptr_t)match->route->user_data;
+        PyObject* route_id_obj = PyLong_FromLong(route_id);
+        if (!route_id_obj || PyDict_SetItemString(match_dict, "route_id", route_id_obj) < 0) {
+            Py_XDECREF(route_id_obj);
+            Py_DECREF(match_dict);
+            return NULL;
+        }
+        Py_DECREF(route_id_obj);
+
+        for (int i = 0; i < match->param_count; i++) {
+            PyObject* param_value = PyUnicode_FromString(match->params[i].value);
+            if (!param_value) {
+                Py_DECREF(match_dict);
+                return NULL;
+            }
+            if (PyDict_SetItemString(path_params, match->params[i].name, param_value) < 0) {
+                Py_DECREF(param_value);
+                Py_DECREF(match_dict);
+                return NULL;
+            }
+            Py_DECREF(param_value);
+        }
+    }
+
+    if (match && match->has_allowed_methods) {
+        PyObject* allowed_methods_obj = PyUnicode_FromString(match->allowed_methods);
+        if (!allowed_methods_obj || PyDict_SetItemString(match_dict, "allowed_methods", allowed_methods_obj) < 0) {
+            Py_XDECREF(allowed_methods_obj);
+            Py_DECREF(match_dict);
+            return NULL;
+        }
+        Py_DECREF(allowed_methods_obj);
+    } else {
+        if (PyDict_SetItemString(match_dict, "allowed_methods", Py_None) < 0) {
+            Py_DECREF(match_dict);
+            return NULL;
+        }
+    }
+
+    return match_dict;
+}
+
 PyObject* handle_request_in_server(PyObject* callback,
     PyObject* client_capsule,
     const char* method,
     const char* path,
     const char* body,
     size_t body_length,
-    client_context_t* client_ctx)  // Renamed from context to client_ctx
+    client_context_t* client_ctx,
+    PyObject* route_match_info)
 {
     if (!callback || !PyCallable_Check(callback)) {
         PyErr_SetString(PyExc_TypeError, "Callback is not callable");
@@ -589,7 +671,7 @@ PyObject* handle_request_in_server(PyObject* callback,
         return NULL;
     }
 
-    // Build arguments tuple: (client_capsule, method, path, body, request_capsule)
+    // Build arguments tuple: (client_capsule, method, path, body, request_capsule, route_match_info)
     // For multipart/form-data, we don't need the raw body in Python since files are handled separately
     const char* body_for_python;
     if (request->content_type == CONTENT_TYPE_MULTIPART) {
@@ -599,7 +681,15 @@ PyObject* handle_request_in_server(PyObject* callback,
         // For other content types, use the body as string (safe for text data)
         body_for_python = body ? body : "";
     }
-    PyObject* args = Py_BuildValue("(OsssO)", client_capsule, method, path, body_for_python, request_capsule);
+    PyObject* args = Py_BuildValue(
+        "(OsssOO)",
+        client_capsule,
+        method,
+        path,
+        body_for_python,
+        request_capsule,
+        route_match_info ? route_match_info : Py_None
+    );
     if (!args) {
         Py_DECREF(request_capsule);  // This will call the destructor to free request memory
         return NULL;
@@ -1617,9 +1707,22 @@ static int on_message_complete(llhttp_t* parser) {
     if (server->py_request_callback != NULL) {
         PyGILState_STATE gstate = PyGILState_Ensure();
         PyObject* client_capsule = PyCapsule_New((void*)&context->client, "catzilla.client", NULL);
+        PyObject* route_match_info = NULL;
+        catzilla_route_match_t route_match;
         bool deferred_response = false;
+
+        memset(&route_match, 0, sizeof(route_match));
+        route_match.status_code = 404;
+        catzilla_router_match(&server->router, context->method, path, &route_match);
+        route_match_info = create_python_route_match_info(&route_match, route_match.route ? 0 : -1);
+
         if (!client_capsule) {
+            Py_XDECREF(route_match_info);
             PyErr_Print();
+            send_response_with_connection((uv_stream_t*)&context->client, 500, "text/plain", "500 Internal Server Error", strlen("500 Internal Server Error"), context->keep_alive);
+        } else if (!route_match_info) {
+            PyErr_Print();
+            Py_DECREF(client_capsule);
             send_response_with_connection((uv_stream_t*)&context->client, 500, "text/plain", "500 Internal Server Error", strlen("500 Internal Server Error"), context->keep_alive);
         } else {
             PyObject* result = handle_request_in_server(
@@ -1629,10 +1732,12 @@ static int on_message_complete(llhttp_t* parser) {
                 context->url,
                 context->body ? context->body : "",  // Handle NULL body case
                 context->body_length,
-                context  // Pass context for headers
+                context,
+                route_match_info
             );
             deferred_response = (result == Py_True);
             Py_XDECREF(result);
+            Py_DECREF(route_match_info);
             Py_DECREF(client_capsule);
         }
         PyGILState_Release(gstate);
