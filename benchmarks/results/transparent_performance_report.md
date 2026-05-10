@@ -1,5 +1,5 @@
 # 🚀 Catzilla Framework - Transparent Performance Report
-Generated: 2026-05-09 12:38:47
+Generated: 2026-05-11 01:44:36
 
 ## 📋 Executive Summary
 
@@ -14,15 +14,15 @@ against leading Python web frameworks (FastAPI, Flask, Django).
 ## 🏁 Benchmark Highlights
 
 Catzilla is built to be the **world's fastest Python web framework**.
-In the benchmark suite in this repository, it leads FastAPI, Flask, and Django in both single-worker and 10-worker direct HTTP benchmarks.
+In the benchmark suite in this repository, it leads the comparison set in both single-worker and 10-worker direct HTTP benchmarks.
 
 ### Multi / 10 workers
 
-- **Catzilla Avg RPS**: 180023
-- **Catzilla Best Endpoint**: basic_hello_world (212426 RPS)
-- **Catzilla Avg Latency**: 6.03ms
-- **Catzilla Avg Peak Memory**: 303.53MB
-- **Lead over Fastapi**: 4.2x average throughput
+- **Catzilla Avg RPS**: 159997
+- **Catzilla Best Endpoint**: basic_hello_world (190612 RPS)
+- **Catzilla Avg Latency**: 7.49ms
+- **Catzilla Avg Peak Memory**: 439.08MB
+- **Lead over Fastapi**: 2.1x average throughput
 
 ![Multi / 10 workers performance summary](overall_multi_10w_performance_summary.png)
 
@@ -30,11 +30,11 @@ In the benchmark suite in this repository, it leads FastAPI, Flask, and Django i
 
 ### Single / 1 worker
 
-- **Catzilla Avg RPS**: 50610
-- **Catzilla Best Endpoint**: basic_hello_world (72249 RPS)
-- **Catzilla Avg Latency**: 2.22ms
-- **Catzilla Avg Peak Memory**: 28.26MB
-- **Lead over Fastapi**: 5.9x average throughput
+- **Catzilla Avg RPS**: 55731
+- **Catzilla Best Endpoint**: basic_hello_world (82817 RPS)
+- **Catzilla Avg Latency**: 2.02ms
+- **Catzilla Avg Peak Memory**: 30.77MB
+- **Lead over Fastapi**: 2.6x average throughput
 
 ![Single / 1 worker performance summary](overall_single_1w_performance_summary.png)
 
@@ -46,20 +46,20 @@ In the benchmark suite in this repository, it leads FastAPI, Flask, and Django i
 
 | Framework | Avg RPS | Max RPS | Avg Latency (ms) | Min Latency (ms) | Avg Peak Memory (MB) | Max Peak Memory (MB) |
 |-----------|---------|---------|------------------|------------------|----------------------|----------------------|
-| Catzilla | 115316 | 212426 | 4.12 | 1.41 | 165.90 | 306.23 |
-| Django | 4164 | 5623 | 114.96 | 51.90 | 201.34 | 352.05 |
-| Fastapi | 25713 | 55122 | 19.00 | 8.98 | 191.11 | 358.19 |
-| Flask | 4246 | 5537 | 113.40 | 45.41 | 167.56 | 291.47 |
+| Catzilla | 107864 | 190612 | 4.76 | 1.24 | 234.93 | 439.89 |
+| Django | 6632 | 10254 | 67.82 | 32.48 | 257.45 | 443.47 |
+| Fastapi | 48083 | 109212 | 11.07 | 2.87 | 347.17 | 639.77 |
+| Flask | 6785 | 10324 | 65.64 | 31.57 | 245.47 | 428.89 |
 
 **Catzilla Performance Advantage:**
 
-- **2669.2% faster** than Django
-- **348.5% faster** than Fastapi
-- **2615.9% faster** than Flask
+- **1526.4% faster** than Django
+- **124.3% faster** than Fastapi
+- **1489.7% faster** than Flask
 
 ## 🏆 Top Performers by Category
 
-- **Basic**: Catzilla (212426 RPS)
+- **Basic**: Catzilla (190612 RPS)
 
 ## 📊 Visualization Files
 

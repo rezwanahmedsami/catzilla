@@ -34,27 +34,27 @@ The current published artifact set covers the **basic direct HTTP suite**: hello
 
 ### Single / 1 Worker
 
-- **Average throughput**: **50,610 req/s**
-- **Best endpoint**: **`basic_hello_world` at 72,249 req/s**
-- **Average latency**: **2.22ms**
-- **Average peak memory**: **28.26MB**
-- **Lead over FastAPI**: **5.9x average throughput**
+- **Average throughput**: **55,731 req/s**
+- **Best endpoint**: **`basic_hello_world` at 82,817 req/s**
+- **Average latency**: **2.02ms**
+- **Average peak memory**: **30.77MB**
+- **Lead over FastAPI**: **2.6x average throughput**
 
-![Catzilla single-worker benchmark summary](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.2/benchmarks/results/overall_single_1w_performance_summary.png)
+![Catzilla single-worker benchmark summary](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/overall_single_1w_performance_summary.png)
 
 ### Multi / 10 Workers
 
-- **Average throughput**: **180,023 req/s**
-- **Best endpoint**: **`basic_hello_world` at 212,426 req/s**
-- **Average latency**: **6.03ms**
-- **Average peak memory**: **303.53MB**
-- **Lead over FastAPI**: **4.2x average throughput**
+- **Average throughput**: **159,997 req/s**
+- **Best endpoint**: **`basic_hello_world` at 190,612 req/s**
+- **Average latency**: **7.49ms**
+- **Average peak memory**: **439.08MB**
+- **Lead over FastAPI**: **2.1x average throughput**
 
-![Catzilla 10-worker benchmark summary](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.2/benchmarks/results/overall_multi_10w_performance_summary.png)
+![Catzilla 10-worker benchmark summary](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/overall_multi_10w_performance_summary.png)
 
 Current benchmark docs and artifacts:
 
-- **Versioned report:** [PERFORMANCE_REPORT_v0.2.2.md](PERFORMANCE_REPORT_v0.2.2.md)
+- **Current report:** [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md)
 - **Transparent generated report:** [benchmarks/results/transparent_performance_report.md](benchmarks/results/transparent_performance_report.md)
 - **Methodology and reproduction guide:** [benchmarks/README.md](benchmarks/README.md)
 
@@ -121,7 +121,7 @@ pip install catzilla
 **System Requirements:**
 - Python 3.9+ (3.10+ recommended)
 - Windows, macOS, or Linux
-- No additional dependencies required
+- Minimal runtime dependency footprint (`psutil` only)
 
 **Platform-Specific Features:**
 - **Linux/macOS**: jemalloc memory allocator (high performance)
@@ -332,37 +332,37 @@ This is real benchmark data collected from the repository benchmark runner. It i
 
 | Mode | Catzilla | FastAPI | Flask | Django |
 |------|----------|---------|-------|--------|
-| **Single / 1 worker avg RPS** | **50,610** | 8,537 | 3,004 | 2,780 |
-| **Single / 1 worker avg latency** | **2.22ms** | 12.74ms | 48.91ms | 54.80ms |
-| **Single / 1 worker avg peak memory** | **28.26MB** | 31.50MB | 46.45MB | 52.92MB |
-| **Multi / 10 workers avg RPS** | **180,023** | 42,890 | 5,488 | 5,549 |
-| **Multi / 10 workers avg latency** | **6.03ms** | 25.26ms | 177.89ms | 175.11ms |
-| **Multi / 10 workers avg peak memory** | **303.53MB** | 350.71MB | 288.68MB | 349.75MB |
+| **Single / 1 worker avg RPS** | **55,731** | 21,251 | 3,410 | 3,337 |
+| **Single / 1 worker avg latency** | **2.02ms** | 6.31ms | 33.29ms | 34.33ms |
+| **Single / 1 worker avg peak memory** | **30.77MB** | 58.17MB | 70.84MB | 72.87MB |
+| **Multi / 10 workers avg RPS** | **159,997** | 74,915 | 10,160 | 9,927 |
+| **Multi / 10 workers avg latency** | **7.49ms** | 15.83ms | 97.99ms | 101.31ms |
+| **Multi / 10 workers avg peak memory** | **439.08MB** | 636.17MB | 420.09MB | 442.02MB |
 
 ### Endpoint Highlights
 
-- **Best current result:** `basic_hello_world` at **72,249 req/s** single-worker and **212,426 req/s** at 10 workers.
-- **Lowest current Catzilla result in the published basic suite:** `basic_query_params` at **31,707 req/s** single-worker and **137,966 req/s** at 10 workers.
+- **Best current result:** `basic_hello_world` at **82,817 req/s** single-worker and **190,612 req/s** at 10 workers.
+- **Lowest current Catzilla result in the published basic suite:** `basic_query_params` at **34,912 req/s** single-worker and **125,274 req/s** at 10 workers.
 - **Catzilla leads every published endpoint in both worker modes** in the current direct HTTP dataset.
 
 ### Benchmark Links
 
-- [PERFORMANCE_REPORT_v0.2.2.md](PERFORMANCE_REPORT_v0.2.2.md): release-facing benchmark report for the current stable version
+- [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md): release-facing benchmark report for the current stable version
 - [benchmarks/results/basic_performance_report.md](benchmarks/results/basic_performance_report.md): generated detailed table for the latest basic run
 - [benchmarks/results/transparent_performance_report.md](benchmarks/results/transparent_performance_report.md): generated artifact summary with embedded charts
 - [benchmarks/README.md](benchmarks/README.md): methodology, commands, and interpretation notes
 
 ### 📈 Performance Visualizations
 
-![Overall performance comparison - single worker](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.2/benchmarks/results/overall_single_1w_performance_summary.png)
+![Overall performance comparison - single worker](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/overall_single_1w_performance_summary.png)
 
-![Overall performance comparison - 10 workers](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.2/benchmarks/results/overall_multi_10w_performance_summary.png)
+![Overall performance comparison - 10 workers](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/overall_multi_10w_performance_summary.png)
 
-![Requests per second heatmap - single worker](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.2/benchmarks/results/overall_single_1w_performance_heatmap.png)
+![Requests per second heatmap - single worker](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/overall_single_1w_performance_heatmap.png)
 
-![Requests per second heatmap - 10 workers](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/v0.2.2/benchmarks/results/overall_multi_10w_performance_heatmap.png)
+![Requests per second heatmap - 10 workers](https://raw.githubusercontent.com/rezwanahmedsami/catzilla/main/benchmarks/results/overall_multi_10w_performance_heatmap.png)
 
-*📋 **[View Complete Performance Report](./PERFORMANCE_REPORT_v0.2.2.md)** - Detailed analysis with current charts and endpoint-by-endpoint data*
+*📋 **[View Complete Performance Report](./PERFORMANCE_REPORT.md)** - Detailed analysis with current charts and endpoint-by-endpoint data*
 
 ### When to Choose Catzilla
 - ⚡ **High-throughput requirements** (API gateways, microservices, data pipelines)

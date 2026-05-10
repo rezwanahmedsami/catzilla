@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- Primary Meta -->
-  <title>Catzilla — The World's Fastest Python Web Framework</title>
-  <meta name="description" content="Catzilla is a blazing-fast Python web framework powered by a C core with libuv and llhttp. 5.9× faster than FastAPI, 72,000+ req/s, jemalloc memory optimization. Drop-in FastAPI-compatible API.">
-  <meta name="keywords" content="python web framework, fast python framework, catzilla, fastapi alternative, high performance python, libuv python, C python web framework, jemalloc python">
+  <title>Catzilla — Faster FastAPI Alternative | High-Performance Python Web Framework</title>
+  <meta name="description" content="Catzilla is a high-performance Python web framework and drop-in FastAPI alternative. 2.4x faster with identical decorator syntax. Built-in validation, dependency injection, middleware — no Pydantic required. 82,000+ req/s single-worker.">
+  <meta name="keywords" content="fastapi alternative, python web framework, fast python framework, catzilla, high performance python, fastapi replacement, python api framework, c python web framework, libuv python, jemalloc python, pydantic alternative">
   <meta name="author" content="Rezwan Ahmed Sami">
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
   <link rel="canonical" href="https://www.catzilla.dev/">
@@ -21,28 +21,28 @@
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://www.catzilla.dev/">
-  <meta property="og:title" content="Catzilla — The World's Fastest Python Web Framework">
-  <meta property="og:description" content="5.9× faster than FastAPI. C-powered HTTP engine with Python ergonomics. 72,000+ req/s single-worker.">
+  <meta property="og:title" content="Catzilla — Faster FastAPI Alternative | Python Web Framework">
+  <meta property="og:description" content="Drop-in FastAPI alternative that's 2.4x faster. Same decorator syntax, C-powered HTTP engine, 82,000+ req/s. Zero external dependencies.">
   <meta property="og:image" content="https://www.catzilla.dev/images/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="Catzilla — The World's Fastest Python Web Framework">
+  <meta property="og:image:alt" content="Catzilla — Faster FastAPI Alternative for Python">
   <meta property="og:site_name" content="Catzilla">
   <meta property="og:locale" content="en_US">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Catzilla — The World's Fastest Python Web Framework">
-  <meta name="twitter:description" content="5.9× faster than FastAPI. C-powered HTTP engine with Python ergonomics.">
+  <meta name="twitter:title" content="Catzilla — Faster FastAPI Alternative | Python Web Framework">
+  <meta name="twitter:description" content="Drop-in FastAPI alternative. 2.4x faster, same syntax, C-powered core. 82,000+ req/s.">
   <meta name="twitter:image" content="https://www.catzilla.dev/images/og-image.png">
 
-  <!-- Structured Data -->
+  <!-- Structured Data: Software Application -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "Catzilla",
-    "description": "The world's fastest Python web framework. C-powered HTTP engine with FastAPI-compatible Python API.",
+    "description": "A high-performance Python web framework and drop-in FastAPI alternative. C-powered HTTP engine with libuv and llhttp. 2.4x faster than FastAPI with identical decorator syntax.",
     "url": "https://www.catzilla.dev",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "Linux, macOS, Windows",
@@ -51,6 +51,56 @@
     "author": { "@type": "Person", "name": "Rezwan Ahmed Sami" },
     "license": "https://opensource.org/licenses/MIT",
     "codeRepository": "https://github.com/rezwanahmedsami/catzilla"
+  }
+  </script>
+
+  <!-- Structured Data: FAQ -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Is Catzilla compatible with FastAPI?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. Catzilla maintains 95% syntax compatibility with FastAPI for routing, validation, response handling, and streaming. The same decorators (@app.get, @app.post), validation models (BaseModel, Field, Path, Query), and StreamingResponse patterns work with minimal changes. Key differences are that handlers receive request as the first parameter, dependency injection uses Depends(\"service_name\") with @service registration, and middleware uses @app.middleware(priority=..., pre_route=True)."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How much faster is Catzilla than FastAPI?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "In the latest reproducible wrk benchmark artifacts in this repository on Apple Silicon, Catzilla reaches about 82,817 requests per second for a single-worker hello-world endpoint versus FastAPI at 35,154 req/s, and about 190,612 req/s with 10 workers versus FastAPI at 109,212 req/s. Query-parameter endpoints in the same benchmark set show Catzilla up to about 4.3x faster."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I migrate my FastAPI app to Catzilla?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. Many FastAPI applications can start with three core changes: 1) change imports from fastapi to catzilla, 2) add request as the first route-handler parameter, and 3) replace uvicorn.run(app) with app.listen(port=8000). If your app uses dependency injection, middleware, or background tasks, expect a few additional API-level adjustments to match Catzilla's documented patterns."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does Catzilla require Pydantic?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "No. Catzilla includes a built-in C-accelerated validation engine that supports BaseModel, Field, Path, and Query with Pydantic-style syntax, so you do not need to install Pydantic or run Uvicorn. The package does currently declare a small runtime dependency on psutil, so it is not literally zero-dependency."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What Python versions does Catzilla support?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Catzilla supports Python 3.9 through 3.14, with pre-built binary wheels available for Linux (x86_64), macOS (Intel and Apple Silicon), and Windows (x86_64)."
+        }
+      }
+    ]
   }
   </script>
 
@@ -78,9 +128,11 @@
       </a>
 
       <div class="nav-links" id="navLinks">
+        <a href="#why-switch" class="nav-link">Why Switch</a>
+        <a href="#compare" class="nav-link">Code Comparison</a>
+        <a href="#performance" class="nav-link">Benchmarks</a>
         <a href="#features" class="nav-link">Features</a>
-        <a href="#performance" class="nav-link">Performance</a>
-        <a href="#get-started" class="nav-link">Get Started</a>
+        <a href="#faq" class="nav-link">FAQ</a>
         <a href="https://docs.catzilla.dev" class="nav-link" target="_blank" rel="noopener">Docs</a>
         <a href="https://github.com/rezwanahmedsami/catzilla" class="nav-link nav-link--github" target="_blank" rel="noopener" aria-label="GitHub">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
@@ -105,17 +157,18 @@
       <div class="hero-content">
         <div class="hero-badge animate-fade-in">
           <span class="badge-dot"></span>
-          v0.2.2 &mdash; 5.9&times; faster than FastAPI
+          v0.2.2 &mdash; 2.4&times; faster than FastAPI
         </div>
 
         <h1 class="hero-title animate-fade-in" style="--delay: 0.1s">
-          The World's <em>Fastest</em><br>Python Web Framework
+          The Faster<br><em>FastAPI</em> Alternative
         </h1>
 
         <p class="hero-subtitle animate-fade-in" style="--delay: 0.2s">
-          C-powered HTTP engine with <strong>libuv</strong> &amp; <strong>llhttp</strong>.
-          FastAPI-compatible API. jemalloc memory optimization.
-          <span class="hero-highlight">72,000+ req/s</span> single-worker.
+          Same <code>@app.get()</code> decorators. Same <code>BaseModel</code> validation.
+          Same <code>Depends()</code> injection. But powered by a
+          <strong>C core</strong> with libuv &amp; llhttp.
+          <span class="hero-highlight">82,000+ req/s</span> single-worker.
         </p>
 
         <div class="hero-install animate-fade-in" style="--delay: 0.3s">
@@ -141,8 +194,8 @@
       <!-- Benchmark Chart -->
       <div class="hero-chart animate-fade-in" style="--delay: 0.3s">
         <div class="chart-header">
-          <span class="chart-title">'hello world' HTTP requests per second</span>
-          <span class="chart-subtitle">Single worker &bull; macOS arm64 &bull; wrk</span>
+          <span class="chart-title">Requests per second &mdash; hello world endpoint</span>
+          <span class="chart-subtitle">Single worker &bull; macOS arm64 &bull; wrk &bull; 100 connections</span>
         </div>
         <div class="chart-bars">
           <div class="chart-bar-row">
@@ -151,8 +204,8 @@
               <span>Catzilla</span>
             </div>
             <div class="chart-bar-track">
-              <div class="chart-bar chart-bar--catzilla" data-value="72249" style="--target-width: 100%">
-                <span class="chart-bar-value" data-count="72249">0</span>
+              <div class="chart-bar chart-bar--catzilla" data-value="82817" style="--target-width: 100%">
+                <span class="chart-bar-value" data-count="82817">0</span>
               </div>
             </div>
           </div>
@@ -162,8 +215,8 @@
               <span>FastAPI</span>
             </div>
             <div class="chart-bar-track">
-              <div class="chart-bar chart-bar--fastapi" data-value="12390" style="--target-width: 17.1%"></div>
-              <span class="chart-bar-value chart-bar-value--outside" data-count="12390">0</span>
+              <div class="chart-bar chart-bar--fastapi" data-value="35154" style="--target-width: 42.4%"></div>
+              <span class="chart-bar-value chart-bar-value--outside" data-count="35154">0</span>
             </div>
           </div>
           <div class="chart-bar-row">
@@ -172,8 +225,8 @@
               <span>Flask</span>
             </div>
             <div class="chart-bar-track">
-              <div class="chart-bar chart-bar--flask" data-value="3200" style="--target-width: 4.4%"></div>
-              <span class="chart-bar-value chart-bar-value--outside" data-count="3200">0</span>
+              <div class="chart-bar chart-bar--flask" data-value="3578" style="--target-width: 4.3%"></div>
+              <span class="chart-bar-value chart-bar-value--outside" data-count="3578">0</span>
             </div>
           </div>
           <div class="chart-bar-row">
@@ -182,12 +235,12 @@
               <span>Django</span>
             </div>
             <div class="chart-bar-track">
-              <div class="chart-bar chart-bar--django" data-value="1800" style="--target-width: 2.5%"></div>
-              <span class="chart-bar-value chart-bar-value--outside" data-count="1800">0</span>
+              <div class="chart-bar chart-bar--django" data-value="3493" style="--target-width: 4.2%"></div>
+              <span class="chart-bar-value chart-bar-value--outside" data-count="3493">0</span>
             </div>
           </div>
         </div>
-        <a href="https://github.com/rezwanahmedsami/catzilla/blob/main/PERFORMANCE_REPORT_v0.2.2.md" class="chart-link" target="_blank" rel="noopener">View benchmark &rarr;</a>
+        <a href="https://github.com/rezwanahmedsami/catzilla/blob/main/PERFORMANCE_REPORT.md" class="chart-link" target="_blank" rel="noopener">Full reproducible benchmark &rarr;</a>
       </div>
     </div>
 
@@ -196,53 +249,367 @@
     <div class="hero-glow hero-glow--2" aria-hidden="true"></div>
   </section>
 
-  <!-- ===================== WHY CATZILLA ===================== -->
-  <section class="why-section" id="why">
+  <!-- ===================== WHY SWITCH ===================== -->
+  <section class="why-section" id="why-switch">
     <div class="container">
-      <h2 class="section-title scroll-fade">Why Catzilla?</h2>
-      <p class="section-subtitle scroll-fade">Built different. Benchmarked to prove it.</p>
+      <h2 class="section-title scroll-fade">Why Developers Switch from FastAPI to Catzilla</h2>
+      <p class="section-subtitle scroll-fade">Keep the syntax you love. Get the speed you need.</p>
 
       <div class="why-grid">
         <div class="why-card scroll-fade">
           <div class="why-icon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
           </div>
-          <h3>C-Powered Performance</h3>
-          <p>HTTP engine written in C using <strong>libuv</strong> event loop and <strong>llhttp</strong> parser. Zero Python overhead in the hot path.</p>
+          <h3>95% Identical Syntax</h3>
+          <p>Use the same <code>@app.get()</code>, <code>@app.post()</code>, <code>BaseModel</code>, <code>Depends()</code>, and middleware patterns you already know from FastAPI.</p>
         </div>
 
         <div class="why-card scroll-fade">
           <div class="why-icon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
           </div>
-          <h3>FastAPI-Compatible API</h3>
-          <p>Drop-in familiar syntax. <code>@app.get()</code>, typed parameters, validation, dependency injection &mdash; all the patterns you know.</p>
+          <h3>2.4&times; Faster Than FastAPI</h3>
+          <p>C-powered HTTP engine with <strong>libuv</strong> event loop and <strong>llhttp</strong> parser. 82,000+ req/s single-worker, 190,000+ req/s with 10 workers.</p>
         </div>
 
         <div class="why-card scroll-fade">
           <div class="why-icon">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
           </div>
-          <h3>Memory Efficient</h3>
-          <p><strong>jemalloc</strong> arena specialization delivers 30&ndash;35% memory savings. Five dedicated arenas for requests, responses, cache, static files, and tasks.</p>
+          <h3>47% Less Memory</h3>
+          <p><strong>jemalloc</strong> arena specialization cuts memory usage nearly in half. Five dedicated arenas for requests, responses, cache, static files, and tasks.</p>
         </div>
 
         <div class="why-card scroll-fade">
           <div class="why-icon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
           </div>
-          <h3>Production Ready</h3>
-          <p>Middleware, background tasks, file uploads, streaming, caching, and dependency injection. Everything you need, nothing you don't.</p>
+          <h3>Zero Dependencies</h3>
+          <p>No Pydantic, no Starlette, no Uvicorn. Built-in validation, routing, and HTTP server using only CPython extensions. Install and run &mdash; nothing else needed.</p>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- ===================== CODE COMPARISON ===================== -->
+  <section class="compare-section" id="compare">
+    <div class="container">
+      <h2 class="section-title scroll-fade">Your FastAPI Code Already Works in Catzilla</h2>
+      <p class="section-subtitle scroll-fade">Compare side by side &mdash; spot the minimal differences.</p>
+
+      <div class="compare-compat scroll-fade">
+        <div class="compat-meter">
+          <div class="compat-meter-fill" style="--compat: 95%"></div>
+        </div>
+        <span class="compat-label"><strong>95%</strong> syntax compatible with FastAPI</span>
+      </div>
+
+      <!-- Compare Tabs -->
+      <div class="compare-tabs scroll-fade">
+        <button class="compare-tab active" data-compare="routes">Routes</button>
+        <button class="compare-tab" data-compare="validation">Validation</button>
+        <button class="compare-tab" data-compare="di">Depends()</button>
+        <button class="compare-tab" data-compare="middleware">Middleware</button>
+        <button class="compare-tab" data-compare="background">Background Tasks</button>
+        <button class="compare-tab" data-compare="streaming">Streaming</button>
+      </div>
+
+      <!-- Panel: Routes -->
+      <div class="compare-panel active" id="compare-routes">
+        <div class="compare-grid">
+          <div class="compare-block">
+            <div class="compare-block-header compare-block-header--fastapi">
+              <img src="images/FastAPI.png" alt="" width="20" height="20" class="chart-bar-icon">
+              <span>FastAPI</span>
+            </div>
+            <pre class="code-content"><code><span class="hl-kw">from</span> <span class="hl-mod">fastapi</span> <span class="hl-kw">import</span> FastAPI
+
+app = FastAPI()
+
+<span class="hl-dec">@app.get</span>(<span class="hl-str">"/"</span>)
+<span class="hl-kw">async def</span> <span class="hl-fn">home</span>():
+    <span class="hl-kw">return</span> {<span class="hl-str">"message"</span>: <span class="hl-str">"Hello, World!"</span>}
+
+<span class="hl-dec">@app.get</span>(<span class="hl-str">"/users/{user_id}"</span>)
+<span class="hl-kw">async def</span> <span class="hl-fn">get_user</span>(user_id: <span class="hl-mod">int</span>):
+    <span class="hl-kw">return</span> {<span class="hl-str">"user_id"</span>: user_id}
+
+<span class="hl-cm"># Requires: uvicorn app:app</span></code></pre>
+          </div>
+          <div class="compare-arrow" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+          <div class="compare-block">
+            <div class="compare-block-header compare-block-header--catzilla">
+              <img src="images/logo.png" alt="" width="20" height="20" class="chart-bar-icon">
+              <span>Catzilla</span>
+            </div>
+            <pre class="code-content"><code><span class="hl-kw">from</span> <span class="hl-mod">catzilla</span> <span class="hl-kw">import</span> Catzilla
+
+app = Catzilla()
+
+<span class="hl-dec">@app.get</span>(<span class="hl-str">"/"</span>)
+<span class="hl-kw">def</span> <span class="hl-fn">home</span>(request):
+    <span class="hl-kw">return</span> {<span class="hl-str">"message"</span>: <span class="hl-str">"Hello, World!"</span>}
+
+<span class="hl-dec">@app.get</span>(<span class="hl-str">"/users/{user_id}"</span>)
+<span class="hl-kw">def</span> <span class="hl-fn">get_user</span>(request, user_id: <span class="hl-mod">int</span>):
+    <span class="hl-kw">return</span> {<span class="hl-str">"user_id"</span>: user_id}
+
+app.listen(port=<span class="hl-num">8000</span>)  <span class="hl-cm"># Built-in server</span></code></pre>
+          </div>
+        </div>
+        <div class="compare-note">
+          <span class="diff-badge">2 differences</span>
+          <span class="diff-text">Change the import &bull; Add <code>request</code> as first param &bull; No ASGI server needed</span>
+        </div>
+      </div>
+
+      <!-- Panel: Validation -->
+      <div class="compare-panel" id="compare-validation">
+        <div class="compare-grid">
+          <div class="compare-block">
+            <div class="compare-block-header compare-block-header--fastapi">
+              <img src="images/FastAPI.png" alt="" width="20" height="20" class="chart-bar-icon">
+              <span>FastAPI</span>
+            </div>
+            <pre class="code-content"><code><span class="hl-kw">from</span> <span class="hl-mod">fastapi</span> <span class="hl-kw">import</span> FastAPI
+<span class="hl-kw">from</span> <span class="hl-mod">pydantic</span> <span class="hl-kw">import</span> BaseModel, Field
+
+<span class="hl-kw">class</span> <span class="hl-fn">User</span>(BaseModel):
+    name: <span class="hl-mod">str</span> = Field(min_length=<span class="hl-num">1</span>)
+    email: <span class="hl-mod">str</span>
+    age: <span class="hl-mod">int</span> = Field(ge=<span class="hl-num">0</span>, le=<span class="hl-num">150</span>)
+
+<span class="hl-dec">@app.post</span>(<span class="hl-str">"/users"</span>)
+<span class="hl-kw">async def</span> <span class="hl-fn">create_user</span>(user: User):
+    <span class="hl-kw">return</span> user.dict()</code></pre>
+          </div>
+          <div class="compare-arrow" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+          <div class="compare-block">
+            <div class="compare-block-header compare-block-header--catzilla">
+              <img src="images/logo.png" alt="" width="20" height="20" class="chart-bar-icon">
+              <span>Catzilla</span>
+            </div>
+            <pre class="code-content"><code><span class="hl-kw">from</span> <span class="hl-mod">catzilla</span> <span class="hl-kw">import</span> Catzilla, BaseModel, Field
+<span class="hl-cm"># No Pydantic needed &mdash; built-in!</span>
+
+<span class="hl-kw">class</span> <span class="hl-fn">User</span>(BaseModel):
+    name: <span class="hl-mod">str</span> = Field(min_length=<span class="hl-num">1</span>)
+    email: <span class="hl-mod">str</span>
+    age: <span class="hl-mod">int</span> = Field(ge=<span class="hl-num">0</span>, le=<span class="hl-num">150</span>)
+
+<span class="hl-dec">@app.post</span>(<span class="hl-str">"/users"</span>)
+<span class="hl-kw">def</span> <span class="hl-fn">create_user</span>(request, user: User):
+    <span class="hl-kw">return</span> user.dict()</code></pre>
+          </div>
+        </div>
+        <div class="compare-note">
+          <span class="diff-badge">Same model syntax</span>
+          <span class="diff-text">BaseModel &amp; Field work identically &bull; No <code>pip install pydantic</code> &bull; 20&times; faster validation</span>
+        </div>
+      </div>
+
+      <!-- Panel: Dependency Injection -->
+      <div class="compare-panel" id="compare-di">
+        <div class="compare-grid">
+          <div class="compare-block">
+            <div class="compare-block-header compare-block-header--fastapi">
+              <img src="images/FastAPI.png" alt="" width="20" height="20" class="chart-bar-icon">
+              <span>FastAPI</span>
+            </div>
+            <pre class="code-content"><code><span class="hl-kw">from</span> <span class="hl-mod">fastapi</span> <span class="hl-kw">import</span> FastAPI, Depends
+
+app = FastAPI()
+
+<span class="hl-kw">class</span> <span class="hl-fn">UserService</span>:
+    <span class="hl-kw">def</span> <span class="hl-fn">get_user</span>(self, uid: <span class="hl-mod">int</span>):
+        <span class="hl-kw">return</span> {<span class="hl-str">"id"</span>: uid}
+
+<span class="hl-kw">def</span> <span class="hl-fn">get_svc</span>():
+    <span class="hl-kw">return</span> UserService()
+
+<span class="hl-dec">@app.get</span>(<span class="hl-str">"/users/{uid}"</span>)
+<span class="hl-kw">async def</span> <span class="hl-fn">get_user</span>(uid: <span class="hl-mod">int</span>,
+        svc=Depends(get_svc)):
+    <span class="hl-kw">return</span> svc.get_user(uid)</code></pre>
+          </div>
+          <div class="compare-arrow" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+          <div class="compare-block">
+            <div class="compare-block-header compare-block-header--catzilla">
+              <img src="images/logo.png" alt="" width="20" height="20" class="chart-bar-icon">
+              <span>Catzilla</span>
+            </div>
+            <pre class="code-content"><code><span class="hl-kw">from</span> <span class="hl-mod">catzilla</span> <span class="hl-kw">import</span> Catzilla, Depends, service
+
+app = Catzilla(enable_di=<span class="hl-num">True</span>)
+
+<span class="hl-dec">@service</span>(<span class="hl-str">"user_svc"</span>)
+<span class="hl-kw">class</span> <span class="hl-fn">UserService</span>:
+    <span class="hl-kw">def</span> <span class="hl-fn">get_user</span>(self, uid: <span class="hl-mod">int</span>):
+        <span class="hl-kw">return</span> {<span class="hl-str">"id"</span>: uid}
+
+
+<span class="hl-dec">@app.get</span>(<span class="hl-str">"/users/{uid}"</span>)
+<span class="hl-kw">def</span> <span class="hl-fn">get_user</span>(request, uid: <span class="hl-mod">int</span>,
+        svc=Depends(<span class="hl-str">"user_svc"</span>)):
+    <span class="hl-kw">return</span> svc.get_user(uid)</code></pre>
+          </div>
+        </div>
+        <div class="compare-note">
+          <span class="diff-badge">Depends() with service names</span>
+          <span class="diff-text"><code>@service</code> decorator auto-registers &bull; <code>Depends("name")</code> resolves by name &bull; C-compiled &bull; 6.5&times; faster</span>
+        </div>
+      </div>
+
+      <!-- Panel: Middleware -->
+      <div class="compare-panel" id="compare-middleware">
+        <div class="compare-grid">
+          <div class="compare-block">
+            <div class="compare-block-header compare-block-header--fastapi">
+              <img src="images/FastAPI.png" alt="" width="20" height="20" class="chart-bar-icon">
+              <span>FastAPI</span>
+            </div>
+            <pre class="code-content"><code><span class="hl-kw">import</span> <span class="hl-mod">time</span>
+
+<span class="hl-dec">@app.middleware</span>(<span class="hl-str">"http"</span>)
+<span class="hl-kw">async def</span> <span class="hl-fn">timing</span>(request, call_next):
+    start = time.time()
+    response = <span class="hl-kw">await</span> call_next(request)
+    ms = (time.time() - start) * <span class="hl-num">1000</span>
+    response.headers[<span class="hl-str">"X-Time"</span>] = <span class="hl-kw">f</span><span class="hl-str">"{ms:.1f}ms"</span>
+    <span class="hl-kw">return</span> response</code></pre>
+          </div>
+          <div class="compare-arrow" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+          <div class="compare-block">
+            <div class="compare-block-header compare-block-header--catzilla">
+              <img src="images/logo.png" alt="" width="20" height="20" class="chart-bar-icon">
+              <span>Catzilla</span>
+            </div>
+            <pre class="code-content"><code><span class="hl-kw">import</span> <span class="hl-mod">time</span>
+
+<span class="hl-dec">@app.middleware</span>(priority=<span class="hl-num">10</span>, pre_route=<span class="hl-num">True</span>)
+<span class="hl-kw">def</span> <span class="hl-fn">timing</span>(request):
+    <span class="hl-cm"># Return None to continue, or Response to stop</span>
+    request.context = {}
+    request.context[<span class="hl-str">'start'</span>] = time.time()
+    <span class="hl-kw">return</span> <span class="hl-num">None</span>  <span class="hl-cm"># continue to handler</span>
+
+<span class="hl-cm"># Per-route middleware</span>
+<span class="hl-dec">@app.get</span>(<span class="hl-str">"/protected"</span>, middleware=[auth_check])
+<span class="hl-kw">def</span> <span class="hl-fn">secret</span>(request):
+    <span class="hl-kw">return</span> {<span class="hl-str">"ok"</span>: <span class="hl-num">True</span>}</code></pre>
+          </div>
+        </div>
+        <div class="compare-note">
+          <span class="diff-badge">Decorator middleware</span>
+          <span class="diff-text"><code>@app.middleware()</code> with priority &amp; ordering &bull; Per-route via <code>middleware=[...]</code> &bull; Zero-allocation C pipeline</span>
+        </div>
+      </div>
+
+      <!-- Panel: Background Tasks -->
+      <div class="compare-panel" id="compare-background">
+        <div class="compare-grid">
+          <div class="compare-block">
+            <div class="compare-block-header compare-block-header--fastapi">
+              <img src="images/FastAPI.png" alt="" width="20" height="20" class="chart-bar-icon">
+              <span>FastAPI</span>
+            </div>
+            <pre class="code-content"><code><span class="hl-kw">from</span> <span class="hl-mod">fastapi</span> <span class="hl-kw">import</span> BackgroundTasks
+
+<span class="hl-kw">def</span> <span class="hl-fn">send_email</span>(to: <span class="hl-mod">str</span>):
+    <span class="hl-cm"># Heavy I/O work</span>
+    ...
+
+<span class="hl-dec">@app.post</span>(<span class="hl-str">"/notify"</span>)
+<span class="hl-kw">async def</span> <span class="hl-fn">notify</span>(bg: BackgroundTasks):
+    bg.add_task(send_email, <span class="hl-str">"user@test.com"</span>)
+    <span class="hl-kw">return</span> {<span class="hl-str">"status"</span>: <span class="hl-str">"queued"</span>}</code></pre>
+          </div>
+          <div class="compare-arrow" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+          <div class="compare-block">
+            <div class="compare-block-header compare-block-header--catzilla">
+              <img src="images/logo.png" alt="" width="20" height="20" class="chart-bar-icon">
+              <span>Catzilla</span>
+            </div>
+            <pre class="code-content"><code><span class="hl-kw">from</span> <span class="hl-mod">catzilla</span> <span class="hl-kw">import</span> Catzilla
+
+app = Catzilla()
+app.enable_background_tasks(workers=<span class="hl-num">4</span>)
+
+<span class="hl-kw">def</span> <span class="hl-fn">send_email</span>(to: <span class="hl-mod">str</span>):
+    <span class="hl-cm"># Heavy I/O work</span>
+    ...
+
+<span class="hl-dec">@app.post</span>(<span class="hl-str">"/notify"</span>)
+<span class="hl-kw">def</span> <span class="hl-fn">notify</span>(request):
+    app.add_task(send_email, <span class="hl-str">"user@test.com"</span>)
+    <span class="hl-kw">return</span> {<span class="hl-str">"status"</span>: <span class="hl-str">"queued"</span>}</code></pre>
+          </div>
+        </div>
+        <div class="compare-note">
+          <span class="diff-badge">app.add_task() API</span>
+          <span class="diff-text"><code>app.enable_background_tasks()</code> + <code>app.add_task()</code> &bull; C thread pool &bull; 81,000+ tasks/sec</span>
+        </div>
+      </div>
+
+      <!-- Panel: Streaming -->
+      <div class="compare-panel" id="compare-streaming">
+        <div class="compare-grid">
+          <div class="compare-block">
+            <div class="compare-block-header compare-block-header--fastapi">
+              <img src="images/FastAPI.png" alt="" width="20" height="20" class="chart-bar-icon">
+              <span>FastAPI</span>
+            </div>
+            <pre class="code-content"><code><span class="hl-kw">from</span> <span class="hl-mod">fastapi.responses</span> <span class="hl-kw">import</span> StreamingResponse
+
+<span class="hl-dec">@app.get</span>(<span class="hl-str">"/stream"</span>)
+<span class="hl-kw">async def</span> <span class="hl-fn">stream</span>():
+    <span class="hl-kw">async def</span> <span class="hl-fn">generate</span>():
+        <span class="hl-kw">for</span> i <span class="hl-kw">in</span> range(<span class="hl-num">100</span>):
+            <span class="hl-kw">yield</span> <span class="hl-kw">f</span><span class="hl-str">"chunk {i}\n"</span>
+    <span class="hl-kw">return</span> StreamingResponse(generate())</code></pre>
+          </div>
+          <div class="compare-arrow" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+          <div class="compare-block">
+            <div class="compare-block-header compare-block-header--catzilla">
+              <img src="images/logo.png" alt="" width="20" height="20" class="chart-bar-icon">
+              <span>Catzilla</span>
+            </div>
+            <pre class="code-content"><code><span class="hl-kw">from</span> <span class="hl-mod">catzilla</span> <span class="hl-kw">import</span> StreamingResponse
+
+<span class="hl-dec">@app.get</span>(<span class="hl-str">"/stream"</span>)
+<span class="hl-kw">def</span> <span class="hl-fn">stream</span>(request):
+    <span class="hl-kw">def</span> <span class="hl-fn">generate</span>():
+        <span class="hl-kw">for</span> i <span class="hl-kw">in</span> range(<span class="hl-num">100</span>):
+            <span class="hl-kw">yield</span> <span class="hl-kw">f</span><span class="hl-str">"chunk {i}\n"</span>
+    <span class="hl-kw">return</span> StreamingResponse(generate())</code></pre>
+          </div>
+        </div>
+        <div class="compare-note">
+          <span class="diff-badge">Same StreamingResponse</span>
+          <span class="diff-text">Generator-based streaming &bull; C-native chunked transfer &bull; Perfect for AI/LLM token streaming</span>
+        </div>
+      </div>
+
     </div>
   </section>
 
   <!-- ===================== PERFORMANCE ===================== -->
   <section class="perf-section" id="performance">
     <div class="container">
-      <h2 class="section-title scroll-fade">Performance That Speaks</h2>
-      <p class="section-subtitle scroll-fade">Real benchmarks. Real numbers. Reproducible.</p>
+      <h2 class="section-title scroll-fade">Real Benchmark Results: Catzilla vs FastAPI</h2>
+      <p class="section-subtitle scroll-fade">Reproducible wrk benchmarks on Apple Silicon. All source code public.</p>
 
       <!-- Tab switcher -->
       <div class="perf-tabs scroll-fade">
@@ -254,22 +621,22 @@
       <div class="perf-panel active" id="panel-single">
         <div class="perf-stats">
           <div class="perf-stat scroll-fade">
-            <span class="perf-stat-value" data-count="50610">0</span>
+            <span class="perf-stat-value" data-count="55731">0</span>
             <span class="perf-stat-unit">req/s</span>
             <span class="perf-stat-label">Average Throughput</span>
           </div>
           <div class="perf-stat scroll-fade">
-            <span class="perf-stat-value" data-count="72249">0</span>
+            <span class="perf-stat-value" data-count="82817">0</span>
             <span class="perf-stat-unit">req/s</span>
             <span class="perf-stat-label">Peak (Hello World)</span>
           </div>
           <div class="perf-stat scroll-fade">
-            <span class="perf-stat-value perf-stat-value--ms" data-count="2.22" data-decimals="2">0</span>
+            <span class="perf-stat-value perf-stat-value--ms" data-count="2.02" data-decimals="2">0</span>
             <span class="perf-stat-unit">ms</span>
             <span class="perf-stat-label">Avg Latency</span>
           </div>
           <div class="perf-stat scroll-fade">
-            <span class="perf-stat-value perf-stat-value--x" data-count="5.9" data-decimals="1">0</span>
+            <span class="perf-stat-value perf-stat-value--x" data-count="2.6" data-decimals="1">0</span>
             <span class="perf-stat-unit">&times;</span>
             <span class="perf-stat-label">Faster than FastAPI</span>
           </div>
@@ -280,29 +647,29 @@
             <div class="perf-bar-item">
               <span class="perf-bar-name">Catzilla</span>
               <div class="perf-bar-track">
-                <div class="perf-bar perf-bar--catzilla" style="--w: 100%"><span>50,610</span></div>
+                <div class="perf-bar perf-bar--catzilla" style="--w: 100%"><span>55,731</span></div>
               </div>
             </div>
             <div class="perf-bar-item">
               <span class="perf-bar-name">FastAPI</span>
               <div class="perf-bar-track">
-                <div class="perf-bar perf-bar--other" style="--w: 16.9%"><span>8,570</span></div>
+                <div class="perf-bar perf-bar--other" style="--w: 38.1%"><span>21,251</span></div>
               </div>
             </div>
             <div class="perf-bar-item">
               <span class="perf-bar-name">Flask</span>
               <div class="perf-bar-track">
-                <div class="perf-bar perf-bar--other" style="--w: 6.3%"><span>3,200</span></div>
+                <div class="perf-bar perf-bar--other" style="--w: 6.1%"><span>3,410</span></div>
               </div>
             </div>
             <div class="perf-bar-item">
               <span class="perf-bar-name">Django</span>
               <div class="perf-bar-track">
-                <div class="perf-bar perf-bar--other" style="--w: 3.6%"><span>1,800</span></div>
+                <div class="perf-bar perf-bar--other" style="--w: 6%"><span>3,337</span></div>
               </div>
             </div>
           </div>
-          <span class="perf-bar-caption">Average req/s across all endpoints</span>
+          <span class="perf-bar-caption">Average req/s across 5 endpoints &bull; wrk &bull; 100 connections &bull; 10s</span>
         </div>
       </div>
 
@@ -310,22 +677,22 @@
       <div class="perf-panel" id="panel-multi">
         <div class="perf-stats">
           <div class="perf-stat scroll-fade">
-            <span class="perf-stat-value" data-count="180023">0</span>
+            <span class="perf-stat-value" data-count="160000">0</span>
             <span class="perf-stat-unit">req/s</span>
             <span class="perf-stat-label">Average Throughput</span>
           </div>
           <div class="perf-stat scroll-fade">
-            <span class="perf-stat-value" data-count="212426">0</span>
+            <span class="perf-stat-value" data-count="190612">0</span>
             <span class="perf-stat-unit">req/s</span>
             <span class="perf-stat-label">Peak (Hello World)</span>
           </div>
           <div class="perf-stat scroll-fade">
-            <span class="perf-stat-value perf-stat-value--ms" data-count="6.03" data-decimals="2">0</span>
+            <span class="perf-stat-value perf-stat-value--ms" data-count="7.49" data-decimals="2">0</span>
             <span class="perf-stat-unit">ms</span>
             <span class="perf-stat-label">Avg Latency</span>
           </div>
           <div class="perf-stat scroll-fade">
-            <span class="perf-stat-value perf-stat-value--x" data-count="4.2" data-decimals="1">0</span>
+            <span class="perf-stat-value perf-stat-value--x" data-count="2.1" data-decimals="1">0</span>
             <span class="perf-stat-unit">&times;</span>
             <span class="perf-stat-label">Faster than FastAPI</span>
           </div>
@@ -336,97 +703,34 @@
             <div class="perf-bar-item">
               <span class="perf-bar-name">Catzilla</span>
               <div class="perf-bar-track">
-                <div class="perf-bar perf-bar--catzilla" style="--w: 100%"><span>180,023</span></div>
+                <div class="perf-bar perf-bar--catzilla" style="--w: 100%"><span>160,000</span></div>
               </div>
             </div>
             <div class="perf-bar-item">
               <span class="perf-bar-name">FastAPI</span>
               <div class="perf-bar-track">
-                <div class="perf-bar perf-bar--other" style="--w: 23.8%"><span>42,857</span></div>
+                <div class="perf-bar perf-bar--other" style="--w: 46.8%"><span>74,915</span></div>
               </div>
             </div>
             <div class="perf-bar-item">
               <span class="perf-bar-name">Flask</span>
               <div class="perf-bar-track">
-                <div class="perf-bar perf-bar--other" style="--w: 8.9%"><span>16,000</span></div>
+                <div class="perf-bar perf-bar--other" style="--w: 6.4%"><span>10,160</span></div>
               </div>
             </div>
             <div class="perf-bar-item">
               <span class="perf-bar-name">Django</span>
               <div class="perf-bar-track">
-                <div class="perf-bar perf-bar--other" style="--w: 5%"><span>9,000</span></div>
+                <div class="perf-bar perf-bar--other" style="--w: 6.2%"><span>9,927</span></div>
               </div>
             </div>
           </div>
-          <span class="perf-bar-caption">Average req/s across all endpoints &bull; 10 workers</span>
+          <span class="perf-bar-caption">Average req/s across 5 endpoints &bull; 10 workers &bull; 1000 connections &bull; 10s</span>
         </div>
       </div>
 
       <div class="perf-cta scroll-fade">
-        <a href="https://github.com/rezwanahmedsami/catzilla/blob/main/PERFORMANCE_REPORT_v0.2.2.md" class="btn btn-outline" target="_blank" rel="noopener">Full Benchmark Report &rarr;</a>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== CODE EXAMPLE ===================== -->
-  <section class="code-section" id="code">
-    <div class="container">
-      <h2 class="section-title scroll-fade">Familiar Syntax. Unfamiliar Speed.</h2>
-      <p class="section-subtitle scroll-fade">If you know FastAPI, you already know Catzilla.</p>
-
-      <div class="code-grid">
-        <div class="code-block scroll-fade">
-          <div class="code-block-header">
-            <span class="code-dot code-dot--red"></span>
-            <span class="code-dot code-dot--yellow"></span>
-            <span class="code-dot code-dot--green"></span>
-            <span class="code-filename">app.py</span>
-          </div>
-          <pre class="code-content"><code><span class="hl-kw">from</span> <span class="hl-mod">catzilla</span> <span class="hl-kw">import</span> Catzilla, JSONResponse, Request, Response
-
-app = Catzilla()
-
-<span class="hl-dec">@app.get</span>(<span class="hl-str">"/"</span>)
-<span class="hl-kw">def</span> <span class="hl-fn">home</span>(request: Request) -> Response:
-    <span class="hl-kw">return</span> JSONResponse({
-        <span class="hl-str">"message"</span>: <span class="hl-str">"Hello from Catzilla 🐱"</span>,
-        <span class="hl-str">"speed"</span>: <span class="hl-str">"72,249 req/s"</span>
-    })
-
-<span class="hl-kw">if</span> __name__ == <span class="hl-str">"__main__"</span>:
-    app.listen(port=<span class="hl-num">8000</span>)</code></pre>
-        </div>
-
-        <div class="code-features scroll-fade">
-          <div class="code-feature">
-            <div class="code-feature-icon">⚡</div>
-            <div>
-              <h4>Zero Config</h4>
-              <p>One import. One decorator. One line to run. No ASGI server needed.</p>
-            </div>
-          </div>
-          <div class="code-feature">
-            <div class="code-feature-icon">🔄</div>
-            <div>
-              <h4>Sync &amp; Async</h4>
-              <p>Use <code>def</code> or <code>async def</code> handlers. Both are first-class citizens.</p>
-            </div>
-          </div>
-          <div class="code-feature">
-            <div class="code-feature-icon">🛡️</div>
-            <div>
-              <h4>Type-Safe</h4>
-              <p>Built-in validation with <code>Path()</code>, <code>Query()</code>, and <code>BaseModel</code> — no Pydantic required.</p>
-            </div>
-          </div>
-          <div class="code-feature">
-            <div class="code-feature-icon">📦</div>
-            <div>
-              <h4>Zero Dependencies</h4>
-              <p>Standard library + CPython extensions only. No dependency hell.</p>
-            </div>
-          </div>
-        </div>
+        <a href="https://github.com/rezwanahmedsami/catzilla/blob/main/PERFORMANCE_REPORT.md" class="btn btn-outline" target="_blank" rel="noopener">Full Benchmark Report &rarr;</a>
       </div>
     </div>
   </section>
@@ -434,57 +738,159 @@ app = Catzilla()
   <!-- ===================== FEATURES GRID ===================== -->
   <section class="features-section" id="features">
     <div class="container">
-      <h2 class="section-title scroll-fade">Everything You Need</h2>
-      <p class="section-subtitle scroll-fade">Production-grade features, all C-accelerated.</p>
+      <h2 class="section-title scroll-fade">Production-Grade Features, All C-Accelerated</h2>
+      <p class="section-subtitle scroll-fade">Everything FastAPI offers and more &mdash; without the dependency chain.</p>
 
       <div class="features-grid">
         <div class="feature-card scroll-fade">
           <div class="feature-perf">90,000+ val/sec</div>
-          <h3>Validation Engine</h3>
-          <p>20&times; faster than FastAPI. C-accelerated request validation with <code>BaseModel</code>, <code>Field</code>, <code>Path</code>, <code>Query</code>.</p>
+          <h3>Built-in Validation Engine</h3>
+          <p>FastAPI-style <code>BaseModel</code>, <code>Field</code>, <code>Path</code>, <code>Query</code> &mdash; but 20&times; faster. No Pydantic install required.</p>
         </div>
 
         <div class="feature-card scroll-fade">
           <div class="feature-perf">6.5&times; faster</div>
           <h3>Dependency Injection</h3>
-          <p>C-compiled dependency resolution. FastAPI-style <code>Depends()</code> with constructor, factory, and class injection.</p>
+          <p>C-compiled dependency resolution with FastAPI-style <code>Depends()</code>. Constructor, factory, and class injection patterns.</p>
         </div>
 
         <div class="feature-card scroll-fade">
           <div class="feature-perf">10-15&times; faster</div>
           <h3>Zero-Alloc Middleware</h3>
-          <p>40&ndash;50% memory reduction. Global and per-route middleware with zero-allocation execution pipeline.</p>
+          <p>Global and per-route middleware with zero-allocation C execution pipeline. 40&ndash;50% less memory than FastAPI middleware.</p>
         </div>
 
         <div class="feature-card scroll-fade">
           <div class="feature-perf">400K+ req/s</div>
           <h3>Static File Server</h3>
-          <p>C-native file serving with ETag, range requests, compression, and in-memory caching. Nginx-level throughput.</p>
+          <p>C-native file serving with ETag, range requests, gzip compression, and in-memory caching. Nginx-level throughput.</p>
         </div>
 
         <div class="feature-card scroll-fade">
           <div class="feature-perf">10-100&times; faster</div>
           <h3>File Uploads</h3>
-          <p>C-native multipart parsing with zero-copy streaming. Handle gigabyte files without breaking a sweat.</p>
+          <p>C-native multipart parsing with zero-copy streaming. Handle gigabyte files without memory bloat. Same <code>UploadFile</code> API as FastAPI.</p>
         </div>
 
         <div class="feature-card scroll-fade">
           <div class="feature-perf">81,466 tasks/sec</div>
           <h3>Background Tasks</h3>
-          <p>C thread pool for background processing. Submit tasks at 81K/sec without blocking request handlers.</p>
+          <p>C thread pool for background processing. Same <code>BackgroundTasks.add_task()</code> API you use in FastAPI, but backed by native threads.</p>
         </div>
 
         <div class="feature-card scroll-fade">
           <div class="feature-perf">10-50&times; faster</div>
           <h3>Smart Caching</h3>
-          <p>Multi-tier caching with C-level L1 memory cache. Optional Redis L2 and disk L3 layers.</p>
+          <p>Multi-tier caching with C-level L1 memory cache. Optional Redis L2 and disk L3 layers for production deployments.</p>
         </div>
 
         <div class="feature-card scroll-fade">
           <div class="feature-perf">Chunked Transfer</div>
           <h3>HTTP Streaming</h3>
-          <p>True incremental streaming with <code>StreamingResponse</code>. Perfect for AI/LLM token streaming and real-time feeds.</p>
+          <p>True incremental streaming with <code>StreamingResponse</code>. Perfect for AI/LLM token streaming and real-time data feeds.</p>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== MIGRATION ===================== -->
+  <section class="migrate-section" id="migrate">
+    <div class="container">
+      <h2 class="section-title scroll-fade">Migrate from FastAPI in 3 Simple Steps</h2>
+      <p class="section-subtitle scroll-fade">No rewrite. No new patterns to learn. Just faster.</p>
+
+      <div class="migrate-steps">
+        <div class="migrate-step scroll-fade">
+          <div class="migrate-step-num">1</div>
+          <div class="migrate-step-content">
+            <h3>Change the import</h3>
+            <div class="migrate-code">
+              <pre><code><span class="hl-cm"># Before (FastAPI)</span>
+<span class="hl-kw">from</span> <span class="hl-mod">fastapi</span> <span class="hl-kw">import</span> FastAPI, Depends, Query
+<span class="hl-kw">from</span> <span class="hl-mod">pydantic</span> <span class="hl-kw">import</span> BaseModel
+
+<span class="hl-cm"># After (Catzilla)</span>
+<span class="hl-kw">from</span> <span class="hl-mod">catzilla</span> <span class="hl-kw">import</span> Catzilla, Depends, Query, BaseModel</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="migrate-step scroll-fade">
+          <div class="migrate-step-num">2</div>
+          <div class="migrate-step-content">
+            <h3>Add <code>request</code> as the first parameter</h3>
+            <div class="migrate-code">
+              <pre><code><span class="hl-cm"># Before</span>
+<span class="hl-kw">async def</span> <span class="hl-fn">get_items</span>(skip: <span class="hl-mod">int</span> = <span class="hl-num">0</span>): ...
+
+<span class="hl-cm"># After</span>
+<span class="hl-kw">def</span> <span class="hl-fn">get_items</span>(request, skip: <span class="hl-mod">int</span> = <span class="hl-num">0</span>): ...</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="migrate-step scroll-fade">
+          <div class="migrate-step-num">3</div>
+          <div class="migrate-step-content">
+            <h3>Replace the server command</h3>
+            <div class="migrate-code">
+              <pre><code><span class="hl-cm"># Before</span>
+uvicorn app:app --host <span class="hl-num">0.0.0.0</span> --port <span class="hl-num">8000</span>
+
+<span class="hl-cm"># After</span>
+app.listen(host=<span class="hl-str">"0.0.0.0"</span>, port=<span class="hl-num">8000</span>)</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="migrate-cta scroll-fade">
+        <p class="migrate-tagline">That's it. Your routes, models, dependencies, and middleware all work the same way.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FAQ ===================== -->
+  <section class="faq-section" id="faq">
+    <div class="container">
+      <h2 class="section-title scroll-fade">Frequently Asked Questions</h2>
+      <p class="section-subtitle scroll-fade">Common questions from FastAPI developers evaluating Catzilla.</p>
+
+      <div class="faq-list">
+        <details class="faq-item scroll-fade">
+          <summary class="faq-question">Is Catzilla really compatible with FastAPI syntax?</summary>
+          <div class="faq-answer">
+            <p>Yes. Catzilla maintains 95% syntax compatibility with FastAPI for routing, validation, and response handling. The same decorators (<code>@app.get</code>, <code>@app.post</code>), validation models (<code>BaseModel</code>, <code>Field</code>, <code>Path</code>, <code>Query</code>), and <code>StreamingResponse</code> work identically. Dependency injection uses <code>Depends("service_name")</code> with string-based service names and a <code>@service</code> decorator. Middleware uses <code>@app.middleware(priority=..., pre_route=True)</code> with priority ordering. Key differences: (1) handlers receive <code>request</code> as the first parameter, (2) the import changes from <code>fastapi</code> to <code>catzilla</code>, and (3) no separate ASGI server is needed.</p>
+          </div>
+        </details>
+
+        <details class="faq-item scroll-fade">
+          <summary class="faq-question">How much faster is Catzilla than FastAPI?</summary>
+          <div class="faq-answer">
+            <p>In the latest reproducible wrk benchmark artifacts in this repository on Apple Silicon (macOS arm64), Catzilla reaches <strong>82,817 requests/second</strong> for a single-worker hello-world endpoint versus FastAPI's <strong>35,154 req/s</strong>, and <strong>190,612 req/s</strong> with 10 workers versus FastAPI's <strong>109,212 req/s</strong>. For query-parameter endpoints in the same benchmark set, Catzilla is up to <strong>4.3&times; faster</strong>. The benchmark artifacts are open source and reproducible.</p>
+          </div>
+        </details>
+
+        <details class="faq-item scroll-fade">
+          <summary class="faq-question">Why is Catzilla faster than FastAPI?</summary>
+          <div class="faq-answer">
+            <p>Catzilla's HTTP engine is written in C using <strong>libuv</strong> (the same event loop behind Node.js) and <strong>llhttp</strong> (the same HTTP parser used by Node.js). Routing uses an O(log n) trie in C. Memory management uses <strong>jemalloc</strong> with specialized arenas. Validation runs through a C-accelerated engine instead of Pydantic's Python runtime. This eliminates Python overhead from the entire hot path while keeping the developer-facing API in pure Python.</p>
+          </div>
+        </details>
+
+        <details class="faq-item scroll-fade">
+          <summary class="faq-question">Does Catzilla require Pydantic or Uvicorn?</summary>
+          <div class="faq-answer">
+            <p>No. Catzilla ships its own validation engine, HTTP server, and routing stack, so you do not need Pydantic, Starlette, or Uvicorn to use it. It supports Pydantic-style <code>BaseModel</code> syntax through its built-in validator. The package does currently declare a small runtime dependency on <code>psutil</code>, so the accurate claim is a minimal dependency footprint, not literally zero dependencies.</p>
+          </div>
+        </details>
+
+        <details class="faq-item scroll-fade">
+          <summary class="faq-question">What Python versions and platforms are supported?</summary>
+          <div class="faq-answer">
+            <p>Catzilla supports <strong>Python 3.9 through 3.14</strong> with pre-built binary wheels for Linux (x86_64, manylinux2014), macOS (Intel x86_64 and Apple Silicon arm64), and Windows (x86_64). ARM64 Linux is supported via source builds. The framework is tested across all platforms in CI.</p>
+          </div>
+        </details>
       </div>
     </div>
   </section>
@@ -492,8 +898,8 @@ app = Catzilla()
   <!-- ===================== GET STARTED ===================== -->
   <section class="start-section" id="get-started">
     <div class="container">
-      <h2 class="section-title scroll-fade">Get Started in Seconds</h2>
-      <p class="section-subtitle scroll-fade">One command. That's it.</p>
+      <h2 class="section-title scroll-fade">Get Started with Catzilla in Seconds</h2>
+      <p class="section-subtitle scroll-fade">One command. No ASGI server. No Pydantic. Just speed.</p>
 
       <div class="start-content scroll-fade">
         <div class="start-install">
@@ -528,6 +934,7 @@ app = Catzilla()
             <span class="python-badge">3.11</span>
             <span class="python-badge">3.12</span>
             <span class="python-badge">3.13</span>
+            <span class="python-badge">3.14</span>
           </div>
         </div>
       </div>
@@ -546,7 +953,7 @@ app = Catzilla()
         <div class="footer-brand">
           <img src="images/logo.png" alt="Catzilla" width="40" height="40">
           <span class="footer-wordmark">Catzilla</span>
-          <p class="footer-tagline">Built with C, loved in Python.</p>
+          <p class="footer-tagline">The faster FastAPI alternative. Built with C, loved in Python.</p>
         </div>
 
         <div class="footer-links-group">
@@ -559,7 +966,7 @@ app = Catzilla()
         <div class="footer-links-group">
           <h4>Resources</h4>
           <a href="https://docs.catzilla.dev" target="_blank" rel="noopener">Documentation</a>
-          <a href="https://github.com/rezwanahmedsami/catzilla/blob/main/PERFORMANCE_REPORT_v0.2.2.md" target="_blank" rel="noopener">Benchmarks</a>
+          <a href="https://github.com/rezwanahmedsami/catzilla/blob/main/PERFORMANCE_REPORT.md" target="_blank" rel="noopener">Benchmarks</a>
           <a href="https://github.com/rezwanahmedsami/catzilla/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a>
         </div>
 

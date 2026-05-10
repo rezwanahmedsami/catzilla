@@ -12,10 +12,10 @@ The benchmark suite in this repository currently shows Catzilla leading the comp
 
 | Framework | Avg RPS | Avg Latency | Avg Peak Memory | Best Endpoint |
 |-----------|---------|-------------|-----------------|---------------|
-| Catzilla | 50,610 | 2.22ms | 28.26MB | `basic_hello_world` at 72,249 RPS |
-| FastAPI | 8,537 | 12.74ms | 31.50MB | `basic_hello_world` at 11,132 RPS |
-| Flask | 3,004 | 48.91ms | 46.45MB | `basic_hello_world` at 3,094 RPS |
-| Django | 2,780 | 54.80ms | 52.92MB | `basic_hello_world` at 2,866 RPS |
+| Catzilla | 55,731 | 2.02ms | 30.77MB | `basic_hello_world` at 82,817 RPS |
+| FastAPI | 21,251 | 6.31ms | 58.17MB | `basic_hello_world` at 35,154 RPS |
+| Flask | 3,410 | 33.29ms | 70.84MB | `basic_hello_world` at 3,578 RPS |
+| Django | 3,337 | 34.33ms | 72.87MB | `basic_hello_world` at 3,493 RPS |
 
 ![Single worker benchmark summary](results/overall_single_1w_performance_summary.png)
 
@@ -23,10 +23,10 @@ The benchmark suite in this repository currently shows Catzilla leading the comp
 
 | Framework | Avg RPS | Avg Latency | Avg Peak Memory | Best Endpoint |
 |-----------|---------|-------------|-----------------|---------------|
-| Catzilla | 180,023 | 6.03ms | 303.53MB | `basic_hello_world` at 212,426 RPS |
-| FastAPI | 42,890 | 25.26ms | 350.71MB | `basic_hello_world` at 55,122 RPS |
-| Flask | 5,488 | 177.89ms | 288.68MB | `basic_json_response` at 5,537 RPS |
-| Django | 5,549 | 175.11ms | 349.75MB | `basic_query_params` at 5,623 RPS |
+| Catzilla | 159,997 | 7.49ms | 439.08MB | `basic_hello_world` at 190,612 RPS |
+| FastAPI | 74,915 | 15.83ms | 636.17MB | `basic_hello_world` at 109,212 RPS |
+| Flask | 10,160 | 97.99ms | 420.09MB | `basic_json_response` at 10,243 RPS |
+| Django | 9,927 | 101.31ms | 442.02MB | `basic_hello_world` at 10,254 RPS |
 
 ![10 worker benchmark summary](results/overall_multi_10w_performance_summary.png)
 
@@ -105,7 +105,7 @@ The benchmark pipeline emits both raw and summarized artifacts:
 - `results/overall_single_1w_memory_comparison.png` and `results/overall_multi_10w_memory_comparison.png` show memory comparison directly.
 - `results/basic_single_1w_performance_analysis.png` and `results/basic_multi_10w_performance_analysis.png` include endpoint-by-endpoint RPS, latency, and peak-memory panels.
 - `results/transparent_performance_report.md` is the generated markdown report that embeds the benchmark story.
-- `/Users/rezwanahmedsami/devwork/catzilla/PERFORMANCE_REPORT_v0.2.2.md` is the current release-facing benchmark report.
+- `/Users/rezwanahmedsami/devwork/catzilla/PERFORMANCE_REPORT.md` is the current release-facing benchmark report.
 
 ## Interpretation Notes
 

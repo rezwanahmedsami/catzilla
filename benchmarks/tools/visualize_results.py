@@ -668,7 +668,7 @@ Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         report.append("## 📋 Executive Summary")
         report.append("")
         report.append("This report provides a transparent, feature-by-feature comparison of Catzilla")
-        report.append("against leading Python web frameworks (FastAPI, Flask, Django, Sanic, BlackSheep).")
+        report.append("against leading Python web frameworks (FastAPI, Flask, Django).")
         report.append("")
 
         # Overall statistics

@@ -2,9 +2,8 @@
 """
 Enhanced Feature-Based Benchmark Runner
 
-Comprehensive benchmarking system for Catzilla, FastAPI, Flask, Django,
-Sanic, and BlackSheep across multiple feature categories including
-real-world scenarios.
+Comprehensive benchmarking system for Catzilla, FastAPI, Flask, and Django
+across multiple feature categories including real-world scenarios.
 
 Features:
 - Multiple benchmark categories (basic, middleware, DI, async, validation,

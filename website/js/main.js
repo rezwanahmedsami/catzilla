@@ -261,4 +261,26 @@
     lastScroll = currentScroll;
   }, { passive: true });
 
+  // ---- Code Comparison Tab Switcher ----
+  var compareTabs = document.querySelectorAll('.compare-tab');
+
+  compareTabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      var target = tab.getAttribute('data-compare');
+
+      // Update tabs
+      compareTabs.forEach(function (t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+
+      // Update panels
+      document.querySelectorAll('.compare-panel').forEach(function (panel) {
+        panel.classList.remove('active');
+      });
+      var panel = document.getElementById('compare-' + target);
+      if (panel) {
+        panel.classList.add('active');
+      }
+    });
+  });
+
 })();

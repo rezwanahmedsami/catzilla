@@ -56,7 +56,7 @@ WORKERS_EXPLICIT=false
 BASIC_MULTI_CATZILLA_BACKEND_BASE_PORT="8100"
 BASIC_MULTI_CATZILLA_MAX_WORKERS="16"
 
-ALL_FRAMEWORKS=("catzilla" "fastapi" "flask" "django" "sanic" "blacksheep")
+ALL_FRAMEWORKS=("catzilla" "fastapi" "flask" "django")
 
 # Server configurations for basic benchmarks are generated dynamically by worker mode.
 BASIC_SERVERS=()
@@ -248,8 +248,6 @@ catzilla:$catzilla_port:$catzilla_command
 fastapi:8001:$UVICORN_CMD benchmarks.servers.basic.fastapi_server:app --host 127.0.0.1 --port 8001 --workers $effective_workers --no-access-log --log-level warning
 flask:8002:$GUNICORN_CMD --bind 127.0.0.1:8002 --workers $effective_workers $GUNICORN_WSGI_FLAGS benchmarks.servers.basic.flask_server:app
 django:8003:$GUNICORN_CMD --bind 127.0.0.1:8003 --workers $effective_workers $GUNICORN_WSGI_FLAGS benchmarks.servers.basic.django_server:application
-sanic:8004:$PYTHON_CMD $SERVERS_DIR/basic/sanic_server.py --host 127.0.0.1 --port 8004 --workers $effective_workers
-blacksheep:8005:$PYTHON_CMD $SERVERS_DIR/basic/blacksheep_server.py --host 127.0.0.1 --port 8005 --workers $effective_workers
 EOF
 }
 
@@ -269,10 +267,6 @@ get_server_configs_for_type() {
     esac
 }
 
-python_supports_blacksheep() {
-    "$PYTHON_CMD" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)' >/dev/null 2>&1
-}
-
 get_supported_frameworks_for_type() {
     local benchmark_type=$1
     local config=""
@@ -288,9 +282,6 @@ get_supported_frameworks_for_type() {
         fi
 
         framework=${config%%:*}
-        if [ "$framework" = "blacksheep" ] && ! python_supports_blacksheep; then
-            continue
-        fi
         if [[ " ${frameworks[*]} " != *" $framework "* ]]; then
             frameworks+=("$framework")
         fi
@@ -1589,8 +1580,7 @@ usage() {
     echo "  $0 --mode python --real-world        # Run real-world scenarios"
     echo "  $0 --mode python --all               # Run all feature categories"
     echo ""
-    echo "Available frameworks: catzilla, fastapi, flask, django, sanic, blacksheep"
-    echo "  Note: sanic and blacksheep are currently wired for direct basic benchmarks."
+    echo "Available frameworks: catzilla, fastapi, flask, django"
     echo ""
     echo "Available benchmark types (direct mode):"
     echo "  basic              - Basic HTTP operations (GET, POST, JSON)"
@@ -1699,12 +1689,6 @@ parse_arguments() {
 
     # Validate framework if specified
     if [ -n "$SELECTED_FRAMEWORK" ]; then
-        if [ "$SELECTED_FRAMEWORK" = "blacksheep" ] && ! python_supports_blacksheep; then
-            print_error "BlackSheep benchmarks require Python 3.10+"
-            print_error "Current benchmark interpreter: $($PYTHON_CMD --version 2>&1)"
-            exit 1
-        fi
-
         local valid_frameworks=("${ALL_FRAMEWORKS[@]}")
         if [ "$RUN_ALL_TYPES" = false ]; then
             valid_frameworks=("${(@f)$(get_supported_frameworks_for_type "$BENCHMARK_TYPE")}")

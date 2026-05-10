@@ -311,7 +311,7 @@ class TransparentBenchmarkVisualizer:
             f.write("## 📋 Methodology\n\n")
             f.write("- **Tool:** wrk (HTTP benchmarking tool)\n")
             f.write("- **Metrics:** Requests per second, Response latency\n")
-            f.write("- **Frameworks:** Catzilla, FastAPI, Flask, Django, Sanic, BlackSheep\n")
+            f.write("- **Frameworks:** Catzilla, FastAPI, Flask, Django\n")
             f.write("- **Transparency:** All results are reproducible and source code is available\n\n")
 
             # Categories tested
