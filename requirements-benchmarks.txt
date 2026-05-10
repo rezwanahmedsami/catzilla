@@ -12,17 +12,23 @@ uvicorn==0.23.2
 flask
 django
 gunicorn  # WSGI server for Flask and Django
+sanic
+blacksheep>=2.0; python_version >= '3.10'
 
 # --- System information collection ---
 psutil==6.1.0  # For collecting system specs (CPU, RAM, etc.)
 
 # --- Data processing and plotting ---
-numpy==1.24.4
-pandas==2.0.3
-matplotlib==3.7.5
+numpy==1.24.4; python_version < '3.13'
+numpy>=2.1,<2.3; python_version >= '3.13'
+pandas==2.0.3; python_version < '3.13'
+pandas>=2.2,<2.4; python_version >= '3.13'
+matplotlib==3.7.5; python_version < '3.13'
+matplotlib>=3.9,<3.11; python_version >= '3.13'
 seaborn==0.13.2
 pillow==10.4.0
-kiwisolver==1.4.5  # required by matplotlib
+kiwisolver==1.4.5; python_version < '3.13'  # required by matplotlib
+kiwisolver>=1.4.8; python_version >= '3.13'  # required by matplotlib
 
 # --- For sending HTTP requests in custom tests ---
 requests==2.31.0

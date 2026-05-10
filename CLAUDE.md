@@ -155,7 +155,7 @@ Catzilla is a Python web framework focused on:
 | Windows | x86_64 | ✅ Full Support | ✅ Windows 10+ |
 | Linux | ARM64 | ⚠️ Source Only | ❌ No pre-built wheel |
 
-**Python Versions**: 3.9, 3.10, 3.11, 3.12, 3.13
+**Python Versions**: 3.9, 3.10, 3.11, 3.12, 3.13, 3.14
 
 ---
 

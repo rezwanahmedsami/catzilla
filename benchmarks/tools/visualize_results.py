@@ -668,7 +668,7 @@ Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         report.append("## 📋 Executive Summary")
         report.append("")
         report.append("This report provides a transparent, feature-by-feature comparison of Catzilla")
-        report.append("against leading Python web frameworks (FastAPI, Flask, Django).")
+        report.append("against leading Python web frameworks (FastAPI, Flask, Django, Sanic, BlackSheep).")
         report.append("")
 
         # Overall statistics
@@ -686,7 +686,7 @@ Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         report.append("## 🏁 Benchmark Highlights")
         report.append("")
         report.append("Catzilla is built to be the **world's fastest Python web framework**.")
-        report.append("In the benchmark suite in this repository, it leads FastAPI, Flask, and Django in both single-worker and 10-worker direct HTTP benchmarks.")
+        report.append("In the benchmark suite in this repository, it leads the comparison set in both single-worker and 10-worker direct HTTP benchmarks.")
         report.append("")
 
         for worker_mode, workers in worker_signatures:

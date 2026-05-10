@@ -8,10 +8,10 @@ This document provides comprehensive information about Catzilla's system compati
 
 | Platform | Architecture | Python Versions | Wheel Format | Status |
 |----------|-------------|-----------------|--------------|---------|
-| **Linux** | x86_64 | 3.9, 3.10, 3.11, 3.12, 3.13 | manylinux2014_x86_64 | ✅ Full Support |
-| **macOS** | x86_64 (Intel) | 3.9, 3.10, 3.11, 3.12, 3.13 | macosx_10_15_x86_64 | ✅ Full Support |
-| **macOS** | ARM64 (Apple Silicon) | 3.9, 3.10, 3.11, 3.12, 3.13 | macosx_11_0_arm64 | ✅ Full Support |
-| **Windows** | x86_64 | 3.9, 3.10, 3.11, 3.12, 3.13 | win_amd64 | ✅ Full Support |
+| **Linux** | x86_64 | 3.9, 3.10, 3.11, 3.12, 3.13, 3.14 | manylinux2014_x86_64 | ✅ Full Support |
+| **macOS** | x86_64 (Intel) | 3.9, 3.10, 3.11, 3.12, 3.13, 3.14 | macosx_10_15_x86_64 | ✅ Full Support |
+| **macOS** | ARM64 (Apple Silicon) | 3.9, 3.10, 3.11, 3.12, 3.13, 3.14 | macosx_11_0_arm64 | ✅ Full Support |
+| **Windows** | x86_64 | 3.9, 3.10, 3.11, 3.12, 3.13, 3.14 | win_amd64 | ✅ Full Support |
 
 ### Secondary Platforms (Source Installation)
 
@@ -26,7 +26,7 @@ This document provides comprehensive information about Catzilla's system compati
 
 ### Supported Python Versions
 
-Catzilla supports **Python 3.9 through 3.13** on all primary platforms:
+Catzilla supports **Python 3.9 through 3.14** on all primary platforms:
 
 ```
 ✅ Python 3.9.0+    (End-of-life: October 2025)
@@ -34,6 +34,7 @@ Catzilla supports **Python 3.9 through 3.13** on all primary platforms:
 ✅ Python 3.11.0+   (End-of-life: October 2027)
 ✅ Python 3.12.0+   (End-of-life: October 2028)
 ✅ Python 3.13.0+   (End-of-life: October 2029)
+✅ Python 3.14.0+   (End-of-life: October 2030)
 ```
 
 ### Python Implementation Support
@@ -53,7 +54,7 @@ Catzilla supports **Python 3.9 through 3.13** on all primary platforms:
 ### For Source Installation
 
 #### Common Requirements
-- **Python 3.9-3.13** with development headers
+- **Python 3.9-3.14** with development headers
 - **CMake 3.15+**
 - **C compiler** with C11 support
 - **Git** (for submodule dependencies)

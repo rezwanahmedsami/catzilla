@@ -9,14 +9,16 @@ import os
 from typing import Dict, List, Any
 
 # Supported frameworks
-FRAMEWORKS = ["catzilla", "fastapi", "flask", "django"]
+FRAMEWORKS = ["catzilla", "fastapi", "flask", "django", "sanic", "blacksheep"]
 
 # Base port assignments for each framework
 BASE_PORTS = {
     "catzilla": 8000,
     "fastapi": 8100,
     "flask": 8200,
-    "django": 8300
+    "django": 8300,
+    "sanic": 8400,
+    "blacksheep": 8500,
 }
 
 # Port offsets for different categories
@@ -51,6 +53,16 @@ SERVER_CONFIGS = {
     "django": {
         "command_template": "python {server_file} --host {host} --port {port}",
         "startup_time": 5,
+        "health_endpoint": "/health"
+    },
+    "sanic": {
+        "command_template": "python {server_file} --host {host} --port {port} --workers {workers}",
+        "startup_time": 4,
+        "health_endpoint": "/health"
+    },
+    "blacksheep": {
+        "command_template": "python {server_file} --host {host} --port {port} --workers {workers}",
+        "startup_time": 4,
         "health_endpoint": "/health"
     }
 }
@@ -168,6 +180,22 @@ PERFORMANCE_THRESHOLDS = {
         "file_operations": {"min_throughput_mbps": 40, "max_upload_time": "12s"},
         "background_tasks": {"min_task_throughput": 400, "max_queue_time": "1s"},
         "real_world_scenarios": {"min_rps": 1000, "max_latency_99p": "800ms"}
+    },
+    "sanic": {
+        "basic": {"min_rps": 9000, "max_latency_99p": "80ms"},
+        "middleware": {"min_rps": 7000, "max_latency_99p": "100ms"},
+        "validation": {"min_rps": 4500, "max_latency_99p": "150ms"},
+        "file_operations": {"min_throughput_mbps": 75, "max_upload_time": "8s"},
+        "background_tasks": {"min_task_throughput": 700, "max_queue_time": "250ms"},
+        "real_world_scenarios": {"min_rps": 3000, "max_latency_99p": "300ms"}
+    },
+    "blacksheep": {
+        "basic": {"min_rps": 9000, "max_latency_99p": "80ms"},
+        "middleware": {"min_rps": 7000, "max_latency_99p": "100ms"},
+        "validation": {"min_rps": 4500, "max_latency_99p": "150ms"},
+        "file_operations": {"min_throughput_mbps": 75, "max_upload_time": "8s"},
+        "background_tasks": {"min_task_throughput": 700, "max_queue_time": "250ms"},
+        "real_world_scenarios": {"min_rps": 3000, "max_latency_99p": "300ms"}
     }
 }
 

@@ -13,7 +13,11 @@ PROJECT_ROOT="$(cd "$BENCHMARK_DIR/.." && pwd)"
 RESULTS_DIR="$BENCHMARK_DIR/results"
 SERVERS_DIR="$BENCHMARK_DIR/servers"
 
-if [ -d "$PROJECT_ROOT/.venv" ]; then
+if [ -n "$BENCHMARK_VENV_PATH" ] && [ -d "$BENCHMARK_VENV_PATH" ]; then
+    VENV_PATH="$BENCHMARK_VENV_PATH"
+elif [ -d "$PROJECT_ROOT/.venv-bench313" ]; then
+    VENV_PATH="$PROJECT_ROOT/.venv-bench313"
+elif [ -d "$PROJECT_ROOT/.venv" ]; then
     VENV_PATH="$PROJECT_ROOT/.venv"
 elif [ -d "$PROJECT_ROOT/venv" ]; then
     VENV_PATH="$PROJECT_ROOT/venv"
@@ -51,6 +55,8 @@ WORKERS_EXPLICIT=false
 
 BASIC_MULTI_CATZILLA_BACKEND_BASE_PORT="8100"
 BASIC_MULTI_CATZILLA_MAX_WORKERS="16"
+
+ALL_FRAMEWORKS=("catzilla" "fastapi" "flask" "django" "sanic" "blacksheep")
 
 # Server configurations for basic benchmarks are generated dynamically by worker mode.
 BASIC_SERVERS=()
@@ -242,6 +248,8 @@ catzilla:$catzilla_port:$catzilla_command
 fastapi:8001:$UVICORN_CMD benchmarks.servers.basic.fastapi_server:app --host 127.0.0.1 --port 8001 --workers $effective_workers --no-access-log --log-level warning
 flask:8002:$GUNICORN_CMD --bind 127.0.0.1:8002 --workers $effective_workers $GUNICORN_WSGI_FLAGS benchmarks.servers.basic.flask_server:app
 django:8003:$GUNICORN_CMD --bind 127.0.0.1:8003 --workers $effective_workers $GUNICORN_WSGI_FLAGS benchmarks.servers.basic.django_server:application
+sanic:8004:$PYTHON_CMD $SERVERS_DIR/basic/sanic_server.py --host 127.0.0.1 --port 8004 --workers $effective_workers
+blacksheep:8005:$PYTHON_CMD $SERVERS_DIR/basic/blacksheep_server.py --host 127.0.0.1 --port 8005 --workers $effective_workers
 EOF
 }
 
@@ -259,6 +267,36 @@ get_server_configs_for_type() {
         "real-world") printf "%s\n" "${REAL_WORLD_SERVERS[@]}" ;;
         *) return 1 ;;
     esac
+}
+
+python_supports_blacksheep() {
+    "$PYTHON_CMD" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)' >/dev/null 2>&1
+}
+
+get_supported_frameworks_for_type() {
+    local benchmark_type=$1
+    local config=""
+    local framework=""
+    local frameworks=()
+
+    while IFS= read -r config; do
+        config="${config//$'\r'/}"
+        config="${config#"${config%%[![:space:]]*}"}"
+
+        if [ -z "$config" ]; then
+            continue
+        fi
+
+        framework=${config%%:*}
+        if [ "$framework" = "blacksheep" ] && ! python_supports_blacksheep; then
+            continue
+        fi
+        if [[ " ${frameworks[*]} " != *" $framework "* ]]; then
+            frameworks+=("$framework")
+        fi
+    done <<< "$(get_server_configs_for_type "$benchmark_type")"
+
+    printf "%s\n" "${frameworks[@]}"
 }
 
 detect_default_worker_count() {
@@ -1276,7 +1314,7 @@ generate_summary() {
       "results": {
 EOF
         # Add framework results for new file
-        local frameworks=("catzilla" "fastapi" "flask" "django")
+        local frameworks=("${ALL_FRAMEWORKS[@]}")
         local first_framework=true
 
         for framework in "${frameworks[@]}"; do
@@ -1312,7 +1350,7 @@ EOF
         # Merge with existing structure
         # Use jq to properly merge the data
         local new_category_data=""
-        local frameworks=("catzilla" "fastapi" "flask" "django")
+        local frameworks=("${ALL_FRAMEWORKS[@]}")
 
         # Build the new category data using jq
         local category_json=$(cat << EOF
@@ -1517,7 +1555,7 @@ usage() {
     echo "Options:"
     echo "  --mode MODE         Benchmark mode: 'direct' (wrk) or 'python' (feature-based)"
     echo "  --type TYPE         Benchmark type (see available types below)"
-    echo "  --framework FRAMEWORK    Run specific framework only (catzilla,fastapi,flask,django)"
+    echo "  --framework FRAMEWORK    Run specific framework only (availability depends on benchmark type)"
     echo "  --duration TIME     Test duration (default: 10s)"
     echo "  --connections NUM   Total connections in single mode, per-worker connections in multi mode (default: 100)"
     echo "  --threads NUM       Number of threads (default: 4)"
@@ -1551,7 +1589,8 @@ usage() {
     echo "  $0 --mode python --real-world        # Run real-world scenarios"
     echo "  $0 --mode python --all               # Run all feature categories"
     echo ""
-    echo "Available frameworks: catzilla, fastapi, flask, django"
+    echo "Available frameworks: catzilla, fastapi, flask, django, sanic, blacksheep"
+    echo "  Note: sanic and blacksheep are currently wired for direct basic benchmarks."
     echo ""
     echo "Available benchmark types (direct mode):"
     echo "  basic              - Basic HTTP operations (GET, POST, JSON)"
@@ -1660,7 +1699,16 @@ parse_arguments() {
 
     # Validate framework if specified
     if [ -n "$SELECTED_FRAMEWORK" ]; then
-        local valid_frameworks=("catzilla" "fastapi" "flask" "django")
+        if [ "$SELECTED_FRAMEWORK" = "blacksheep" ] && ! python_supports_blacksheep; then
+            print_error "BlackSheep benchmarks require Python 3.10+"
+            print_error "Current benchmark interpreter: $($PYTHON_CMD --version 2>&1)"
+            exit 1
+        fi
+
+        local valid_frameworks=("${ALL_FRAMEWORKS[@]}")
+        if [ "$RUN_ALL_TYPES" = false ]; then
+            valid_frameworks=("${(@f)$(get_supported_frameworks_for_type "$BENCHMARK_TYPE")}")
+        fi
         local framework_valid=false
 
         for valid_fw in "${valid_frameworks[@]}"; do
@@ -1672,7 +1720,7 @@ parse_arguments() {
 
         if [ "$framework_valid" = false ]; then
             print_error "Invalid framework: $SELECTED_FRAMEWORK"
-            print_error "Valid frameworks: ${valid_frameworks[*]}"
+            print_error "Valid frameworks for $BENCHMARK_TYPE: ${valid_frameworks[*]}"
             exit 1
         fi
     fi
@@ -1768,42 +1816,22 @@ run_direct_benchmarks() {
         print_header "Starting $benchmark_type benchmarks..."
 
         # Determine which frameworks to test based on benchmark type
+        local available_frameworks=("${(@f)$(get_supported_frameworks_for_type "$benchmark_type")}")
+        if [ ${#available_frameworks[@]} -eq 0 ]; then
+            print_warning "No configured frameworks found for $benchmark_type benchmarks, skipping"
+            continue
+        fi
+
         local frameworks_to_test
         if [ -n "$SELECTED_FRAMEWORK" ]; then
-            frameworks_to_test=("$SELECTED_FRAMEWORK")
+            if [[ " ${available_frameworks[*]} " == *" $SELECTED_FRAMEWORK "* ]]; then
+                frameworks_to_test=("$SELECTED_FRAMEWORK")
+            else
+                print_warning "Skipping $benchmark_type benchmarks for $SELECTED_FRAMEWORK (not supported for this type)"
+                continue
+            fi
         else
-            case "$benchmark_type" in
-                "basic")
-                    frameworks_to_test=("catzilla" "fastapi" "flask" "django")
-                    ;;
-                "di")
-                    frameworks_to_test=("catzilla" "fastapi" "django")  # Only these have DI servers
-                    ;;
-                "sqlalchemy-di")
-                    frameworks_to_test=("catzilla" "fastapi" "flask")  # These have SQLAlchemy DI servers
-                    ;;
-                "middleware")
-                    frameworks_to_test=("catzilla" "fastapi" "django")  # These have middleware servers
-                    ;;
-                "validation")
-                    frameworks_to_test=("catzilla" "fastapi" "flask" "django")  # All have validation servers
-                    ;;
-                "async-operations")
-                    frameworks_to_test=("catzilla" "fastapi" "django")  # Native async benchmark servers
-                    ;;
-                "file-operations")
-                    frameworks_to_test=("catzilla" "fastapi" "flask" "django")  # All have file servers
-                    ;;
-                "background-tasks")
-                    frameworks_to_test=("catzilla" "fastapi" "flask" "django")  # All have task servers
-                    ;;
-                "real-world")
-                    frameworks_to_test=("catzilla" "fastapi" "django" "flask")  # These have real-world servers
-                    ;;
-                *)
-                    frameworks_to_test=("catzilla" "fastapi" "flask" "django")
-                    ;;
-            esac
+            frameworks_to_test=("${available_frameworks[@]}")
         fi
 
         print_status "Testing frameworks: ${frameworks_to_test[*]} (type: $benchmark_type)"

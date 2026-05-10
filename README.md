@@ -162,7 +162,7 @@ pip install -e .
 ```
 
 **Build Requirements (Source Only):**
-- **Python 3.9-3.13**
+- **Python 3.9-3.14**
 - **CMake 3.15+**
 - **C Compiler**: GCC/Clang (Linux/macOS) or MSVC (Windows)
 
@@ -280,6 +280,7 @@ Catzilla provides comprehensive cross-platform support with pre-built wheels for
 | **3.11** | ✅ | ✅ | ✅ | ✅ |
 | **3.12** | ✅ | ✅ | ✅ | ✅ |
 | **3.13** | ✅ | ✅ | ✅ | ✅ |
+| **3.14** | ✅ | ✅ | ✅ | ✅ |
 
 ### 🔧 Installation Methods by Platform
 
