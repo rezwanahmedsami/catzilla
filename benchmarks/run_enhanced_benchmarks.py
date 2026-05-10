@@ -2,8 +2,9 @@
 """
 Enhanced Feature-Based Benchmark Runner
 
-Comprehensive benchmarking system for Catzilla, FastAPI, Flask, and Django
-across multiple feature categories including real-world scenarios.
+Comprehensive benchmarking system for Catzilla, FastAPI, Flask, Django,
+Sanic, and BlackSheep across multiple feature categories including
+real-world scenarios.
 
 Features:
 - Multiple benchmark categories (basic, middleware, DI, async, validation,
@@ -108,7 +109,8 @@ class EnhancedBenchmarkRunner:
                     if server_file:
                         categories[category_name]["frameworks"].append({
                             "name": framework,
-                            "server_file": server_file
+                            "server_file": server_file,
+                            "port": get_framework_port(framework, category_name)
                         })
 
                 # Load endpoints configuration
@@ -116,8 +118,7 @@ class EnhancedBenchmarkRunner:
                 if endpoints_file.exists():
                     try:
                         with open(endpoints_file, 'r') as f:
-                            endpoints_data = json.load(f)
-                            categories[category_name]["endpoints"] = endpoints_data.get("endpoints", [])
+                            categories[category_name]["endpoints"] = json.load(f)
                     except (json.JSONDecodeError, IOError) as e:
                         print(f"⚠️  Warning: Failed to load endpoints for {category_name}: {e}")
 

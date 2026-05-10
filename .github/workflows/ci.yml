@@ -123,11 +123,11 @@ jobs:
         # Strategic selection - not every combination
         include:
           # Latest stable on all platforms
-          - python-version: '3.11'
+          - python-version: '3.14'
             os: ubuntu-latest
-          - python-version: '3.11'
+          - python-version: '3.14'
             os: windows-latest
-          - python-version: '3.11'
+          - python-version: '3.14'
             os: macos-latest
           # Edge versions on Linux only
           - python-version: '3.9'
