@@ -727,7 +727,15 @@ class Catzilla:
             query_params=query_string,
         )
 
-    def _handle_request(self, client, method, path, body, request_capsule):
+    def _handle_request(
+        self,
+        client,
+        method,
+        path,
+        body,
+        request_capsule,
+        route_match=None,
+    ):
         """Internal request handler that bridges C and Python"""
         import time
 
@@ -760,8 +768,29 @@ class Catzilla:
             # TODO: Re-enable with lazy loading for production
             request.headers = {}
 
-            # Match the route using our new router
-            route, path_params, allowed_methods = self.router.match(method, base_path)
+            route = None
+            path_params = {}
+            allowed_methods = None
+            use_fallback_match = True
+
+            if isinstance(route_match, dict):
+                matched = bool(route_match.get("matched"))
+                if matched:
+                    route_id = route_match.get("route_id")
+                    route = self.router.route_map.get(route_id)
+                    path_params = route_match.get("path_params") or {}
+                    use_fallback_match = route is None
+                else:
+                    use_fallback_match = False
+                    if route_match.get("status_code") == 405:
+                        allowed_methods_str = route_match.get("allowed_methods")
+                        if allowed_methods_str:
+                            allowed_methods = set(allowed_methods_str.split(", "))
+                        else:
+                            allowed_methods = set()
+
+            if use_fallback_match:
+                route, path_params, allowed_methods = self.router.match(method, base_path)
 
             # Set path parameters on request
             request.path_params = path_params
@@ -1922,8 +1951,8 @@ class Catzilla:
         # Routes are already logged during registration, no need to log again here
 
         # Add our Python handler for all registered routes
-        for route in self.router.routes():
-            self.server.add_route(route["method"], route["path"], self._handle_request)
+        for route_id, route in self.router.route_map.items():
+            self.server.add_route(route.method, route.path, self._handle_request, route_id)
 
         # Display buffered routes after banner
         self._display_buffered_routes()

@@ -456,12 +456,16 @@ static PyObject* CatzillaServer_add_route(CatzillaServerObject *self, PyObject *
 {
     const char *method, *path;
     PyObject *handler;
-    if (!PyArg_ParseTuple(args, "ssO", &method, &path, &handler))
+    long route_id = 0;
+    void* route_user_data = NULL;
+    if (!PyArg_ParseTuple(args, "ssO|l", &method, &path, &handler, &route_id))
         return NULL;
     if (!PyCallable_Check(handler)) {
         PyErr_SetString(PyExc_TypeError, "Handler must be callable");
         return NULL;
     }
+
+    route_user_data = route_id > 0 ? (void*)(uintptr_t)route_id : (void*)handler;
 
     // Replace previous callback
     Py_XINCREF(handler);
@@ -476,7 +480,7 @@ static PyObject* CatzillaServer_add_route(CatzillaServerObject *self, PyObject *
     catzilla_server_set_request_callback(&self->server, self->route_data->callback);
 
     // Register route with C core - use universal Python handler
-    if (catzilla_server_add_route(&self->server, method, path, catzilla_python_route_handler, (void*)handler) != 0) {
+    if (catzilla_server_add_route(&self->server, method, path, catzilla_python_route_handler, route_user_data) != 0) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to add route");
         return NULL;
     }
