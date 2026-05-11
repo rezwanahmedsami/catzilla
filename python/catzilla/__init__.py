@@ -113,7 +113,7 @@ from .validation import (
     reset_performance_stats,
 )
 
-__version__ = "0.2.3rc4"
+__version__ = "0.2.3rc5"
 
 __all__ = [
     # Core framework
