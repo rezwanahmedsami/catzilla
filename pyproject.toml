@@ -125,9 +125,6 @@ where = ["python"]
 
 [tool.setuptools.package-data]
 catzilla = [
-    "*.so",
-    "*.dll",
-    "*.dylib",
     "py.typed"
 ]
 
@@ -136,6 +133,11 @@ catzilla = [
     "tests*",
     "benchmarks*",
     "examples*"
+]
+catzilla = [
+    "_catzilla*.so",
+    "_catzilla*.pyd",
+    "_catzilla*.dylib"
 ]
 
 # Development tools configuration
@@ -262,7 +264,7 @@ line_length = 88
 # Platform-specific jemalloc support:
 # - Linux: jemalloc enabled (static linking)
 # - macOS: jemalloc enabled (static linking)
-# - Windows: jemalloc disabled (uses standard allocator)
+# - Windows: jemalloc enabled via staged vcpkg static library
 [tool.cibuildwheel]
 # Build for Python 3.9-3.14 across all platforms
 build = "cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
@@ -330,13 +332,13 @@ test-command = "python -c \"import catzilla; app = catzilla.Catzilla(); print('â
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
-# Windows-specific settings - Skip jemalloc on Windows
+# Windows-specific settings
 before-all = [
     "git submodule update --init --recursive",
     "choco install cmake --installargs='ADD_CMAKE_TO_PATH=System'"
 ]
-# Skip jemalloc build on Windows
 before-build = [
+    "call scripts\\build_jemalloc.bat",
     "pip install cmake pybind11"
 ]
 # Windows-specific test command without Unicode characters
@@ -354,5 +356,5 @@ CATZILLA_USE_JEMALLOC = "1"
 PLAT_NAME = "{wheel}"
 
 [tool.cibuildwheel.windows.environment]
-CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release -DCATZILLA_USE_JEMALLOC=0"
-CATZILLA_USE_JEMALLOC = "0"
+CMAKE_ARGS = "-DCMAKE_BUILD_TYPE=Release -DCATZILLA_USE_JEMALLOC=1"
+CATZILLA_USE_JEMALLOC = "1"

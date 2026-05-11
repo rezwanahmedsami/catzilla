@@ -26,6 +26,12 @@ mkdir -p dist/
 echo -e "${YELLOW}Installing build dependencies...${NC}"
 python3 -m pip install --upgrade pip setuptools wheel build
 
+# Ensure jemalloc archives match the local platform before building
+if [ "$(uname -s)" != "MINGW64_NT" ] && [ "$(uname -s)" != "MSYS_NT" ] && [ "$(uname -s)" != "CYGWIN_NT" ]; then
+    echo -e "${YELLOW}Preparing jemalloc for local platform...${NC}"
+    bash ./scripts/build_jemalloc.sh
+fi
+
 # Method 1: Standard wheel build (using your CMake setup.py)
 echo -e "${BLUE}Method 1: Building wheel using standard Python build system...${NC}"
 python3 -m build --wheel --sdist

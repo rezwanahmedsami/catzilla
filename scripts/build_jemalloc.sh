@@ -12,6 +12,39 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 JEMALLOC_SOURCE_DIR="${PROJECT_ROOT}/deps/jemalloc"
 JEMALLOC_LIB_FILE="${JEMALLOC_SOURCE_DIR}/lib/libjemalloc.a"
+JEMALLOC_PIC_LIB_FILE="${JEMALLOC_SOURCE_DIR}/lib/libjemalloc_pic.a"
+JEMALLOC_BUILD_INFO_FILE="${JEMALLOC_SOURCE_DIR}/lib/.catzilla-jemalloc-build-info"
+
+current_build_target() {
+    printf "%s|%s|%s" "$(uname -s)" "$(uname -m)" "${MACOSX_DEPLOYMENT_TARGET:-}"
+}
+
+is_valid_jemalloc_archive() {
+    local archive_path="$1"
+
+    if [ ! -f "${archive_path}" ]; then
+        return 1
+    fi
+
+    if ! command -v file >/dev/null 2>&1; then
+        return 1
+    fi
+
+    local archive_info
+    archive_info="$(file "${archive_path}" 2>/dev/null || true)"
+
+    [[ "${archive_info}" == *"ar archive"* || "${archive_info}" == *"current ar archive"* || "${archive_info}" == *"Mach-O universal binary"* ]]
+}
+
+is_matching_jemalloc_build() {
+    if [ ! -f "${JEMALLOC_BUILD_INFO_FILE}" ]; then
+        return 1
+    fi
+
+    local recorded_target
+    recorded_target="$(cat "${JEMALLOC_BUILD_INFO_FILE}" 2>/dev/null || true)"
+    [ "${recorded_target}" = "$(current_build_target)" ]
+}
 
 echo -e "${BLUE}🧠 jemalloc Build Script${NC}"
 echo -e "${BLUE}========================${NC}"
@@ -32,13 +65,20 @@ if [ ! -d "${JEMALLOC_SOURCE_DIR}" ]; then
     exit 1
 fi
 
-# Check if jemalloc static library already exists
-if [ -f "${JEMALLOC_LIB_FILE}" ]; then
-    echo -e "${GREEN}✅ jemalloc static library already exists: ${JEMALLOC_LIB_FILE}${NC}"
+# Check if jemalloc static libraries already exist for the current platform
+if is_valid_jemalloc_archive "${JEMALLOC_LIB_FILE}" && \
+   is_valid_jemalloc_archive "${JEMALLOC_PIC_LIB_FILE}" && \
+   is_matching_jemalloc_build; then
+    echo -e "${GREEN}✅ jemalloc static libraries already exist for this platform${NC}"
     echo -e "${YELLOW}📊 Library info:${NC}"
-    ls -lh "${JEMALLOC_LIB_FILE}"
+    ls -lh "${JEMALLOC_LIB_FILE}" "${JEMALLOC_PIC_LIB_FILE}"
+    echo -e "${BLUE}🎯 Build target: $(cat "${JEMALLOC_BUILD_INFO_FILE}")${NC}"
     echo -e "${GREEN}🚀 Skipping jemalloc build (already built)${NC}"
     exit 0
+elif [ -f "${JEMALLOC_LIB_FILE}" ] || [ -f "${JEMALLOC_PIC_LIB_FILE}" ]; then
+    echo -e "${YELLOW}♻️  Existing jemalloc libraries do not match this platform - rebuilding${NC}"
+    rm -f "${JEMALLOC_LIB_FILE}" "${JEMALLOC_PIC_LIB_FILE}"
+    rm -f "${JEMALLOC_BUILD_INFO_FILE}"
 fi
 
 echo -e "${YELLOW}🔨 Building jemalloc static library...${NC}"
@@ -159,7 +199,11 @@ if [ ! -f "${JEMALLOC_LIB_FILE}" ]; then
 fi
 
 # Success!
+mkdir -p "$(dirname "${JEMALLOC_BUILD_INFO_FILE}")"
+current_build_target > "${JEMALLOC_BUILD_INFO_FILE}"
+
 echo -e "\n${GREEN}✅ jemalloc build complete!${NC}"
 echo -e "${YELLOW}📊 Library info:${NC}"
 ls -lh "${JEMALLOC_LIB_FILE}"
+echo -e "${BLUE}🎯 Build target: $(cat "${JEMALLOC_BUILD_INFO_FILE}")${NC}"
 echo -e "${GREEN}🚀 Ready for Catzilla build!${NC}"

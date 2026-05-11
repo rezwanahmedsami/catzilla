@@ -45,7 +45,6 @@ class CMakeBuild(build_ext):
 
         # For CI environments, clean build directory to avoid corruption
         if os.getenv('CI') or os.getenv('CIBUILDWHEEL'):
-            import shutil
             if os.path.exists(build_dir):
                 shutil.rmtree(build_dir)
 
@@ -67,22 +66,53 @@ class CMakeBuild(build_ext):
                 use_jemalloc = False
                 print("CI environment detected: Disabling jemalloc for reliable builds (use CATZILLA_USE_JEMALLOC=1 to force enable)")
 
-        # Additional check: disable jemalloc only when no staged/prebuilt library exists.
+        jemalloc_include_candidates = []
         if sys.platform == 'win32':
             jemalloc_lib_candidates = [
                 os.path.join(source_dir, '.catzilla-cache', 'jemalloc-windows', 'lib', 'jemalloc.lib'),
                 os.path.join(source_dir, 'deps', 'jemalloc', 'lib', 'jemalloc.lib'),
             ]
+            jemalloc_include_candidates = [
+                os.path.join(source_dir, '.catzilla-cache', 'jemalloc-windows', 'include', 'jemalloc', 'jemalloc.h'),
+                os.path.join(source_dir, 'deps', 'jemalloc', 'include', 'jemalloc', 'jemalloc.h'),
+            ]
         else:
             jemalloc_lib_candidates = [
                 os.path.join(source_dir, 'deps', 'jemalloc', 'lib', 'libjemalloc.a'),
             ]
+            jemalloc_include_candidates = [
+                os.path.join(source_dir, 'deps', 'jemalloc', 'include', 'jemalloc', 'jemalloc.h'),
+            ]
 
         jemalloc_lib_path = next((path for path in jemalloc_lib_candidates if os.path.exists(path)), None)
-        if use_jemalloc and jemalloc_lib_path is None:
+        jemalloc_include_path = next((path for path in jemalloc_include_candidates if os.path.exists(path)), None)
+
+        if use_jemalloc and (jemalloc_lib_path is None or jemalloc_include_path is None):
+            if sys.platform == 'win32':
+                jemalloc_build_script = os.path.join(source_dir, 'scripts', 'build_jemalloc.bat')
+                jemalloc_build_cwd = os.path.join(source_dir, 'deps', 'jemalloc')
+                jemalloc_build_cmd = ['cmd', '/c', jemalloc_build_script]
+            else:
+                jemalloc_build_script = os.path.join(source_dir, 'scripts', 'build_jemalloc.sh')
+                jemalloc_build_cwd = source_dir
+                jemalloc_build_cmd = ['bash', jemalloc_build_script]
+
+            if os.path.exists(jemalloc_build_script):
+                try:
+                    print("Ensuring jemalloc artifacts are available for the current build platform...")
+                    subprocess.check_call(jemalloc_build_cmd, cwd=jemalloc_build_cwd)
+                except subprocess.CalledProcessError as e:
+                    print(f"Warning: jemalloc build script failed ({e}); disabling jemalloc for this build")
+                    use_jemalloc = False
+
+                jemalloc_lib_path = next((path for path in jemalloc_lib_candidates if os.path.exists(path)), None)
+                jemalloc_include_path = next((path for path in jemalloc_include_candidates if os.path.exists(path)), None)
+
+        # Additional check: disable jemalloc only when no staged/prebuilt library exists.
+        if use_jemalloc and (jemalloc_lib_path is None or jemalloc_include_path is None):
             use_jemalloc = False
             print(
-                "jemalloc staged library not found in any known location, disabling jemalloc"
+                "jemalloc staged artifacts not found in any known location, disabling jemalloc"
             )
 
         # Python version compatibility checks
@@ -152,11 +182,15 @@ class CMakeBuild(build_ext):
                 configure_cmd.append(f'-DCMAKE_OSX_ARCHITECTURES={arch}')
                 print(f"Local development: Using machine architecture {arch}")
         elif sys.platform.startswith('linux'):
-            # Linux: Set compilers for Ubuntu CI compatibility
-            configure_cmd.extend([
-                '-DCMAKE_C_COMPILER=/usr/bin/gcc',
-                '-DCMAKE_CXX_COMPILER=/usr/bin/g++'
-            ])
+            # Linux: Prefer the active toolchain from the environment or PATH.
+            # manylinux images expose GCC via devtoolset paths, not /usr/bin/gcc.
+            linux_cc = os.getenv('CC') or shutil.which('gcc') or shutil.which('cc')
+            linux_cxx = os.getenv('CXX') or shutil.which('g++') or shutil.which('c++')
+
+            if linux_cc:
+                configure_cmd.append(f'-DCMAKE_C_COMPILER={linux_cc}')
+            if linux_cxx:
+                configure_cmd.append(f'-DCMAKE_CXX_COMPILER={linux_cxx}')
         elif sys.platform == 'win32':
             # Windows: Let CMake detect compilers, but set platform
             configure_cmd.extend([
@@ -211,8 +245,8 @@ class CMakeBuild(build_ext):
             env['PWD'] = os.getcwd()
         elif sys.platform.startswith('linux'):
             # Linux: Ensure compiler tools are available
-            env['CC'] = env.get('CC', 'gcc')
-            env['CXX'] = env.get('CXX', 'g++')
+            env['CC'] = env.get('CC', shutil.which('gcc') or shutil.which('cc') or 'gcc')
+            env['CXX'] = env.get('CXX', shutil.which('g++') or shutil.which('c++') or 'g++')
             env['PWD'] = os.getcwd()
         elif sys.platform == 'win32':
             # Windows: Set up build environment
@@ -259,9 +293,11 @@ class CMakeBuild(build_ext):
                     ])
                 elif sys.platform.startswith('linux'):
                     # Linux CI fallback
+                    fallback_cc = env.get('CC') or shutil.which('gcc') or shutil.which('cc') or 'gcc'
+                    fallback_cxx = env.get('CXX') or shutil.which('g++') or shutil.which('c++') or 'g++'
                     fallback_cmd.extend([
-                        '-DCMAKE_C_COMPILER=gcc',
-                        '-DCMAKE_CXX_COMPILER=g++'
+                        f'-DCMAKE_C_COMPILER={fallback_cc}',
+                        f'-DCMAKE_CXX_COMPILER={fallback_cxx}'
                     ])
 
                 try:
@@ -356,8 +392,25 @@ class CMakeBuild(build_ext):
         dest_dir = os.path.dirname(dest_path)
         os.makedirs(dest_dir, exist_ok=True)
 
+        # Remove stale platform-specific extension artifacts that may have been
+        # copied into build_lib from a developer's local source tree.
+        for existing_name in os.listdir(dest_dir):
+            if not existing_name.startswith('_catzilla'):
+                continue
+            if not existing_name.endswith(('.so', '.pyd', '.dylib')):
+                continue
+
+            existing_path = os.path.join(dest_dir, existing_name)
+            if os.path.abspath(existing_path) == os.path.abspath(dest_path):
+                continue
+
+            try:
+                os.remove(existing_path)
+                print(f"Removed stale extension artifact: {existing_path}")
+            except OSError as e:
+                print(f"Warning: Could not remove stale extension artifact {existing_path}: {e}")
+
         # Use shutil.copy2 to preserve metadata and handle file operations better
-        import shutil
         try:
             shutil.copy2(so_path, dest_path)
             print(f"Successfully copied {so_path} to {dest_path}")

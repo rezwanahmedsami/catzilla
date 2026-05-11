@@ -7,6 +7,9 @@ recursive-include tests *
 recursive-include examples *
 recursive-include scripts *
 recursive-include cmake *
+exclude python/catzilla/_catzilla*.so
+exclude python/catzilla/_catzilla*.pyd
+exclude python/catzilla/_catzilla*.dylib
 global-exclude *.pyc
 global-exclude __pycache__
 global-exclude .git*
