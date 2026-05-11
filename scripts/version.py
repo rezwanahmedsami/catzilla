@@ -20,7 +20,7 @@ from typing import Dict, List, Tuple
 
 from packaging.version import InvalidVersion, Version
 
-VERSION = "0.2.3rc1"
+VERSION = "0.2.3"
 
 
 class VersionManager:
@@ -118,7 +118,7 @@ class VersionManager:
     def update_pyproject_toml(self, version: str):
         file_path = self.root_dir / "pyproject.toml"
         content = file_path.read_text()
-        content = re.sub(r'version = "[^"]*"', f'version = "{version}"', content)
+        content = re.sub(r'version = "[^"]*"', f'version = "{version}"', content, count=1)
         file_path.write_text(content)
         print(f"✅ Updated pyproject.toml to {version}")
 
