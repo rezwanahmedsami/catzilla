@@ -22,9 +22,9 @@ html_meta = {
     'og:type': 'website',
     'og:title': 'Catzilla - The FastAPI Killer | Lightning Fast Python Web Framework',
     'og:description': 'High-performance Python web framework with C-accelerated routing, significantly faster than FastAPI. Modern async/sync hybrid architecture.',
-    'og:url': 'https://catzilla.rezwanahmedsami.com/',
+    'og:url': 'https://docs.catzilla.dev/',
     'og:site_name': 'Catzilla Documentation',
-    'og:image': 'https://catzilla.rezwanahmedsami.com/_static/logo.png',
+    'og:image': 'https://docs.catzilla.dev/_static/logo.png',
     'og:image:width': '1200',
     'og:image:height': '630',
     'og:locale': 'en_US',
@@ -33,7 +33,7 @@ html_meta = {
     'twitter:creator': '@rezwanahmedsami',
     'twitter:title': 'Catzilla - The FastAPI Killer | Lightning Fast Python Web Framework',
     'twitter:description': 'High-performance Python web framework with C-accelerated routing, significantly faster than FastAPI. Modern async/sync hybrid architecture.',
-    'twitter:image': 'https://catzilla.rezwanahmedsami.com/_static/logo.png',
+    'twitter:image': 'https://docs.catzilla.dev/_static/logo.png',
     'theme-color': '#2980B9',
 }
 
@@ -68,7 +68,7 @@ sitemap_locales = [None]
 sitemap_filename = "sitemap.xml"
 
 # Canonical URL configuration
-html_baseurl = "https://catzilla.rezwanahmedsami.com/"
+html_baseurl = "https://docs.catzilla.dev/"
 
 # -- Options for HTML output -------------------------------------------------
 html_theme = 'sphinx_rtd_theme'
@@ -88,7 +88,7 @@ html_js_files = [
 
 # Enhanced HTML theme options with SEO optimization
 html_theme_options = {
-    'canonical_url': 'https://catzilla.rezwanahmedsami.com/',
+    'canonical_url': 'https://docs.catzilla.dev/',
     'analytics_id': '',
     'analytics_anonymize_ip': False,
     'logo_only': False,
@@ -123,13 +123,13 @@ html_context = {
     "social_links": {
         "github": "https://github.com/rezwanahmedsami/catzilla",
         "twitter": "https://twitter.com/rezwanahmedsami",
-        "website": "https://catzilla.rezwanahmedsami.com/",
+        "website": "https://docs.catzilla.dev/",
     },
     # SEO structured data
     "project_name": "Catzilla",
     "project_description": "High-performance Python web framework with C-accelerated routing",
     "project_version": "0.2.0",
-    "project_url": "https://catzilla.rezwanahmedsami.com/",
+    "project_url": "https://docs.catzilla.dev/",
     "project_repository": "https://github.com/rezwanahmedsami/catzilla",
     "project_license": "MIT",
     "project_author": "Rezwan Ahmed Sami",
@@ -137,7 +137,7 @@ html_context = {
 }
 
 # Enhanced SEO settings
-html_use_opensearch = 'https://catzilla.rezwanahmedsami.com/'
+html_use_opensearch = 'https://docs.catzilla.dev/'
 html_search_language = 'en'
 
 # Enable search engine optimization features
