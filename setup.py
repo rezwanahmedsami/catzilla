@@ -371,7 +371,7 @@ ext_modules = [Extension('catzilla._catzilla', sources=[])]
 
 setup(
     name="catzilla",
-    version="0.2.3rc3",
+    version="0.2.3rc4",
     ext_modules=ext_modules,
     cmdclass={"build_ext": CMakeBuild},
     python_requires=">=3.9",
