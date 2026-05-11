@@ -619,7 +619,7 @@ try:
 
     # Check version format (semantic versioning)
     import re
-    version_pattern = r"^\\d+\\.\\d+\\.\\d+(?:[-.].*)?$"
+    version_pattern = r"^\\d+\\.\\d+\\.\\d+(?:(?:a|b|rc)\\d+|[-.].*)?$"
     if not re.match(version_pattern, catzilla_version):
         print(f"Invalid version format: {catzilla_version}")
         sys.exit(1)
