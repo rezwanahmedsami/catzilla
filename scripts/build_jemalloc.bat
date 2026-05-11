@@ -1,16 +1,26 @@
 @echo off
 setlocal enabledelayedexpansion
 
+set "SCRIPT_DIR=%~dp0"
+for %%I in ("%SCRIPT_DIR%..") do set "PROJECT_ROOT=%%~fI"
+set "JEMALLOC_SOURCE_DIR=%PROJECT_ROOT%\deps\jemalloc"
+set "DID_PUSHD="
+
 echo Building jemalloc for Windows...
 
-REM Check if we're in the correct directory
+REM Allow invocation from the repo root or the jemalloc source directory.
 if not exist "Makefile.in" (
-    echo Error: This script must be run from the jemalloc source directory
-    echo Expected to find Makefile.in in the current directory
-    exit /b 1
+    if exist "%JEMALLOC_SOURCE_DIR%\Makefile.in" (
+        echo Switching to jemalloc source directory: %JEMALLOC_SOURCE_DIR%
+        pushd "%JEMALLOC_SOURCE_DIR%"
+        set "DID_PUSHD=1"
+    ) else (
+        echo Error: jemalloc source directory not found
+        echo Expected to find Makefile.in in the current directory or at %JEMALLOC_SOURCE_DIR%
+        exit /b 1
+    )
 )
 
-for %%I in ("%CD%\..\..") do set "PROJECT_ROOT=%%~fI"
 set "JEMALLOC_SOURCE_DIR=%CD%"
 set "STAGE_ROOT=%PROJECT_ROOT%\.catzilla-cache\jemalloc-windows"
 set "STAGED_LIB_DIR=%STAGE_ROOT%\lib"
@@ -108,4 +118,5 @@ echo.
 echo jemalloc Windows build completed successfully via vcpkg
 echo Library created: .catzilla-cache\jemalloc-windows\lib\jemalloc.lib
 echo Headers staged under: .catzilla-cache\jemalloc-windows\include\jemalloc
+if defined DID_PUSHD popd
 exit /b 0
