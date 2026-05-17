@@ -6,7 +6,7 @@ Allow: /_static/
 Allow: /_images/
 
 # Sitemap location
-Sitemap: https://catzilla.rezwanahmedsami.com/sitemap.xml
+Sitemap: https://catzilla.dev/sitemap.xml
 
 # Crawl delay (optional - helps prevent overwhelming the server)
 Crawl-delay: 1

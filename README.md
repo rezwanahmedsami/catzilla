@@ -4,7 +4,7 @@ Blazing-fast Python web framework with production-grade routing backed by a mini
 [![CI](https://github.com/rezwanahmedsami/catzilla/actions/workflows/ci.yml/badge.svg)](https://github.com/rezwanahmedsami/catzilla/actions)
 [![PyPI version](https://img.shields.io/pypi/v/catzilla.svg)](https://pypi.org/project/catzilla/)
 [![Python versions](https://img.shields.io/pypi/pyversions/catzilla.svg)](https://pypi.org/project/catzilla/)
-[![Documentation](https://img.shields.io/badge/docs-catzilla.rezwanahmedsami.com-blue)](https://catzilla.rezwanahmedsami.com/)
+[![Documentation](https://img.shields.io/badge/docs-docs.catzilla.dev-blue)](https://docs.catzilla.dev/)
 
 ---
 
@@ -433,7 +433,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 
 ## 📚 Documentation
 
-📖 **[Complete Documentation](https://catzilla.rezwanahmedsami.com/)** - Comprehensive guides, API reference, and tutorials
+📖 **[Complete Documentation](https://docs.catzilla.dev/)** - Comprehensive guides, API reference, and tutorials
 
 ### Quick References
 - **[Getting Started Guide](docs/getting-started/quickstart.rst)** - Quick start tutorial
